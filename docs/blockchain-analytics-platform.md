@@ -18,6 +18,7 @@
 10. [Scaling Strategy](#10-scaling-strategy)
 11. [Security Considerations](#11-security-considerations)
 12. [Deployment Architecture](#12-deployment-architecture)
+13. [AI Agent Workflow Engine](#13-ai-agent-workflow-engine)
 
 ---
 
@@ -1099,6 +1100,494 @@ graph TB
 
 ---
 
+## 13. AI Agent Workflow Engine
+
+> Deploy persistent, resumable AI agents that autonomously walk through 1B+ on-chain transactions, collect evidence, and produce investigative summaries — with ACID reliability and global scale.
+
+### Problem Statement
+
+Manual blockchain forensics doesn't scale. An investigator tracing a $50M hack across 10 chains, 500 wallets, and 100K transactions needs weeks. AI agents can do this autonomously — but they need:
+
+- **Persistence** — an agent running for hours must survive silo crashes without losing progress
+- **Resumability** — pick up exactly where it left off after any failure
+- **ACID per step** — each evidence collection step is atomic; no half-written state
+- **Global reach** — agents access WalletGrains, TransactionGrains, ContractGrains across the full cluster
+- **User-defined workflows** — investigators define custom investigation playbooks (steps, prompts, model configs, tools)
+- **Parallel execution** — fan out across the graph, collect evidence concurrently, merge results
+
+### Why Orleans Is Ideal for This
+
+| Requirement | Orleans Solution |
+|---|---|
+| Persistent agent state | Grain state survives crashes via `WriteStateAsync()` → Cosmos DB |
+| Resumable after failure | Reminders wake the agent grain; checkpoint after every step |
+| ACID per step | Single-threaded grain execution = atomic state transitions |
+| Fan-out across chain data | Grain-to-grain calls to WalletGrain/TransactionGrain |
+| Long-running (hours/days) | Grain timers + reminders; no external scheduler needed |
+| Horizontal scale | Many agent grains run concurrently across silos |
+| User-defined workflows | WorkflowDefinitionGrain stores the playbook; AgentGrain interprets it |
+
+### Architecture Overview
+
+```mermaid
+graph TB
+    subgraph "User Layer"
+        UI[Investigation Dashboard]
+        PLAYBOOK[Playbook Editor<br/>steps, prompts, tools]
+    end
+
+    subgraph "Agent Orchestration (Orleans)"
+        WDG[WorkflowDefinitionGrain<br/>stores playbook template]
+        AG[AgentGrain<br/>per investigation run<br/>persistent, resumable]
+        SEG[StepExecutorGrain<br/>StatelessWorker<br/>runs individual steps]
+    end
+
+    subgraph "Evidence & Memory"
+        EG[EvidenceCollectionGrain<br/>per investigation<br/>indexed evidence items]
+        MG[AgentMemoryGrain<br/>per agent<br/>working memory + context window]
+    end
+
+    subgraph "Existing Platform Grains"
+        WG[WalletGrain]
+        TG[TransactionGrain]
+        CG[ContractGrain]
+        GAG[GraphAnalyzerGrain]
+        TAG[TaintAnalysisGrain]
+        SDG[ScamDetectorGrain]
+    end
+
+    subgraph "External AI"
+        AOAI[Azure OpenAI<br/>GPT-4o / o1]
+        EMB[Embedding Model<br/>text-embedding-3]
+    end
+
+    subgraph "Storage"
+        COSMOS[(Cosmos DB<br/>agent state, evidence metadata)]
+        BLOB[(Blob Storage<br/>full evidence documents<br/>agent reports)]
+        SEARCH[(Azure AI Search<br/>evidence vector index)]
+    end
+
+    UI --> WDG
+    UI --> AG
+    AG --> SEG
+    AG --> EG
+    AG --> MG
+    SEG --> WG & TG & CG & GAG & TAG & SDG
+    SEG --> AOAI & EMB
+    SEG --> EG
+    EG --> COSMOS & BLOB & SEARCH
+    MG --> COSMOS
+    AG --> COSMOS
+```
+
+### Grain Design
+
+#### WorkflowDefinitionGrain
+
+**Key:** workflow definition ID (string, e.g. `"playbook:trace-hack-v3"`)
+**Purpose:** Stores a reusable investigation playbook that multiple agents can execute.
+
+**State:**
+
+| Property | Type | Description |
+|---|---|---|
+| Name | string | Human-readable playbook name |
+| Description | string | Purpose and scope |
+| Version | int | Schema version for evolution |
+| Steps | List\<WorkflowStep\> | Ordered step definitions |
+| DefaultModelConfig | ModelConfig | Default AI model settings |
+| Tools | List\<ToolDefinition\> | Available tools (graph traversal, taint analysis, etc.) |
+| CreatedBy | string | Author user ID |
+| CreatedAt | DateTimeOffset | Creation timestamp |
+
+**WorkflowStep:**
+
+| Field | Type | Description |
+|---|---|---|
+| StepId | string | Unique step identifier |
+| Type | enum | Query, Analyze, Collect, Branch, FanOut, Summarize, HumanReview |
+| Prompt | string | System/user prompt template (with `{{placeholders}}`) |
+| ModelConfig | ModelConfig? | Override model for this step (null = use default) |
+| Tools | string[] | Which tools this step can invoke |
+| MaxIterations | int? | Cap on loops (for iterative steps) |
+| TimeoutMinutes | int | Step timeout |
+| NextOnSuccess | string? | Next step ID on success |
+| NextOnFailure | string? | Next step ID on failure |
+| FanOutConfig | FanOutConfig? | For FanOut type: how to partition work |
+
+**ModelConfig:**
+
+| Field | Type | Description |
+|---|---|---|
+| Provider | string | `"azure-openai"`, `"openai"`, `"local-onnx"` |
+| Model | string | `"gpt-4o"`, `"o1"`, `"gpt-4o-mini"` |
+| Temperature | double | 0.0–2.0 |
+| MaxTokens | int | Response token limit |
+| SystemPrompt | string | Base system prompt |
+
+**ToolDefinition:**
+
+| Field | Type | Description |
+|---|---|---|
+| ToolId | string | Unique tool name |
+| Type | enum | GrainCall, GraphTraversal, TaintAnalysis, ScamScore, WebSearch, Custom |
+| GrainType | string? | Target grain interface (for GrainCall type) |
+| Description | string | For the AI model's tool-use prompt |
+| Parameters | Dictionary | JSON schema of parameters |
+
+**Operations:**
+
+| Operation | Behavior |
+|---|---|
+| `CreateOrUpdate(definition)` | Store/update playbook |
+| `GetDefinition()` | Return full definition |
+| `Validate()` | Check step graph for cycles, missing refs, invalid tools |
+| `GetVersionHistory()` | Return previous versions |
+
+#### AgentGrain
+
+**Key:** investigation run ID (GUID)
+**Purpose:** The core orchestrator — one grain per investigation run. Maintains full execution state, checkpoints after every step, and resumes automatically after failures.
+
+**State:**
+
+| Property | Type | Description |
+|---|---|---|
+| InvestigationId | GUID | Unique run identifier |
+| WorkflowDefinitionId | string | Which playbook to execute |
+| Status | enum | Created, Running, Paused, WaitingForHuman, Completed, Failed, Cancelled |
+| CurrentStepId | string | Currently executing step |
+| StepResults | Dictionary\<string, StepResult\> | Completed step outcomes |
+| Context | Dictionary\<string, object\> | Accumulated investigation context (passed between steps) |
+| EvidenceCollectionId | GUID | Linked evidence collection |
+| StartedAt | DateTimeOffset | When run began |
+| LastCheckpoint | DateTimeOffset | Last successful state persist |
+| TotalStepsCompleted | int | Progress counter |
+| TotalTokensUsed | long | Token consumption across all LLM calls |
+| ErrorLog | List\<AgentError\> | Errors with retry counts |
+| Config | AgentRunConfig | Runtime overrides (max budget, timeout, scope) |
+
+**AgentRunConfig:**
+
+| Field | Type | Description |
+|---|---|---|
+| MaxBudgetTokens | long | Hard cap on total tokens (e.g., 10M) |
+| MaxDurationMinutes | int | Hard cap on total runtime (e.g., 480 = 8 hours) |
+| ScopeChains | string[] | Which chains to investigate (e.g., `["eth", "polygon"]`) |
+| SeedAddresses | string[] | Starting wallet addresses |
+| MaxWalletsToVisit | int | Cap on wallets traversed (e.g., 10,000) |
+| ParallelFanOut | int | Max concurrent sub-tasks (e.g., 20) |
+
+**Operations:**
+
+| Operation | Behavior |
+|---|---|
+| `Start(config)` | Load workflow definition, initialize context with seed addresses, begin first step. Register reminder for heartbeat. |
+| `Pause()` | Checkpoint and stop after current step completes |
+| `Resume()` | Continue from `CurrentStepId` |
+| `Cancel()` | Set status to Cancelled, persist final state |
+| `GetStatus()` | Return current status, progress, step results |
+| `GetResult()` | Return final investigation result (only when Completed) |
+| `ReceiveHumanInput(stepId, input)` | Resume from WaitingForHuman with analyst's input |
+| `OnStepCompleted(stepId, result)` | Checkpoint result, advance to next step, check budget/timeout |
+| `OnStepFailed(stepId, error)` | Retry (up to 3x with backoff), then advance to failure branch or fail |
+
+**Execution loop (pseudocode):**
+
+1. Load current step from workflow definition
+2. Build step context (merge investigation context + previous step results)
+3. Call `StepExecutorGrain.Execute(step, context, tools)` 
+4. On success → `OnStepCompleted()` → checkpoint → next step
+5. On failure → `OnStepFailed()` → retry or branch
+6. On budget/timeout exceeded → auto-summarize collected evidence → Complete
+7. On HumanReview step → set status to WaitingForHuman → wait for `ReceiveHumanInput()`
+
+**Reliability mechanisms:**
+
+| Mechanism | Purpose |
+|---|---|
+| Checkpoint after every step | `WriteStateAsync()` — crash-safe |
+| Orleans Reminder (every 5 min) | Wakes grain if it was deactivated mid-run; resumes from checkpoint |
+| Idempotent step execution | Steps check if result already exists before re-executing |
+| Budget guard | Check token count + elapsed time before each step |
+| Error log with retry count | 3 retries with exponential backoff per step |
+
+#### StepExecutorGrain
+
+**Key:** integer (StatelessWorker — multiple activations per silo)
+**Purpose:** Stateless execution engine for individual workflow steps. Receives a step definition + context, executes it, returns a result.
+
+**Operations:**
+
+| Operation | Behavior |
+|---|---|
+| `Execute(step, context, tools)` | Dispatch to step type handler → return StepResult |
+
+**Step type handlers:**
+
+| Step Type | Behavior |
+|---|---|
+| **Query** | Call WalletGrain/TransactionGrain/ContractGrain to retrieve data. Build results into context. |
+| **Analyze** | Send context + prompt to AI model. Parse structured response. |
+| **Collect** | Store evidence item via EvidenceCollectionGrain. |
+| **Branch** | Evaluate condition on context → return next step ID. |
+| **FanOut** | Split work across N parallel sub-tasks (e.g., investigate 50 wallets concurrently). Spawn N `StepExecutorGrain` calls via `Task.WhenAll` (capped by `ParallelFanOut`). Merge results. |
+| **Summarize** | Retrieve all evidence from EvidenceCollectionGrain. Send to AI model with summarization prompt. Store final report. |
+| **HumanReview** | Return WaitingForHuman status. Agent pauses until analyst provides input. |
+
+**Tool execution within Analyze steps:**
+
+When the AI model requests a tool call (function calling / tool-use API):
+
+| Tool Type | Execution |
+|---|---|
+| GrainCall | Call the specified grain method (e.g., `WalletGrain.GetProfile()`) |
+| GraphTraversal | Create `GraphAnalyzerGrain`, call `FindPaths()` or `TraceFlow()` |
+| TaintAnalysis | Create `TaintAnalysisGrain`, call `RunTaintAnalysis()` |
+| ScamScore | Call `ScamDetectorGrain.ScoreWallet()` |
+| EvidenceStore | Write to `EvidenceCollectionGrain` |
+| Custom | HTTP call to user-defined external tool endpoint |
+
+#### EvidenceCollectionGrain
+
+**Key:** investigation ID (GUID)
+**Purpose:** Indexed collection of all evidence gathered during an investigation. Metadata in grain state (Cosmos DB), large content in Blob Storage.
+
+**State:**
+
+| Property | Type | Description |
+|---|---|---|
+| InvestigationId | GUID | Parent investigation |
+| Items | List\<EvidenceItem\> | Evidence metadata (bounded to last 10,000 items; older overflow to Cosmos query) |
+| Tags | Dictionary\<string, int\> | Tag → count index for fast filtering |
+| TotalItems | long | Total evidence count |
+| SummaryBlobUrl | string? | URL to final summary report (Blob Storage) |
+
+**EvidenceItem:**
+
+| Field | Type | Description |
+|---|---|---|
+| EvidenceId | string | Unique item ID |
+| Type | enum | WalletProfile, TransactionTrace, FlowGraph, TaintResult, ContractAnalysis, AISummary, Screenshot, CustomNote |
+| Title | string | Human-readable title |
+| Summary | string | ≤ 2 KB summary (stored in grain state) |
+| BlobUrl | string? | Full content in Blob Storage (for items > 2 KB) |
+| RelatedAddresses | string[] | Linked wallet addresses |
+| Tags | string[] | Classification tags |
+| Confidence | double | 0.0–1.0 confidence score |
+| CollectedAt | DateTimeOffset | When collected |
+| StepId | string | Which workflow step produced this |
+
+**Operations:**
+
+| Operation | Behavior |
+|---|---|
+| `AddEvidence(item)` | Append to collection, update tag index, persist |
+| `GetEvidence(filter, page, size)` | Filter by type/tag/address, paginated |
+| `GetByAddress(address)` | All evidence related to a specific wallet |
+| `GetSummary()` | Return high-level summary (count by type, top tags, key findings) |
+| `ExportToBlob()` | Serialize full collection to Blob Storage as JSON |
+| `GenerateFinalReport(modelConfig)` | Call AI model to produce narrative report from all evidence |
+
+#### AgentMemoryGrain
+
+**Key:** agent run ID (GUID)
+**Purpose:** Manages the AI agent's working memory — maintains a sliding context window for LLM calls, handles RAG retrieval from collected evidence.
+
+**State:**
+
+| Property | Type | Description |
+|---|---|---|
+| ShortTermMemory | List\<MemoryEntry\> | Recent conversation turns / observations (bounded ring buffer, last 50) |
+| KeyFindings | List\<string\> | Distilled key findings (always included in context) |
+| EmbeddingIndex | string | Azure AI Search index name for this investigation |
+
+**Operations:**
+
+| Operation | Behavior |
+|---|---|
+| `AddObservation(entry)` | Append to short-term memory; evict oldest if over limit |
+| `AddKeyFinding(finding)` | Promote important observation to persistent key findings |
+| `BuildContext(maxTokens)` | Assemble context window: system prompt + key findings + recent memory + RAG results (within token budget) |
+| `SearchMemory(query, topK)` | Vector search over evidence via Azure AI Search |
+| `Summarize()` | Compress short-term memory into a condensed summary (frees token budget) |
+
+### Workflow Execution Flow
+
+```mermaid
+sequenceDiagram
+    participant USER as Investigator
+    participant API as REST API
+    participant AG as AgentGrain
+    participant WDG as WorkflowDefinitionGrain
+    participant SEG as StepExecutorGrain
+    participant WG as WalletGrain
+    participant GAG as GraphAnalyzerGrain
+    participant AOAI as Azure OpenAI
+    participant EG as EvidenceCollectionGrain
+    participant MEM as AgentMemoryGrain
+
+    USER->>API: POST /agents/run { playbook, seeds, config }
+    API->>AG: Start(config)
+    AG->>WDG: GetDefinition()
+    WDG-->>AG: WorkflowDefinition
+    AG->>AG: Initialize context with seed addresses
+    AG->>AG: Checkpoint (WriteStateAsync)
+
+    loop For each step in workflow
+        AG->>SEG: Execute(step, context, tools)
+
+        alt Step type: Query
+            SEG->>WG: GetProfile() / GetRelatedWallets()
+            WG-->>SEG: data
+        else Step type: Analyze (AI + tools)
+            SEG->>MEM: BuildContext(maxTokens)
+            MEM-->>SEG: assembled context
+            SEG->>AOAI: Chat completion (context + prompt + tools)
+            AOAI-->>SEG: response + tool calls
+            SEG->>GAG: TraceFlow() (tool call)
+            GAG-->>SEG: FlowTraceResult
+            SEG->>AOAI: Tool result → continue
+            AOAI-->>SEG: final analysis
+        else Step type: Collect
+            SEG->>EG: AddEvidence(item)
+        else Step type: FanOut
+            SEG->>SEG: Parallel Execute × N wallets
+        else Step type: HumanReview
+            SEG-->>AG: WaitingForHuman
+            Note over AG,USER: Agent pauses until analyst responds
+            USER->>AG: ReceiveHumanInput()
+        end
+
+        SEG-->>AG: StepResult
+        AG->>MEM: AddObservation(result)
+        AG->>AG: Checkpoint (WriteStateAsync)
+        AG->>AG: Check budget / timeout
+    end
+
+    AG->>EG: GenerateFinalReport()
+    AG->>AG: Status = Completed
+    AG-->>API: InvestigationResult
+    API-->>USER: Report ready
+```
+
+### Example Workflow: "Trace Stolen Funds"
+
+A playbook that an investigator defines to trace hacked funds:
+
+| Step | Type | What It Does |
+|---|---|---|
+| 1. `seed-profile` | Query | Fetch `WalletGrain.GetProfile()` for each seed address |
+| 2. `initial-taint` | Query | Run `TaintAnalysisGrain.RunTaintAnalysis()` from seeds, Haircut model, 6 hops |
+| 3. `analyze-taint` | Analyze | AI reviews taint results, identifies high-value paths. Prompt: "Identify the top 10 most suspicious wallets and explain why." |
+| 4. `collect-suspects` | Collect | Store AI-identified suspects as evidence items |
+| 5. `fan-out-profiles` | FanOut | For each suspect: fetch profile, risk score, transaction history, contract interactions |
+| 6. `deep-analysis` | Analyze | AI analyzes each suspect wallet. Uses tools: `ScamScore`, `GraphTraversal`, `EvidenceStore`. Multi-turn with tool calling. |
+| 7. `cross-chain-check` | Query | Run `CrossChainAnalyzerGrain.TraceCrossChainFlow()` for bridge transactions |
+| 8. `cluster-analysis` | Query | Run `ClusterAnalysisGrain.RunClustering()` on suspect wallets |
+| 9. `human-review` | HumanReview | Investigator reviews AI findings, confirms/rejects suspects, adds notes |
+| 10. `final-summary` | Summarize | AI generates full narrative report from all evidence. Stored in Blob Storage. |
+
+### FanOut Pattern: Investigating 500 Wallets Concurrently
+
+```mermaid
+graph TB
+    AG[AgentGrain] -->|"FanOut step"| SEG1[StepExecutorGrain 1]
+    AG --> SEG2[StepExecutorGrain 2]
+    AG --> SEG3[StepExecutorGrain 3]
+    AG --> SEGN[StepExecutorGrain N...]
+
+    SEG1 --> WG1[WalletGrain A]
+    SEG1 --> SDG1[ScamDetectorGrain]
+    SEG2 --> WG2[WalletGrain B]
+    SEG2 --> SDG2[ScamDetectorGrain]
+    SEG3 --> WG3[WalletGrain C]
+    SEGN --> WGN[WalletGrain N]
+
+    SEG1 --> EG[EvidenceCollectionGrain]
+    SEG2 --> EG
+    SEG3 --> EG
+    SEGN --> EG
+
+    EG -->|merge| AG
+```
+
+**Fan-out execution:**
+1. AgentGrain splits the wallet list into batches (capped by `ParallelFanOut`, e.g., 20)
+2. Each batch dispatched to a StepExecutorGrain (StatelessWorker — auto-distributed across silos)
+3. Each executor calls WalletGrain, ScamDetectorGrain, etc., stores evidence
+4. Results merged back into AgentGrain context
+5. Bounded concurrency prevents grain activation explosion
+
+### Persistence & Reliability
+
+**ACID per step:**
+- AgentGrain is single-threaded — no concurrent state mutations
+- `WriteStateAsync()` after each step = atomic checkpoint to Cosmos DB
+- If the silo crashes mid-step, the step's result is lost but context is safe at the previous checkpoint
+- On reactivation (via Reminder), the agent re-executes only the failed step (idempotent)
+
+**Evidence storage split:**
+
+| Data | Storage | Size |
+|---|---|---|
+| Evidence metadata (title, tags, summary) | Cosmos DB (grain state) | < 2 KB per item |
+| Full evidence content (flow graphs, reports) | Azure Blob Storage | Unlimited |
+| Evidence embeddings (for RAG search) | Azure AI Search vector index | ~1.5 KB per embedding |
+| Agent state checkpoint | Cosmos DB | < 50 KB per agent |
+| Final investigation report | Blob Storage | 10 KB – 10 MB |
+
+**Long-running durability:**
+
+| Mechanism | Interval | Purpose |
+|---|---|---|
+| WriteStateAsync checkpoint | After every step | Crash recovery |
+| Orleans Reminder | Every 5 minutes | Wake deactivated agent, resume execution |
+| Budget/timeout guard | Before each step | Prevent runaway agents |
+| Heartbeat stream | Every 30 seconds | UI can show agent is alive and progressing |
+
+### API Endpoints for Agents
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/api/v1/playbooks` | Create/update a workflow definition |
+| GET | `/api/v1/playbooks` | List available playbooks |
+| GET | `/api/v1/playbooks/{id}` | Get playbook definition |
+| POST | `/api/v1/agents/run` | Start new investigation (returns agentId) |
+| GET | `/api/v1/agents/{id}/status` | Get current status, progress, step results |
+| POST | `/api/v1/agents/{id}/pause` | Pause agent |
+| POST | `/api/v1/agents/{id}/resume` | Resume agent |
+| POST | `/api/v1/agents/{id}/cancel` | Cancel agent |
+| POST | `/api/v1/agents/{id}/human-input` | Submit human review input |
+| GET | `/api/v1/agents/{id}/result` | Get final report (when completed) |
+| GET | `/api/v1/agents/{id}/evidence` | List collected evidence |
+| GET | `/api/v1/agents/{id}/evidence/{evidenceId}` | Get single evidence item (with Blob content) |
+| WS | `/ws/agents/{id}` | Real-time agent progress stream |
+
+### Scaling Considerations
+
+| Concern | Approach |
+|---|---|
+| 100 concurrent investigations | 100 AgentGrains, each on a different silo — natural distribution |
+| 500 wallets per investigation fan-out | StatelessWorker StepExecutorGrains auto-scale across silos |
+| 1B transactions in the index | Agents read from pre-existing WalletGrains/TransactionGrains (already distributed) |
+| AI model rate limits | StepExecutorGrain retries with exponential backoff; configurable TPM budget per agent |
+| Token budget explosion | Hard cap in AgentRunConfig; auto-summarize and complete if exceeded |
+| Large evidence sets | Metadata in Cosmos, content in Blob, search via Azure AI Search vectors |
+
+### Security for Agent Workflows
+
+| Concern | Mitigation |
+|---|---|
+| Agent scope isolation | AgentRunConfig.ScopeChains limits which chains/addresses the agent can access |
+| Custom tool execution | Custom tools run in a sandbox; HTTP calls only to whitelisted domains |
+| Token budget | Hard cap prevents runaway LLM costs |
+| Human-in-the-loop | HumanReview steps for high-stakes decisions (e.g., filing SARs) |
+| Audit trail | Every step result + tool call logged to immutable evidence collection |
+| PII handling | Agent prompts strip PII; evidence tagged with sensitivity level |
+
+---
+
 ## Technology Stack
 
 | Layer | Technology |
@@ -1111,6 +1600,8 @@ graph TB
 | Graph analysis | Neo4j / Apache AGE |
 | Streaming | Azure Event Hubs + Orleans Streams |
 | ML inference | ONNX Runtime |
+| AI agents | Azure OpenAI (GPT-4o, o1), text-embedding-3 |
+| Agent evidence | Azure Blob Storage (RA-GZRS) + Azure AI Search (vector) |
 | API | ASP.NET Core, HotChocolate GraphQL, SignalR |
 | Observability | OpenTelemetry, Application Insights, Grafana |
 | CI/CD | GitHub Actions, Azure Container Registry |
@@ -1201,3 +1692,19 @@ graph TB
 - [Azure Key Vault Customer-Managed Keys](https://learn.microsoft.com/en-us/azure/key-vault/keys/overview-customer-managed-keys)
 - [Orleans Silo Security — mTLS](https://learn.microsoft.com/en-us/dotnet/orleans/host/configuration-guide/tls)
 - [Cosmos DB Encryption at Rest](https://learn.microsoft.com/en-us/azure/cosmos-db/database-encryption-at-rest)
+
+### AI Agent Workflow Engine (§13)
+
+- [Orleans Timers & Reminders — Microsoft Learn](https://learn.microsoft.com/en-us/dotnet/orleans/grains/timers-and-reminders)
+- [Orleans Grain Persistence — Microsoft Learn](https://learn.microsoft.com/en-us/dotnet/orleans/grains/grain-persistence)
+- [Orleans StatelessWorker Grains](https://learn.microsoft.com/en-us/dotnet/orleans/grains/stateless-worker-grains)
+- [Azure OpenAI Function Calling / Tool Use](https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/function-calling)
+- [Azure OpenAI Assistants API](https://learn.microsoft.com/en-us/azure/ai-services/openai/how-to/assistant)
+- [Azure AI Search — Vector Search](https://learn.microsoft.com/en-us/azure/search/vector-search-overview)
+- [Semantic Kernel — Orchestration Framework](https://learn.microsoft.com/en-us/semantic-kernel/overview/)
+- [AutoGen — Multi-Agent Framework (Microsoft Research)](https://github.com/microsoft/autogen)
+- [Azure Blob Storage SAS Tokens](https://learn.microsoft.com/en-us/azure/storage/common/storage-sas-overview)
+- [RAG Pattern — Retrieval-Augmented Generation](https://learn.microsoft.com/en-us/azure/search/retrieval-augmented-generation-overview)
+- [Saga Pattern for Distributed Workflows — Caitie McCaffrey](https://www.youtube.com/watch?v=xDuwrtwYHu8)
+- [Building Reliable AI Agents — Simon Willison](https://simonwillison.net/)
+- See also: [Document & AI Storage Patterns](orleans/05-global-hosting-on-azure.md#document--ai-storage-patterns)
