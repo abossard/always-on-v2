@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="AlwaysOn.Client.Host.Console/AlwaysOn.Client.Host.Console.csproj" />
+  <Project Path="AlwaysOn.GrainInterface/AlwaysOn.GrainInterface.csproj" />
+  <Project Path="AlwaysOn.Grains/AlwaysOn.Grains.csproj" />
+  <Project Path="AlwaysOn.Host.Console/AlwaysOn.Host.Console.csproj" />
+  <Project Path="AlwaysOn.Silo.Host.Console/AlwaysOn.Silo.Host.Console.csproj" />
+</Solution>
