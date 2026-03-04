@@ -1,0 +1,38 @@
+# Architecture Decision Records
+
+This directory contains all Architecture Decision Records (ADRs) for the AlwaysOn v2 Player Progression API.
+
+## Index
+
+| ADR  | Title                        | Status   |
+|------|------------------------------|----------|
+| 0000 | ADR Template                 | Accepted |
+| 0001 | Compute Platform             | Accepted (Pre-defined) |
+| 0002 | Application Framework        | Accepted (Pre-defined) |
+| 0003 | Programming Language         | Accepted (Implied by 0002) |
+| 0004 | Architecture Pattern         | Accepted (Pre-defined) |
+| 0005 | Database Choice              | Proposed |
+| 0006 | Messaging Platform           | Proposed |
+| 0007 | Caching Strategy             | Proposed |
+| 0008 | API Design Style             | Proposed |
+| 0009 | Observability Stack          | Proposed |
+| 0010 | Infrastructure as Code       | Proposed |
+| 0011 | CI/CD Pipeline               | Proposed |
+| 0012 | Multi-Region Strategy        | Proposed |
+| 0013 | Data Consistency Model       | Proposed |
+| 0014 | Security Approach            | Proposed |
+| 0015 | Testing Strategy             | Proposed |
+| 0016 | Container Strategy           | Proposed |
+| 0017 | API Versioning               | Proposed |
+| 0018 | Concurrency Handling         | Proposed |
+| 0019 | Global Load Balancing        | Proposed |
+| 0020 | Disaster Recovery            | Proposed |
+| 0021 | Cost Management              | Proposed |
+| 0022 | Secrets Management           | Proposed |
+| 0023 | Data Access Patterns         | Proposed |
+| 0024 | Deployment Strategy          | Proposed |
+| 0025 | Rate Limiting                | Proposed |
+
+## Format
+
+Each ADR follows the template in [0000-adr-template.md](0000-adr-template.md), based on the [MADR](https://adr.github.io/madr/) format.

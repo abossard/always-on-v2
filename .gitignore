@@ -1,0 +1,47 @@
+# Azure Developer CLI
+.azure/
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.cache
+*.dll
+*.exe
+*.pdb
+*.nupkg
+*.snupkg
+*.trx
+TestResults/
+
+# IDE
+.vs/
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+
+# Secrets
+*.pfx
+*.key
+appsettings.Development.json
+local.settings.json
+
+# Terraform (if used)
+.terraform/
+*.tfstate
+*.tfstate.backup
+*.tfvars
+
+# Test results
+coverage/
+*.coverage
