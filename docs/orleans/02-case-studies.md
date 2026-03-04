@@ -132,9 +132,28 @@ graph LR
 
 ## References
 
-- [Building Halo 4's Distributed Cloud Services — Caitie McCaffrey / Hoop Somuah](https://www.youtube.com/watch?v=N7aqAjjXz0o)
-- [Applying the Saga Pattern — Caitie McCaffrey](https://www.youtube.com/watch?v=xDuwrtwYHu8)
+### Halo / Xbox Case Study
+
+- [Building Halo 4's Distributed Cloud Services — Caitie McCaffrey / Hoop Somuah (GDC Talk)](https://www.youtube.com/watch?v=N7aqAjjXz0o)
+- [Applying the Saga Pattern — Caitie McCaffrey (Strange Loop)](https://www.youtube.com/watch?v=xDuwrtwYHu8)
 - [How Halo Scaled to 10M+ Players — ByteByteGo](https://blog.bytebytego.com/p/how-halo-on-xbox-scaled-to-10-million)
 - [About Halo's Backend — CleverHeap](https://cleverheap.com/posts/about-halo-backend/)
-- [Orleans, the technology behind Halo4 and Halo5 — Phil Bernstein Interview](https://www.odbms.org/blog/2016/02/orleans-the-technology-behind-xbox-halo4-and-halo5-interview-with-phil-bernstein/)
+- [Orleans, the technology behind Halo4 and Halo5 — Phil Bernstein Interview (ODBMS.org)](https://www.odbms.org/blog/2016/02/orleans-the-technology-behind-xbox-halo4-and-halo5-interview-with-phil-bernstein/)
+- [Caitie McCaffrey — Building Scalable Stateful Services (CraftConf)](https://www.youtube.com/watch?v=H0i_bXKwujQ)
+
+### Xbox / PlayFab Platform
+
+- [PlayFab — Backend for Live Games](https://playfab.com/)
+- [Azure PlayFab Documentation](https://learn.microsoft.com/en-us/gaming/playfab/)
+
+### Financial Services / Trading
+
 - [JorgeCandeias/Trader](https://github.com/JorgeCandeias/Trader) — Algorithmic trading on Orleans
+- [Event Sourcing with Orleans Journaled Grains — McGuireV10](https://mcguirev10.com/2019/12/05/event-sourcing-with-orleans-journaled-grains.html)
+- [18 Months of Event Sourcing and CQRS Using Microsoft Orleans — SlideShare](https://www.slideshare.net/AndyHoyle1/18-months-of-event-sourcing-and-cqrs-using-microsoft-orleans)
+
+### Production Deployments & Scale
+
+- [Orleans Documentation — Known Users](https://learn.microsoft.com/en-us/dotnet/orleans/resources/links)
+- [How to Build Real-World Applications with Orleans — John Azariah & Sergey Bykov (NDC)](https://www.youtube.com/watch?v=7OVU9Mqqzgs)
+- [Distributed .NET with Microsoft Orleans (O'Reilly)](https://www.oreilly.com/library/view/distributed-net-with/9781801818971/)

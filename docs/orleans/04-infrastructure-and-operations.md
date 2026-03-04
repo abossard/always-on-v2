@@ -152,15 +152,41 @@ Propagate metadata (correlation IDs, user claims) through grain call chains with
 
 ## References
 
+### Clustering & Topology
+
+- [Orleans Clustering Providers — Microsoft Learn](https://learn.microsoft.com/en-us/dotnet/orleans/implementation/cluster-management)
+- [Orleans Kubernetes Hosting](https://learn.microsoft.com/en-us/dotnet/orleans/deployment/kubernetes)
+- [Orleans on Azure Container Apps — Azure Samples](https://github.com/Azure-Samples/Orleans-Cluster-on-Azure-Container-Apps)
+- [.NET Aspire Documentation](https://learn.microsoft.com/en-us/dotnet/aspire/)
+- [Orleans Membership Protocol — Research Paper](https://www.microsoft.com/en-us/research/publication/orleans-distributed-virtual-actors-for-programmability-and-scalability/)
+
+### Persistence & Serialization
+
+- [Orleans Grain Persistence — Microsoft Learn](https://learn.microsoft.com/en-us/dotnet/orleans/grains/grain-persistence)
+- [Microsoft.Orleans.Persistence.Cosmos — NuGet](https://www.nuget.org/packages/Microsoft.Orleans.Persistence.Cosmos)
+- [Microsoft.Orleans.Persistence.AdoNet — NuGet](https://www.nuget.org/packages/Microsoft.Orleans.Persistence.AdoNet)
+- [Orleans Serialization](https://learn.microsoft.com/en-us/dotnet/orleans/host/configuration-guide/serialization)
+- [Orleans ADO.NET Storage Scripts](https://learn.microsoft.com/en-us/dotnet/orleans/host/configuration-guide/adonet-configuration)
+
+### Placement & Grain Design
+
+- [Orleans Grain Placement — Microsoft Learn](https://learn.microsoft.com/en-us/dotnet/orleans/grains/grain-placement)
+- [Orleans Reentrancy](https://learn.microsoft.com/en-us/dotnet/orleans/grains/reentrancy)
+- [Orleans Grain Versioning](https://learn.microsoft.com/en-us/dotnet/orleans/grains/grain-versioning/grain-versioning)
+- [Orleans Request Context](https://learn.microsoft.com/en-us/dotnet/orleans/grains/request-context)
 - [Orleans Best Practices — Microsoft Learn](https://learn.microsoft.com/en-us/dotnet/orleans/resources/best-practices)
-- [Orleans GitHub Repository](https://github.com/dotnet/orleans)
-- [Azure-Samples/Orleans-Cluster-on-Azure-Container-Apps](https://github.com/Azure-Samples/Orleans-Cluster-on-Azure-Container-Apps)
-- [IEvangelist/orleans-shopping-cart](https://github.com/IEvangelist/orleans-shopping-cart)
-- [MV10/OrleansDistributedCache](https://github.com/MV10/OrleansDistributedCache)
+
+### Pitfalls & Lessons
+
+- [Orleans GitHub Repository — Issues & Discussions](https://github.com/dotnet/orleans)
+- [About Halo's Backend — CleverHeap](https://cleverheap.com/posts/about-halo-backend/)
+- [Orleans Interview — Phil Bernstein (ODBMS.org)](https://www.odbms.org/blog/2016/02/orleans-the-technology-behind-xbox-halo4-and-halo5-interview-with-phil-bernstein/)
+- [MV10/OrleansDistributedCache — Sync IDistributedCache caveats](https://github.com/MV10/OrleansDistributedCache)
 
 ### Sample Repositories
 
 - [OrleansContrib/DesignPatterns](https://github.com/OrleansContrib/DesignPatterns)
+- [IEvangelist/orleans-shopping-cart](https://github.com/IEvangelist/orleans-shopping-cart)
 - [davidfowl/Orleans.PubSub](https://github.com/davidfowl/Orleans.PubSub)
 - [pmorelli92/Orleans.Tournament](https://github.com/pmorelli92/Orleans.Tournament)
 - [jsedlak/orleans-samples (Satellite Pattern)](https://github.com/jsedlak/orleans-samples/tree/main/patterns/patterns-satellite)

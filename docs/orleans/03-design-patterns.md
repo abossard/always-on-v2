@@ -324,14 +324,55 @@ graph LR
 
 ## References
 
+### Pattern Catalog (§1)
+
+- [OrleansContrib/DesignPatterns — GitHub](https://github.com/OrleansContrib/DesignPatterns)
+- [Distributed .NET with Microsoft Orleans (O'Reilly)](https://www.oreilly.com/library/view/distributed-net-with/9781801818971/)
+- [How to Build Real-World Applications with Orleans — John Azariah & Sergey Bykov (NDC)](https://www.youtube.com/watch?v=7OVU9Mqqzgs)
+
+### Smart Cache Pattern (§2)
+
 - [OrleansContrib Smart Cache Pattern](https://github.com/OrleansContrib/DesignPatterns/blob/master/Smart%20Cache.md)
 - [Orleans Smart Cache Pattern — CodeOpinion](https://codeopinion.com/orleans-smart-cache-pattern/)
 - [OrleanSpaces Cache Replication — Ledjon Behluli](https://ledjonbehluli.com/posts/orleanspace_cache_replication/)
+- [MV10/OrleansDistributedCache — IDistributedCache implementation](https://github.com/MV10/OrleansDistributedCache)
+
+### CQRS & Event Sourcing (§3)
+
+- [Orleans Log Consistency Providers — Microsoft Learn](https://learn.microsoft.com/en-us/dotnet/orleans/grains/event-sourcing/log-consistency-providers)
 - [Event Sourcing with Orleans Journaled Grains — McGuireV10](https://mcguirev10.com/2019/12/05/event-sourcing-with-orleans-journaled-grains.html)
 - [CQRS & Event Sourcing in Orleans — John Sedlak (2025)](https://johnsedlak.com/blog/2025/04/cqrs-and-event-sourcing-in-orleans)
-- [Applying the Saga Pattern — Caitie McCaffrey](https://www.youtube.com/watch?v=xDuwrtwYHu8)
+- [jsedlak/petl — Event Sourcing on Orleans](https://github.com/jsedlak/petl)
+- [18 Months of Event Sourcing and CQRS Using Microsoft Orleans — SlideShare](https://www.slideshare.net/AndyHoyle1/18-months-of-event-sourcing-and-cqrs-using-microsoft-orleans)
+- [Orleans.EventSourcing.EventStorage NuGet](https://www.nuget.org/packages/Orleans.EventSourcing.EventStorage)
+
+### Saga Pattern (§4)
+
+- [Applying the Saga Pattern — Caitie McCaffrey (Strange Loop)](https://www.youtube.com/watch?v=xDuwrtwYHu8)
 - [How Halo Scaled to 10M+ Players — ByteByteGo](https://blog.bytebytego.com/p/how-halo-on-xbox-scaled-to-10-million)
-- [Introducing the Satellite Pattern for Orleans — John Sedlak](https://johnsedlak.com/blog/2024/10/introducing-the-satellite-pattern-for-orleans)
-- [Orleans Virtual Actors in Practice — DevelopersVoice](https://developersvoice.com/blog/dotnet/orleans-virtual-actors-in-practice/)
-- [RROD — Maarten Sikkema](https://medium.com/@MaartenSikkema/using-dotnet-core-orleans-redux-and-websockets-to-build-a-scalable-realtime-back-end-cd0b65ec6b4d)
-- [How to Build Real-World Applications with Orleans — John Azariah & Sergey Bykov (NDC)](https://www.youtube.com/watch?v=7OVU9Mqqzgs)
+- [Sagas — Hector Garcia-Molina & Kenneth Salem (Original Paper)](https://www.cs.cornell.edu/andru/cs711/2002fa/reading/sagas.pdf)
+
+### IoT / Digital Twin Pattern (§5)
+
+- [Orleans Virtual Actors in Practice: IoT — DevelopersVoice](https://developersvoice.com/blog/dotnet/orleans-virtual-actors-in-practice/)
+- [Azure IoT Hub + Orleans — Microsoft Samples](https://learn.microsoft.com/en-us/dotnet/orleans/tutorials-and-samples/)
+- [Azure Digital Twins](https://learn.microsoft.com/en-us/azure/digital-twins/overview)
+
+### Game Lobby / Matchmaking (§6)
+
+- [Orleans Observers — Microsoft Learn](https://learn.microsoft.com/en-us/dotnet/orleans/grains/observers)
+- [Orleans Timers & Reminders](https://learn.microsoft.com/en-us/dotnet/orleans/grains/timers-and-reminders)
+- [Orleans StatelessWorker Grains](https://learn.microsoft.com/en-us/dotnet/orleans/grains/stateless-worker-grains)
+- [pmorelli92/Orleans.Tournament](https://github.com/pmorelli92/Orleans.Tournament)
+
+### Real-Time Backend / Redux (§7)
+
+- [RROD: Real-Time Backend with Orleans + Redux — Maarten Sikkema](https://medium.com/@MaartenSikkema/using-dotnet-core-orleans-redux-and-websockets-to-build-a-scalable-realtime-back-end-cd0b65ec6b4d)
+- [Maarten88/rrod — GitHub](https://github.com/Maarten88/rrod)
+- [Azure AI Search](https://learn.microsoft.com/en-us/azure/search/search-what-is-azure-search)
+
+### Satellite Pattern (§8)
+
+- [Introducing the Satellite Pattern for Orleans — John Sedlak (2024)](https://johnsedlak.com/blog/2024/10/introducing-the-satellite-pattern-for-orleans)
+- [jsedlak/orleans-samples — Satellite Pattern](https://github.com/jsedlak/orleans-samples/tree/main/patterns/patterns-satellite)
+- [Orleans Grain Extensions — Microsoft Learn](https://learn.microsoft.com/en-us/dotnet/orleans/grains/grain-extensions)

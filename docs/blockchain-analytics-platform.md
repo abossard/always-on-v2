@@ -1117,3 +1117,87 @@ graph TB
 | IaC | Bicep / Terraform |
 | Secrets | Azure Key Vault |
 | Load balancing | Azure Front Door |
+
+---
+
+## References
+
+### System Overview & Design (§1)
+
+- [Orleans Documentation — Microsoft Learn](https://learn.microsoft.com/en-us/dotnet/orleans/)
+- [Orleans Virtual Actors in Practice — DevelopersVoice](https://developersvoice.com/blog/dotnet/orleans-virtual-actors-in-practice/)
+- [Distributed .NET with Microsoft Orleans (O'Reilly)](https://www.oreilly.com/library/view/distributed-net-with/9781801818971/)
+
+### Grain Design & Entity Modeling (§2)
+
+- [Orleans Grain Identity](https://learn.microsoft.com/en-us/dotnet/orleans/grains/grain-identity)
+- [Orleans Grain Persistence](https://learn.microsoft.com/en-us/dotnet/orleans/grains/grain-persistence)
+- [Orleans StatelessWorker Grains](https://learn.microsoft.com/en-us/dotnet/orleans/grains/stateless-worker-grains)
+- [Orleans Observers](https://learn.microsoft.com/en-us/dotnet/orleans/grains/observers)
+- [Orleans Timers & Reminders](https://learn.microsoft.com/en-us/dotnet/orleans/grains/timers-and-reminders)
+- [OrleansContrib Design Patterns](https://github.com/OrleansContrib/DesignPatterns)
+
+### Data Flow & Streaming (§3, §7)
+
+- [Orleans Streaming — Microsoft Learn](https://learn.microsoft.com/en-us/dotnet/orleans/streaming/)
+- [Orleans Event Hub Stream Provider](https://learn.microsoft.com/en-us/dotnet/orleans/streaming/event-hubs)
+- [Orleans Implicit Stream Subscriptions](https://learn.microsoft.com/en-us/dotnet/orleans/streaming/streams-programming-apis#implicit-subscriptions)
+- [Azure Event Hubs Documentation](https://learn.microsoft.com/en-us/azure/event-hubs/event-hubs-about)
+
+### Graph Analysis (§4)
+
+- [Neo4j Graph Data Science Documentation](https://neo4j.com/docs/graph-data-science/current/)
+- [Neo4j Cypher Query Language](https://neo4j.com/docs/cypher-manual/current/)
+- [Apache AGE — Graph Extension for PostgreSQL](https://age.apache.org/)
+- [Label Propagation Algorithm — Wikipedia](https://en.wikipedia.org/wiki/Label_propagation_algorithm)
+- [Community Detection Algorithms — Neo4j GDS](https://neo4j.com/docs/graph-data-science/current/algorithms/community/)
+
+### Scam Detection & ML (§5)
+
+- [ONNX Runtime — Microsoft](https://onnxruntime.ai/)
+- [OFAC Specially Designated Nationals List](https://ofac.treasury.gov/specially-designated-nationals-and-blocked-persons-list-sdn-human-readable-lists)
+- [Chainalysis — Blockchain Analytics](https://www.chainalysis.com/)
+- [TRM Labs — Blockchain Intelligence](https://www.trmlabs.com/)
+- [Chainabuse — Scam Reporting](https://www.chainabuse.com/)
+- [Elliptic — Transaction Monitoring](https://www.elliptic.co/)
+- [Honeypot Detection in DeFi — SlowMist](https://slowmist.medium.com/)
+
+### Persistence & Storage Tiering (§6)
+
+- [Microsoft.Orleans.Persistence.Cosmos — NuGet](https://www.nuget.org/packages/Microsoft.Orleans.Persistence.Cosmos)
+- [Cosmos DB Partition Key Best Practices](https://learn.microsoft.com/en-us/azure/cosmos-db/partitioning-overview)
+- [Cosmos DB Hierarchical Partition Keys](https://learn.microsoft.com/en-us/azure/cosmos-db/hierarchical-partition-keys)
+- [Azure Cache for Redis Best Practices](https://learn.microsoft.com/en-us/azure/azure-cache-for-redis/cache-best-practices)
+- [TimescaleDB — Time-Series on PostgreSQL](https://www.timescale.com/)
+- [Azure Blob Storage Tiers](https://learn.microsoft.com/en-us/azure/storage/blobs/access-tiers-overview)
+
+### Multi-Chain Support (§8)
+
+- [Ethereum JSON-RPC Specification](https://ethereum.github.io/execution-apis/api-documentation/)
+- [Bitcoin Core RPC Reference](https://developer.bitcoin.org/reference/rpc/)
+- [Solana JSON-RPC API](https://solana.com/docs/rpc)
+- [Polygon RPC Documentation](https://docs.polygon.technology/)
+- [Cross-Chain Bridge Security — Rekt.news](https://rekt.news/)
+
+### API Design (§9)
+
+- [HotChocolate GraphQL for .NET](https://chillicream.com/docs/hotchocolate/)
+- [ASP.NET Core Minimal APIs](https://learn.microsoft.com/en-us/aspnet/core/fundamentals/minimal-apis)
+- [SignalR Real-Time Notifications](https://learn.microsoft.com/en-us/aspnet/core/signalr/introduction)
+
+### Scaling & Deployment (§10–§12)
+
+- [Orleans Grain Lifecycle & Collection](https://learn.microsoft.com/en-us/dotnet/orleans/grains/grain-lifecycle)
+- [Orleans Placement Strategies](https://learn.microsoft.com/en-us/dotnet/orleans/grains/grain-placement)
+- [AKS Node Pools](https://learn.microsoft.com/en-us/azure/aks/create-node-pools)
+- [AKS Cluster Autoscaler](https://learn.microsoft.com/en-us/azure/aks/cluster-autoscaler)
+- [Azure Front Door Documentation](https://learn.microsoft.com/en-us/azure/frontdoor/)
+- [Cosmos DB Autoscale](https://learn.microsoft.com/en-us/azure/cosmos-db/provision-throughput-autoscale)
+- See also: [Orleans Global Hosting on Azure](orleans/05-global-hosting-on-azure.md)
+
+### Security (§11)
+
+- [Microsoft Entra ID OAuth 2.0](https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow)
+- [Azure Key Vault Customer-Managed Keys](https://learn.microsoft.com/en-us/azure/key-vault/keys/overview-customer-managed-keys)
+- [Orleans Silo Security — mTLS](https://learn.microsoft.com/en-us/dotnet/orleans/host/configuration-guide/tls)
+- [Cosmos DB Encryption at Rest](https://learn.microsoft.com/en-us/azure/cosmos-db/database-encryption-at-rest)

@@ -115,8 +115,27 @@ graph TB
 
 ## References
 
+### Design Philosophy & Principles
+
 - [Orleans Documentation — Microsoft Learn](https://learn.microsoft.com/en-us/dotnet/orleans/)
 - [Orleans Architecture Principles — Microsoft Learn](https://learn.microsoft.com/en-us/dotnet/orleans/resources/orleans-architecture-principles-and-approach)
-- [OrleansContrib/DesignPatterns](https://github.com/OrleansContrib/DesignPatterns)
+- [Orleans Best Practices](https://learn.microsoft.com/en-us/dotnet/orleans/resources/best-practices)
+- [Orleans GitHub Repository](https://github.com/dotnet/orleans)
+- [Distributed .NET with Microsoft Orleans (O'Reilly)](https://www.oreilly.com/library/view/distributed-net-with/9781801818971/)
 - [Why Microsoft Orleans is Important for .NET Developers — Ed Andersen](https://www.edandersen.com/p/why-microsoft-orleans-is-important-for-net-developers)
+
+### Virtual Actor Model & Core Concepts
+
+- [Orleans Grain Identity](https://learn.microsoft.com/en-us/dotnet/orleans/grains/grain-identity)
+- [Orleans Grain Lifecycle](https://learn.microsoft.com/en-us/dotnet/orleans/grains/grain-lifecycle)
+- [Orleans Timers & Reminders](https://learn.microsoft.com/en-us/dotnet/orleans/grains/timers-and-reminders)
+- [Orleans Grain Persistence](https://learn.microsoft.com/en-us/dotnet/orleans/grains/grain-persistence)
+- [OrleansContrib/DesignPatterns](https://github.com/OrleansContrib/DesignPatterns)
+
+### Framework Comparison & Benchmarks
+
 - [Comparing .NET Virtual Actor Frameworks — Etteplan](https://www.etteplan.com/about-us/insights/comparing-net-virtual-actor-frameworks/)
+- [Akka.NET Documentation](https://getakka.net/articles/intro/what-are-actors.html)
+- [Proto.Actor — Ultra-fast distributed actors](https://proto.actor/)
+- [Dapr Actors Overview](https://docs.dapr.io/developing-applications/building-blocks/actors/actors-overview/)
+- [Microsoft Orleans vs Akka.NET — Chris Klug](https://www.youtube.com/watch?v=nXfzE2SFn5o)

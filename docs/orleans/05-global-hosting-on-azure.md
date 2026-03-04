@@ -321,6 +321,99 @@ graph TB
 
 ---
 
+## Document & AI Storage Patterns
+
+When grains handle large content (user-uploaded documents, AI-generated reports, media), **do not store the content in grain state or Cosmos DB**. Use Azure Blob Storage for the content and Cosmos DB for metadata only.
+
+### Why Not Cosmos DB for Large Content
+
+| Constraint | Impact |
+|---|---|
+| **2 MB item size limit** | A single PDF or AI report can exceed this |
+| **RU cost scales with item size** | A 500 KB item costs ~5x more RUs than a 1 KB item |
+| **Designed for structured data** | Point reads by ID, not binary blobs |
+
+### Recommended Pattern: Metadata + Blob
+
+```mermaid
+graph TB
+    subgraph "Grain Layer"
+        DG[DocumentGrain<br/>userId:docId]
+        AIG[AIProcessorGrain<br/>StatelessWorker]
+    end
+
+    subgraph "Metadata (Cosmos DB)"
+        META[(documents container<br/>• documentId, title, userId<br/>• status, tags, permissions<br/>• blobUrl, AI summary ≤ 100KB<br/>• embedding vector reference)]
+    end
+
+    subgraph "Content (Blob Storage — RA-GZRS)"
+        BLOB[(documents/{userId}/{docId}/<br/>• original.pdf<br/>• ai-output.md<br/>• chunks/*.json<br/>• embeddings/*.bin)]
+    end
+
+    subgraph "Search"
+        SEARCH[(Azure AI Search<br/>• Full-text index<br/>• Vector embeddings)]
+    end
+
+    DG -->|metadata| META
+    DG -->|SAS URL for upload/download| BLOB
+    DG -->|trigger| AIG
+    AIG -->|read doc| BLOB
+    AIG -->|write results| BLOB
+    AIG -->|update status + summary| DG
+    AIG -->|index| SEARCH
+```
+
+### What Goes Where
+
+| Data | Storage | Why |
+|---|---|---|
+| Document metadata (title, owner, status, tags) | **Cosmos DB** | Small, queried often, global replication |
+| Short AI summaries (< 100 KB) | **Cosmos DB** | Fast reads, co-located with metadata |
+| Long AI-generated text (reports, analyses) | **Blob Storage** | No size limit, cheap, CDN-cacheable |
+| Original uploaded documents (PDF, DOCX) | **Blob Storage** | Binary, large, append-only |
+| Chunked text for RAG/embeddings | **Blob Storage** or **AI Search** | Blob for raw chunks, Search for indexed vectors |
+| Embedding vectors | **Azure AI Search** or **Cosmos DB** (vector search) | Both support vector search |
+
+### Global Blob Storage Redundancy Options
+
+Azure Storage supports built-in geo-replication:
+
+| Redundancy | Copies | Behavior | Use Case |
+|---|---|---|---|
+| **LRS** | 3 in one datacenter | Local only | Dev/test |
+| **ZRS** | 3 across availability zones | Zone-resilient | Single-region production |
+| **GRS** | 3 local + 3 in paired region | DR (read-only secondary) | Regional DR |
+| **GZRS** | ZRS locally + 3 in paired region | Best durability | Production default |
+| **RA-GRS / RA-GZRS** | Same as GRS/GZRS but read-accessible secondary | **Global reads** | Multi-region read access |
+
+**For multi-region reads:** Use **RA-GZRS** — clients in any region read from nearest replica.
+
+**For multi-region writes:** Blob Storage doesn't support multi-region writes natively. Options:
+- **Front Door + regional storage accounts** — upload to nearest region, async-replicate via AzCopy or Event Grid
+- **Cosmos DB metadata + regional Blob** — grain writes blob locally, metadata in Cosmos has region-specific URLs
+
+### DocumentGrain Design Guidance
+
+| Principle | Rationale |
+|---|---|
+| Store only metadata + blob URL in grain state | Keep grain state lightweight (<10 KB ideal) |
+| Generate SAS URLs for direct client ↔ Blob transfer | Grain never touches document bytes |
+| Use StatelessWorker for AI processing | Horizontally scale CPU/GPU-heavy workloads |
+| Stream AI completion events | Notify client via SignalR when processing completes |
+| TTL on intermediate chunks | Auto-delete processing artifacts after 7 days |
+
+### Further Reading — Document & AI Storage
+
+- [Azure Blob Storage Redundancy — Microsoft Learn](https://learn.microsoft.com/en-us/azure/storage/common/storage-redundancy)
+- [RA-GRS: Read-Access Geo-Redundant Storage](https://learn.microsoft.com/en-us/azure/storage/common/storage-redundancy#read-access-geo-redundant-storage)
+- [Cosmos DB 2 MB Item Size Limit](https://learn.microsoft.com/en-us/azure/cosmos-db/concepts-limits#per-item-limits)
+- [Azure AI Search Vector Search](https://learn.microsoft.com/en-us/azure/search/vector-search-overview)
+- [Cosmos DB Vector Search](https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/vector-search)
+- [SAS Tokens for Blob Storage](https://learn.microsoft.com/en-us/azure/storage/common/storage-sas-overview)
+- [Azure Storage Geo-Replication Design Patterns](https://learn.microsoft.com/en-us/azure/storage/common/geo-redundant-design)
+
+---
+
 ## Scaling Strategy
 
 ### Horizontal Scaling Triggers
@@ -425,10 +518,62 @@ graph LR
 
 ## References
 
+### Architecture Overview
+
 - [Orleans Documentation — Microsoft Learn](https://learn.microsoft.com/en-us/dotnet/orleans/)
 - [Orleans on Azure Container Apps — Azure Samples](https://github.com/Azure-Samples/Orleans-Cluster-on-Azure-Container-Apps)
+- [Distributed .NET with Microsoft Orleans (O'Reilly)](https://www.oreilly.com/library/view/distributed-net-with/9781801818971/)
+
+### Multi-Region Cluster Topology
+
+- [Orleans Multi-Cluster Support](https://learn.microsoft.com/en-us/dotnet/orleans/deployment/multi-cluster-support)
+- [Orleans Grain Directory](https://learn.microsoft.com/en-us/dotnet/orleans/grains/grain-directory)
+- [Running Orleans in a Geo-Distributed Cluster — Reuben Bond (Microsoft)](https://devblogs.microsoft.com/dotnet/orleans-3-0/)
+
+### Azure Front Door
+
 - [Azure Front Door Documentation](https://learn.microsoft.com/en-us/azure/frontdoor/)
-- [Cosmos DB Multi-Region Writes](https://learn.microsoft.com/en-us/azure/cosmos-db/multi-region-writes)
+- [Front Door Routing Architecture](https://learn.microsoft.com/en-us/azure/frontdoor/front-door-routing-architecture)
+- [Front Door Session Affinity](https://learn.microsoft.com/en-us/azure/frontdoor/front-door-session-affinity)
+- [Front Door WebSocket Support](https://learn.microsoft.com/en-us/azure/frontdoor/front-door-http2)
+- [Front Door WAF Best Practices](https://learn.microsoft.com/en-us/azure/web-application-firewall/afds/waf-front-door-best-practices)
+
+### AKS Multi-Region
+
 - [AKS Multi-Region Best Practices](https://learn.microsoft.com/en-us/azure/aks/operator-best-practices-multi-region)
+- [AKS Cluster Autoscaler](https://learn.microsoft.com/en-us/azure/aks/cluster-autoscaler)
+- [KEDA — Kubernetes Event-Driven Autoscaling](https://keda.sh/)
 - [Orleans Kubernetes Hosting](https://learn.microsoft.com/en-us/dotnet/orleans/deployment/kubernetes)
+- [AKS Node Pools](https://learn.microsoft.com/en-us/azure/aks/create-node-pools)
+- [Pod Disruption Budgets — Kubernetes](https://kubernetes.io/docs/tasks/run-application/configure-pdb/)
+
+### Cosmos DB Persistence
+
+- [Cosmos DB Multi-Region Writes](https://learn.microsoft.com/en-us/azure/cosmos-db/multi-region-writes)
+- [Cosmos DB Consistency Levels](https://learn.microsoft.com/en-us/azure/cosmos-db/consistency-levels)
+- [Cosmos DB Conflict Resolution](https://learn.microsoft.com/en-us/azure/cosmos-db/conflict-resolution-policies)
 - [Cosmos DB Hierarchical Partition Keys](https://learn.microsoft.com/en-us/azure/cosmos-db/hierarchical-partition-keys)
+- [Cosmos DB Autoscale Throughput](https://learn.microsoft.com/en-us/azure/cosmos-db/provision-throughput-autoscale)
+- [Cosmos DB Request Unit Calculator](https://cosmos.azure.com/capacitycalculator/)
+- [Microsoft.Orleans.Persistence.Cosmos — NuGet](https://www.nuget.org/packages/Microsoft.Orleans.Persistence.Cosmos)
+
+### Document & AI Storage
+
+- [Azure Blob Storage Redundancy](https://learn.microsoft.com/en-us/azure/storage/common/storage-redundancy)
+- [RA-GRS: Designing for High Availability](https://learn.microsoft.com/en-us/azure/storage/common/geo-redundant-design)
+- [Azure AI Search Vector Search](https://learn.microsoft.com/en-us/azure/search/vector-search-overview)
+- [Cosmos DB Vector Search](https://learn.microsoft.com/en-us/azure/cosmos-db/nosql/vector-search)
+- [SAS Token Overview](https://learn.microsoft.com/en-us/azure/storage/common/storage-sas-overview)
+
+### Scaling & Disaster Recovery
+
+- [Orleans Grain Lifecycle](https://learn.microsoft.com/en-us/dotnet/orleans/grains/grain-lifecycle)
+- [Orleans Grain Collection](https://learn.microsoft.com/en-us/dotnet/orleans/grains/grain-lifecycle#grain-collection)
+- [Azure Event Hubs Auto-Inflate](https://learn.microsoft.com/en-us/azure/event-hubs/event-hubs-auto-inflate)
+- [Cosmos DB Automatic Failover](https://learn.microsoft.com/en-us/azure/cosmos-db/how-to-manage-database-account#automatic-failover)
+
+### Cost Management
+
+- [Azure Pricing Calculator](https://azure.microsoft.com/en-us/pricing/calculator/)
+- [Cosmos DB Reserved Capacity](https://learn.microsoft.com/en-us/azure/cosmos-db/reserved-capacity)
+- [AKS Cost Optimization](https://learn.microsoft.com/en-us/azure/aks/best-practices-cost)

@@ -977,17 +977,75 @@ graph TB
 
 ## References
 
-### Orleans
-- [Orleans Documentation — Streaming](https://learn.microsoft.com/dotnet/orleans/streaming/)
-- [Orleans Sample Projects — Presence Service](https://learn.microsoft.com/dotnet/orleans/tutorials-and-samples/)
-- [SignalR.Orleans — OrleansContrib](https://github.com/OrleansContrib/SignalR.Orleans)
-- [Building a realtime server backend using Orleans — Maarten Sikkema](https://medium.com/@MaartenSikkema/using-dotnet-core-orleans-redux-and-websockets-to-build-a-scalable-realtime-back-end-cd0b65ec6b4d)
+### System Overview & Grain Design (§1–§2)
 
-### Voice & WebRTC
+- [Orleans Documentation — Microsoft Learn](https://learn.microsoft.com/en-us/dotnet/orleans/)
+- [Orleans Grain Identity](https://learn.microsoft.com/en-us/dotnet/orleans/grains/grain-identity)
+- [Orleans Grain Persistence](https://learn.microsoft.com/en-us/dotnet/orleans/grains/grain-persistence)
+- [Orleans Observers](https://learn.microsoft.com/en-us/dotnet/orleans/grains/observers)
+- [SignalR.Orleans — OrleansContrib](https://github.com/OrleansContrib/SignalR.Orleans)
+- [UFX.Orleans.SignalRBackplane — NuGet](https://www.nuget.org/packages/UFX.Orleans.SignalRBackplane)
+- [Discord Engineering — How Discord Stores Billions of Messages](https://discord.com/blog/how-discord-stores-billions-of-messages)
+
+### Real-Time Messaging & Streaming (§3, §5)
+
+- [Orleans Streaming — Microsoft Learn](https://learn.microsoft.com/en-us/dotnet/orleans/streaming/)
+- [Orleans Event Hub Stream Provider](https://learn.microsoft.com/en-us/dotnet/orleans/streaming/event-hubs)
+- [Orleans Implicit Stream Subscriptions](https://learn.microsoft.com/en-us/dotnet/orleans/streaming/streams-programming-apis#implicit-subscriptions)
+- [Azure Event Hubs Documentation](https://learn.microsoft.com/en-us/azure/event-hubs/event-hubs-about)
+- [Building a realtime server backend using Orleans — Maarten Sikkema](https://medium.com/@MaartenSikkema/using-dotnet-core-orleans-redux-and-websockets-to-build-a-scalable-realtime-back-end-cd0b65ec6b4d)
+- [Real-time Messaging at LinkedIn — ACM Queue](https://queue.acm.org/detail.cfm?id=2534706)
+
+### Voice Architecture (§4)
+
 - [How Discord Handles 2.5M Concurrent Voice Users Using WebRTC](https://discord.com/blog/how-discord-handles-two-and-half-million-concurrent-voice-users-using-webrtc)
 - [LiveKit — Globally Distributed WebRTC Mesh](https://blog.livekit.io/scaling-webrtc-with-distributed-mesh/)
+- [Walkie-Talkies and WebRTC Ingest Signaling — Mux](https://www.mux.com/blog/walkie-talkies-and-webrtc-ingest-signaling)
 - [Opus Codec — RFC 6716](https://datatracker.ietf.org/doc/html/rfc6716)
+- [WebRTC Codecs — MDN](https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Formats/WebRTC_codecs)
+- [mediasoup — SFU Documentation](https://mediasoup.org/documentation/v3/)
+- [Janus WebRTC Server](https://janus.conf.meetecho.com/docs/)
+- [LiveKit Server SDK](https://docs.livekit.io/home/server/intro/)
+- [Push-to-Talk Over Cellular — weavix](https://weavix.com/blogs/push-to-talk-radio/push-to-talk-over-cellular)
+
+### Client Connectivity & SignalR (§6)
+
+- [ASP.NET Core SignalR Overview](https://learn.microsoft.com/en-us/aspnet/core/signalr/introduction)
+- [SignalR Scale-Out with Backplane](https://learn.microsoft.com/en-us/aspnet/core/signalr/scale)
+- [SignalR MessagePack Protocol](https://learn.microsoft.com/en-us/aspnet/core/signalr/messagepackhubprotocol)
+- [Orleans SignalR Backplane — michaelmcneil.net](https://michaelmcneil.net/projects/orleans-signalr/)
+
+### Persistence & Cosmos DB (§7)
+
+- [Microsoft.Orleans.Persistence.Cosmos — NuGet](https://www.nuget.org/packages/Microsoft.Orleans.Persistence.Cosmos)
+- [Cosmos DB Partition Key Best Practices](https://learn.microsoft.com/en-us/azure/cosmos-db/partitioning-overview)
+- [Cosmos DB Hierarchical Partition Keys](https://learn.microsoft.com/en-us/azure/cosmos-db/hierarchical-partition-keys)
+- [Azure AI Search Overview](https://learn.microsoft.com/en-us/azure/search/search-what-is-azure-search)
+- [Azure Blob Storage CDN Integration](https://learn.microsoft.com/en-us/azure/cdn/cdn-create-a-storage-account-with-cdn)
+
+### Scaling & Offline Support (§8–§9)
+
+- [Orleans Grain Lifecycle & Collection](https://learn.microsoft.com/en-us/dotnet/orleans/grains/grain-lifecycle)
+- [Orleans StatelessWorker Attribute](https://learn.microsoft.com/en-us/dotnet/orleans/grains/stateless-worker-grains)
+- [Azure Event Hubs Auto-Inflate](https://learn.microsoft.com/en-us/azure/event-hubs/event-hubs-auto-inflate)
+- [Azure Notification Hubs (APNs/FCM)](https://learn.microsoft.com/en-us/azure/notification-hubs/notification-hubs-push-notification-overview)
+
+### Security (§10)
+
+- [Microsoft Entra ID OAuth 2.0](https://learn.microsoft.com/en-us/entra/identity-platform/v2-oauth2-auth-code-flow)
+- [SignalR Authentication & Authorization](https://learn.microsoft.com/en-us/aspnet/core/signalr/authn-and-authz)
+- [Azure Blob SAS Tokens](https://learn.microsoft.com/en-us/azure/storage/common/storage-sas-overview)
+- [WebRTC Security — SRTP/DTLS](https://webrtc-security.github.io/)
+
+### Global Deployment (§11)
+
+- [Azure Front Door Documentation](https://learn.microsoft.com/en-us/azure/frontdoor/)
+- [AKS Multi-Region Best Practices](https://learn.microsoft.com/en-us/azure/aks/operator-best-practices-multi-region)
+- [Cosmos DB Multi-Region Writes](https://learn.microsoft.com/en-us/azure/cosmos-db/multi-region-writes)
+- See also: [Orleans Global Hosting on Azure](orleans/05-global-hosting-on-azure.md)
 
 ### Architecture Patterns
+
 - [OrleansContrib Design Patterns](https://github.com/OrleansContrib/DesignPatterns)
 - [Satellite Pattern for Orleans — John Sedlak](https://johnsedlak.com/blog/2024/10/introducing-the-satellite-pattern-for-orleans)
+- [Distributed .NET with Microsoft Orleans (O'Reilly)](https://www.oreilly.com/library/view/distributed-net-with/9781801818971/)
