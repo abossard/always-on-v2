@@ -67,6 +67,21 @@ module global 'global.bicep' = {
 }
 
 // ============================================================================
+// Application: PlayersOnLevel0
+// ============================================================================
+
+module playerOnLevel0 'app-playeronlevel0.bicep' = {
+  name: 'deploy-app-playeronlevel0'
+  scope: globalRg
+  params: {
+    baseName: baseName
+    location: globalLocation
+    cosmosAccountName: global.outputs.cosmosName
+    appInsightsId: global.outputs.appInsightsId
+  }
+}
+
+// ============================================================================
 // Regional Resources (one deployment per region)
 // ============================================================================
 
@@ -118,3 +133,5 @@ output dnsZoneName string = domainName
 output aksClusterNames array = [
   for (region, i) in regions: regional[i].outputs.aksClusterName
 ]
+output playerOnLevel0IdentityClientId string = playerOnLevel0.outputs.identityClientId
+output appInsightsConnectionString string = global.outputs.appInsightsConnectionString

@@ -25,7 +25,11 @@ static class Api
     public static async Task<PlayerResponse> UpdatePlayer(HttpClient c, Guid id, object body)
     {
         var r = await c.PostAsJsonAsync(PlayerPath(id), body);
-        r.EnsureSuccessStatusCode();
+        if (!r.IsSuccessStatusCode)
+        {
+            var errorBody = await r.Content.ReadAsStringAsync();
+            throw new HttpRequestException($"Status {r.StatusCode}: {errorBody[..Math.Min(500, errorBody.Length)]}");
+        }
         return (await r.Content.ReadFromJsonAsync<PlayerResponse>(Json))!;
     }
 
@@ -72,7 +76,7 @@ public class AspireFixture : IAsyncInitializer, IAsyncDisposable
         _app = await builder.BuildAsync();
         await _app.StartAsync();
         await _app.ResourceNotifications.WaitForResourceHealthyAsync("api");
-        Client = _app.CreateHttpClient("api");
+        Client = _app.CreateHttpClient("api", "http");
     }
 
     public async ValueTask DisposeAsync()

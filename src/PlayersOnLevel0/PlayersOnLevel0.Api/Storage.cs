@@ -226,6 +226,14 @@ public static class StorageExtensions
                 break;
 
             case StorageProvider.CosmosDb:
+                // CosmosClient is registered by Aspire's AddAzureCosmosClient (via AppHost WithReference)
+                // or manually below for standalone (non-Aspire) runs
+                if (services.All(s => s.ServiceType != typeof(CosmosClient)))
+                {
+                    var cosmosOpts = configuration.GetSection(CosmosOptions.Section).Get<CosmosOptions>()!;
+                    services.AddSingleton(_ => new CosmosClient(cosmosOpts.Endpoint,
+                        new Azure.Identity.DefaultAzureCredential()));
+                }
                 services.AddSingleton<IPlayerProgressionStore, CosmosPlayerProgressionStore>();
                 break;
 

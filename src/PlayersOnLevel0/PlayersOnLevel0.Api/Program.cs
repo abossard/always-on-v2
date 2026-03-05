@@ -12,11 +12,18 @@ builder.Services.AddAppConfiguration(builder.Configuration);
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonContext.Default));
 
+// Aspire Cosmos integration — registers CosmosClient from Aspire service discovery
+var cosmosConnStr = builder.Configuration.GetConnectionString("cosmos");
+if (!string.IsNullOrEmpty(cosmosConnStr))
+    builder.AddAzureCosmosClient("cosmos");
+
 // Storage — selected by config
 builder.Services.AddPlayerStorage(builder.Configuration);
 
 var app = builder.Build();
 await app.InitializeStorageAsync();
+if (app.Environment.IsDevelopment())
+    app.UseDeveloperExceptionPage();
 app.MapDefaultEndpoints();
 app.MapPlayerEndpoints();
 

@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.39.26.7824",
-      "templateHash": "5110201208666237118"
+      "templateHash": "11462185914055825951"
     }
   },
   "parameters": {
@@ -511,6 +511,176 @@
         }
       },
       "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', format('rg-{0}-global', parameters('baseName')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "deploy-app-playeronlevel0",
+      "resourceGroup": "[format('rg-{0}-global', parameters('baseName'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "baseName": {
+            "value": "[parameters('baseName')]"
+          },
+          "location": {
+            "value": "[parameters('globalLocation')]"
+          },
+          "cosmosAccountName": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-global', parameters('baseName'))), 'Microsoft.Resources/deployments', 'deploy-global'), '2025-04-01').outputs.cosmosName.value]"
+          },
+          "appInsightsId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-global', parameters('baseName'))), 'Microsoft.Resources/deployments', 'deploy-global'), '2025-04-01').outputs.appInsightsId.value]"
+          },
+          "regions": {
+            "value": "[parameters('regions')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.39.26.7824",
+              "templateHash": "5061449634194311863"
+            }
+          },
+          "parameters": {
+            "baseName": {
+              "type": "string",
+              "metadata": {
+                "description": "Base name for all resources."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Location for resources."
+              }
+            },
+            "cosmosAccountName": {
+              "type": "string",
+              "metadata": {
+                "description": "Cosmos DB account name (must exist)."
+              }
+            },
+            "appInsightsId": {
+              "type": "string",
+              "metadata": {
+                "description": "Application Insights resource ID (for RBAC)."
+              }
+            },
+            "regions": {
+              "type": "array",
+              "metadata": {
+                "description": "Regions array (for federated credentials)."
+              }
+            }
+          },
+          "variables": {
+            "cosmosDataContributorRoleId": "00000000-0000-0000-0000-000000000002",
+            "monitoringMetricsPublisherRoleId": "3913510d-42f4-4e42-8a64-420c390055eb"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+              "apiVersion": "2023-01-31",
+              "name": "[format('id-playeronlevel0-{0}', parameters('baseName'))]",
+              "location": "[parameters('location')]"
+            },
+            {
+              "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases",
+              "apiVersion": "2025-04-15",
+              "name": "[format('{0}/{1}', parameters('cosmosAccountName'), 'playersonlevel0')]",
+              "properties": {
+                "resource": {
+                  "id": "playersonlevel0"
+                }
+              }
+            },
+            {
+              "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
+              "apiVersion": "2025-04-15",
+              "name": "[format('{0}/{1}/{2}', parameters('cosmosAccountName'), 'playersonlevel0', 'players')]",
+              "properties": {
+                "resource": {
+                  "id": "players",
+                  "partitionKey": {
+                    "paths": [
+                      "/playerId"
+                    ],
+                    "kind": "Hash",
+                    "version": 2
+                  },
+                  "indexingPolicy": {
+                    "automatic": true,
+                    "indexingMode": "consistent"
+                  }
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', parameters('cosmosAccountName'), 'playersonlevel0')]"
+              ]
+            },
+            {
+              "type": "Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments",
+              "apiVersion": "2025-04-15",
+              "name": "[format('{0}/{1}', parameters('cosmosAccountName'), guid(resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-playeronlevel0-{0}', parameters('baseName'))), variables('cosmosDataContributorRoleId')))]",
+              "properties": {
+                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-playeronlevel0-{0}', parameters('baseName'))), '2023-01-31').principalId]",
+                "roleDefinitionId": "[format('{0}/sqlRoleDefinitions/{1}', resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName')), variables('cosmosDataContributorRoleId'))]",
+                "scope": "[format('{0}/dbs/playersonlevel0', resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName')))]"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-playeronlevel0-{0}', parameters('baseName')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[guid(parameters('appInsightsId'), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-playeronlevel0-{0}', parameters('baseName'))), variables('monitoringMetricsPublisherRoleId'))]",
+              "properties": {
+                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-playeronlevel0-{0}', parameters('baseName'))), '2023-01-31').principalId]",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('monitoringMetricsPublisherRoleId'))]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-playeronlevel0-{0}', parameters('baseName')))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "identityId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-playeronlevel0-{0}', parameters('baseName')))]"
+            },
+            "identityClientId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-playeronlevel0-{0}', parameters('baseName'))), '2023-01-31').clientId]"
+            },
+            "identityPrincipalId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-playeronlevel0-{0}', parameters('baseName'))), '2023-01-31').principalId]"
+            },
+            "databaseName": {
+              "type": "string",
+              "value": "playersonlevel0"
+            },
+            "containerName": {
+              "type": "string",
+              "value": "players"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-global', parameters('baseName'))), 'Microsoft.Resources/deployments', 'deploy-global')]",
         "[subscriptionResourceId('Microsoft.Resources/resourceGroups', format('rg-{0}-global', parameters('baseName')))]"
       ]
     },
@@ -1091,6 +1261,14 @@
         "count": "[length(parameters('regions'))]",
         "input": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-{1}', parameters('baseName'), parameters('regions')[copyIndex()].key)), 'Microsoft.Resources/deployments', format('deploy-region-{0}', parameters('regions')[copyIndex()].key)), '2025-04-01').outputs.aksClusterName.value]"
       }
+    },
+    "playerOnLevel0IdentityClientId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-global', parameters('baseName'))), 'Microsoft.Resources/deployments', 'deploy-app-playeronlevel0'), '2025-04-01').outputs.identityClientId.value]"
+    },
+    "appInsightsConnectionString": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-global', parameters('baseName'))), 'Microsoft.Resources/deployments', 'deploy-global'), '2025-04-01').outputs.appInsightsConnectionString.value]"
     }
   }
 }
