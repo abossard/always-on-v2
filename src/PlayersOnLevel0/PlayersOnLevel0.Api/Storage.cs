@@ -106,7 +106,7 @@ public sealed class CosmosPlayerProgressionStore : IPlayerProgressionStore
     public async Task<SaveResult> SaveProgression(PlayerProgression progression, CancellationToken ct = default)
     {
         var doc = CosmosPlayerDocument.FromDomain(progression);
-        var pk = new PartitionKey(doc.PlayerId);
+        var pk = new PartitionKey(doc.playerId);
 
         try
         {
@@ -121,7 +121,7 @@ public sealed class CosmosPlayerProgressionStore : IPlayerProgressionStore
             {
                 // Update with ETag-based optimistic concurrency
                 var options = new ItemRequestOptions { IfMatchEtag = progression.ETag };
-                var response = await _container.ReplaceItemAsync(doc, doc.Id, pk, options, ct);
+                var response = await _container.ReplaceItemAsync(doc, doc.id, pk, options, ct);
                 var updated = response.Resource.ToDomain(response.ETag);
                 return new SaveResult(SaveOutcome.Success, updated);
             }
@@ -147,65 +147,47 @@ public sealed class CosmosPlayerProgressionStore : IPlayerProgressionStore
 
 internal sealed class CosmosPlayerDocument
 {
-    [JsonPropertyName("id")]
-    public string Id { get; set; } = "";
-
-    [JsonPropertyName("playerId")]
-    public string PlayerId { get; set; } = "";
-
-    [JsonPropertyName("level")]
-    public int Level { get; set; }
-
-    [JsonPropertyName("score")]
-    public long Score { get; set; }
-
-    [JsonPropertyName("achievements")]
-    public List<CosmosAchievementEntry> Achievements { get; set; } = [];
-
-    [JsonPropertyName("createdAt")]
-    public DateTimeOffset CreatedAt { get; set; }
-
-    [JsonPropertyName("updatedAt")]
-    public DateTimeOffset UpdatedAt { get; set; }
+    public string id { get; set; } = "";
+    public string playerId { get; set; } = "";
+    public int level { get; set; }
+    public long score { get; set; }
+    public List<CosmosAchievementEntry> achievements { get; set; } = [];
+    public DateTimeOffset createdAt { get; set; }
+    public DateTimeOffset updatedAt { get; set; }
 
     public PlayerProgression ToDomain(string etag) => new()
     {
-        PlayerId = new PlayerId(Guid.Parse(PlayerId)),
-        Level = new Level(Level),
-        Score = new Score(Score),
-        Achievements = Achievements.Select(a => new Achievement(a.Id, a.Name, a.UnlockedAt)).ToList(),
-        CreatedAt = CreatedAt,
-        UpdatedAt = UpdatedAt,
+        PlayerId = new PlayerId(Guid.Parse(playerId)),
+        Level = new Level(level),
+        Score = new Score(score),
+        Achievements = achievements.Select(a => new Achievement(a.id, a.name, a.unlockedAt)).ToList(),
+        CreatedAt = createdAt,
+        UpdatedAt = updatedAt,
         ETag = etag
     };
 
     public static CosmosPlayerDocument FromDomain(PlayerProgression p) => new()
     {
-        Id = p.PlayerId.Value.ToString(),
-        PlayerId = p.PlayerId.Value.ToString(),
-        Level = p.Level.Value,
-        Score = p.Score.Value,
-        Achievements = p.Achievements.Select(a => new CosmosAchievementEntry
+        id = p.PlayerId.Value.ToString(),
+        playerId = p.PlayerId.Value.ToString(),
+        level = p.Level.Value,
+        score = p.Score.Value,
+        achievements = p.Achievements.Select(a => new CosmosAchievementEntry
         {
-            Id = a.Id,
-            Name = a.Name,
-            UnlockedAt = a.UnlockedAt
+            id = a.Id,
+            name = a.Name,
+            unlockedAt = a.UnlockedAt
         }).ToList(),
-        CreatedAt = p.CreatedAt,
-        UpdatedAt = p.UpdatedAt
+        createdAt = p.CreatedAt,
+        updatedAt = p.UpdatedAt
     };
 }
 
 internal sealed class CosmosAchievementEntry
 {
-    [JsonPropertyName("id")]
-    public string Id { get; set; } = "";
-
-    [JsonPropertyName("name")]
-    public string Name { get; set; } = "";
-
-    [JsonPropertyName("unlockedAt")]
-    public DateTimeOffset UnlockedAt { get; set; }
+    public string id { get; set; } = "";
+    public string name { get; set; } = "";
+    public DateTimeOffset unlockedAt { get; set; }
 }
 
 // ──────────────────────────────────────────────
