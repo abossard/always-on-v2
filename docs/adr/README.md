@@ -32,6 +32,7 @@ This directory contains all Architecture Decision Records (ADRs) for the AlwaysO
 | 0023 | Data Access Patterns         | Proposed |
 | 0024 | Deployment Strategy          | Proposed |
 | 0025 | Rate Limiting                | Proposed |
+| 0026 | PlayersOnLevel0 Lightweight API | Accepted |
 
 ## Format
 

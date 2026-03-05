@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.39.26.7824",
-      "templateHash": "4652294624429814336"
+      "templateHash": "5110201208666237118"
     }
   },
   "parameters": {
@@ -121,7 +121,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.39.26.7824",
-              "templateHash": "4014564711785489862"
+              "templateHash": "14419413648872670549"
             }
           },
           "parameters": {
@@ -411,6 +411,35 @@
               "dependsOn": [
                 "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-lt-{0}', parameters('baseName')))]"
               ]
+            },
+            {
+              "type": "Microsoft.OperationalInsights/workspaces",
+              "apiVersion": "2023-09-01",
+              "name": "[format('law-{0}-global', parameters('baseName'))]",
+              "location": "[parameters('location')]",
+              "properties": {
+                "sku": {
+                  "name": "PerGB2018"
+                },
+                "retentionInDays": 90
+              }
+            },
+            {
+              "type": "Microsoft.Insights/components",
+              "apiVersion": "2020-02-02",
+              "name": "[format('ai-{0}', parameters('baseName'))]",
+              "location": "[parameters('location')]",
+              "kind": "web",
+              "properties": {
+                "Application_Type": "web",
+                "WorkspaceResourceId": "[resourceId('Microsoft.OperationalInsights/workspaces', format('law-{0}-global', parameters('baseName')))]",
+                "DisableLocalAuth": true,
+                "publicNetworkAccessForIngestion": "Enabled",
+                "publicNetworkAccessForQuery": "Enabled"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.OperationalInsights/workspaces', format('law-{0}-global', parameters('baseName')))]"
+              ]
             }
           ],
           "outputs": {
@@ -469,6 +498,14 @@
             "dnsNameServers": {
               "type": "array",
               "value": "[reference(resourceId('Microsoft.Network/dnsZones', parameters('domainName')), '2023-07-01-preview').nameServers]"
+            },
+            "appInsightsConnectionString": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.Insights/components', format('ai-{0}', parameters('baseName'))), '2020-02-02').ConnectionString]"
+            },
+            "appInsightsId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Insights/components', format('ai-{0}', parameters('baseName')))]"
             }
           }
         }

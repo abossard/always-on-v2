@@ -1,0 +1,37 @@
+services:
+  cosmos-emulator:
+    image: mcr.microsoft.com/cosmosdb/linux/azure-cosmos-emulator:latest
+    ports:
+      - "8081:8081"
+      - "10250-10255:10250-10255"
+    environment:
+      - AZURE_COSMOS_EMULATOR_PARTITION_COUNT=5
+      - AZURE_COSMOS_EMULATOR_ENABLE_DATA_PERSISTENCE=true
+      - AZURE_COSMOS_EMULATOR_IP_ADDRESS_OVERRIDE=127.0.0.1
+    volumes:
+      - cosmos-data:/tmp/cosmos/appdata
+    healthcheck:
+      test: ["CMD", "curl", "-fk", "https://localhost:8081/_explorer/emulator.pem"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
+
+  api:
+    build:
+      context: .
+      dockerfile: PlayersOnLevel0.Api/Dockerfile
+    ports:
+      - "5100:8080"
+    environment:
+      - Storage__Provider=CosmosDb
+      - CosmosDb__Endpoint=https://cosmos-emulator:8081
+      - CosmosDb__DatabaseName=playersonlevel0
+      - CosmosDb__ContainerName=players
+      - Auth__Enabled=false
+    depends_on:
+      cosmos-emulator:
+        condition: service_healthy
+
+volumes:
+  cosmos-data:

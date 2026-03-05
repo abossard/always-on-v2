@@ -254,6 +254,36 @@ resource loadTest 'Microsoft.LoadTestService/loadTests@2024-12-01-preview' = {
 }
 
 // ============================================================================
+// Global Log Analytics Workspace (for Application Insights)
+// ============================================================================
+
+resource globalLogAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
+  name: 'law-${baseName}-global'
+  location: location
+  properties: {
+    sku: { name: 'PerGB2018' }
+    retentionInDays: 90
+  }
+}
+
+// ============================================================================
+// Application Insights (global, workspace-based)
+// ============================================================================
+
+resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
+  name: 'ai-${baseName}'
+  location: location
+  kind: 'web'
+  properties: {
+    Application_Type: 'web'
+    WorkspaceResourceId: globalLogAnalytics.id
+    DisableLocalAuth: true
+    publicNetworkAccessForIngestion: 'Enabled'
+    publicNetworkAccessForQuery: 'Enabled'
+  }
+}
+
+// ============================================================================
 // Outputs
 // ============================================================================
 
@@ -271,3 +301,5 @@ output loadTestId string = loadTest.id
 output dnsZoneId string = dnsZone.id
 output dnsZoneName string = dnsZone.name
 output dnsNameServers array = dnsZone.properties.nameServers
+output appInsightsConnectionString string = appInsights.properties.ConnectionString
+output appInsightsId string = appInsights.id

@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="PlayersOnLevel0.Api/PlayersOnLevel0.Api.csproj" />
+  <Project Path="PlayersOnLevel0.ServiceDefaults/PlayersOnLevel0.ServiceDefaults.csproj" />
+  <Project Path="PlayersOnLevel0.AppHost/PlayersOnLevel0.AppHost.csproj" />
+  <Project Path="PlayersOnLevel0.Tests/PlayersOnLevel0.Tests.csproj" />
+</Solution>
