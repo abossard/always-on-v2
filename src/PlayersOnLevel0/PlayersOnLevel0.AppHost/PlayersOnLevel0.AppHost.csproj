@@ -14,7 +14,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\PlayersOnLevel0.Api\PlayersOnLevel0.Api.csproj" />
+    <ProjectReference Include="..\PlayersOnLevel0.Api\PlayersOnLevel0.Api.csproj"
+                      IsAspireProjectResource="true" />
   </ItemGroup>
 
 </Project>

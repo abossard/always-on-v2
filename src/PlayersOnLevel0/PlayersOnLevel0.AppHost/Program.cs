@@ -8,7 +8,7 @@ var cosmos = builder.AddAzureCosmosDB("cosmos")
 
 var db = cosmos.AddCosmosDatabase("playersonlevel0");
 
-var api = builder.AddProject("api", "../PlayersOnLevel0.Api/PlayersOnLevel0.Api.csproj")
+var api = builder.AddProject<Projects.PlayersOnLevel0_Api>("api")
     .WithReference(db)
     .WaitFor(cosmos)
     .WithEnvironment("Storage__Provider", "CosmosDb")

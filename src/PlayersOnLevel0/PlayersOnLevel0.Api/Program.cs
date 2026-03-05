@@ -22,5 +22,7 @@ app.MapPlayerEndpoints();
 
 app.Run();
 
-// Expose for WebApplicationFactory in tests
-public partial class Program;
+namespace PlayersOnLevel0.Api
+{
+    public partial class Program;
+}

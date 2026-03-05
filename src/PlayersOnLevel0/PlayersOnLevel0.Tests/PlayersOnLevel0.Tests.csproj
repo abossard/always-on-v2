@@ -11,11 +11,12 @@
   <ItemGroup>
     <PackageReference Include="TUnit" />
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" />
-    <PackageReference Include="Microsoft.Azure.Cosmos" />
+    <PackageReference Include="Aspire.Hosting.Testing" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\PlayersOnLevel0.Api\PlayersOnLevel0.Api.csproj" />
+    <ProjectReference Include="..\PlayersOnLevel0.AppHost\PlayersOnLevel0.AppHost.csproj" />
   </ItemGroup>
 
 </Project>
