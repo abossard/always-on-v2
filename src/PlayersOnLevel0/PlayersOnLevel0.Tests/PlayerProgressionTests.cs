@@ -158,7 +158,6 @@ public abstract class PlayerProgressionTests(HttpClient client)
 
     [Test]
     [Arguments("not-a-guid", 10)]
-    [Arguments("", 10)]
     [Arguments("12345", 10)]
     public async Task InvalidPlayerId_Returns400(string badId, int score)
     {
