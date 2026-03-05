@@ -3,3 +3,9 @@ infra:
   provider: bicep
   path: ./infra
   module: main
+  deploymentStacks:
+    actionOnUnmanage:
+      resources: detach
+      resourceGroups: detach
+    denySettings:
+      mode: none

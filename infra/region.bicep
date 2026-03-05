@@ -11,33 +11,42 @@ param regionKey string
 @description('Region configuration object. Must contain "location".')
 param regionConfig object
 
-@description('Name of the global resource group.')
-param globalResourceGroupName string
-
-@description('ACR resource ID (for role assignment).')
-param acrId string
-
-@description('Fleet Manager name in the global resource group.')
-param fleetName string
-
 // ============================================================================
 // Derived Values
 // ============================================================================
 
 var location = regionConfig.location
-var aksVmSize = contains(regionConfig, 'aksNodeVmSize') ? regionConfig.aksNodeVmSize : 'Standard_D2s_v3'
-var aksSystemNodeCount = contains(regionConfig, 'aksSystemNodeCount')
-  ? regionConfig.aksSystemNodeCount
-  : 1
-var acrName = last(split(acrId, '/'))
+var aksVmSize = regionConfig.?aksNodeVmSize ?? 'Standard_D2s_v3'
+var aksSystemNodeCount = regionConfig.?aksSystemNodeCount ?? 1
 
 // ============================================================================
 // Kubelet Identity (User Assigned)
 // ============================================================================
 
+resource clusterIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: 'id-aks-${baseName}-${regionKey}'
+  location: location
+}
+
 resource kubeletIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: 'id-kubelet-${baseName}-${regionKey}'
   location: location
+}
+
+// Cluster identity must be "Managed Identity Operator" on kubelet identity
+var managedIdentityOperatorRoleId = 'f1a07417-d97a-45cb-824c-7a7467783830'
+
+resource clusterToKubeletRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(clusterIdentity.id, kubeletIdentity.id, managedIdentityOperatorRoleId)
+  scope: kubeletIdentity
+  properties: {
+    principalId: clusterIdentity.properties.principalId
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      managedIdentityOperatorRoleId
+    )
+    principalType: 'ServicePrincipal'
+  }
 }
 
 // ============================================================================
@@ -109,13 +118,19 @@ resource prometheusDcr 'Microsoft.Insights/dataCollectionRules@2023-03-11' = {
 resource aksCluster 'Microsoft.ContainerService/managedClusters@2025-10-01' = {
   name: 'aks-${baseName}-${regionKey}'
   location: location
-  identity: { type: 'SystemAssigned' }
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${clusterIdentity.id}': {}
+    }
+  }
   sku: {
     name: 'Base'
     tier: 'Free'
   }
   properties: {
     dnsPrefix: 'aks-${baseName}-${regionKey}'
+    nodeResourceGroup: 'rg-${baseName}-${regionKey}-nodes'
     enableRBAC: true
     disableLocalAccounts: true
 
@@ -205,45 +220,9 @@ resource prometheusDcra 'Microsoft.Insights/dataCollectionRuleAssociations@2022-
 }
 
 // ============================================================================
-// ACR Pull Role Assignment for Kubelet Identity
+// ACR Pull Role + Fleet Membership are wired in deploy.sh (cross-RG scope).
+// See deploy.sh Step 4 for: az fleet member create / az role assignment create
 // ============================================================================
-
-var acrPullRoleId = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
-
-resource existingAcr 'Microsoft.ContainerRegistry/registries@2025-11-01' existing = {
-  name: acrName
-  scope: resourceGroup(globalResourceGroupName)
-}
-
-resource acrPullAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(acrId, kubeletIdentity.id, acrPullRoleId)
-  scope: existingAcr
-  properties: {
-    principalId: kubeletIdentity.properties.principalId
-    roleDefinitionId: subscriptionResourceId(
-      'Microsoft.Authorization/roleDefinitions',
-      acrPullRoleId
-    )
-    principalType: 'ServicePrincipal'
-  }
-}
-
-// ============================================================================
-// Fleet Membership (joins regional AKS to global Fleet)
-// ============================================================================
-
-resource existingFleet 'Microsoft.ContainerService/fleets@2025-03-01' existing = {
-  name: fleetName
-  scope: resourceGroup(globalResourceGroupName)
-}
-
-resource fleetMember 'Microsoft.ContainerService/fleets/members@2025-03-01' = {
-  parent: existingFleet
-  name: '${regionKey}-member'
-  properties: {
-    clusterResourceId: aksCluster.id
-  }
-}
 
 // ============================================================================
 // Chaos Studio Preparation (Targets + Capabilities on AKS)
@@ -258,19 +237,16 @@ resource chaosTarget 'Microsoft.Chaos/targets@2024-01-01' = {
 resource chaosPodChaos 'Microsoft.Chaos/targets/capabilities@2024-01-01' = {
   parent: chaosTarget
   name: 'PodChaos-2.2'
-  properties: {}
 }
 
 resource chaosNetworkChaos 'Microsoft.Chaos/targets/capabilities@2024-01-01' = {
   parent: chaosTarget
   name: 'NetworkChaos-2.2'
-  properties: {}
 }
 
 resource chaosStressChaos 'Microsoft.Chaos/targets/capabilities@2024-01-01' = {
   parent: chaosTarget
   name: 'StressChaos-2.2'
-  properties: {}
 }
 
 // ============================================================================
@@ -279,6 +255,7 @@ resource chaosStressChaos 'Microsoft.Chaos/targets/capabilities@2024-01-01' = {
 
 output aksClusterId string = aksCluster.id
 output aksClusterName string = aksCluster.name
-output kubeletIdentityId string = kubeletIdentity.id
+output kubeletIdentityClientId string = kubeletIdentity.properties.clientId
+output kubeletIdentityPrincipalId string = kubeletIdentity.properties.principalId
 output logAnalyticsWorkspaceId string = logAnalytics.id
 output monitorWorkspaceId string = monitorWorkspace.id

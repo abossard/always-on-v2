@@ -17,8 +17,6 @@ This is a pre-defined decision for the AlwaysOn v2 learning framework.
 ## Alternatives Considered
 
 - **Azure Container Apps** – Simpler to operate but less control over networking, scaling policies, and Orleans silo membership. Limited multi-region active-active support compared to AKS.
-- **Azure App Service** – Managed platform but insufficient control over pod placement, custom networking, and cluster-level configuration needed for Orleans.
-- **Azure Functions** – Serverless model conflicts with Orleans' long-running stateful silo architecture. Cold-start latency is incompatible with P99 < 200ms requirement.
 
 ## Consequences
 

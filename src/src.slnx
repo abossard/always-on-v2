@@ -4,4 +4,10 @@
   <Project Path="AlwaysOn.Grains/AlwaysOn.Grains.csproj" />
   <Project Path="AlwaysOn.Host.Console/AlwaysOn.Host.Console.csproj" />
   <Project Path="AlwaysOn.Silo.Host.Console/AlwaysOn.Silo.Host.Console.csproj" />
+  <Folder Name="/Orthereum/">
+    <Project Path="Orthereum/Orthereum.Abstractions/Orthereum.Abstractions.csproj" />
+    <Project Path="Orthereum/Orthereum.Grains/Orthereum.Grains.csproj" />
+    <Project Path="Orthereum/Orthereum.Host/Orthereum.Host.csproj" />
+    <Project Path="Orthereum/Orthereum.Tests/Orthereum.Tests.csproj" />
+  </Folder>
 </Solution>

@@ -10,7 +10,7 @@ A programming language must be chosen for the Player Progression API. The choice
 
 ## Decision
 
-Use **C# on .NET 9** as the programming language and runtime.
+Use **C# on .NET 10** as the programming language and runtime.
 
 ## Alternatives Considered
 
@@ -20,12 +20,11 @@ Use **C# on .NET 9** as the programming language and runtime.
 ## Consequences
 
 - **Positive**: Orleans is a native .NET framework; first-class support, documentation, and NuGet packages.
-- **Positive**: .NET 9 offers AOT compilation, improved GC, and performance optimizations relevant for low-latency scenarios.
+- **Positive**: .NET 10 offers AOT compilation, improved GC, and performance optimizations relevant for low-latency scenarios.
 - **Positive**: Strong Azure SDK support; Application Insights integration out-of-the-box.
 - **Positive**: Mature ecosystem for testing (xUnit, NSubstitute), containerization, and Kubernetes tooling.
-- **Negative**: Team members not familiar with C# will need ramp-up time.
 
 ## References
 
-- [.NET 9 What's New](https://learn.microsoft.com/dotnet/core/whats-new/dotnet-9)
+- [.NET 10 What's New](https://learn.microsoft.com/dotnet/core/whats-new/dotnet-10)
 - [Orleans .NET Documentation](https://learn.microsoft.com/dotnet/orleans/)

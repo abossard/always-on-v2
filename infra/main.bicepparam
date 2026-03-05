@@ -5,11 +5,7 @@ param globalLocation = 'swedencentral'
 param acrSku = 'Premium'
 param cosmosAutoscaleMaxThroughput = 1000
 
-param regions = {
-  swedencentral: {
-    location: 'swedencentral'
-  }
-  germanywestcentral: {
-    location: 'germanywestcentral'
-  }
-}
+param regions = [
+  { key: 'swedencentral', location: 'swedencentral' }
+  { key: 'germanywestcentral', location: 'germanywestcentral' }
+]

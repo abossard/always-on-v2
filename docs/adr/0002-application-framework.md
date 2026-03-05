@@ -23,9 +23,7 @@ This is a pre-defined decision for the AlwaysOn v2 learning framework.
 ## Alternatives Considered
 
 - **Plain ASP.NET Core + distributed locks** – Requires manual concurrency control (Redis locks, optimistic concurrency); error-prone at scale; no actor lifecycle management.
-- **Akka.NET** – Mature actor framework but smaller Azure ecosystem integration; no native Kubernetes hosting package; smaller community.
 - **Dapr Actors** – Built on Orleans concepts but adds a sidecar dependency; less direct control over grain placement and persistence configuration.
-- **Service Fabric Reliable Actors** – Tightly coupled to Service Fabric runtime; not Kubernetes-native.
 
 ## Consequences
 

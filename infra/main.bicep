@@ -6,11 +6,11 @@ targetScope = 'subscription'
 
 @minLength(3)
 @maxLength(12)
-@description('Base name used to derive all resource names.')
+@description('Base name used to derive all resource names. Maps to AZURE_ENV_NAME.')
 param baseName string
 
-@description('Primary location for global resources.')
-param globalLocation string = 'swedencentral'
+@description('Primary location for global resources. Maps to AZURE_LOCATION.')
+param globalLocation string
 
 @description('SKU for Azure Container Registry. Premium required for geo-replication.')
 @allowed([
@@ -24,8 +24,11 @@ param acrSku string = 'Premium'
 @minValue(1000)
 param cosmosAutoscaleMaxThroughput int = 1000
 
-@description('Region configurations keyed by region short name. Each value must contain a location property.')
-param regions object
+@description('Region configurations as an array of objects with location and optional overrides.')
+param regions array = [
+  { key: 'swedencentral', location: 'swedencentral' }
+  { key: 'germanywestcentral', location: 'germanywestcentral' }
+]
 
 // ============================================================================
 // Resource Groups
@@ -37,9 +40,9 @@ resource globalRg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
 }
 
 resource regionalRgs 'Microsoft.Resources/resourceGroups@2024-03-01' = [
-  for region in items(regions): {
+  for region in regions: {
     name: 'rg-${baseName}-${region.key}'
-    location: region.value.location
+    location: region.location
   }
 ]
 
@@ -64,16 +67,31 @@ module global 'global.bicep' = {
 // ============================================================================
 
 module regional 'region.bicep' = [
-  for (region, i) in items(regions): {
+  for (region, i) in regions: {
     name: 'deploy-region-${region.key}'
     scope: regionalRgs[i]
     params: {
       baseName: baseName
       regionKey: region.key
-      regionConfig: region.value
-      globalResourceGroupName: globalRg.name
-      acrId: global.outputs.acrId
+      regionConfig: region
+    }
+  }
+]
+
+// ============================================================================
+// Cross-RG Wiring (fleet members + ACR pull roles, one per region)
+// ============================================================================
+
+module wiring 'wiring.bicep' = [
+  for (region, i) in regions: {
+    name: 'deploy-wiring-${region.key}'
+    scope: globalRg
+    params: {
       fleetName: global.outputs.fleetName
+      acrName: global.outputs.acrName
+      regionKey: region.key
+      aksClusterId: regional[i].outputs.aksClusterId
+      kubeletPrincipalId: regional[i].outputs.kubeletIdentityPrincipalId
     }
   }
 ]
@@ -83,9 +101,11 @@ module regional 'region.bicep' = [
 // ============================================================================
 
 output globalResourceGroupName string = globalRg.name
+output acrId string = global.outputs.acrId
 output acrLoginServer string = global.outputs.acrLoginServer
 output cosmosEndpoint string = global.outputs.cosmosEndpoint
+output fleetName string = global.outputs.fleetName
 output frontDoorEndpointHostName string = global.outputs.fdEndpointHostName
 output aksClusterNames array = [
-  for (region, i) in items(regions): regional[i].outputs.aksClusterName
+  for (region, i) in regions: regional[i].outputs.aksClusterName
 ]

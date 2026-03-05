@@ -14,8 +14,8 @@ param acrSku string
 @description('Cosmos DB autoscale max throughput (RU/s).')
 param cosmosAutoscaleMaxThroughput int
 
-@description('Region configurations.')
-param regions object
+@description('Region configurations array.')
+param regions array
 
 // ============================================================================
 // Azure Container Registry
@@ -36,10 +36,10 @@ resource acr 'Microsoft.ContainerRegistry/registries@2025-11-01' = {
 }
 
 resource acrReplications 'Microsoft.ContainerRegistry/registries/replications@2025-11-01' = [
-  for region in items(regions): if (region.value.location != location) {
+  for region in regions: if (region.location != location) {
     parent: acr
-    name: region.value.location
-    location: region.value.location
+    name: region.location
+    location: region.location
     properties: {}
   }
 ]
@@ -61,8 +61,8 @@ resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2025-04-15' = {
     enableMultipleWriteLocations: true
     disableLocalAuth: true
     locations: [
-      for (region, i) in items(regions): {
-        locationName: region.value.location
+      for (region, i) in regions: {
+        locationName: region.location
         failoverPriority: i
         isZoneRedundant: false
       }
@@ -138,26 +138,9 @@ resource fdOriginGroup 'Microsoft.Cdn/profiles/originGroups@2025-04-15' = {
   }
 }
 
-// Front Door origins are added post-deployment once AKS ingress endpoints are available.
+// Front Door route + origins are added once AKS ingress endpoints are known.
 // Use: az afd origin create --profile-name ${fdName} --origin-group-name og-default ...
-resource fdRoute 'Microsoft.Cdn/profiles/afdEndpoints/routes@2025-04-15' = {
-  parent: fdEndpoint
-  name: 'rt-default'
-  properties: {
-    originGroup: {
-      id: fdOriginGroup.id
-    }
-    supportedProtocols: [
-      'Https'
-    ]
-    patternsToMatch: [
-      '/*'
-    ]
-    forwardingProtocol: 'HttpsOnly'
-    httpsRedirect: 'Enabled'
-    linkToDefaultDomain: 'Enabled'
-  }
-}
+// Then: az afd route create --profile-name ${fdName} --endpoint-name ep-${baseName} ...
 
 // ============================================================================
 // Azure Kubernetes Fleet Manager (Hubless — Minimal Cost)
