@@ -1,5 +1,5 @@
 // ============================================================================
-// Cross-RG Wiring — fleet membership + ACR pull role for a single region
+// Cross-RG Wiring — fleet membership + ACR pull + DNS delegation
 // Deployed to the global resource group, one instance per region.
 // ============================================================================
 
@@ -17,6 +17,12 @@ param aksClusterId string
 
 @description('Kubelet identity principal ID.')
 param kubeletPrincipalId string
+
+@description('Parent DNS zone name.')
+param parentDnsZoneName string
+
+@description('Child DNS zone nameservers (for NS delegation).')
+param childDnsNameServers array
 
 // ============================================================================
 // Fleet Membership
@@ -54,5 +60,26 @@ resource acrPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
       acrPullRoleId
     )
     principalType: 'ServicePrincipal'
+  }
+}
+
+// ============================================================================
+// NS Delegation in parent DNS zone (alwayson.actor → {regionKey}.alwayson.actor)
+// ============================================================================
+
+resource parentDnsZone 'Microsoft.Network/dnsZones@2023-07-01-preview' existing = {
+  name: parentDnsZoneName
+}
+
+resource nsDelegation 'Microsoft.Network/dnsZones/NS@2023-07-01-preview' = {
+  parent: parentDnsZone
+  name: regionKey
+  properties: {
+    TTL: 3600
+    NSRecords: [
+      for ns in childDnsNameServers: {
+        nsdname: ns
+      }
+    ]
   }
 }

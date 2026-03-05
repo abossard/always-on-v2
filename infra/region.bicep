@@ -11,6 +11,9 @@ param regionKey string
 @description('Region configuration object. Must contain "location".')
 param regionConfig object
 
+@description('Domain name for the parent DNS zone (e.g. alwayson.actor).')
+param domainName string
+
 // ============================================================================
 // Derived Values
 // ============================================================================
@@ -69,6 +72,52 @@ resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
 resource monitorWorkspace 'Microsoft.Monitor/accounts@2023-04-03' = {
   name: 'amw-${baseName}-${regionKey}'
   location: location
+}
+
+// ============================================================================
+// Regional DNS Zone (child of parent zone: {regionKey}.alwayson.actor)
+// ============================================================================
+
+resource childDnsZone 'Microsoft.Network/dnsZones@2023-07-01-preview' = {
+  name: '${regionKey}.${domainName}'
+  location: 'global'
+}
+
+// ============================================================================
+// cert-manager Identity (per-region, for DNS-01 challenge)
+// ============================================================================
+
+resource certManagerIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: 'id-certmanager-${baseName}-${regionKey}'
+  location: location
+}
+
+var dnsZoneContributorRoleId = 'befefa01-2a29-4197-83a8-272ff33ce314'
+
+resource certManagerDnsRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(certManagerIdentity.id, childDnsZone.id, dnsZoneContributorRoleId)
+  scope: childDnsZone
+  properties: {
+    principalId: certManagerIdentity.properties.principalId
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      dnsZoneContributorRoleId
+    )
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Federated credential: AKS OIDC → cert-manager service account
+resource certManagerFederatedCred 'Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials@2023-01-31' = {
+  parent: certManagerIdentity
+  name: 'fed-certmanager-${regionKey}'
+  properties: {
+    issuer: aksCluster.properties.oidcIssuerProfile.issuerURL
+    subject: 'system:serviceaccount:cert-manager:cert-manager'
+    audiences: [
+      'api://AzureADTokenExchange'
+    ]
+  }
 }
 
 // ============================================================================
@@ -133,6 +182,16 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2025-10-01' = {
     nodeResourceGroup: 'rg-${baseName}-${regionKey}-nodes'
     enableRBAC: true
     disableLocalAccounts: true
+
+    oidcIssuerProfile: {
+      enabled: true
+    }
+
+    securityProfile: {
+      workloadIdentity: {
+        enabled: true
+      }
+    }
 
     aadProfile: {
       managed: true
@@ -255,7 +314,11 @@ resource chaosStressChaos 'Microsoft.Chaos/targets/capabilities@2024-01-01' = {
 
 output aksClusterId string = aksCluster.id
 output aksClusterName string = aksCluster.name
+output aksOidcIssuerUrl string = aksCluster.properties.oidcIssuerProfile.issuerURL
 output kubeletIdentityClientId string = kubeletIdentity.properties.clientId
 output kubeletIdentityPrincipalId string = kubeletIdentity.properties.principalId
 output logAnalyticsWorkspaceId string = logAnalytics.id
 output monitorWorkspaceId string = monitorWorkspace.id
+output childDnsZoneName string = childDnsZone.name
+output childDnsNameServers array = childDnsZone.properties.nameServers
+output certManagerIdentityClientId string = certManagerIdentity.properties.clientId

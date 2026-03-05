@@ -24,6 +24,9 @@ param acrSku string = 'Premium'
 @minValue(1000)
 param cosmosAutoscaleMaxThroughput int = 1000
 
+@description('Domain name for Azure DNS zone (e.g. alwayson.actor).')
+param domainName string = 'alwayson.actor'
+
 @description('Region configurations as an array of objects with location and optional overrides.')
 param regions array = [
   { key: 'swedencentral', location: 'swedencentral' }
@@ -58,6 +61,7 @@ module global 'global.bicep' = {
     location: globalLocation
     acrSku: acrSku
     cosmosAutoscaleMaxThroughput: cosmosAutoscaleMaxThroughput
+    domainName: domainName
     regions: regions
   }
 }
@@ -74,6 +78,7 @@ module regional 'region.bicep' = [
       baseName: baseName
       regionKey: region.key
       regionConfig: region
+      domainName: domainName
     }
   }
 ]
@@ -92,6 +97,8 @@ module wiring 'wiring.bicep' = [
       regionKey: region.key
       aksClusterId: regional[i].outputs.aksClusterId
       kubeletPrincipalId: regional[i].outputs.kubeletIdentityPrincipalId
+      parentDnsZoneName: domainName
+      childDnsNameServers: regional[i].outputs.childDnsNameServers
     }
   }
 ]
@@ -106,6 +113,8 @@ output acrLoginServer string = global.outputs.acrLoginServer
 output cosmosEndpoint string = global.outputs.cosmosEndpoint
 output fleetName string = global.outputs.fleetName
 output frontDoorEndpointHostName string = global.outputs.fdEndpointHostName
+output dnsNameServers array = global.outputs.dnsNameServers
+output dnsZoneName string = domainName
 output aksClusterNames array = [
   for (region, i) in regions: regional[i].outputs.aksClusterName
 ]

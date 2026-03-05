@@ -10,4 +10,10 @@
     <Project Path="Orthereum/Orthereum.Host/Orthereum.Host.csproj" />
     <Project Path="Orthereum/Orthereum.Tests/Orthereum.Tests.csproj" />
   </Folder>
+  <Folder Name="/PlayersOn/">
+    <Project Path="PlayersOn/PlayersOn.Abstractions/PlayersOn.Abstractions.csproj" />
+    <Project Path="PlayersOn/PlayersOn.Grains/PlayersOn.Grains.csproj" />
+    <Project Path="PlayersOn/PlayersOn.Host/PlayersOn.Host.csproj" />
+    <Project Path="PlayersOn/PlayersOn.Tests/PlayersOn.Tests.csproj" />
+  </Folder>
 </Solution>

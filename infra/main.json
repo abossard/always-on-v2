@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.39.26.7824",
-      "templateHash": "1838839219891176251"
+      "templateHash": "4652294624429814336"
     }
   },
   "parameters": {
@@ -41,6 +41,13 @@
       "minValue": 1000,
       "metadata": {
         "description": "Cosmos DB autoscale max throughput (RU/s) at database level. Minimum 1000."
+      }
+    },
+    "domainName": {
+      "type": "string",
+      "defaultValue": "alwayson.actor",
+      "metadata": {
+        "description": "Domain name for Azure DNS zone (e.g. alwayson.actor)."
       }
     },
     "regions": {
@@ -100,6 +107,9 @@
           "cosmosAutoscaleMaxThroughput": {
             "value": "[parameters('cosmosAutoscaleMaxThroughput')]"
           },
+          "domainName": {
+            "value": "[parameters('domainName')]"
+          },
           "regions": {
             "value": "[parameters('regions')]"
           }
@@ -111,7 +121,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.39.26.7824",
-              "templateHash": "8477571854414902924"
+              "templateHash": "4014564711785489862"
             }
           },
           "parameters": {
@@ -139,6 +149,12 @@
                 "description": "Cosmos DB autoscale max throughput (RU/s)."
               }
             },
+            "domainName": {
+              "type": "string",
+              "metadata": {
+                "description": "Domain name for Azure DNS zone."
+              }
+            },
             "regions": {
               "type": "array",
               "metadata": {
@@ -154,6 +170,30 @@
           },
           "resources": [
             {
+              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+              "apiVersion": "2023-01-31",
+              "name": "[format('id-acr-{0}', parameters('baseName'))]",
+              "location": "[parameters('location')]"
+            },
+            {
+              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+              "apiVersion": "2023-01-31",
+              "name": "[format('id-cosmos-{0}', parameters('baseName'))]",
+              "location": "[parameters('location')]"
+            },
+            {
+              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+              "apiVersion": "2023-01-31",
+              "name": "[format('id-fd-{0}', parameters('baseName'))]",
+              "location": "[parameters('location')]"
+            },
+            {
+              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+              "apiVersion": "2023-01-31",
+              "name": "[format('id-lt-{0}', parameters('baseName'))]",
+              "location": "[parameters('location')]"
+            },
+            {
               "type": "Microsoft.ContainerRegistry/registries",
               "apiVersion": "2025-11-01",
               "name": "[variables('acrName')]",
@@ -162,13 +202,19 @@
                 "name": "[parameters('acrSku')]"
               },
               "identity": {
-                "type": "SystemAssigned"
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-acr-{0}', parameters('baseName'))))]": {}
+                }
               },
               "properties": {
                 "adminUserEnabled": false,
                 "publicNetworkAccess": "Enabled",
                 "dataEndpointEnabled": true
-              }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-acr-{0}', parameters('baseName')))]"
+              ]
             },
             {
               "copy": {
@@ -192,7 +238,10 @@
               "location": "[parameters('location')]",
               "kind": "GlobalDocumentDB",
               "identity": {
-                "type": "SystemAssigned"
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-cosmos-{0}', parameters('baseName'))))]": {}
+                }
               },
               "properties": {
                 "copy": [
@@ -219,7 +268,10 @@
                     "tier": "Continuous7Days"
                   }
                 }
-              }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-cosmos-{0}', parameters('baseName')))]"
+              ]
             },
             {
               "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases",
@@ -248,11 +300,17 @@
                 "name": "Standard_AzureFrontDoor"
               },
               "identity": {
-                "type": "SystemAssigned"
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-fd-{0}', parameters('baseName'))))]": {}
+                }
               },
               "properties": {
                 "originResponseTimeoutSeconds": 60
-              }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-fd-{0}', parameters('baseName')))]"
+              ]
             },
             {
               "type": "Microsoft.Cdn/profiles/afdEndpoints",
@@ -288,11 +346,55 @@
               ]
             },
             {
+              "type": "Microsoft.Cdn/profiles/customDomains",
+              "apiVersion": "2025-04-15",
+              "name": "[format('{0}/{1}', variables('fdName'), replace(parameters('domainName'), '.', '-'))]",
+              "properties": {
+                "hostName": "[parameters('domainName')]",
+                "tlsSettings": {
+                  "certificateType": "ManagedCertificate",
+                  "minimumTlsVersion": "TLS12"
+                },
+                "azureDnsZone": {
+                  "id": "[resourceId('Microsoft.Network/dnsZones', parameters('domainName'))]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/dnsZones', parameters('domainName'))]",
+                "[resourceId('Microsoft.Cdn/profiles', variables('fdName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Network/dnsZones",
+              "apiVersion": "2023-07-01-preview",
+              "name": "[parameters('domainName')]",
+              "location": "global"
+            },
+            {
+              "type": "Microsoft.Network/dnsZones/A",
+              "apiVersion": "2023-07-01-preview",
+              "name": "[format('{0}/{1}', parameters('domainName'), '@')]",
+              "properties": {
+                "TTL": 300,
+                "targetResource": {
+                  "id": "[resourceId('Microsoft.Cdn/profiles/afdEndpoints', variables('fdName'), format('ep-{0}', parameters('baseName')))]"
+                }
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Network/dnsZones', parameters('domainName'))]",
+                "[resourceId('Microsoft.Cdn/profiles/afdEndpoints', variables('fdName'), format('ep-{0}', parameters('baseName')))]"
+              ]
+            },
+            {
               "type": "Microsoft.ContainerService/fleets",
               "apiVersion": "2025-03-01",
               "name": "[variables('fleetName')]",
               "location": "[parameters('location')]",
-              "properties": {}
+              "properties": {
+                "hubProfile": {
+                  "dnsPrefix": "[format('fleet-{0}', parameters('baseName'))]"
+                }
+              }
             },
             {
               "type": "Microsoft.LoadTestService/loadTests",
@@ -300,9 +402,15 @@
               "name": "[format('lt-{0}', parameters('baseName'))]",
               "location": "[parameters('location')]",
               "identity": {
-                "type": "SystemAssigned"
+                "type": "UserAssigned",
+                "userAssignedIdentities": {
+                  "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-lt-{0}', parameters('baseName'))))]": {}
+                }
               },
-              "properties": {}
+              "properties": {},
+              "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-lt-{0}', parameters('baseName')))]"
+              ]
             }
           ],
           "outputs": {
@@ -349,6 +457,18 @@
             "loadTestId": {
               "type": "string",
               "value": "[resourceId('Microsoft.LoadTestService/loadTests', format('lt-{0}', parameters('baseName')))]"
+            },
+            "dnsZoneId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Network/dnsZones', parameters('domainName'))]"
+            },
+            "dnsZoneName": {
+              "type": "string",
+              "value": "[parameters('domainName')]"
+            },
+            "dnsNameServers": {
+              "type": "array",
+              "value": "[reference(resourceId('Microsoft.Network/dnsZones', parameters('domainName')), '2023-07-01-preview').nameServers]"
             }
           }
         }
@@ -380,6 +500,9 @@
           },
           "regionConfig": {
             "value": "[parameters('regions')[copyIndex()]]"
+          },
+          "domainName": {
+            "value": "[parameters('domainName')]"
           }
         },
         "template": {
@@ -389,7 +512,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.39.26.7824",
-              "templateHash": "12122958196454587159"
+              "templateHash": "8486464579759781504"
             }
           },
           "parameters": {
@@ -410,13 +533,20 @@
               "metadata": {
                 "description": "Region configuration object. Must contain \"location\"."
               }
+            },
+            "domainName": {
+              "type": "string",
+              "metadata": {
+                "description": "Domain name for the parent DNS zone (e.g. alwayson.actor)."
+              }
             }
           },
           "variables": {
             "location": "[parameters('regionConfig').location]",
             "aksVmSize": "[coalesce(tryGet(parameters('regionConfig'), 'aksNodeVmSize'), 'Standard_D2s_v3')]",
             "aksSystemNodeCount": "[coalesce(tryGet(parameters('regionConfig'), 'aksSystemNodeCount'), 1)]",
-            "managedIdentityOperatorRoleId": "f1a07417-d97a-45cb-824c-7a7467783830"
+            "managedIdentityOperatorRoleId": "f1a07417-d97a-45cb-824c-7a7467783830",
+            "dnsZoneContributorRoleId": "befefa01-2a29-4197-83a8-272ff33ce314"
           },
           "resources": [
             {
@@ -463,6 +593,49 @@
               "apiVersion": "2023-04-03",
               "name": "[format('amw-{0}-{1}', parameters('baseName'), parameters('regionKey'))]",
               "location": "[variables('location')]"
+            },
+            {
+              "type": "Microsoft.Network/dnsZones",
+              "apiVersion": "2023-07-01-preview",
+              "name": "[format('{0}.{1}', parameters('regionKey'), parameters('domainName'))]",
+              "location": "global"
+            },
+            {
+              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+              "apiVersion": "2023-01-31",
+              "name": "[format('id-certmanager-{0}-{1}', parameters('baseName'), parameters('regionKey'))]",
+              "location": "[variables('location')]"
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[format('Microsoft.Network/dnsZones/{0}', format('{0}.{1}', parameters('regionKey'), parameters('domainName')))]",
+              "name": "[guid(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-certmanager-{0}-{1}', parameters('baseName'), parameters('regionKey'))), resourceId('Microsoft.Network/dnsZones', format('{0}.{1}', parameters('regionKey'), parameters('domainName'))), variables('dnsZoneContributorRoleId'))]",
+              "properties": {
+                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-certmanager-{0}-{1}', parameters('baseName'), parameters('regionKey'))), '2023-01-31').principalId]",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('dnsZoneContributorRoleId'))]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-certmanager-{0}-{1}', parameters('baseName'), parameters('regionKey')))]",
+                "[resourceId('Microsoft.Network/dnsZones', format('{0}.{1}', parameters('regionKey'), parameters('domainName')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials",
+              "apiVersion": "2023-01-31",
+              "name": "[format('{0}/{1}', format('id-certmanager-{0}-{1}', parameters('baseName'), parameters('regionKey')), format('fed-certmanager-{0}', parameters('regionKey')))]",
+              "properties": {
+                "issuer": "[reference(resourceId('Microsoft.ContainerService/managedClusters', format('aks-{0}-{1}', parameters('baseName'), parameters('regionKey'))), '2025-10-01').oidcIssuerProfile.issuerURL]",
+                "subject": "system:serviceaccount:cert-manager:cert-manager",
+                "audiences": [
+                  "api://AzureADTokenExchange"
+                ]
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ContainerService/managedClusters', format('aks-{0}-{1}', parameters('baseName'), parameters('regionKey')))]",
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-certmanager-{0}-{1}', parameters('baseName'), parameters('regionKey')))]"
+              ]
             },
             {
               "type": "Microsoft.Insights/dataCollectionRules",
@@ -524,6 +697,14 @@
                 "nodeResourceGroup": "[format('rg-{0}-{1}-nodes', parameters('baseName'), parameters('regionKey'))]",
                 "enableRBAC": true,
                 "disableLocalAccounts": true,
+                "oidcIssuerProfile": {
+                  "enabled": true
+                },
+                "securityProfile": {
+                  "workloadIdentity": {
+                    "enabled": true
+                  }
+                },
                 "aadProfile": {
                   "managed": true,
                   "enableAzureRBAC": true
@@ -652,6 +833,10 @@
               "type": "string",
               "value": "[format('aks-{0}-{1}', parameters('baseName'), parameters('regionKey'))]"
             },
+            "aksOidcIssuerUrl": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ContainerService/managedClusters', format('aks-{0}-{1}', parameters('baseName'), parameters('regionKey'))), '2025-10-01').oidcIssuerProfile.issuerURL]"
+            },
             "kubeletIdentityClientId": {
               "type": "string",
               "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-kubelet-{0}-{1}', parameters('baseName'), parameters('regionKey'))), '2023-01-31').clientId]"
@@ -667,6 +852,18 @@
             "monitorWorkspaceId": {
               "type": "string",
               "value": "[resourceId('Microsoft.Monitor/accounts', format('amw-{0}-{1}', parameters('baseName'), parameters('regionKey')))]"
+            },
+            "childDnsZoneName": {
+              "type": "string",
+              "value": "[format('{0}.{1}', parameters('regionKey'), parameters('domainName'))]"
+            },
+            "childDnsNameServers": {
+              "type": "array",
+              "value": "[reference(resourceId('Microsoft.Network/dnsZones', format('{0}.{1}', parameters('regionKey'), parameters('domainName'))), '2023-07-01-preview').nameServers]"
+            },
+            "certManagerIdentityClientId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-certmanager-{0}-{1}', parameters('baseName'), parameters('regionKey'))), '2023-01-31').clientId]"
             }
           }
         }
@@ -704,6 +901,12 @@
           },
           "kubeletPrincipalId": {
             "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-{1}', parameters('baseName'), parameters('regions')[copyIndex()].key)), 'Microsoft.Resources/deployments', format('deploy-region-{0}', parameters('regions')[copyIndex()].key)), '2025-04-01').outputs.kubeletIdentityPrincipalId.value]"
+          },
+          "parentDnsZoneName": {
+            "value": "[parameters('domainName')]"
+          },
+          "childDnsNameServers": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-{1}', parameters('baseName'), parameters('regions')[copyIndex()].key)), 'Microsoft.Resources/deployments', format('deploy-region-{0}', parameters('regions')[copyIndex()].key)), '2025-04-01').outputs.childDnsNameServers.value]"
           }
         },
         "template": {
@@ -713,7 +916,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.39.26.7824",
-              "templateHash": "4655606295401589996"
+              "templateHash": "5954611578206933848"
             }
           },
           "parameters": {
@@ -746,6 +949,18 @@
               "metadata": {
                 "description": "Kubelet identity principal ID."
               }
+            },
+            "parentDnsZoneName": {
+              "type": "string",
+              "metadata": {
+                "description": "Parent DNS zone name."
+              }
+            },
+            "childDnsNameServers": {
+              "type": "array",
+              "metadata": {
+                "description": "Child DNS zone nameservers (for NS delegation)."
+              }
             }
           },
           "variables": {
@@ -770,6 +985,23 @@
                 "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('acrPullRoleId'))]",
                 "principalType": "ServicePrincipal"
               }
+            },
+            {
+              "type": "Microsoft.Network/dnsZones/NS",
+              "apiVersion": "2023-07-01-preview",
+              "name": "[format('{0}/{1}', parameters('parentDnsZoneName'), parameters('regionKey'))]",
+              "properties": {
+                "copy": [
+                  {
+                    "name": "NSRecords",
+                    "count": "[length(parameters('childDnsNameServers'))]",
+                    "input": {
+                      "nsdname": "[parameters('childDnsNameServers')[copyIndex('NSRecords')]]"
+                    }
+                  }
+                ],
+                "TTL": 3600
+              }
             }
           ]
         }
@@ -777,6 +1009,7 @@
       "dependsOn": [
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-global', parameters('baseName'))), 'Microsoft.Resources/deployments', 'deploy-global')]",
         "[subscriptionResourceId('Microsoft.Resources/resourceGroups', format('rg-{0}-global', parameters('baseName')))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-{1}', parameters('baseName'), parameters('regions')[copyIndex()].key)), 'Microsoft.Resources/deployments', format('deploy-region-{0}', parameters('regions')[copyIndex()].key))]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-{1}', parameters('baseName'), parameters('regions')[copyIndex()].key)), 'Microsoft.Resources/deployments', format('deploy-region-{0}', parameters('regions')[copyIndex()].key))]",
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-{1}', parameters('baseName'), parameters('regions')[copyIndex()].key)), 'Microsoft.Resources/deployments', format('deploy-region-{0}', parameters('regions')[copyIndex()].key))]"
       ]
@@ -806,6 +1039,14 @@
     "frontDoorEndpointHostName": {
       "type": "string",
       "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-global', parameters('baseName'))), 'Microsoft.Resources/deployments', 'deploy-global'), '2025-04-01').outputs.fdEndpointHostName.value]"
+    },
+    "dnsNameServers": {
+      "type": "array",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-global', parameters('baseName'))), 'Microsoft.Resources/deployments', 'deploy-global'), '2025-04-01').outputs.dnsNameServers.value]"
+    },
+    "dnsZoneName": {
+      "type": "string",
+      "value": "[parameters('domainName')]"
     },
     "aksClusterNames": {
       "type": "array",

@@ -14,8 +14,35 @@ param acrSku string
 @description('Cosmos DB autoscale max throughput (RU/s).')
 param cosmosAutoscaleMaxThroughput int
 
+@description('Domain name for Azure DNS zone.')
+param domainName string
+
 @description('Region configurations array.')
 param regions array
+
+// ============================================================================
+// User-Assigned Managed Identities (one per global service)
+// ============================================================================
+
+resource acrIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: 'id-acr-${baseName}'
+  location: location
+}
+
+resource cosmosIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: 'id-cosmos-${baseName}'
+  location: location
+}
+
+resource fdIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: 'id-fd-${baseName}'
+  location: location
+}
+
+resource loadTestIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: 'id-lt-${baseName}'
+  location: location
+}
 
 // ============================================================================
 // Azure Container Registry
@@ -27,7 +54,12 @@ resource acr 'Microsoft.ContainerRegistry/registries@2025-11-01' = {
   name: acrName
   location: location
   sku: { name: acrSku }
-  identity: { type: 'SystemAssigned' }
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${acrIdentity.id}': {}
+    }
+  }
   properties: {
     adminUserEnabled: false
     publicNetworkAccess: 'Enabled'
@@ -54,7 +86,12 @@ resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2025-04-15' = {
   name: cosmosName
   location: location
   kind: 'GlobalDocumentDB'
-  identity: { type: 'SystemAssigned' }
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${cosmosIdentity.id}': {}
+    }
+  }
   properties: {
     databaseAccountOfferType: 'Standard'
     enableAutomaticFailover: true
@@ -105,7 +142,12 @@ resource frontDoor 'Microsoft.Cdn/profiles@2025-04-15' = {
   name: fdName
   location: 'global'
   sku: { name: 'Standard_AzureFrontDoor' }
-  identity: { type: 'SystemAssigned' }
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${fdIdentity.id}': {}
+    }
+  }
   properties: {
     originResponseTimeoutSeconds: 60
   }
@@ -142,6 +184,43 @@ resource fdOriginGroup 'Microsoft.Cdn/profiles/originGroups@2025-04-15' = {
 // Use: az afd origin create --profile-name ${fdName} --origin-group-name og-default ...
 // Then: az afd route create --profile-name ${fdName} --endpoint-name ep-${baseName} ...
 
+// Front Door custom domain for apex domain
+resource fdCustomDomain 'Microsoft.Cdn/profiles/customDomains@2025-04-15' = {
+  parent: frontDoor
+  name: replace(domainName, '.', '-')
+  properties: {
+    hostName: domainName
+    tlsSettings: {
+      certificateType: 'ManagedCertificate'
+      minimumTlsVersion: 'TLS12'
+    }
+    azureDnsZone: {
+      id: dnsZone.id
+    }
+  }
+}
+
+// ============================================================================
+// Azure DNS Zone
+// ============================================================================
+
+resource dnsZone 'Microsoft.Network/dnsZones@2023-07-01-preview' = {
+  name: domainName
+  location: 'global'
+}
+
+// Alias A record: apex domain → Front Door endpoint
+resource dnsApexAlias 'Microsoft.Network/dnsZones/A@2023-07-01-preview' = {
+  parent: dnsZone
+  name: '@'
+  properties: {
+    TTL: 300
+    targetResource: {
+      id: fdEndpoint.id
+    }
+  }
+}
+
 // ============================================================================
 // Azure Kubernetes Fleet Manager (Hubless — Minimal Cost)
 // ============================================================================
@@ -151,7 +230,11 @@ var fleetName = 'fleet-${baseName}'
 resource fleet 'Microsoft.ContainerService/fleets@2025-03-01' = {
   name: fleetName
   location: location
-  properties: {}
+  properties: {
+    hubProfile: {
+      dnsPrefix: 'fleet-${baseName}'
+    }
+  }
 }
 
 // ============================================================================
@@ -161,7 +244,12 @@ resource fleet 'Microsoft.ContainerService/fleets@2025-03-01' = {
 resource loadTest 'Microsoft.LoadTestService/loadTests@2024-12-01-preview' = {
   name: 'lt-${baseName}'
   location: location
-  identity: { type: 'SystemAssigned' }
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${loadTestIdentity.id}': {}
+    }
+  }
   properties: {}
 }
 
@@ -180,3 +268,6 @@ output fleetName string = fleet.name
 output frontDoorId string = frontDoor.id
 output fdEndpointHostName string = fdEndpoint.properties.hostName
 output loadTestId string = loadTest.id
+output dnsZoneId string = dnsZone.id
+output dnsZoneName string = dnsZone.name
+output dnsNameServers array = dnsZone.properties.nameServers
