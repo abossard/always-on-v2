@@ -1,0 +1,161 @@
+@model PlayerDashboard
+
+<div>
+    @if (!Model.NameSaved)
+    {
+        <!-- ── Name Entry ── -->
+        <div class="row justify-content-center">
+            <div class="col-md-6">
+                <div class="card p-4 text-center">
+                    <div class="avatar mx-auto mb-3">
+                        <i class="bi bi-person-fill"></i>
+                    </div>
+                    <h3 class="glow mb-3">Who are you, adventurer?</h3>
+                    <form on:submit="@(() => Model.SaveName())">
+                        <div class="mb-3">
+                            <input asp-for="PlayerName" bind
+                                   class="form-control form-control-lg text-center"
+                                   placeholder="Enter your epic name..." />
+                            <span asp-validation-for="PlayerName" class="text-danger small"></span>
+                        </div>
+                        <button type="submit" class="btn btn-lg btn-outline-light">
+                            <i class="bi bi-rocket-takeoff-fill"></i> Begin Adventure
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- ── Dashboard ── -->
+        <div class="row g-4">
+
+            <!-- Player Card -->
+            <div class="col-md-4">
+                <div class="card p-4 text-center h-100">
+                    <div class="avatar mx-auto mb-2">
+                        @Model.PlayerName[..1].ToUpper()
+                    </div>
+                    <h4 class="mt-2 mb-0">@Model.PlayerName</h4>
+                    <span class="text-secondary small">@Model.PlayerClass</span>
+
+                    <div class="level-display mt-3">@Model.Level</div>
+                    <span class="text-secondary">Level</span>
+
+                    <div class="mt-3">
+                        <div class="d-flex justify-content-between small mb-1">
+                            <span>XP</span>
+                            <span>@Model.Xp / @Model.XpForNextLevel</span>
+                        </div>
+                        <div class="xp-bar">
+                            <div class="xp-fill" style="width: @(Model.XpPercent)%"></div>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 d-flex gap-2 justify-content-center">
+                        <button class="btn btn-sm btn-outline-success"
+                                on:click="@(() => Model.AddXp(25))">
+                            <i class="bi bi-plus-circle"></i> +25 XP
+                        </button>
+                        <button class="btn btn-sm btn-outline-info"
+                                on:click="@(() => Model.AddXp(100))">
+                            <i class="bi bi-stars"></i> +100 XP
+                        </button>
+                    </div>
+
+                    <button class="btn btn-sm btn-outline-secondary mt-3"
+                            on:click="@(() => Model.ResetName())">
+                        <i class="bi bi-arrow-counterclockwise"></i> Change Name
+                    </button>
+                </div>
+            </div>
+
+            <!-- Stats Sliders -->
+            <div class="col-md-4">
+                <div class="card p-4 h-100">
+                    <h5 class="mb-3"><i class="bi bi-bar-chart-fill"></i> Stat Allocation</h5>
+                    <p class="text-secondary small">Total: <strong>@Model.TotalStatPoints</strong> points</p>
+
+                    <div class="slider-container mb-3">
+                        <label class="form-label d-flex justify-content-between">
+                            <span><i class="bi bi-shield-fill text-danger"></i> Strength</span>
+                            <span class="badge bg-danger">@Model.Strength</span>
+                        </label>
+                        <input type="range" class="form-range" min="1" max="10"
+                               asp-for="Strength" bind />
+                    </div>
+
+                    <div class="slider-container mb-3">
+                        <label class="form-label d-flex justify-content-between">
+                            <span><i class="bi bi-wind text-success"></i> Agility</span>
+                            <span class="badge bg-success">@Model.Agility</span>
+                        </label>
+                        <input type="range" class="form-range" min="1" max="10"
+                               asp-for="Agility" bind />
+                    </div>
+
+                    <div class="slider-container mb-3">
+                        <label class="form-label d-flex justify-content-between">
+                            <span><i class="bi bi-book-fill text-primary"></i> Intelligence</span>
+                            <span class="badge bg-primary">@Model.Intelligence</span>
+                        </label>
+                        <input type="range" class="form-range" min="1" max="10"
+                               asp-for="Intelligence" bind />
+                    </div>
+
+                    <div class="slider-container mb-3">
+                        <label class="form-label d-flex justify-content-between">
+                            <span><i class="bi bi-chat-heart-fill text-warning"></i> Charisma</span>
+                            <span class="badge bg-warning text-dark">@Model.Charisma</span>
+                        </label>
+                        <input type="range" class="form-range" min="1" max="10"
+                               asp-for="Charisma" bind />
+                    </div>
+
+                    <button class="btn btn-outline-light btn-sm mt-auto"
+                            on:click="@(() => Model.RandomizeStats())">
+                        <i class="bi bi-dice-5-fill"></i> Randomize!
+                    </button>
+                </div>
+            </div>
+
+            <!-- Achievements -->
+            <div class="col-md-4">
+                <div class="card p-4 h-100">
+                    <h5 class="mb-3"><i class="bi bi-trophy-fill text-warning"></i> Achievements</h5>
+                    <p class="text-secondary small">
+                        Unlocked: <strong>@Model.Achievements.Count(a => a.Unlocked)</strong> / @Model.Achievements.Count
+                    </p>
+
+                    <div class="d-flex flex-wrap gap-2">
+                        @foreach (var ach in Model.Achievements)
+                        {
+                            <button class="achievement-badge @(ach.Unlocked ? "unlocked" : "locked")"
+                                    on:click="@(() => Model.ToggleAchievement(ach.Id))">
+                                <i class="bi @ach.Icon"></i>
+                                @ach.Name
+                                @if (ach.Unlocked)
+                                {
+                                    <i class="bi bi-check-circle-fill"></i>
+                                }
+                            </button>
+                        }
+                    </div>
+
+                    <div class="mt-auto pt-3">
+                        <div class="xp-bar">
+                            @{
+                                var achPercent = Model.Achievements.Count > 0
+                                    ? Model.Achievements.Count(a => a.Unlocked) * 100 / Model.Achievements.Count
+                                    : 0;
+                            }
+                            <div class="xp-fill" style="width: @(achPercent)%; background: linear-gradient(90deg, #f093fb, #f5576c);"></div>
+                        </div>
+                        <small class="text-secondary">Achievement progress: @achPercent%</small>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>

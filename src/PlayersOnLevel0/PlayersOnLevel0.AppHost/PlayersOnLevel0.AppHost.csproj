@@ -15,6 +15,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\PlayersOnLevel0.Api\PlayersOnLevel0.Api.csproj" />
+    <ProjectReference Include="..\PlayersOnLevel0.Web\PlayersOnLevel0.Web.csproj" />
   </ItemGroup>
 
 </Project>

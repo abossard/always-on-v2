@@ -2,7 +2,7 @@
 
 ## Status
 
-Proposed
+Accepted
 
 ## Context
 
@@ -63,9 +63,17 @@ Build and operate the platform for a single use case. Don't add tenant abstracti
 - **Retrofit cost**: How expensive is it to change the decision later?
 - **Compliance**: Can we meet data-residency and regulatory requirements per tenant?
 
+## Decision
+
+**Option 5: Single Product, No Multi-Tenancy.**
+
+Multi-tenancy adds significant complexity across every layer (routing, data isolation, billing, testing) and is not justified during the ramp-up phase. The current architecture assumes a single operator, and all existing ADRs were designed with that model. If multi-tenancy becomes a business requirement later, the stamp architecture (ADR-002) provides a natural seam for per-customer isolation without retrofitting shared-infra tenant logic.
+
 ## Consequences
 
-To be filled after decision is made.
+- **Positive**: No tenant context plumbing through grains, APIs, or Cosmos DB partition keys; simpler security model; faster time to market; smaller testing surface.
+- **Negative**: Cannot onboard separate customers without deploying additional stamps or forking; revisit needed if the business model changes.
+- **Mitigations**: The multi-stamp architecture already supports spinning up isolated stamps per customer if needed — this is the natural upgrade path.
 
 ## References
 

@@ -14,12 +14,16 @@ var cosmos = builder.AddAzureCosmosDB("cosmos")
 var db = cosmos.AddCosmosDatabase("playersonlevel0");
 db.AddContainer("players", "/playerId");
 
-builder.AddProject<Projects.PlayersOnLevel0_Api>("api")
-    .WithHttpEndpoint(name: "http")
+var api = builder.AddProject<Projects.PlayersOnLevel0_Api>("api")
     .WithReference(cosmos)
     .WaitFor(cosmos)
     .WithEnvironment("Storage__Provider", "CosmosDb")
     .WithEnvironment("CosmosDb__InitializeOnStartup", "true")
+    .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development");
+
+builder.AddProject<Projects.PlayersOnLevel0_Web>("web")
+    .WithReference(api)
+    .WithExternalHttpEndpoints()
     .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development");
 
 builder.Build().Run();
