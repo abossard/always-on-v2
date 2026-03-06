@@ -5,7 +5,7 @@
     "_generator": {
       "name": "bicep",
       "version": "0.39.26.7824",
-      "templateHash": "11462185914055825951"
+      "templateHash": "8441150394204178170"
     }
   },
   "parameters": {
@@ -55,17 +55,42 @@
       "defaultValue": [
         {
           "key": "swedencentral",
-          "location": "swedencentral"
+          "location": "swedencentral",
+          "stamps": [
+            {
+              "key": "001"
+            }
+          ]
         },
         {
           "key": "germanywestcentral",
-          "location": "germanywestcentral"
+          "location": "germanywestcentral",
+          "stamps": [
+            {
+              "key": "001"
+            }
+          ]
         }
       ],
       "metadata": {
-        "description": "Region configurations as an array of objects with location and optional overrides."
+        "description": "Region configurations with stamps. Each region has a key, location, and stamps array."
       }
     }
+  },
+  "variables": {
+    "copy": [
+      {
+        "name": "_stampArrays",
+        "count": "[length(parameters('regions'))]",
+        "input": "[map(parameters('regions')[copyIndex('_stampArrays')].stamps, lambda('stamp', createObject('regionKey', parameters('regions')[copyIndex('_stampArrays')].key, 'location', parameters('regions')[copyIndex('_stampArrays')].location, 'stampKey', lambdaVariables('stamp').key, 'stampConfig', lambdaVariables('stamp'))))]"
+      },
+      {
+        "name": "stampRegionIndex",
+        "count": "[length(variables('allStamps'))]",
+        "input": "[indexOf(map(parameters('regions'), lambda('r', lambdaVariables('r').key)), variables('allStamps')[copyIndex('stampRegionIndex')].regionKey)]"
+      }
+    ],
+    "allStamps": "[flatten(variables('_stampArrays'))]"
   },
   "resources": [
     {
@@ -83,6 +108,16 @@
       "apiVersion": "2024-03-01",
       "name": "[format('rg-{0}-{1}', parameters('baseName'), parameters('regions')[copyIndex()].key)]",
       "location": "[parameters('regions')[copyIndex()].location]"
+    },
+    {
+      "copy": {
+        "name": "stampRgs",
+        "count": "[length(variables('allStamps'))]"
+      },
+      "type": "Microsoft.Resources/resourceGroups",
+      "apiVersion": "2024-03-01",
+      "name": "[format('rg-{0}-{1}-{2}', parameters('baseName'), variables('allStamps')[copyIndex()].regionKey, variables('allStamps')[copyIndex()].stampKey)]",
+      "location": "[variables('allStamps')[copyIndex()].location]"
     },
     {
       "type": "Microsoft.Resources/deployments",
@@ -536,9 +571,6 @@
           },
           "appInsightsId": {
             "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-global', parameters('baseName'))), 'Microsoft.Resources/deployments', 'deploy-global'), '2025-04-01').outputs.appInsightsId.value]"
-          },
-          "regions": {
-            "value": "[parameters('regions')]"
           }
         },
         "template": {
@@ -548,7 +580,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.39.26.7824",
-              "templateHash": "5061449634194311863"
+              "templateHash": "9151558704603948681"
             }
           },
           "parameters": {
@@ -574,12 +606,6 @@
               "type": "string",
               "metadata": {
                 "description": "Application Insights resource ID (for RBAC)."
-              }
-            },
-            "regions": {
-              "type": "array",
-              "metadata": {
-                "description": "Regions array (for federated credentials)."
               }
             }
           },
@@ -719,7 +745,7 @@
             "_generator": {
               "name": "bicep",
               "version": "0.39.26.7824",
-              "templateHash": "8486464579759781504"
+              "templateHash": "7812336153423018860"
             }
           },
           "parameters": {
@@ -750,39 +776,9 @@
           },
           "variables": {
             "location": "[parameters('regionConfig').location]",
-            "aksVmSize": "[coalesce(tryGet(parameters('regionConfig'), 'aksNodeVmSize'), 'Standard_D2s_v3')]",
-            "aksSystemNodeCount": "[coalesce(tryGet(parameters('regionConfig'), 'aksSystemNodeCount'), 1)]",
-            "managedIdentityOperatorRoleId": "f1a07417-d97a-45cb-824c-7a7467783830",
             "dnsZoneContributorRoleId": "befefa01-2a29-4197-83a8-272ff33ce314"
           },
           "resources": [
-            {
-              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
-              "apiVersion": "2023-01-31",
-              "name": "[format('id-aks-{0}-{1}', parameters('baseName'), parameters('regionKey'))]",
-              "location": "[variables('location')]"
-            },
-            {
-              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
-              "apiVersion": "2023-01-31",
-              "name": "[format('id-kubelet-{0}-{1}', parameters('baseName'), parameters('regionKey'))]",
-              "location": "[variables('location')]"
-            },
-            {
-              "type": "Microsoft.Authorization/roleAssignments",
-              "apiVersion": "2022-04-01",
-              "scope": "[format('Microsoft.ManagedIdentity/userAssignedIdentities/{0}', format('id-kubelet-{0}-{1}', parameters('baseName'), parameters('regionKey')))]",
-              "name": "[guid(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-aks-{0}-{1}', parameters('baseName'), parameters('regionKey'))), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-kubelet-{0}-{1}', parameters('baseName'), parameters('regionKey'))), variables('managedIdentityOperatorRoleId'))]",
-              "properties": {
-                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-aks-{0}-{1}', parameters('baseName'), parameters('regionKey'))), '2023-01-31').principalId]",
-                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('managedIdentityOperatorRoleId'))]",
-                "principalType": "ServicePrincipal"
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-aks-{0}-{1}', parameters('baseName'), parameters('regionKey')))]",
-                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-kubelet-{0}-{1}', parameters('baseName'), parameters('regionKey')))]"
-              ]
-            },
             {
               "type": "Microsoft.OperationalInsights/workspaces",
               "apiVersion": "2023-09-01",
@@ -827,28 +823,170 @@
                 "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-certmanager-{0}-{1}', parameters('baseName'), parameters('regionKey')))]",
                 "[resourceId('Microsoft.Network/dnsZones', format('{0}.{1}', parameters('regionKey'), parameters('domainName')))]"
               ]
+            }
+          ],
+          "outputs": {
+            "logAnalyticsWorkspaceId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.OperationalInsights/workspaces', format('law-{0}-{1}', parameters('baseName'), parameters('regionKey')))]"
+            },
+            "monitorWorkspaceId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.Monitor/accounts', format('amw-{0}-{1}', parameters('baseName'), parameters('regionKey')))]"
+            },
+            "childDnsZoneName": {
+              "type": "string",
+              "value": "[format('{0}.{1}', parameters('regionKey'), parameters('domainName'))]"
+            },
+            "childDnsNameServers": {
+              "type": "array",
+              "value": "[reference(resourceId('Microsoft.Network/dnsZones', format('{0}.{1}', parameters('regionKey'), parameters('domainName'))), '2023-07-01-preview').nameServers]"
+            },
+            "certManagerIdentityClientId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-certmanager-{0}-{1}', parameters('baseName'), parameters('regionKey'))), '2023-01-31').clientId]"
+            },
+            "certManagerIdentityId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-certmanager-{0}-{1}', parameters('baseName'), parameters('regionKey')))]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', format('rg-{0}-{1}', parameters('baseName'), parameters('regions')[copyIndex()].key))]"
+      ]
+    },
+    {
+      "copy": {
+        "name": "stamps",
+        "count": "[length(variables('allStamps'))]"
+      },
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "[format('deploy-stamp-{0}-{1}', variables('allStamps')[copyIndex()].regionKey, variables('allStamps')[copyIndex()].stampKey)]",
+      "resourceGroup": "[format('rg-{0}-{1}-{2}', parameters('baseName'), variables('allStamps')[copyIndex()].regionKey, variables('allStamps')[copyIndex()].stampKey)]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "baseName": {
+            "value": "[parameters('baseName')]"
+          },
+          "regionKey": {
+            "value": "[variables('allStamps')[copyIndex()].regionKey]"
+          },
+          "stampKey": {
+            "value": "[variables('allStamps')[copyIndex()].stampKey]"
+          },
+          "stampConfig": {
+            "value": "[variables('allStamps')[copyIndex()].stampConfig]"
+          },
+          "location": {
+            "value": "[variables('allStamps')[copyIndex()].location]"
+          },
+          "logAnalyticsWorkspaceId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-{1}', parameters('baseName'), parameters('regions')[copyIndex()].key)), 'Microsoft.Resources/deployments', format('deploy-region-{0}', parameters('regions')[variables('stampRegionIndex')[copyIndex()]].key)), '2025-04-01').outputs.logAnalyticsWorkspaceId.value]"
+          },
+          "monitorWorkspaceId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-{1}', parameters('baseName'), parameters('regions')[copyIndex()].key)), 'Microsoft.Resources/deployments', format('deploy-region-{0}', parameters('regions')[variables('stampRegionIndex')[copyIndex()]].key)), '2025-04-01').outputs.monitorWorkspaceId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.39.26.7824",
+              "templateHash": "7404862336657724727"
+            }
+          },
+          "parameters": {
+            "baseName": {
+              "type": "string",
+              "metadata": {
+                "description": "Base name for all resources."
+              }
+            },
+            "regionKey": {
+              "type": "string",
+              "metadata": {
+                "description": "Region key (e.g. swedencentral)."
+              }
+            },
+            "stampKey": {
+              "type": "string",
+              "metadata": {
+                "description": "Stamp key (e.g. 001)."
+              }
+            },
+            "stampConfig": {
+              "type": "object",
+              "metadata": {
+                "description": "Stamp configuration object."
+              }
+            },
+            "location": {
+              "type": "string",
+              "metadata": {
+                "description": "Location for resources."
+              }
+            },
+            "logAnalyticsWorkspaceId": {
+              "type": "string",
+              "metadata": {
+                "description": "Log Analytics Workspace ID from the regional module."
+              }
+            },
+            "monitorWorkspaceId": {
+              "type": "string",
+              "metadata": {
+                "description": "Monitor Workspace ID from the regional module."
+              }
+            }
+          },
+          "variables": {
+            "stampName": "[format('{0}-{1}', parameters('regionKey'), parameters('stampKey'))]",
+            "aksVmSize": "[coalesce(tryGet(parameters('stampConfig'), 'aksNodeVmSize'), 'Standard_D2s_v3')]",
+            "aksSystemNodeCount": "[coalesce(tryGet(parameters('stampConfig'), 'aksSystemNodeCount'), 1)]",
+            "managedIdentityOperatorRoleId": "f1a07417-d97a-45cb-824c-7a7467783830"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+              "apiVersion": "2023-01-31",
+              "name": "[format('id-aks-{0}-{1}', parameters('baseName'), variables('stampName'))]",
+              "location": "[parameters('location')]"
             },
             {
-              "type": "Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials",
+              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
               "apiVersion": "2023-01-31",
-              "name": "[format('{0}/{1}', format('id-certmanager-{0}-{1}', parameters('baseName'), parameters('regionKey')), format('fed-certmanager-{0}', parameters('regionKey')))]",
+              "name": "[format('id-kubelet-{0}-{1}', parameters('baseName'), variables('stampName'))]",
+              "location": "[parameters('location')]"
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[format('Microsoft.ManagedIdentity/userAssignedIdentities/{0}', format('id-kubelet-{0}-{1}', parameters('baseName'), variables('stampName')))]",
+              "name": "[guid(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-aks-{0}-{1}', parameters('baseName'), variables('stampName'))), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-kubelet-{0}-{1}', parameters('baseName'), variables('stampName'))), variables('managedIdentityOperatorRoleId'))]",
               "properties": {
-                "issuer": "[reference(resourceId('Microsoft.ContainerService/managedClusters', format('aks-{0}-{1}', parameters('baseName'), parameters('regionKey'))), '2025-10-01').oidcIssuerProfile.issuerURL]",
-                "subject": "system:serviceaccount:cert-manager:cert-manager",
-                "audiences": [
-                  "api://AzureADTokenExchange"
-                ]
+                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-aks-{0}-{1}', parameters('baseName'), variables('stampName'))), '2023-01-31').principalId]",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('managedIdentityOperatorRoleId'))]",
+                "principalType": "ServicePrincipal"
               },
               "dependsOn": [
-                "[resourceId('Microsoft.ContainerService/managedClusters', format('aks-{0}-{1}', parameters('baseName'), parameters('regionKey')))]",
-                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-certmanager-{0}-{1}', parameters('baseName'), parameters('regionKey')))]"
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-aks-{0}-{1}', parameters('baseName'), variables('stampName')))]",
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-kubelet-{0}-{1}', parameters('baseName'), variables('stampName')))]"
               ]
             },
             {
               "type": "Microsoft.Insights/dataCollectionRules",
               "apiVersion": "2023-03-11",
-              "name": "[format('dcr-prometheus-{0}-{1}', parameters('baseName'), parameters('regionKey'))]",
-              "location": "[variables('location')]",
+              "name": "[format('dcr-prometheus-{0}-{1}', parameters('baseName'), variables('stampName'))]",
+              "location": "[parameters('location')]",
               "properties": {
                 "dataSources": {
                   "prometheusForwarder": [
@@ -865,7 +1003,7 @@
                   "monitoringAccounts": [
                     {
                       "name": "MonitoringAccount",
-                      "accountResourceId": "[resourceId('Microsoft.Monitor/accounts', format('amw-{0}-{1}', parameters('baseName'), parameters('regionKey')))]"
+                      "accountResourceId": "[parameters('monitorWorkspaceId')]"
                     }
                   ]
                 },
@@ -879,20 +1017,17 @@
                     ]
                   }
                 ]
-              },
-              "dependsOn": [
-                "[resourceId('Microsoft.Monitor/accounts', format('amw-{0}-{1}', parameters('baseName'), parameters('regionKey')))]"
-              ]
+              }
             },
             {
               "type": "Microsoft.ContainerService/managedClusters",
               "apiVersion": "2025-10-01",
-              "name": "[format('aks-{0}-{1}', parameters('baseName'), parameters('regionKey'))]",
-              "location": "[variables('location')]",
+              "name": "[format('aks-{0}-{1}', parameters('baseName'), variables('stampName'))]",
+              "location": "[parameters('location')]",
               "identity": {
                 "type": "UserAssigned",
                 "userAssignedIdentities": {
-                  "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-aks-{0}-{1}', parameters('baseName'), parameters('regionKey'))))]": {}
+                  "[format('{0}', resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-aks-{0}-{1}', parameters('baseName'), variables('stampName'))))]": {}
                 }
               },
               "sku": {
@@ -900,8 +1035,8 @@
                 "tier": "Free"
               },
               "properties": {
-                "dnsPrefix": "[format('aks-{0}-{1}', parameters('baseName'), parameters('regionKey'))]",
-                "nodeResourceGroup": "[format('rg-{0}-{1}-nodes', parameters('baseName'), parameters('regionKey'))]",
+                "dnsPrefix": "[format('aks-{0}-{1}', parameters('baseName'), variables('stampName'))]",
+                "nodeResourceGroup": "[format('rg-{0}-{1}-nodes', parameters('baseName'), variables('stampName'))]",
                 "enableRBAC": true,
                 "disableLocalAccounts": true,
                 "oidcIssuerProfile": {
@@ -918,9 +1053,9 @@
                 },
                 "identityProfile": {
                   "kubeletidentity": {
-                    "resourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-kubelet-{0}-{1}', parameters('baseName'), parameters('regionKey')))]",
-                    "clientId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-kubelet-{0}-{1}', parameters('baseName'), parameters('regionKey'))), '2023-01-31').clientId]",
-                    "objectId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-kubelet-{0}-{1}', parameters('baseName'), parameters('regionKey'))), '2023-01-31').principalId]"
+                    "resourceId": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-kubelet-{0}-{1}', parameters('baseName'), variables('stampName')))]",
+                    "clientId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-kubelet-{0}-{1}', parameters('baseName'), variables('stampName'))), '2023-01-31').clientId]",
+                    "objectId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-kubelet-{0}-{1}', parameters('baseName'), variables('stampName'))), '2023-01-31').principalId]"
                   }
                 },
                 "nodeProvisioningProfile": {
@@ -959,7 +1094,7 @@
                   "omsagent": {
                     "enabled": true,
                     "config": {
-                      "logAnalyticsWorkspaceResourceID": "[resourceId('Microsoft.OperationalInsights/workspaces', format('law-{0}-{1}', parameters('baseName'), parameters('regionKey')))]",
+                      "logAnalyticsWorkspaceResourceID": "[parameters('logAnalyticsWorkspaceId')]",
                       "useAADAuth": "true"
                     }
                   }
@@ -974,119 +1109,100 @@
                 }
               },
               "dependsOn": [
-                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-aks-{0}-{1}', parameters('baseName'), parameters('regionKey')))]",
-                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-kubelet-{0}-{1}', parameters('baseName'), parameters('regionKey')))]",
-                "[resourceId('Microsoft.OperationalInsights/workspaces', format('law-{0}-{1}', parameters('baseName'), parameters('regionKey')))]"
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-aks-{0}-{1}', parameters('baseName'), variables('stampName')))]",
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-kubelet-{0}-{1}', parameters('baseName'), variables('stampName')))]"
               ]
             },
             {
               "type": "Microsoft.Insights/dataCollectionRuleAssociations",
               "apiVersion": "2022-06-01",
-              "scope": "[format('Microsoft.ContainerService/managedClusters/{0}', format('aks-{0}-{1}', parameters('baseName'), parameters('regionKey')))]",
-              "name": "[format('dcra-prometheus-{0}', parameters('regionKey'))]",
+              "scope": "[format('Microsoft.ContainerService/managedClusters/{0}', format('aks-{0}-{1}', parameters('baseName'), variables('stampName')))]",
+              "name": "[format('dcra-prometheus-{0}', variables('stampName'))]",
               "properties": {
-                "dataCollectionRuleId": "[resourceId('Microsoft.Insights/dataCollectionRules', format('dcr-prometheus-{0}-{1}', parameters('baseName'), parameters('regionKey')))]",
+                "dataCollectionRuleId": "[resourceId('Microsoft.Insights/dataCollectionRules', format('dcr-prometheus-{0}-{1}', parameters('baseName'), variables('stampName')))]",
                 "description": "Prometheus metrics collection for AKS"
               },
               "dependsOn": [
-                "[resourceId('Microsoft.ContainerService/managedClusters', format('aks-{0}-{1}', parameters('baseName'), parameters('regionKey')))]",
-                "[resourceId('Microsoft.Insights/dataCollectionRules', format('dcr-prometheus-{0}-{1}', parameters('baseName'), parameters('regionKey')))]"
+                "[resourceId('Microsoft.ContainerService/managedClusters', format('aks-{0}-{1}', parameters('baseName'), variables('stampName')))]",
+                "[resourceId('Microsoft.Insights/dataCollectionRules', format('dcr-prometheus-{0}-{1}', parameters('baseName'), variables('stampName')))]"
               ]
             },
             {
               "type": "Microsoft.Chaos/targets",
               "apiVersion": "2024-01-01",
-              "scope": "[format('Microsoft.ContainerService/managedClusters/{0}', format('aks-{0}-{1}', parameters('baseName'), parameters('regionKey')))]",
+              "scope": "[format('Microsoft.ContainerService/managedClusters/{0}', format('aks-{0}-{1}', parameters('baseName'), variables('stampName')))]",
               "name": "Microsoft-AzureKubernetesServiceChaosMesh",
               "properties": {},
               "dependsOn": [
-                "[resourceId('Microsoft.ContainerService/managedClusters', format('aks-{0}-{1}', parameters('baseName'), parameters('regionKey')))]"
+                "[resourceId('Microsoft.ContainerService/managedClusters', format('aks-{0}-{1}', parameters('baseName'), variables('stampName')))]"
               ]
             },
             {
               "type": "Microsoft.Chaos/targets/capabilities",
               "apiVersion": "2024-01-01",
-              "scope": "[format('Microsoft.ContainerService/managedClusters/{0}', format('aks-{0}-{1}', parameters('baseName'), parameters('regionKey')))]",
+              "scope": "[format('Microsoft.ContainerService/managedClusters/{0}', format('aks-{0}-{1}', parameters('baseName'), variables('stampName')))]",
               "name": "[format('{0}/{1}', 'Microsoft-AzureKubernetesServiceChaosMesh', 'PodChaos-2.2')]",
               "dependsOn": [
-                "[extensionResourceId(resourceId('Microsoft.ContainerService/managedClusters', format('aks-{0}-{1}', parameters('baseName'), parameters('regionKey'))), 'Microsoft.Chaos/targets', 'Microsoft-AzureKubernetesServiceChaosMesh')]"
+                "[extensionResourceId(resourceId('Microsoft.ContainerService/managedClusters', format('aks-{0}-{1}', parameters('baseName'), variables('stampName'))), 'Microsoft.Chaos/targets', 'Microsoft-AzureKubernetesServiceChaosMesh')]"
               ]
             },
             {
               "type": "Microsoft.Chaos/targets/capabilities",
               "apiVersion": "2024-01-01",
-              "scope": "[format('Microsoft.ContainerService/managedClusters/{0}', format('aks-{0}-{1}', parameters('baseName'), parameters('regionKey')))]",
+              "scope": "[format('Microsoft.ContainerService/managedClusters/{0}', format('aks-{0}-{1}', parameters('baseName'), variables('stampName')))]",
               "name": "[format('{0}/{1}', 'Microsoft-AzureKubernetesServiceChaosMesh', 'NetworkChaos-2.2')]",
               "dependsOn": [
-                "[extensionResourceId(resourceId('Microsoft.ContainerService/managedClusters', format('aks-{0}-{1}', parameters('baseName'), parameters('regionKey'))), 'Microsoft.Chaos/targets', 'Microsoft-AzureKubernetesServiceChaosMesh')]"
+                "[extensionResourceId(resourceId('Microsoft.ContainerService/managedClusters', format('aks-{0}-{1}', parameters('baseName'), variables('stampName'))), 'Microsoft.Chaos/targets', 'Microsoft-AzureKubernetesServiceChaosMesh')]"
               ]
             },
             {
               "type": "Microsoft.Chaos/targets/capabilities",
               "apiVersion": "2024-01-01",
-              "scope": "[format('Microsoft.ContainerService/managedClusters/{0}', format('aks-{0}-{1}', parameters('baseName'), parameters('regionKey')))]",
+              "scope": "[format('Microsoft.ContainerService/managedClusters/{0}', format('aks-{0}-{1}', parameters('baseName'), variables('stampName')))]",
               "name": "[format('{0}/{1}', 'Microsoft-AzureKubernetesServiceChaosMesh', 'StressChaos-2.2')]",
               "dependsOn": [
-                "[extensionResourceId(resourceId('Microsoft.ContainerService/managedClusters', format('aks-{0}-{1}', parameters('baseName'), parameters('regionKey'))), 'Microsoft.Chaos/targets', 'Microsoft-AzureKubernetesServiceChaosMesh')]"
+                "[extensionResourceId(resourceId('Microsoft.ContainerService/managedClusters', format('aks-{0}-{1}', parameters('baseName'), variables('stampName'))), 'Microsoft.Chaos/targets', 'Microsoft-AzureKubernetesServiceChaosMesh')]"
               ]
             }
           ],
           "outputs": {
             "aksClusterId": {
               "type": "string",
-              "value": "[resourceId('Microsoft.ContainerService/managedClusters', format('aks-{0}-{1}', parameters('baseName'), parameters('regionKey')))]"
+              "value": "[resourceId('Microsoft.ContainerService/managedClusters', format('aks-{0}-{1}', parameters('baseName'), variables('stampName')))]"
             },
             "aksClusterName": {
               "type": "string",
-              "value": "[format('aks-{0}-{1}', parameters('baseName'), parameters('regionKey'))]"
+              "value": "[format('aks-{0}-{1}', parameters('baseName'), variables('stampName'))]"
             },
             "aksOidcIssuerUrl": {
               "type": "string",
-              "value": "[reference(resourceId('Microsoft.ContainerService/managedClusters', format('aks-{0}-{1}', parameters('baseName'), parameters('regionKey'))), '2025-10-01').oidcIssuerProfile.issuerURL]"
-            },
-            "kubeletIdentityClientId": {
-              "type": "string",
-              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-kubelet-{0}-{1}', parameters('baseName'), parameters('regionKey'))), '2023-01-31').clientId]"
+              "value": "[reference(resourceId('Microsoft.ContainerService/managedClusters', format('aks-{0}-{1}', parameters('baseName'), variables('stampName'))), '2025-10-01').oidcIssuerProfile.issuerURL]"
             },
             "kubeletIdentityPrincipalId": {
               "type": "string",
-              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-kubelet-{0}-{1}', parameters('baseName'), parameters('regionKey'))), '2023-01-31').principalId]"
+              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-kubelet-{0}-{1}', parameters('baseName'), variables('stampName'))), '2023-01-31').principalId]"
             },
-            "logAnalyticsWorkspaceId": {
+            "stampName": {
               "type": "string",
-              "value": "[resourceId('Microsoft.OperationalInsights/workspaces', format('law-{0}-{1}', parameters('baseName'), parameters('regionKey')))]"
-            },
-            "monitorWorkspaceId": {
-              "type": "string",
-              "value": "[resourceId('Microsoft.Monitor/accounts', format('amw-{0}-{1}', parameters('baseName'), parameters('regionKey')))]"
-            },
-            "childDnsZoneName": {
-              "type": "string",
-              "value": "[format('{0}.{1}', parameters('regionKey'), parameters('domainName'))]"
-            },
-            "childDnsNameServers": {
-              "type": "array",
-              "value": "[reference(resourceId('Microsoft.Network/dnsZones', format('{0}.{1}', parameters('regionKey'), parameters('domainName'))), '2023-07-01-preview').nameServers]"
-            },
-            "certManagerIdentityClientId": {
-              "type": "string",
-              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-certmanager-{0}-{1}', parameters('baseName'), parameters('regionKey'))), '2023-01-31').clientId]"
+              "value": "[variables('stampName')]"
             }
           }
         }
       },
       "dependsOn": [
-        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', format('rg-{0}-{1}', parameters('baseName'), parameters('regions')[copyIndex()].key))]"
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-{1}', parameters('baseName'), parameters('regions')[copyIndex()].key)), 'Microsoft.Resources/deployments', format('deploy-region-{0}', parameters('regions')[variables('stampRegionIndex')[copyIndex()]].key))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-{1}', parameters('baseName'), parameters('regions')[copyIndex()].key)), 'Microsoft.Resources/deployments', format('deploy-region-{0}', parameters('regions')[variables('stampRegionIndex')[copyIndex()]].key))]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', format('rg-{0}-{1}-{2}', parameters('baseName'), variables('allStamps')[copyIndex()].regionKey, variables('allStamps')[copyIndex()].stampKey))]"
       ]
     },
     {
       "copy": {
         "name": "wiring",
-        "count": "[length(parameters('regions'))]"
+        "count": "[length(variables('allStamps'))]"
       },
       "type": "Microsoft.Resources/deployments",
       "apiVersion": "2025-04-01",
-      "name": "[format('deploy-wiring-{0}', parameters('regions')[copyIndex()].key)]",
+      "name": "[format('deploy-wiring-{0}-{1}', variables('allStamps')[copyIndex()].regionKey, variables('allStamps')[copyIndex()].stampKey)]",
       "resourceGroup": "[format('rg-{0}-global', parameters('baseName'))]",
       "properties": {
         "expressionEvaluationOptions": {
@@ -1101,19 +1217,19 @@
             "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-global', parameters('baseName'))), 'Microsoft.Resources/deployments', 'deploy-global'), '2025-04-01').outputs.acrName.value]"
           },
           "regionKey": {
-            "value": "[parameters('regions')[copyIndex()].key]"
+            "value": "[format('{0}-{1}', variables('allStamps')[copyIndex()].regionKey, variables('allStamps')[copyIndex()].stampKey)]"
           },
           "aksClusterId": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-{1}', parameters('baseName'), parameters('regions')[copyIndex()].key)), 'Microsoft.Resources/deployments', format('deploy-region-{0}', parameters('regions')[copyIndex()].key)), '2025-04-01').outputs.aksClusterId.value]"
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-{1}-{2}', parameters('baseName'), variables('allStamps')[copyIndex()].regionKey, variables('allStamps')[copyIndex()].stampKey)), 'Microsoft.Resources/deployments', format('deploy-stamp-{0}-{1}', variables('allStamps')[copyIndex()].regionKey, variables('allStamps')[copyIndex()].stampKey)), '2025-04-01').outputs.aksClusterId.value]"
           },
           "kubeletPrincipalId": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-{1}', parameters('baseName'), parameters('regions')[copyIndex()].key)), 'Microsoft.Resources/deployments', format('deploy-region-{0}', parameters('regions')[copyIndex()].key)), '2025-04-01').outputs.kubeletIdentityPrincipalId.value]"
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-{1}-{2}', parameters('baseName'), variables('allStamps')[copyIndex()].regionKey, variables('allStamps')[copyIndex()].stampKey)), 'Microsoft.Resources/deployments', format('deploy-stamp-{0}-{1}', variables('allStamps')[copyIndex()].regionKey, variables('allStamps')[copyIndex()].stampKey)), '2025-04-01').outputs.kubeletIdentityPrincipalId.value]"
           },
           "parentDnsZoneName": {
             "value": "[parameters('domainName')]"
           },
           "childDnsNameServers": {
-            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-{1}', parameters('baseName'), parameters('regions')[copyIndex()].key)), 'Microsoft.Resources/deployments', format('deploy-region-{0}', parameters('regions')[copyIndex()].key)), '2025-04-01').outputs.childDnsNameServers.value]"
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-{1}', parameters('baseName'), parameters('regions')[copyIndex()].key)), 'Microsoft.Resources/deployments', format('deploy-region-{0}', parameters('regions')[variables('stampRegionIndex')[copyIndex()]].key)), '2025-04-01').outputs.childDnsNameServers.value]"
           }
         },
         "template": {
@@ -1216,9 +1332,9 @@
       "dependsOn": [
         "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-global', parameters('baseName'))), 'Microsoft.Resources/deployments', 'deploy-global')]",
         "[subscriptionResourceId('Microsoft.Resources/resourceGroups', format('rg-{0}-global', parameters('baseName')))]",
-        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-{1}', parameters('baseName'), parameters('regions')[copyIndex()].key)), 'Microsoft.Resources/deployments', format('deploy-region-{0}', parameters('regions')[copyIndex()].key))]",
-        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-{1}', parameters('baseName'), parameters('regions')[copyIndex()].key)), 'Microsoft.Resources/deployments', format('deploy-region-{0}', parameters('regions')[copyIndex()].key))]",
-        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-{1}', parameters('baseName'), parameters('regions')[copyIndex()].key)), 'Microsoft.Resources/deployments', format('deploy-region-{0}', parameters('regions')[copyIndex()].key))]"
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-{1}', parameters('baseName'), parameters('regions')[copyIndex()].key)), 'Microsoft.Resources/deployments', format('deploy-region-{0}', parameters('regions')[variables('stampRegionIndex')[copyIndex()]].key))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-{1}-{2}', parameters('baseName'), variables('allStamps')[copyIndex()].regionKey, variables('allStamps')[copyIndex()].stampKey)), 'Microsoft.Resources/deployments', format('deploy-stamp-{0}-{1}', variables('allStamps')[copyIndex()].regionKey, variables('allStamps')[copyIndex()].stampKey))]",
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-{1}-{2}', parameters('baseName'), variables('allStamps')[copyIndex()].regionKey, variables('allStamps')[copyIndex()].stampKey)), 'Microsoft.Resources/deployments', format('deploy-stamp-{0}-{1}', variables('allStamps')[copyIndex()].regionKey, variables('allStamps')[copyIndex()].stampKey))]"
       ]
     }
   ],
@@ -1258,8 +1374,8 @@
     "aksClusterNames": {
       "type": "array",
       "copy": {
-        "count": "[length(parameters('regions'))]",
-        "input": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-{1}', parameters('baseName'), parameters('regions')[copyIndex()].key)), 'Microsoft.Resources/deployments', format('deploy-region-{0}', parameters('regions')[copyIndex()].key)), '2025-04-01').outputs.aksClusterName.value]"
+        "count": "[length(variables('allStamps'))]",
+        "input": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-{1}-{2}', parameters('baseName'), variables('allStamps')[copyIndex()].regionKey, variables('allStamps')[copyIndex()].stampKey)), 'Microsoft.Resources/deployments', format('deploy-stamp-{0}-{1}', variables('allStamps')[copyIndex()].regionKey, variables('allStamps')[copyIndex()].stampKey)), '2025-04-01').outputs.aksClusterName.value]"
       }
     },
     "playerOnLevel0IdentityClientId": {

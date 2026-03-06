@@ -7,6 +7,14 @@ param cosmosAutoscaleMaxThroughput = 1000
 param domainName = 'alwayson.actor'
 
 param regions = [
-  { key: 'swedencentral', location: 'swedencentral' }
-  { key: 'germanywestcentral', location: 'germanywestcentral' }
+  {
+    key: 'swedencentral'
+    location: 'swedencentral'
+    stamps: [ { key: '001' } ]
+  }
+  {
+    key: 'germanywestcentral'
+    location: 'germanywestcentral'
+    stamps: [ { key: '001' } ]
+  }
 ]

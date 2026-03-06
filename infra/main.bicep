@@ -27,11 +27,28 @@ param cosmosAutoscaleMaxThroughput int = 1000
 @description('Domain name for Azure DNS zone (e.g. alwayson.actor).')
 param domainName string = 'alwayson.actor'
 
-@description('Region configurations as an array of objects with location and optional overrides.')
+@description('Region configurations with stamps. Each region has a key, location, and stamps array.')
 param regions array = [
-  { key: 'swedencentral', location: 'swedencentral' }
-  { key: 'germanywestcentral', location: 'germanywestcentral' }
+  {
+    key: 'swedencentral'
+    location: 'swedencentral'
+    stamps: [ { key: '001' } ]
+  }
+  {
+    key: 'germanywestcentral'
+    location: 'germanywestcentral'
+    stamps: [ { key: '001' } ]
+  }
 ]
+
+// Flatten regions × stamps into a single array for loops
+var _stampArrays = [for region in regions: map(region.stamps, stamp => {
+  regionKey: region.key
+  location: region.location
+  stampKey: stamp.key
+  stampConfig: stamp
+})]
+var allStamps = flatten(_stampArrays)
 
 // ============================================================================
 // Resource Groups
@@ -46,6 +63,13 @@ resource regionalRgs 'Microsoft.Resources/resourceGroups@2024-03-01' = [
   for region in regions: {
     name: 'rg-${baseName}-${region.key}'
     location: region.location
+  }
+]
+
+resource stampRgs 'Microsoft.Resources/resourceGroups@2024-03-01' = [
+  for stamp in allStamps: {
+    name: 'rg-${baseName}-${stamp.regionKey}-${stamp.stampKey}'
+    location: stamp.location
   }
 ]
 
@@ -82,7 +106,7 @@ module playerOnLevel0 'app-playeronlevel0.bicep' = {
 }
 
 // ============================================================================
-// Regional Resources (one deployment per region)
+// Regional Resources (shared per region)
 // ============================================================================
 
 module regional 'region.bicep' = [
@@ -99,21 +123,44 @@ module regional 'region.bicep' = [
 ]
 
 // ============================================================================
-// Cross-RG Wiring (fleet members + ACR pull roles, one per region)
+// Stamp Resources (one AKS per stamp)
+// ============================================================================
+
+// Helper: map each stamp to its region index for accessing regional outputs
+var stampRegionIndex = [for stamp in allStamps: indexOf(map(regions, r => r.key), stamp.regionKey)]
+
+module stamps 'stamp.bicep' = [
+  for (stamp, i) in allStamps: {
+    name: 'deploy-stamp-${stamp.regionKey}-${stamp.stampKey}'
+    scope: stampRgs[i]
+    params: {
+      baseName: baseName
+      regionKey: stamp.regionKey
+      stampKey: stamp.stampKey
+      stampConfig: stamp.stampConfig
+      location: stamp.location
+      logAnalyticsWorkspaceId: regional[stampRegionIndex[i]].outputs.logAnalyticsWorkspaceId
+      monitorWorkspaceId: regional[stampRegionIndex[i]].outputs.monitorWorkspaceId
+    }
+  }
+]
+
+// ============================================================================
+// Cross-RG Wiring (fleet members + ACR pull roles, one per stamp)
 // ============================================================================
 
 module wiring 'wiring.bicep' = [
-  for (region, i) in regions: {
-    name: 'deploy-wiring-${region.key}'
+  for (stamp, i) in allStamps: {
+    name: 'deploy-wiring-${stamp.regionKey}-${stamp.stampKey}'
     scope: globalRg
     params: {
       fleetName: global.outputs.fleetName
       acrName: global.outputs.acrName
-      regionKey: region.key
-      aksClusterId: regional[i].outputs.aksClusterId
-      kubeletPrincipalId: regional[i].outputs.kubeletIdentityPrincipalId
+      regionKey: '${stamp.regionKey}-${stamp.stampKey}'
+      aksClusterId: stamps[i].outputs.aksClusterId
+      kubeletPrincipalId: stamps[i].outputs.kubeletIdentityPrincipalId
       parentDnsZoneName: domainName
-      childDnsNameServers: regional[i].outputs.childDnsNameServers
+      childDnsNameServers: regional[stampRegionIndex[i]].outputs.childDnsNameServers
     }
   }
 ]
@@ -131,7 +178,7 @@ output frontDoorEndpointHostName string = global.outputs.fdEndpointHostName
 output dnsNameServers array = global.outputs.dnsNameServers
 output dnsZoneName string = domainName
 output aksClusterNames array = [
-  for (region, i) in regions: regional[i].outputs.aksClusterName
+  for (stamp, i) in allStamps: stamps[i].outputs.aksClusterName
 ]
 output playerOnLevel0IdentityClientId string = playerOnLevel0.outputs.identityClientId
 output appInsightsConnectionString string = global.outputs.appInsightsConnectionString

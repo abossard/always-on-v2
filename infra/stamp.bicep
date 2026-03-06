@@ -1,0 +1,229 @@
+// ============================================================================
+// Stamp Resources — one AKS cluster per stamp, deployed into a stamp RG
+// ============================================================================
+
+@description('Base name for all resources.')
+param baseName string
+
+@description('Region key (e.g. swedencentral).')
+param regionKey string
+
+@description('Stamp key (e.g. 001).')
+param stampKey string
+
+@description('Stamp configuration object.')
+param stampConfig object
+
+@description('Location for resources.')
+param location string
+
+@description('Log Analytics Workspace ID from the regional module.')
+param logAnalyticsWorkspaceId string
+
+@description('Monitor Workspace ID from the regional module.')
+param monitorWorkspaceId string
+
+// ============================================================================
+// Derived Values
+// ============================================================================
+
+var stampName = '${regionKey}-${stampKey}'
+var aksVmSize = stampConfig.?aksNodeVmSize ?? 'Standard_D2s_v3'
+var aksSystemNodeCount = stampConfig.?aksSystemNodeCount ?? 1
+
+// ============================================================================
+// Identities
+// ============================================================================
+
+resource clusterIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: 'id-aks-${baseName}-${stampName}'
+  location: location
+}
+
+resource kubeletIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: 'id-kubelet-${baseName}-${stampName}'
+  location: location
+}
+
+var managedIdentityOperatorRoleId = 'f1a07417-d97a-45cb-824c-7a7467783830'
+
+resource clusterToKubeletRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(clusterIdentity.id, kubeletIdentity.id, managedIdentityOperatorRoleId)
+  scope: kubeletIdentity
+  properties: {
+    principalId: clusterIdentity.properties.principalId
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      managedIdentityOperatorRoleId
+    )
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// ============================================================================
+// Prometheus Data Collection Rule
+// ============================================================================
+
+resource prometheusDcr 'Microsoft.Insights/dataCollectionRules@2023-03-11' = {
+  name: 'dcr-prometheus-${baseName}-${stampName}'
+  location: location
+  properties: {
+    dataSources: {
+      prometheusForwarder: [
+        {
+          name: 'PrometheusDataSource'
+          streams: [ 'Microsoft-PrometheusMetrics' ]
+          labelIncludeFilter: {}
+        }
+      ]
+    }
+    destinations: {
+      monitoringAccounts: [
+        {
+          name: 'MonitoringAccount'
+          accountResourceId: monitorWorkspaceId
+        }
+      ]
+    }
+    dataFlows: [
+      {
+        streams: [ 'Microsoft-PrometheusMetrics' ]
+        destinations: [ 'MonitoringAccount' ]
+      }
+    ]
+  }
+}
+
+// ============================================================================
+// AKS Managed Cluster
+// ============================================================================
+
+resource aksCluster 'Microsoft.ContainerService/managedClusters@2025-10-01' = {
+  name: 'aks-${baseName}-${stampName}'
+  location: location
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${clusterIdentity.id}': {}
+    }
+  }
+  sku: {
+    name: 'Base'
+    tier: 'Free'
+  }
+  properties: {
+    dnsPrefix: 'aks-${baseName}-${stampName}'
+    nodeResourceGroup: 'rg-${baseName}-${stampName}-nodes'
+    enableRBAC: true
+    disableLocalAccounts: true
+
+    oidcIssuerProfile: { enabled: true }
+    securityProfile: { workloadIdentity: { enabled: true } }
+
+    aadProfile: {
+      managed: true
+      enableAzureRBAC: true
+    }
+
+    identityProfile: {
+      kubeletidentity: {
+        resourceId: kubeletIdentity.id
+        clientId: kubeletIdentity.properties.clientId
+        objectId: kubeletIdentity.properties.principalId
+      }
+    }
+
+    nodeProvisioningProfile: { mode: 'Auto' }
+
+    agentPoolProfiles: [
+      {
+        name: 'system'
+        mode: 'System'
+        count: aksSystemNodeCount
+        vmSize: aksVmSize
+        osType: 'Linux'
+        osSKU: 'AzureLinux'
+      }
+    ]
+
+    networkProfile: {
+      networkPlugin: 'azure'
+      networkPluginMode: 'overlay'
+      networkDataplane: 'cilium'
+      networkPolicy: 'cilium'
+    }
+
+    workloadAutoScalerProfile: {
+      keda: { enabled: true }
+      verticalPodAutoscaler: { enabled: true }
+    }
+
+    ingressProfile: {
+      webAppRouting: { enabled: true }
+    }
+
+    addonProfiles: {
+      omsagent: {
+        enabled: true
+        config: {
+          logAnalyticsWorkspaceResourceID: logAnalyticsWorkspaceId
+          useAADAuth: 'true'
+        }
+      }
+    }
+
+    azureMonitorProfile: {
+      metrics: { enabled: true }
+    }
+
+    autoUpgradeProfile: { upgradeChannel: 'stable' }
+  }
+}
+
+// ============================================================================
+// Prometheus DCRA
+// ============================================================================
+
+resource prometheusDcra 'Microsoft.Insights/dataCollectionRuleAssociations@2022-06-01' = {
+  name: 'dcra-prometheus-${stampName}'
+  scope: aksCluster
+  properties: {
+    dataCollectionRuleId: prometheusDcr.id
+    description: 'Prometheus metrics collection for AKS'
+  }
+}
+
+// ============================================================================
+// Chaos Studio Preparation
+// ============================================================================
+
+resource chaosTarget 'Microsoft.Chaos/targets@2024-01-01' = {
+  name: 'Microsoft-AzureKubernetesServiceChaosMesh'
+  scope: aksCluster
+  properties: {}
+}
+
+resource chaosPodChaos 'Microsoft.Chaos/targets/capabilities@2024-01-01' = {
+  parent: chaosTarget
+  name: 'PodChaos-2.2'
+}
+
+resource chaosNetworkChaos 'Microsoft.Chaos/targets/capabilities@2024-01-01' = {
+  parent: chaosTarget
+  name: 'NetworkChaos-2.2'
+}
+
+resource chaosStressChaos 'Microsoft.Chaos/targets/capabilities@2024-01-01' = {
+  parent: chaosTarget
+  name: 'StressChaos-2.2'
+}
+
+// ============================================================================
+// Outputs
+// ============================================================================
+
+output aksClusterId string = aksCluster.id
+output aksClusterName string = aksCluster.name
+output aksOidcIssuerUrl string = aksCluster.properties.oidcIssuerProfile.issuerURL
+output kubeletIdentityPrincipalId string = kubeletIdentity.properties.principalId
+output stampName string = stampName
