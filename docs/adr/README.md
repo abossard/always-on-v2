@@ -45,6 +45,7 @@ This directory contains all Architecture Decision Records (ADRs) for the AlwaysO
 | 0036 | Type-Safe Lookups              | Accepted |
 | 0037 | Idempotent Finite State Machines | Accepted |
 | 0038 | Matrix Testing                 | Accepted |
+| 0039 | Orleans Ingress                | Accepted |
 
 ## Format
 
