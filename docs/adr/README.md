@@ -33,6 +33,18 @@ This directory contains all Architecture Decision Records (ADRs) for the AlwaysO
 | 0024 | Deployment Strategy          | Proposed |
 | 0025 | Rate Limiting                | Proposed |
 | 0026 | PlayersOnLevel0 Lightweight API | Accepted |
+| 0027 | Multi-Tenancy                  | Proposed |
+| 0028 | Config Management              | Proposed |
+| 0029 | Service Identity Wiring        | Proposed |
+| 0030 | IaC Service Connector Placement | Proposed |
+| 0031 | Cluster Bootstrapping          | Proposed |
+| 0032 | Coding Principles              | Accepted |
+| 0033 | Module Design                  | Accepted |
+| 0034 | Simplified Hexagonal Architecture | Accepted |
+| 0035 | File Organization              | Accepted |
+| 0036 | Type-Safe Lookups              | Accepted |
+| 0037 | Idempotent Finite State Machines | Accepted |
+| 0038 | Matrix Testing                 | Accepted |
 
 ## Format
 
