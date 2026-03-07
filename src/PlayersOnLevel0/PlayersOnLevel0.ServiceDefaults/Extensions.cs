@@ -11,6 +11,7 @@ using Microsoft.Extensions.Logging;
 using OpenTelemetry;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
+using Scalar.AspNetCore;
 
 namespace Microsoft.Extensions.Hosting;
 
@@ -27,6 +28,8 @@ public static class ServiceDefaultsExtensions
             http.AddServiceDiscovery();
         });
 
+        builder.Services.AddOpenApi();
+
         return builder;
     }
 
@@ -36,6 +39,10 @@ public static class ServiceDefaultsExtensions
         {
             // /alive — basic liveness
             app.MapHealthChecks("/alive", new HealthCheckOptions { Predicate = r => r.Tags.Contains("live") });
+
+            // OpenAPI + Scalar interactive docs
+            app.MapOpenApi();
+            app.MapScalarApiReference();
         }
 
         // /health — full readiness
