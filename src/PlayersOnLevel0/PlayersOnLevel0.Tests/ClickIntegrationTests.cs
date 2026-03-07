@@ -168,12 +168,12 @@ public class ClickIntegrationTests(InMemoryFixture fixture)
             }
         }
 
-        await Assert.That(events).HasCount().GreaterThanOrEqualTo(1);
+        await Assert.That(events).Count().IsGreaterThanOrEqualTo(1);
         await Assert.That(events[0].Type).IsEqualTo("clickRecorded");
 
         // Verify the JSON payload
         var payload = JsonSerializer.Deserialize<JsonElement>(events[0].Data);
-        await Assert.That(payload.GetProperty("totalClicks").GetInt64()).IsEqualTo(2); // 1 from UpdatePlayer implicit + 1 click... actually score update doesn't create a click
+        await Assert.That(payload.GetProperty("totalClicks").GetInt64()).IsEqualTo(1); // first click on this player
     }
 
     [Test]
@@ -212,7 +212,7 @@ public class ClickIntegrationTests(InMemoryFixture fixture)
             }
         }
 
-        await Assert.That(events).HasCount().GreaterThanOrEqualTo(1);
+        await Assert.That(events).Count().IsGreaterThanOrEqualTo(1);
         await Assert.That(events[0].Type).IsEqualTo("scoreUpdated");
     }
 

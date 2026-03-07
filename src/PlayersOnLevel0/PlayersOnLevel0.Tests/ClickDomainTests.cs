@@ -43,7 +43,7 @@ public class ClickDomainTests
         var player = NewPlayer();
         var result = player.WithClick(DateTimeOffset.UtcNow, NoRate);
 
-        await Assert.That(result.Events).HasCount().EqualTo(1);
+        await Assert.That(result.Events).Count().IsEqualTo(1);
         await Assert.That(result.Events[0]).IsTypeOf<ClickRecorded>();
         var evt = (ClickRecorded)result.Events[0];
         await Assert.That(evt.TotalClicks).IsEqualTo(1);
@@ -66,7 +66,7 @@ public class ClickDomainTests
         var player = NewPlayer().WithAchievement("manual-ach", "Manual");
         var result = player.WithClick(DateTimeOffset.UtcNow, NoRate);
 
-        await Assert.That(result.State.Achievements).HasCount().EqualTo(1);
+        await Assert.That(result.State.Achievements).Count().IsEqualTo(1);
         await Assert.That(result.State.Achievements[0].Id).IsEqualTo("manual-ach");
     }
 
@@ -267,8 +267,8 @@ public class RateTrackerTests
 
         tracker.RecordClick(playerId, now);
         tracker.RecordClick(playerId, now.AddMilliseconds(500));
-        // 1.5s later — first two clicks are > 1s ago
-        var snapshot = tracker.RecordClick(playerId, now.AddMilliseconds(1500));
+        // 2s later — first two clicks are > 1s ago
+        var snapshot = tracker.RecordClick(playerId, now.AddMilliseconds(2000));
 
         await Assert.That(snapshot.ClicksPerSecond).IsEqualTo(1); // only the latest
         await Assert.That(snapshot.ClicksPerMinute).IsEqualTo(3); // all within 60s
@@ -329,7 +329,7 @@ public class EventBusTests
             break; // just need the first one
         }
 
-        await Assert.That(received).HasCount().EqualTo(1);
+        await Assert.That(received).Count().IsEqualTo(1);
         await Assert.That(received[0]).IsTypeOf<ClickRecorded>();
     }
 
@@ -360,8 +360,8 @@ public class EventBusTests
             break;
         }
 
-        await Assert.That(received1).HasCount().EqualTo(1);
-        await Assert.That(received2).HasCount().EqualTo(1);
+        await Assert.That(received1).Count().IsEqualTo(1);
+        await Assert.That(received2).Count().IsEqualTo(1);
     }
 
     [Test]
@@ -384,7 +384,7 @@ public class EventBusTests
         }
         catch (OperationCanceledException) { }
 
-        await Assert.That(received).HasCount().EqualTo(0);
+        await Assert.That(received).Count().IsEqualTo(0);
     }
 
     [Test]
