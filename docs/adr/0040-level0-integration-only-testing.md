@@ -22,10 +22,23 @@ Level0 is a simple, Orleans-free API. There is no distributed actor model, no gr
 ### Rules
 
 1. **Every test starts with an HTTP request.** Tests use `HttpClient` against a real running application, not direct method calls on domain objects.
-2. **Storage ports are wired to real adapters.** InMemory for fast local tests, Cosmos DB (via Aspire emulator) for infrastructure validation. No mocked `IPlayerProgressionStore`.
+2. **Every test runs against every backend.** Tests are defined once in an abstract base class and executed against all storage and infrastructure adapters via the matrix pattern ([ADR-0038](0038-matrix-testing.md)). No test suite is allowed to run against only one backend. Tests must be port-agnostic — they don't know or care which storage or bus technology is behind the API.
 3. **Behavior is asserted through API responses and observable side effects** (HTTP status codes, JSON payloads, SSE events). Internal state (domain events, rate snapshots) is never inspected directly.
-4. **The matrix pattern ([ADR-0038](0038-matrix-testing.md)) provides backend coverage.** Tests are defined once and executed against every storage adapter.
+4. **Adding a new backend means adding one concrete test class per suite, not duplicating tests.** When a new storage adapter or bus technology is introduced, each abstract test suite gets a new one-liner subclass wired to the new fixture. The tests themselves never change.
 5. **If a behavior can't be tested through the API, question whether it needs to exist.** If it's purely an implementation detail, it doesn't need its own test.
+
+### Test structure
+
+All test suites follow the same pattern:
+
+```
+abstract class SomeTests(HttpClient client)    // tests defined once
+├── InMemorySomeTests(InMemoryFixture)         // [InheritsTests] — fast, local
+├── CosmosSomeTests(AspireFixture)             // [InheritsTests] — real infra
+├── ... future backends                        // one-liner per backend
+```
+
+Tests take an `HttpClient` — they are completely decoupled from which ports are wired behind the API. This scales to any number of storage layers or bus technologies without test duplication.
 
 ### What was removed
 
