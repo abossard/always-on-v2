@@ -187,9 +187,9 @@ public static class ClickAchievementEvaluator
     public static IReadOnlyList<ClickAchievement> Evaluate(
         long totalClicks,
         ClickRateSnapshot rates,
-        IReadOnlyList<ClickAchievement> existing)
+        IReadOnlyList<ClickAchievement> existing,
+        DateTimeOffset now)
     {
-        var now = DateTimeOffset.UtcNow;
         var result = new List<ClickAchievement>(existing);
 
         // Total click tiers
