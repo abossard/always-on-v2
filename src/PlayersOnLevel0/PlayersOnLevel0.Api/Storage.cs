@@ -152,6 +152,8 @@ internal sealed class CosmosPlayerDocument
     public int level { get; set; }
     public long score { get; set; }
     public List<CosmosAchievementEntry> achievements { get; set; } = [];
+    public long totalClicks { get; set; }
+    public List<CosmosClickAchievementEntry> clickAchievements { get; set; } = [];
     public DateTimeOffset createdAt { get; set; }
     public DateTimeOffset updatedAt { get; set; }
 
@@ -161,6 +163,8 @@ internal sealed class CosmosPlayerDocument
         Level = new Level(level),
         Score = new Score(score),
         Achievements = achievements.Select(a => new Achievement(a.id, a.name, a.unlockedAt)).ToList(),
+        TotalClicks = totalClicks,
+        ClickAchievements = clickAchievements.Select(a => new ClickAchievement(a.achievementId, a.tier, a.earnedAt)).ToList(),
         CreatedAt = createdAt,
         UpdatedAt = updatedAt,
         ETag = etag
@@ -178,6 +182,13 @@ internal sealed class CosmosPlayerDocument
             name = a.Name,
             unlockedAt = a.UnlockedAt
         }).ToList(),
+        totalClicks = p.TotalClicks,
+        clickAchievements = p.ClickAchievements.Select(a => new CosmosClickAchievementEntry
+        {
+            achievementId = a.AchievementId,
+            tier = a.Tier,
+            earnedAt = a.EarnedAt
+        }).ToList(),
         createdAt = p.CreatedAt,
         updatedAt = p.UpdatedAt
     };
@@ -188,6 +199,13 @@ internal sealed class CosmosAchievementEntry
     public string id { get; set; } = "";
     public string name { get; set; } = "";
     public DateTimeOffset unlockedAt { get; set; }
+}
+
+internal sealed class CosmosClickAchievementEntry
+{
+    public string achievementId { get; set; } = "";
+    public int tier { get; set; }
+    public DateTimeOffset earnedAt { get; set; }
 }
 
 // ──────────────────────────────────────────────
