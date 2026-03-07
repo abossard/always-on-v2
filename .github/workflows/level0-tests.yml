@@ -9,6 +9,11 @@ on:
     paths: ['src/PlayersOnLevel0/**']
   workflow_dispatch:
 
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -34,8 +39,15 @@ jobs:
         working-directory: src/PlayersOnLevel0
 
       - name: Run tests
-        run: dotnet run --project PlayersOnLevel0.Tests --no-build
+        run: dotnet run --project PlayersOnLevel0.Tests --no-build -- --report-trx --report-trx-filename results.trx
         working-directory: src/PlayersOnLevel0
+
+      - name: Publish test results
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: src/PlayersOnLevel0/TestResults/**/*.trx
+          check_name: Level0 Test Results
 
       - name: Upload test results
         if: always()
