@@ -38,20 +38,35 @@ jobs:
         run: dotnet build --no-restore
         working-directory: src/PlayersOnLevel0
 
-      - name: Run tests
-        run: dotnet run --project PlayersOnLevel0.Tests --no-build -- --report-trx --report-trx-filename results.trx
+      - name: Run tests with coverage
+        env:
+          TUNIT_DISABLE_GITHUB_REPORTER: true
+        run: >
+          dotnet run --project PlayersOnLevel0.Tests --no-build --
+          --report-trx --report-trx-filename results.trx
+          --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml
         working-directory: src/PlayersOnLevel0
 
       - name: Publish test results
         if: always()
         uses: EnricoMi/publish-unit-test-result-action@v2
         with:
-          files: src/PlayersOnLevel0/TestResults/**/*.trx
+          files: src/PlayersOnLevel0/**/TestResults/**/*.trx
           check_name: Level0 Test Results
 
-      - name: Upload test results
+      - name: Generate coverage report
+        if: always()
+        run: |
+          dotnet tool install -g dotnet-reportgenerator-globaltool
+          reportgenerator -reports:src/PlayersOnLevel0/**/coverage.cobertura.xml -targetdir:coverage-report -reporttypes:"MarkdownSummaryGithub;Html"
+          cat coverage-report/SummaryGithub.md >> $GITHUB_STEP_SUMMARY
+
+      - name: Upload artifacts
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: test-results
-          path: src/PlayersOnLevel0/TestResults/
+          path: |
+            src/PlayersOnLevel0/TestResults/
+            src/PlayersOnLevel0/**/TestResults/
+            coverage-report/
