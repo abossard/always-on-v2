@@ -126,7 +126,7 @@ public sealed record PlayerProgression
 
         // Evaluate click achievements
         var newClickAchievements = ClickAchievementEvaluator.Evaluate(
-            newClicks, rates, ClickAchievements);
+            newClicks, rates, ClickAchievements, now);
 
         foreach (var earned in newClickAchievements)
             if (!ClickAchievements.Any(a => a.AchievementId == earned.AchievementId && a.Tier == earned.Tier))

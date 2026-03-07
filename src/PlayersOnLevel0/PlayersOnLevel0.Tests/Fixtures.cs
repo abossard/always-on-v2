@@ -9,6 +9,7 @@ using Aspire.Hosting.Testing;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using PlayersOnLevel0.Api;
+using PlayersOnLevel0.AppHost;
 using TUnit.Core.Interfaces;
 using static PlayersOnLevel0.Api.Endpoints;
 
@@ -75,8 +76,8 @@ public class AspireFixture : IAsyncInitializer, IAsyncDisposable
 
         _app = await builder.BuildAsync();
         await _app.StartAsync();
-        await _app.ResourceNotifications.WaitForResourceHealthyAsync("api");
-        Client = _app.CreateHttpClient("api", "http");
+        await _app.ResourceNotifications.WaitForResourceHealthyAsync(ResourceNames.Api);
+        Client = _app.CreateHttpClient(ResourceNames.Api);
     }
 
     public async ValueTask DisposeAsync()
