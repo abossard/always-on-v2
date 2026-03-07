@@ -11,18 +11,6 @@ PlayersOnLevel0 had two layers of tests:
 1. **Unit tests** (`ClickDomainTests`, `RateTrackerTests`, `EventBusTests`) — tested pure domain functions, the in-memory rate tracker, and the event bus directly, without HTTP or storage.
 2. **Integration tests** (`PlayerProgressionTests`, `ClickIntegrationTests`) — tested through the HTTP API with real storage adapters (InMemory, Cosmos DB).
 
-The unit tests duplicated behavior already verified by the integration tests:
-
-| Unit test | Covered by integration test |
-|---|---|
-| `WithClick_IncrementsTotalClicks` | `Click_IncrementsTotalClicks` |
-| `WithClick_DoesNotAffectScoreOrLevel` | `Click_DoesNotAffectScore` |
-| `WithClick_EmitsClickRecordedEvent` | `Events_ReceivesClickEvent` |
-| `WithClick_EmitsAchievementEventOnNewTier` | `Click_AwardsAchievementAtThreshold` |
-| `WithClick_PreservesExistingAchievements` | `Click_CoexistsWithScoreUpdates` |
-| `RateTracker.*` | Exercised implicitly through click endpoint |
-| `EventBus.*` | Exercised through SSE stream tests |
-
 The unit tests provided no additional confidence beyond what the integration tests already gave. They tested internal implementation details (how `WithClick` returns events, how `InMemoryClickRateTracker` prunes timestamps) rather than observable system behavior. When the implementation changes, unit tests break even if behavior is preserved — they test the "how", not the "what".
 
 Level0 is a simple, Orleans-free API. There is no distributed actor model, no grain lifecycle, no complex concurrency that would justify isolated unit testing. The entire stack — endpoint → domain → storage → response — is fast enough to test as a whole.
