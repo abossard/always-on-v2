@@ -38,9 +38,15 @@ jobs:
         run: dotnet build --no-restore
         working-directory: src/PlayersOnLevel0
 
+      # Expose Actions runtime so TUnit can auto-upload its HTML report as artifact
+      - name: Expose GitHub Actions runtime
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env['ACTIONS_RUNTIME_TOKEN']);
+            core.exportVariable('ACTIONS_RESULTS_URL', process.env['ACTIONS_RESULTS_URL']);
+
       - name: Run tests with coverage
-        env:
-          TUNIT_DISABLE_GITHUB_REPORTER: true
         run: >
           dotnet run --project PlayersOnLevel0.Tests --no-build --
           --report-trx --report-trx-filename results.trx
@@ -54,12 +60,18 @@ jobs:
           files: src/PlayersOnLevel0/**/TestResults/**/*.trx
           check_name: Level0 Test Results
 
-      - name: Generate coverage report
+      - name: Publish coverage summary
         if: always()
-        run: |
-          dotnet tool install -g dotnet-reportgenerator-globaltool
-          reportgenerator -reports:src/PlayersOnLevel0/**/coverage.cobertura.xml -targetdir:coverage-report -reporttypes:"MarkdownSummaryGithub;Html"
-          cat coverage-report/SummaryGithub.md >> $GITHUB_STEP_SUMMARY
+        uses: irongut/CodeCoverageSummary@v1.3.0
+        with:
+          filename: src/PlayersOnLevel0/**/coverage.cobertura.xml
+          badge: true
+          format: markdown
+          output: both
+
+      - name: Add coverage to summary
+        if: always()
+        run: cat code-coverage-results.md >> $GITHUB_STEP_SUMMARY
 
       - name: Upload artifacts
         if: always()
@@ -67,6 +79,5 @@ jobs:
         with:
           name: test-results
           path: |
-            src/PlayersOnLevel0/TestResults/
             src/PlayersOnLevel0/**/TestResults/
-            coverage-report/
+            src/PlayersOnLevel0/TestResults/
