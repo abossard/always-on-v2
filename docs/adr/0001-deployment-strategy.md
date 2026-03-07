@@ -1,4 +1,4 @@
-# ADR-001: How to deploy workloads to regional AKS clusters
+# ADR-0001: How to deploy workloads to regional AKS clusters
 
 - **Status**: UNDECIDED
 - **Date**: 2026-03-05

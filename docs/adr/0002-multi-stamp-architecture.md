@@ -1,4 +1,4 @@
-# ADR-002: Multi-Stamp Architecture per Region
+# ADR-0002: Multi-Stamp Architecture per Region
 
 - **Status**: ACCEPTED
 - **Date**: 2026-03-05
