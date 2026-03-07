@@ -11,11 +11,11 @@
 
   <ItemGroup>
     <PackageReference Include="Aspire.Hosting.Azure.CosmosDB" />
+    <PackageReference Include="Aspire.Hosting.NodeJs" />
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\PlayersOnLevel0.Api\PlayersOnLevel0.Api.csproj" />
-    <ProjectReference Include="..\PlayersOnLevel0.Web\PlayersOnLevel0.Web.csproj" />
   </ItemGroup>
 
 </Project>

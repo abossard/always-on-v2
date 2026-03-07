@@ -50,7 +50,8 @@ jobs:
         run: >
           dotnet run --project PlayersOnLevel0.Tests --no-build --
           --report-trx --report-trx-filename results.trx
-          --coverage --coverage-output-format cobertura --coverage-output coverage.cobertura.xml
+          --coverage --coverage-output-format cobertura
+          --coverage-output ${{ github.workspace }}/coverage.cobertura.xml
         working-directory: src/PlayersOnLevel0
 
       - name: Publish test results
@@ -64,7 +65,7 @@ jobs:
         if: always()
         uses: irongut/CodeCoverageSummary@v1.3.0
         with:
-          filename: src/PlayersOnLevel0/**/coverage.cobertura.xml
+          filename: coverage.cobertura.xml
           badge: true
           format: markdown
           output: both

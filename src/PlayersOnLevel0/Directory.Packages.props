@@ -5,6 +5,7 @@
   <ItemGroup>
     <!-- Aspire -->
     <PackageVersion Include="Aspire.Hosting.Azure.CosmosDB" Version="13.1.2" />
+    <PackageVersion Include="Aspire.Hosting.NodeJs" Version="9.5.2" />
     <PackageVersion Include="Aspire.Microsoft.Azure.Cosmos" Version="13.1.2" />
     <!-- Azure -->
     <PackageVersion Include="Azure.Identity" Version="1.18.0" />
