@@ -2,7 +2,7 @@
 
 ## Status
 
-Preference
+In discussion§
 
 ## Context
 

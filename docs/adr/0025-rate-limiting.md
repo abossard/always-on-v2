@@ -2,7 +2,7 @@
 
 ## Status
 
-Preference
+Proposed
 
 ## Context
 
