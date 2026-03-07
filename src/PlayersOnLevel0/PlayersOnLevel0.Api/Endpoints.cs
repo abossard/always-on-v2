@@ -114,18 +114,16 @@ public static class Endpoints
         if (!PlayerId.TryParse(playerId, out var id))
             return Results.Json(new ProblemResult("Invalid player ID format. Expected GUID.", 400), AppJsonContext.Default.ProblemResult, statusCode: 400);
 
+        // Capture click timestamp and update rate tracker once per request
+        var now = DateTimeOffset.UtcNow;
+        var rates = rateTracker.RecordClick(id.Value, now);
+
         // Retry loop for optimistic concurrency conflicts
         for (var attempt = 0; attempt < MaxClickRetries; attempt++)
         {
-            var now = DateTimeOffset.UtcNow;
-
             // Get-or-create
             var existing = await store.GetProgression(id.Value, ct);
             var progression = existing ?? new PlayerProgression { PlayerId = id.Value };
-
-            // Rate tracking (in-memory, not persisted)
-            var rates = rateTracker.RecordClick(id.Value, now);
-
             // Pure domain transition
             var clickResult = progression.WithClick(now, rates);
 
