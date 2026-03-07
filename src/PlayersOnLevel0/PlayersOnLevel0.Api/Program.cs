@@ -20,6 +20,14 @@ if (!string.IsNullOrEmpty(cosmosConnStr))
 // Storage — selected by config
 builder.Services.AddPlayerStorage(builder.Configuration);
 
+// Event bus — in-memory per-player fanout for SSE
+var eventBus = new InMemoryPlayerEventBus();
+builder.Services.AddSingleton(eventBus);
+builder.Services.AddSingleton<IPlayerEventSink>(eventBus);
+
+// Rate tracker — in-memory, ephemeral
+builder.Services.AddSingleton<IClickRateTracker, InMemoryClickRateTracker>();
+
 var app = builder.Build();
 await app.InitializeStorageAsync();
 if (app.Environment.IsDevelopment())
