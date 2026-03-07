@@ -117,7 +117,9 @@ public sealed record PlayerProgression
     /// </summary>
     public ClickResult WithClick(DateTimeOffset now, ClickRateSnapshot rates)
     {
-        var newClicks = TotalClicks + 1;
+        var newClicks = TotalClicks == long.MaxValue
+            ? long.MaxValue
+            : TotalClicks + 1;
         var events = new List<PlayerEvent>();
 
         events.Add(new ClickRecorded(PlayerId, newClicks, now));
