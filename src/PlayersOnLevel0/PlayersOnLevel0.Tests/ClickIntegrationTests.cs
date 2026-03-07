@@ -1,5 +1,5 @@
-// ClickIntegrationTests.cs — Matrix-style e2e tests for the click→SSE pipeline.
-// All tests defined once, executed against every storage backend.
+// ClickIntegrationTests.cs — Click and SSE stream tests.
+// Pure test suite. Backend wiring is in TestMatrix.cs.
 
 using System.Net;
 using System.Text;
@@ -7,10 +7,6 @@ using System.Text.Json;
 using static PlayersOnLevel0.Api.Endpoints;
 
 namespace PlayersOnLevel0.Tests;
-
-// ──────────────────────────────────────────────
-// Abstract test suite — click + SSE tests
-// ──────────────────────────────────────────────
 
 public abstract class ClickIntegrationTests(HttpClient client)
 {
@@ -221,22 +217,3 @@ public abstract class ClickIntegrationTests(HttpClient client)
         await Assert.That(player.Level).IsEqualTo(2); // 1500/1000 + 1 = 2
     }
 }
-
-// ──────────────────────────────────────────────
-// Concrete: InMemory backend
-// ──────────────────────────────────────────────
-
-[InheritsTests]
-[ClassDataSource<InMemoryFixture>(Shared = SharedType.PerTestSession)]
-public class InMemoryClickTests(InMemoryFixture fixture)
-    : ClickIntegrationTests(fixture.Client);
-
-// ──────────────────────────────────────────────
-// Concrete: Cosmos DB via Aspire (emulator)
-// ──────────────────────────────────────────────
-
-[InheritsTests]
-[Category("cosmos")]
-[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
-public class CosmosClickTests(AspireFixture fixture)
-    : ClickIntegrationTests(fixture.Client);

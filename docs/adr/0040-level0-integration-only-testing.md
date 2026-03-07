@@ -27,18 +27,32 @@ Level0 is a simple, Orleans-free API. There is no distributed actor model, no gr
 4. **Adding a new backend means adding one concrete test class per suite, not duplicating tests.** When a new storage adapter or bus technology is introduced, each abstract test suite gets a new one-liner subclass wired to the new fixture. The tests themselves never change.
 5. **If a behavior can't be tested through the API, question whether it needs to exist.** If it's purely an implementation detail, it doesn't need its own test.
 
-### Test structure
+### Test harness structure
 
-All test suites follow the same pattern:
+The test project is split into four concerns:
 
 ```
-abstract class SomeTests(HttpClient client)    // tests defined once
-├── InMemorySomeTests(InMemoryFixture)         // [InheritsTests] — fast, local
-├── CosmosSomeTests(AspireFixture)             // [InheritsTests] — real infra
-├── ... future backends                        // one-liner per backend
+Fixtures.cs                  — Shared infra: fixtures (InMemory, Aspire) + Api helpers
+TestMatrix.cs                — ALL backend wiring in one file (N suites × M backends)
+PlayerProgressionTests.cs    — Abstract suite: score, level, achievements
+ClickIntegrationTests.cs     — Abstract suite: clicks, SSE streams
 ```
 
-Tests take an `HttpClient` — they are completely decoupled from which ports are wired behind the API. This scales to any number of storage layers or bus technologies without test duplication.
+Each abstract suite takes an `HttpClient` — completely decoupled from which ports are wired behind the API. `TestMatrix.cs` is the single file that defines the full matrix:
+
+```
+// TestMatrix.cs — one-liner per (suite, backend) pair
+InMemoryPlayerTests  → PlayerProgressionTests × InMemoryFixture
+InMemoryClickTests   → ClickIntegrationTests  × InMemoryFixture
+CosmosPlayerTests    → PlayerProgressionTests  × AspireFixture
+CosmosClickTests     → ClickIntegrationTests   × AspireFixture
+```
+
+**Adding a new backend** (e.g., PostgreSQL): add a fixture to `Fixtures.cs`, add one class per suite to `TestMatrix.cs`. Tests never change.
+
+**Adding a new test suite**: write the abstract class, add one class per backend to `TestMatrix.cs`. Backends never change.
+
+**Parallelism**: TUnit runs tests in parallel by default. Each test uses `Guid.NewGuid()` for player IDs, so there are no shared-state conflicts across suites or backends. InMemory and Cosmos test suites run concurrently.
 
 ### What was removed
 
@@ -66,5 +80,7 @@ Tests take an `HttpClient` — they are completely decoupled from which ports ar
 - [ADR-0038: Matrix Testing](0038-matrix-testing.md) — Behavior tests across all port implementations
 - [ADR-0026: Level0 Lightweight API](0026-playeronlevel0-lightweight-api.md) — Minimal hexagonal architecture
 - [ADR-0034: Simplified Hexagonal Architecture](0034-simplified-hexagonal-architecture.md) — Ports and adapters
-- `src/PlayersOnLevel0/PlayersOnLevel0.Tests/PlayerProgressionTests.cs` — Matrix integration tests
-- `src/PlayersOnLevel0/PlayersOnLevel0.Tests/ClickIntegrationTests.cs` — Click + SSE integration tests
+- `src/PlayersOnLevel0/PlayersOnLevel0.Tests/Fixtures.cs` — Shared fixtures and API helpers
+- `src/PlayersOnLevel0/PlayersOnLevel0.Tests/TestMatrix.cs` — All backend wiring (single file)
+- `src/PlayersOnLevel0/PlayersOnLevel0.Tests/PlayerProgressionTests.cs` — Score, level, achievement tests
+- `src/PlayersOnLevel0/PlayersOnLevel0.Tests/ClickIntegrationTests.cs` — Click + SSE tests
