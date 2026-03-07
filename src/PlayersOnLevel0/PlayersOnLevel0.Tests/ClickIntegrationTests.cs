@@ -158,7 +158,7 @@ public abstract class ClickIntegrationTests(HttpClient client)
 
         // Verify the JSON payload
         var payload = JsonSerializer.Deserialize<JsonElement>(events[0].Data);
-        await Assert.That(payload.GetProperty("totalClicks").GetInt64()).IsEqualTo(1);
+        await Assert.That(payload.GetProperty("TotalClicks").GetInt64()).IsEqualTo(1);
     }
 
     [Test]
