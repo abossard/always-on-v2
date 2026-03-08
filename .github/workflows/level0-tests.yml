@@ -3,8 +3,14 @@ name: Level0 Tests
 on:
   push:
     branches: [main]
+    paths:
+      - 'src/PlayersOnLevel0/**'
+      - '.github/workflows/level0-tests.yml'
   pull_request:
     branches: [main]
+    paths:
+      - 'src/PlayersOnLevel0/**'
+      - '.github/workflows/level0-tests.yml'
   workflow_dispatch:
 
 permissions:
