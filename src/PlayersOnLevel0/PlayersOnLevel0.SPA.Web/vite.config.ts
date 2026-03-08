@@ -7,9 +7,21 @@ export default defineConfig({
   server: {
     port: parseInt(process.env.PORT || '5173'),
     proxy: {
-      '/api': {
+      '/api/players': {
         target: process.env.services__api__http__0 || 'http://localhost:5036',
         changeOrigin: true,
+        // SSE requires unbuffered streaming and no timeout
+        configure: (proxy) => {
+          proxy.on('proxyRes', (proxyRes, req, res) => {
+            if (req.headers.accept === 'text/event-stream') {
+              res.setHeader('Content-Type', 'text/event-stream');
+              res.setHeader('Cache-Control', 'no-cache');
+              res.setHeader('Connection', 'keep-alive');
+              res.setHeader('X-Accel-Buffering', 'no');
+              res.flushHeaders();
+            }
+          });
+        },
       },
     },
   },
