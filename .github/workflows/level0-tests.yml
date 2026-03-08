@@ -152,9 +152,11 @@ jobs:
 
       - name: Playwright report summary
         if: always()
+        id: playwright-summary
         uses: daun/playwright-report-summary@v3
         with:
           report-file: src/PlayersOnLevel0/PlayersOnLevel0.E2E/results.json
+          job-summary: true
 
       - name: Upload Playwright report
         if: always()
