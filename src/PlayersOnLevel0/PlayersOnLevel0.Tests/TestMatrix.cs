@@ -33,3 +33,10 @@ public class CosmosPlayerTests(AspireFixture f)
 [ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
 public class CosmosClickTests(AspireFixture f)
     : ClickIntegrationTests(f.Client);
+
+// SSE streaming tests only run with Aspire (real HTTP, not TestHost)
+[InheritsTests]
+[Category("cosmos")]
+[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
+public class CosmosSseTests(AspireFixture f)
+    : SseStreamingTests(f.Client);
