@@ -3,10 +3,8 @@ name: Level0 Tests
 on:
   push:
     branches: [main]
-    paths: ['src/PlayersOnLevel0/**']
   pull_request:
     branches: [main]
-    paths: ['src/PlayersOnLevel0/**']
   workflow_dispatch:
 
 permissions:
