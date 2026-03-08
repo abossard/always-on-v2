@@ -150,9 +150,17 @@ jobs:
         env:
           services__web__http__0: http://localhost:${{ env.SPA_PORT }}
 
+      - name: Playwright report summary
+        if: always()
+        uses: daun/playwright-report-summary@v3
+        with:
+          report-file: src/PlayersOnLevel0/PlayersOnLevel0.E2E/results.json
+
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
-          path: src/PlayersOnLevel0/PlayersOnLevel0.E2E/playwright-report/
+          path: |
+            src/PlayersOnLevel0/PlayersOnLevel0.E2E/playwright-report/
+            src/PlayersOnLevel0/PlayersOnLevel0.E2E/test-results/
