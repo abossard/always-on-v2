@@ -1,0 +1,624 @@
+{
+  "config": {
+    "configFile": "/Users/abossard/Desktop/projects/always_on_v2/src/PlayersOnLevel0/PlayersOnLevel0.E2E/playwright.config.ts",
+    "rootDir": "/Users/abossard/Desktop/projects/always_on_v2/src/PlayersOnLevel0/PlayersOnLevel0.E2E/tests",
+    "forbidOnly": false,
+    "fullyParallel": true,
+    "globalSetup": null,
+    "globalTeardown": null,
+    "globalTimeout": 0,
+    "grep": {},
+    "grepInvert": null,
+    "maxFailures": 0,
+    "metadata": {
+      "actualWorkers": 5
+    },
+    "preserveOutput": "always",
+    "projects": [
+      {
+        "outputDir": "/Users/abossard/Desktop/projects/always_on_v2/src/PlayersOnLevel0/PlayersOnLevel0.E2E/test-results",
+        "repeatEach": 1,
+        "retries": 0,
+        "metadata": {
+          "actualWorkers": 5
+        },
+        "id": "chromium",
+        "name": "chromium",
+        "testDir": "/Users/abossard/Desktop/projects/always_on_v2/src/PlayersOnLevel0/PlayersOnLevel0.E2E/tests",
+        "testIgnore": [],
+        "testMatch": [
+          "**/*.@(spec|test).?(c|m)[jt]s?(x)"
+        ],
+        "timeout": 30000
+      }
+    ],
+    "quiet": false,
+    "reporter": [
+      [
+        "list",
+        null
+      ],
+      [
+        "html",
+        {
+          "open": "never"
+        }
+      ],
+      [
+        "json",
+        {
+          "outputFile": "results.json"
+        }
+      ]
+    ],
+    "reportSlowTests": {
+      "max": 5,
+      "threshold": 300000
+    },
+    "runAgents": "none",
+    "shard": null,
+    "tags": [],
+    "updateSnapshots": "missing",
+    "updateSourceMethod": "patch",
+    "version": "1.58.2",
+    "workers": 5,
+    "webServer": null
+  },
+  "suites": [
+    {
+      "title": "accessibility.spec.ts",
+      "file": "accessibility.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Accessibility",
+          "file": "accessibility.spec.ts",
+          "line": 4,
+          "column": 6,
+          "specs": [
+            {
+              "title": "welcome page has no a11y violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1093,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-08T12:34:18.440Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/abossard/Desktop/projects/always_on_v2/src/PlayersOnLevel0/PlayersOnLevel0.E2E/test-results/accessibility-Accessibilit-ca2e0-page-has-no-a11y-violations-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/abossard/Desktop/projects/always_on_v2/src/PlayersOnLevel0/PlayersOnLevel0.E2E/test-results/accessibility-Accessibilit-ca2e0-page-has-no-a11y-violations-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ddd864604af8a6a0198f-beae19f373d84c5d4c1f",
+              "file": "accessibility.spec.ts",
+              "line": 5,
+              "column": 7
+            },
+            {
+              "title": "player page has no a11y violations",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 1,
+                      "parallelIndex": 1,
+                      "status": "passed",
+                      "duration": 1232,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-08T12:34:18.440Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/abossard/Desktop/projects/always_on_v2/src/PlayersOnLevel0/PlayersOnLevel0.E2E/test-results/accessibility-Accessibilit-7b887-page-has-no-a11y-violations-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/abossard/Desktop/projects/always_on_v2/src/PlayersOnLevel0/PlayersOnLevel0.E2E/test-results/accessibility-Accessibilit-7b887-page-has-no-a11y-violations-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "ddd864604af8a6a0198f-be7c2674295ef90afb7e",
+              "file": "accessibility.spec.ts",
+              "line": 11,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "click-flow.spec.ts",
+      "file": "click-flow.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Player Click Flow",
+          "file": "click-flow.spec.ts",
+          "line": 3,
+          "column": 6,
+          "specs": [
+            {
+              "title": "full flow: welcome → create player → see dashboard",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 516,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-08T12:34:18.410Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/abossard/Desktop/projects/always_on_v2/src/PlayersOnLevel0/PlayersOnLevel0.E2E/test-results/click-flow-Player-Click-Fl-a9dd5-eate-player-→-see-dashboard-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/abossard/Desktop/projects/always_on_v2/src/PlayersOnLevel0/PlayersOnLevel0.E2E/test-results/click-flow-Player-Click-Fl-a9dd5-eate-player-→-see-dashboard-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c21bb41babc38f56acd7-6012ee972f9131abf663",
+              "file": "click-flow.spec.ts",
+              "line": 4,
+              "column": 7
+            },
+            {
+              "title": "click button is interactive",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 537,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-08T12:34:18.417Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/abossard/Desktop/projects/always_on_v2/src/PlayersOnLevel0/PlayersOnLevel0.E2E/test-results/click-flow-Player-Click-Flow-click-button-is-interactive-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/abossard/Desktop/projects/always_on_v2/src/PlayersOnLevel0/PlayersOnLevel0.E2E/test-results/click-flow-Player-Click-Flow-click-button-is-interactive-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c21bb41babc38f56acd7-1c48b8b50e2aeacb3330",
+              "file": "click-flow.spec.ts",
+              "line": 16,
+              "column": 7
+            },
+            {
+              "title": "bookmark button copies URL",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 4,
+                      "status": "passed",
+                      "duration": 709,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-08T12:34:18.409Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/abossard/Desktop/projects/always_on_v2/src/PlayersOnLevel0/PlayersOnLevel0.E2E/test-results/click-flow-Player-Click-Flow-bookmark-button-copies-URL-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/abossard/Desktop/projects/always_on_v2/src/PlayersOnLevel0/PlayersOnLevel0.E2E/test-results/click-flow-Player-Click-Flow-bookmark-button-copies-URL-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c21bb41babc38f56acd7-de56bb407a247a621301",
+              "file": "click-flow.spec.ts",
+              "line": 26,
+              "column": 7
+            },
+            {
+              "title": "diagnostics panel shows player info",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 516,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-08T12:34:19.744Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/abossard/Desktop/projects/always_on_v2/src/PlayersOnLevel0/PlayersOnLevel0.E2E/test-results/click-flow-Player-Click-Fl-7db6e-ics-panel-shows-player-info-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/abossard/Desktop/projects/always_on_v2/src/PlayersOnLevel0/PlayersOnLevel0.E2E/test-results/click-flow-Player-Click-Fl-7db6e-ics-panel-shows-player-info-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c21bb41babc38f56acd7-2a9bd7e6b71fc1679d75",
+              "file": "click-flow.spec.ts",
+              "line": 42,
+              "column": 7
+            },
+            {
+              "title": "diagnostics shows SSE events after clicking",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 3,
+                      "parallelIndex": 3,
+                      "status": "passed",
+                      "duration": 2705,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-08T12:34:19.746Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/abossard/Desktop/projects/always_on_v2/src/PlayersOnLevel0/PlayersOnLevel0.E2E/test-results/click-flow-Player-Click-Fl-5c1b0-s-SSE-events-after-clicking-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/abossard/Desktop/projects/always_on_v2/src/PlayersOnLevel0/PlayersOnLevel0.E2E/test-results/click-flow-Player-Click-Fl-5c1b0-s-SSE-events-after-clicking-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "c21bb41babc38f56acd7-f8c637d5a74d32b3a2ac",
+              "file": "click-flow.spec.ts",
+              "line": 57,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "title": "smoke.spec.ts",
+      "file": "smoke.spec.ts",
+      "column": 0,
+      "line": 0,
+      "specs": [],
+      "suites": [
+        {
+          "title": "Smoke",
+          "file": "smoke.spec.ts",
+          "line": 3,
+          "column": 6,
+          "specs": [
+            {
+              "title": "welcome page loads with start button",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 4,
+                      "status": "passed",
+                      "duration": 360,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-08T12:34:20.057Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/abossard/Desktop/projects/always_on_v2/src/PlayersOnLevel0/PlayersOnLevel0.E2E/test-results/smoke-Smoke-welcome-page-loads-with-start-button-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/abossard/Desktop/projects/always_on_v2/src/PlayersOnLevel0/PlayersOnLevel0.E2E/test-results/smoke-Smoke-welcome-page-loads-with-start-button-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4219922fea2e2bd3c691-7364cf292c4a600e7148",
+              "file": "smoke.spec.ts",
+              "line": 4,
+              "column": 7
+            },
+            {
+              "title": "start button navigates to player page",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 2,
+                      "parallelIndex": 2,
+                      "status": "passed",
+                      "duration": 364,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-08T12:34:20.300Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/abossard/Desktop/projects/always_on_v2/src/PlayersOnLevel0/PlayersOnLevel0.E2E/test-results/smoke-Smoke-start-button-navigates-to-player-page-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/abossard/Desktop/projects/always_on_v2/src/PlayersOnLevel0/PlayersOnLevel0.E2E/test-results/smoke-Smoke-start-button-navigates-to-player-page-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4219922fea2e2bd3c691-f6f3ce993064cbb0528d",
+              "file": "smoke.spec.ts",
+              "line": 10,
+              "column": 7
+            },
+            {
+              "title": "player page shows loading then stats",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 4,
+                      "parallelIndex": 4,
+                      "status": "passed",
+                      "duration": 350,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-08T12:34:20.441Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/abossard/Desktop/projects/always_on_v2/src/PlayersOnLevel0/PlayersOnLevel0.E2E/test-results/smoke-Smoke-player-page-shows-loading-then-stats-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/abossard/Desktop/projects/always_on_v2/src/PlayersOnLevel0/PlayersOnLevel0.E2E/test-results/smoke-Smoke-player-page-shows-loading-then-stats-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4219922fea2e2bd3c691-8ccad0ba7efed006cae9",
+              "file": "smoke.spec.ts",
+              "line": 16,
+              "column": 7
+            },
+            {
+              "title": "API proxy works — click returns 202",
+              "ok": true,
+              "tags": [],
+              "tests": [
+                {
+                  "timeout": 30000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "chromium",
+                  "projectName": "chromium",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 107,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-03-08T12:34:20.608Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "screenshot",
+                          "contentType": "image/png",
+                          "path": "/Users/abossard/Desktop/projects/always_on_v2/src/PlayersOnLevel0/PlayersOnLevel0.E2E/test-results/smoke-Smoke-API-proxy-works-—-click-returns-202-chromium/test-finished-1.png"
+                        },
+                        {
+                          "name": "trace",
+                          "contentType": "application/zip",
+                          "path": "/Users/abossard/Desktop/projects/always_on_v2/src/PlayersOnLevel0/PlayersOnLevel0.E2E/test-results/smoke-Smoke-API-proxy-works-—-click-returns-202-chromium/trace.zip"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "4219922fea2e2bd3c691-254ee36c71e3a3fd2b78",
+              "file": "smoke.spec.ts",
+              "line": 24,
+              "column": 7
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "errors": [],
+  "stats": {
+    "startTime": "2026-03-08T12:34:17.757Z",
+    "duration": 4794.616,
+    "expected": 11,
+    "skipped": 0,
+    "unexpected": 0,
+    "flaky": 0
+  }
+}
