@@ -56,6 +56,9 @@ public class InMemoryFixture : WebApplicationFactory<PlayersOnLevel0.Api.Program
 
     public Task InitializeAsync()
     {
+        // UseKestrel(0) binds to a random port — real HTTP (not TestServer's buffered pipe)
+        // so SSE streaming, WebSockets, and all HTTP features work correctly.
+        UseKestrel(0);
         Client = CreateClient();
         return Task.CompletedTask;
     }

@@ -5,7 +5,7 @@
 namespace PlayersOnLevel0.Tests;
 
 // ──────────────────────────────────────────────
-// InMemory backend
+// InMemory backend (real Kestrel via UseKestrel)
 // ──────────────────────────────────────────────
 
 [InheritsTests]
@@ -17,6 +17,11 @@ public class InMemoryPlayerTests(InMemoryFixture f)
 [ClassDataSource<InMemoryFixture>(Shared = SharedType.PerTestSession)]
 public class InMemoryClickTests(InMemoryFixture f)
     : ClickIntegrationTests(f.Client);
+
+[InheritsTests]
+[ClassDataSource<InMemoryFixture>(Shared = SharedType.PerTestSession)]
+public class InMemorySseTests(InMemoryFixture f)
+    : SseStreamingTests(f.Client);
 
 // ──────────────────────────────────────────────
 // Cosmos DB via Aspire (emulator)
@@ -34,7 +39,6 @@ public class CosmosPlayerTests(AspireFixture f)
 public class CosmosClickTests(AspireFixture f)
     : ClickIntegrationTests(f.Client);
 
-// SSE streaming tests only run with Aspire (real HTTP, not TestHost)
 [InheritsTests]
 [Category("cosmos")]
 [ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
