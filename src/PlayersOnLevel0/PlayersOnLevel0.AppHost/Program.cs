@@ -23,7 +23,7 @@ var api = builder.AddProject<Projects.PlayersOnLevel0_Api>(ResourceNames.Api)
     .WithEnvironment("CosmosDb__InitializeOnStartup", "true")
     .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development");
 
-var web = builder.AddNpmApp(ResourceNames.Web, "../PlayersOnLevel0.Web.New", "dev")
+var web = builder.AddNpmApp(ResourceNames.Web, "../PlayersOnLevel0.SPA.Web", "dev")
     .WithReference(api)
     .WithHttpEndpoint(env: "PORT")
     .WithExternalHttpEndpoints();
