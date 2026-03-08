@@ -304,6 +304,9 @@ public sealed record SaveResult(SaveOutcome Outcome, PlayerProgression? Progress
 // JSON source generation for AOT
 // ──────────────────────────────────────────────
 
+[JsonSourceGenerationOptions(
+    PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
+    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(PlayerResponse))]
 [JsonSerializable(typeof(UpdatePlayerRequest))]
 [JsonSerializable(typeof(IReadOnlyList<AchievementResponse>))]
