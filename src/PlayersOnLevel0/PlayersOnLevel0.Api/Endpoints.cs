@@ -15,8 +15,6 @@ public static class Endpoints
     public static string EventsPath(Guid id) => $"{BasePath}/{id}/events";
     public static string EventsPath(string id) => $"{BasePath}/{id}/events";
 
-    const int MaxClickRetries = 3;
-
     public static WebApplication MapPlayerEndpoints(this WebApplication app)
     {
         var api = app.MapGroup(BasePath);
@@ -102,7 +100,6 @@ public static class Endpoints
     /// POST /api/players/{playerId}/click → 202 Accepted.
     /// Click is fire-and-forget from the client's perspective.
     /// State updates arrive via the SSE /events stream.
-    /// Includes server-side retry on ETag conflict.
     /// </summary>
     static async Task<IResult> Click(
         string playerId,
@@ -114,44 +111,21 @@ public static class Endpoints
         if (!PlayerId.TryParse(playerId, out var id))
             return Results.Json(new ProblemResult("Invalid player ID format. Expected GUID.", 400), AppJsonContext.Default.ProblemResult, statusCode: 400);
 
-        // Capture click timestamp and update rate tracker once per request
         var now = DateTimeOffset.UtcNow;
         var rates = rateTracker.RecordClick(id.Value, now);
 
-        // Retry loop for optimistic concurrency conflicts
-        for (var attempt = 0; attempt < MaxClickRetries; attempt++)
+        var result = await store.ApplyClick(id.Value, now, rates, ct);
+
+        if (result.Success)
         {
-            // Get-or-create
-            var existing = await store.GetProgression(id.Value, ct);
-            var progression = existing ?? new PlayerProgression { PlayerId = id.Value };
-            // Pure domain transition
-            var clickResult = progression.WithClick(now, rates);
-
-            // Persist
-            var saveResult = await store.SaveProgression(clickResult.State, ct);
-
-            if (saveResult.Outcome == SaveOutcome.Success)
-            {
-                // Publish events to SSE subscribers
-                foreach (var evt in clickResult.Events)
-                    await eventSink.PublishAsync(evt, ct);
-
-                return Results.Accepted();
-            }
-
-            if (saveResult.Outcome != SaveOutcome.Conflict)
-            {
-                return Results.Json(
-                    new ProblemResult(saveResult.Error ?? "Unexpected error.", 500),
-                    AppJsonContext.Default.ProblemResult, statusCode: 500);
-            }
-
-            // Conflict → retry with fresh state
+            foreach (var evt in result.Events)
+                await eventSink.PublishAsync(evt, ct);
+            return Results.Accepted();
         }
 
         return Results.Json(
-            new ProblemResult("Too many concurrent updates. Try again.", 409),
-            AppJsonContext.Default.ProblemResult, statusCode: 409);
+            new ProblemResult(result.Error ?? "Click failed.", 500),
+            AppJsonContext.Default.ProblemResult, statusCode: 500);
     }
 
     /// <summary>

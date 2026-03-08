@@ -17,7 +17,22 @@ public interface IPlayerProgressionStore
 {
     Task<PlayerProgression?> GetProgression(PlayerId playerId, CancellationToken ct = default);
     Task<SaveResult> SaveProgression(PlayerProgression progression, CancellationToken ct = default);
+
+    /// <summary>
+    /// Atomically apply a click to a player. The storage owns the full
+    /// get-or-create → domain transition → save → retry-on-conflict cycle.
+    /// Callers never need to read state or handle conflicts.
+    /// </summary>
+    Task<ClickApplyResult> ApplyClick(PlayerId playerId, DateTimeOffset now, ClickRateSnapshot rates, CancellationToken ct = default);
 }
+
+/// <summary>
+/// Result of applying a click. Includes the events produced for SSE fanout.
+/// </summary>
+public sealed record ClickApplyResult(
+    bool Success,
+    IReadOnlyList<PlayerEvent> Events,
+    string? Error = null);
 
 // ──────────────────────────────────────────────
 // InMemory adapter — for dev/test
@@ -66,6 +81,27 @@ public sealed class InMemoryPlayerProgressionStore : IPlayerProgressionStore
             return Task.FromResult(new SaveResult(SaveOutcome.Success, updated));
 
         return Task.FromResult(new SaveResult(SaveOutcome.Conflict, Error: "Concurrent modification detected."));
+    }
+
+    public Task<ClickApplyResult> ApplyClick(PlayerId playerId, DateTimeOffset now, ClickRateSnapshot rates, CancellationToken ct = default)
+    {
+        const int maxRetries = 10;
+        for (var attempt = 0; attempt < maxRetries; attempt++)
+        {
+            var existing = _store.TryGetValue(playerId.Value, out var entry)
+                ? entry.Data with { ETag = entry.Version.ToString() }
+                : null;
+            var progression = existing ?? new PlayerProgression { PlayerId = playerId };
+            var clickResult = progression.WithClick(now, rates);
+            var saveResult = SaveProgression(clickResult.State, ct).Result;
+
+            if (saveResult.Outcome == SaveOutcome.Success)
+                return Task.FromResult(new ClickApplyResult(true, clickResult.Events));
+
+            if (saveResult.Outcome != SaveOutcome.Conflict)
+                return Task.FromResult(new ClickApplyResult(false, [], saveResult.Error));
+        }
+        return Task.FromResult(new ClickApplyResult(false, [], "Too many concurrent updates."));
     }
 }
 
@@ -138,6 +174,25 @@ public sealed class CosmosPlayerProgressionStore : IPlayerProgressionStore
         {
             return new SaveResult(SaveOutcome.NotFound);
         }
+    }
+
+    public async Task<ClickApplyResult> ApplyClick(PlayerId playerId, DateTimeOffset now, ClickRateSnapshot rates, CancellationToken ct = default)
+    {
+        const int maxRetries = 10;
+        for (var attempt = 0; attempt < maxRetries; attempt++)
+        {
+            var existing = await GetProgression(playerId, ct);
+            var progression = existing ?? new PlayerProgression { PlayerId = playerId };
+            var clickResult = progression.WithClick(now, rates);
+            var saveResult = await SaveProgression(clickResult.State, ct);
+
+            if (saveResult.Outcome == SaveOutcome.Success)
+                return new ClickApplyResult(true, clickResult.Events);
+
+            if (saveResult.Outcome != SaveOutcome.Conflict)
+                return new ClickApplyResult(false, [], saveResult.Error);
+        }
+        return new ClickApplyResult(false, [], "Too many concurrent updates.");
     }
 }
 
