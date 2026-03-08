@@ -49,6 +49,7 @@ This directory contains all Architecture Decision Records (ADRs) for the AlwaysO
 | 0040 | Global Application — Front Door as Multi-Silo Ingress | Accepted |
 | 0041 | Accessibility-First Selectors for E2E Testing | Accepted |
 | 0042 | Command Stream Storage Port for Click Processing | Proposed |
+| 0043 | Event Reactors for Achievement Evaluation | Proposed |
 
 ## Format
 
