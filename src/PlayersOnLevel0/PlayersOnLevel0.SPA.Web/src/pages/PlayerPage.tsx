@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useReducer } from 'react';
+import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { getPlayer, postClick } from '../api/client';
 import { usePlayerEvents } from '../api/usePlayerEvents';
@@ -7,6 +7,7 @@ import { Layout } from '../components/Layout/Layout';
 import { ClickButton } from '../components/ClickButton/ClickButton';
 import { PlayerStats } from '../components/PlayerStats/PlayerStats';
 import { AchievementList } from '../components/AchievementList/AchievementList';
+import { vars } from '../theme/theme.css';
 
 // State managed by reducer — single source of truth for this page
 type State =
@@ -75,36 +76,120 @@ function reducer(state: State, action: Action): State {
 export function PlayerPage() {
   const { playerId } = useParams<{ playerId: string }>();
   const [state, dispatch] = useReducer(reducer, { status: 'loading' });
+  const [sseEvents, setSseEvents] = useState<PlayerEvent[]>([]);
+  const [clickCount, setClickCount] = useState(0);
+  const [lastError, setLastError] = useState<string | null>(null);
+  const renderCount = useRef(0);
+  renderCount.current++;
 
   useEffect(() => {
     if (!playerId) return;
-    getPlayer(playerId).then((player) =>
-      dispatch({ type: 'loaded', player: player ?? emptyPlayer(playerId) }),
-    );
+    getPlayer(playerId)
+      .then((player) => dispatch({ type: 'loaded', player: player ?? emptyPlayer(playerId) }))
+      .catch((e) => setLastError(`Load failed: ${e.message}`));
   }, [playerId]);
 
   const onEvent = useCallback(
-    (event: PlayerEvent) => dispatch({ type: 'event', event }),
+    (event: PlayerEvent) => {
+      dispatch({ type: 'event', event });
+      setSseEvents((prev) => [...prev.slice(-19), event]);
+    },
     [],
   );
   usePlayerEvents(playerId, onEvent);
 
   const handleClick = useCallback(() => {
-    if (playerId) postClick(playerId);
+    if (playerId) {
+      setClickCount((c) => c + 1);
+      postClick(playerId).catch((e) => setLastError(`Click failed: ${e.message}`));
+    }
   }, [playerId]);
+
+  const bookmarkUrl = typeof window !== 'undefined' ? window.location.href : '';
 
   if (state.status === 'loading') return <Layout><p>Loading...</p></Layout>;
 
   const { player } = state;
 
+  const diagStyle: React.CSSProperties = {
+    width: '100%',
+    marginTop: '2rem',
+    padding: '1rem',
+    backgroundColor: vars.color.surface,
+    borderRadius: '8px',
+    fontFamily: vars.font.mono,
+    fontSize: '0.75rem',
+    color: vars.color.textMuted,
+    lineHeight: 1.8,
+    overflowX: 'auto',
+  };
+
   return (
     <Layout>
+      <div style={{ width: '100%', display: 'flex', justifyContent: 'flex-end', marginBottom: '0.5rem' }}>
+        <a
+          href={bookmarkUrl}
+          onClick={(e) => {
+            e.preventDefault();
+            navigator.clipboard.writeText(bookmarkUrl);
+            alert('Player URL copied to clipboard!\n\nBookmark this page to return to your player.');
+          }}
+          aria-label="Bookmark this player"
+          style={{
+            padding: '6px 14px',
+            fontSize: '0.8rem',
+            borderRadius: '6px',
+            border: `1px solid ${vars.color.textMuted}`,
+            color: vars.color.textMuted,
+            textDecoration: 'none',
+            cursor: 'pointer',
+          }}
+        >
+          🔗 Bookmark Player
+        </a>
+      </div>
+
       <PlayerStats level={player.level} score={player.score} totalClicks={player.totalClicks} />
       <ClickButton totalClicks={player.totalClicks} onClick={handleClick} />
       <AchievementList
         achievements={player.achievements}
         clickAchievements={player.clickAchievements}
       />
+
+      {/* Diagnostics panel */}
+      <details style={{ width: '100%', marginTop: '2rem' }}>
+        <summary style={{ cursor: 'pointer', color: vars.color.textMuted, fontSize: '0.8rem' }}>
+          🔍 Diagnostics
+        </summary>
+        <div style={diagStyle}>
+          <div><strong>Player ID:</strong> {player.playerId}</div>
+          <div><strong>URL:</strong> {bookmarkUrl}</div>
+          <div><strong>Created:</strong> {player.createdAt}</div>
+          <div><strong>Updated:</strong> {player.updatedAt}</div>
+          <div><strong>Renders:</strong> {renderCount.current}</div>
+          <div><strong>Clicks sent:</strong> {clickCount}</div>
+          <div><strong>SSE events received:</strong> {sseEvents.length}</div>
+          {lastError && <div style={{ color: '#ff6b6b' }}><strong>Last error:</strong> {lastError}</div>}
+
+          <div style={{ marginTop: '0.75rem' }}>
+            <strong>SSE Event Log</strong> (last 20):
+          </div>
+          {sseEvents.length === 0 && <div>No events yet — click the button!</div>}
+          {sseEvents.map((evt, i) => (
+            <div key={i} style={{ borderTop: '1px solid #222', paddingTop: '4px', marginTop: '4px' }}>
+              <span style={{ color: vars.color.accent }}>{evt.type}</span>{' '}
+              <span style={{ opacity: 0.6 }}>{JSON.stringify(evt, null, 0)}</span>
+            </div>
+          ))}
+
+          <div style={{ marginTop: '0.75rem' }}>
+            <strong>Raw Player State:</strong>
+          </div>
+          <pre style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-all' }}>
+            {JSON.stringify(player, null, 2)}
+          </pre>
+        </div>
+      </details>
     </Layout>
   );
 }
