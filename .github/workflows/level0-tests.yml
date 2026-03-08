@@ -127,17 +127,20 @@ jobs:
       - name: Wait for API to be healthy
         run: npx wait-on http://localhost:5036/health --timeout 120000
 
-      - name: Wait for SPA to be ready
+      - name: Find SPA port and wait for ready
         run: |
-          for i in $(seq 1 30); do
-            PORT=$(ss -tlnp | grep node | grep -oP ':\K[0-9]+' | head -1)
-            if [ -n "$PORT" ] && curl -s -o /dev/null -w "%{http_code}" "http://localhost:$PORT" | grep -q 200; then
+          for i in $(seq 1 60); do
+            # Find node listening port (Vite dev server)
+            PORT=$(lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null | grep node | awk '{print $9}' | grep -oE '[0-9]+$' | head -1)
+            if [ -n "$PORT" ] && curl -sf "http://localhost:$PORT" > /dev/null 2>&1; then
               echo "SPA ready on port $PORT"
               echo "SPA_PORT=$PORT" >> $GITHUB_ENV
               exit 0
             fi
             sleep 2
           done
+          # Debug output
+          lsof -iTCP -sTCP:LISTEN -P -n 2>/dev/null || true
           echo "SPA failed to start" && exit 1
 
       - name: Run Playwright tests
