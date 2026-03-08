@@ -87,6 +87,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: test-results
+          retention-days: 5
           path: |
             src/PlayersOnLevel0/**/TestResults/
             src/PlayersOnLevel0/TestResults/
@@ -171,6 +172,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
+          retention-days: 5
           path: |
             src/PlayersOnLevel0/PlayersOnLevel0.E2E/playwright-report/
             src/PlayersOnLevel0/PlayersOnLevel0.E2E/test-results/
