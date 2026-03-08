@@ -12,12 +12,17 @@ export const button = style({
   borderRadius: vars.radius.full,
   border: `3px solid ${vars.color.primary}`,
   backgroundColor: vars.color.surface,
-  color: vars.color.primary,
-  fontSize: '1.2rem',
+  color: vars.color.text,
+  fontSize: '1rem',
   fontWeight: 700,
   cursor: 'pointer',
   transition: 'all 0.15s ease',
   userSelect: 'none',
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: vars.space.xs,
   ':hover': {
     backgroundColor: vars.color.primary,
     color: vars.color.text,
@@ -32,13 +37,12 @@ export const wrapper = style({
   display: 'flex',
   flexDirection: 'column',
   alignItems: 'center',
-  gap: vars.space.md,
   margin: `${vars.space.xl} 0`,
 });
 
 export const clickCount = style({
   fontFamily: vars.font.mono,
-  fontSize: '2.5rem',
+  fontSize: '2rem',
   fontWeight: 700,
-  color: vars.color.accent,
+  lineHeight: 1,
 });

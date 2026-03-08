@@ -9,7 +9,7 @@ test.describe('Player Click Flow', () => {
     await page.getByRole('button', { name: /click to earn/i }).waitFor();
 
     await expect(page.getByLabel('Player statistics')).toBeVisible();
-    await expect(page.getByLabel('Total clicks')).toBeVisible();
+    await expect(page.getByRole('button', { name: /click to earn/i })).toBeVisible();
     await expect(page.getByRole('heading', { name: /achievements/i })).toBeVisible();
   });
 

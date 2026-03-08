@@ -10,15 +10,13 @@ interface Props {
 export const ClickButton = memo(function ClickButton({ totalClicks, onClick }: Props) {
   return (
     <div className={styles.wrapper}>
-      <span className={styles.clickCount} aria-label="Total clicks">
-        {formatClicks(totalClicks)}
-      </span>
       <button
         className={styles.button}
         onClick={onClick}
         aria-label="Click to earn points"
       >
-        CLICK
+        <span className={styles.clickCount}>{formatClicks(totalClicks)}</span>
+        <span>CLICK</span>
       </button>
     </div>
   );

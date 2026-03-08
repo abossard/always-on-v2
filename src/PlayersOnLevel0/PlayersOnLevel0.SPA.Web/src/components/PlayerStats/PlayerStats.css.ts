@@ -3,7 +3,7 @@ import { vars } from '../../theme/theme.css';
 
 export const grid = style({
   display: 'grid',
-  gridTemplateColumns: 'repeat(3, 1fr)',
+  gridTemplateColumns: 'repeat(2, 1fr)',
   gap: vars.space.md,
   width: '100%',
 });

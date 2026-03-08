@@ -149,7 +149,7 @@ export function PlayerPage() {
         </a>
       </div>
 
-      <PlayerStats level={player.level} score={player.score} totalClicks={player.totalClicks} />
+      <PlayerStats level={player.level} score={player.score} />
       <ClickButton totalClicks={player.totalClicks} onClick={handleClick} />
       <AchievementList
         achievements={player.achievements}
