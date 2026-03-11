@@ -36,7 +36,6 @@ spec:
       name: azure
     sources:
       - gateway-httproute
-      - gateway-tlsroute
     domainFilters:
       - ${DNS_ZONE_NAME}
     policy: upsert-only
