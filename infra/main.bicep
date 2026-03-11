@@ -178,6 +178,10 @@ module stamps 'stamp.bicep' = [
       cosmosDatabaseName: playerOnLevel0.outputs.databaseName
       cosmosContainerName: playerOnLevel0.outputs.containerName
       tenantId: tenant().tenantId
+      dnsIdentityClientId: regional[stampRegionIndex[i]].outputs.certManagerIdentityClientId
+      dnsZoneName: regional[stampRegionIndex[i]].outputs.childDnsZoneName
+      dnsZoneResourceGroup: regionalRgs[stampRegionIndex[i]].name
+      domainName: domainName
     }
   }
 ]
@@ -198,6 +202,22 @@ module wiring 'wiring.bicep' = [
       kubeletPrincipalId: stamps[i].outputs.kubeletIdentityPrincipalId
       parentDnsZoneName: domainName
       childDnsNameServers: regional[stampRegionIndex[i]].outputs.childDnsNameServers
+    }
+  }
+]
+
+// ============================================================================
+// DNS Federated Credentials (cert-manager + external-dns per stamp)
+// ============================================================================
+
+module dnsFederatedCreds 'dns-federated-credentials.bicep' = [
+  for (stamp, i) in allStamps: {
+    name: 'deploy-dns-fedcred-${stamp.regionKey}-${stamp.stampKey}'
+    scope: regionalRgs[stampRegionIndex[i]]
+    params: {
+      identityName: 'id-certmanager-${baseName}-${stamp.regionKey}'
+      stampName: stamps[i].outputs.stampName
+      oidcIssuerUrl: stamps[i].outputs.aksOidcIssuerUrl
     }
   }
 ]

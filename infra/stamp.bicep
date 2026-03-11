@@ -51,6 +51,18 @@ param cosmosContainerName string
 @description('Azure tenant ID.')
 param tenantId string
 
+@description('cert-manager/external-dns managed identity client ID (from regional module).')
+param dnsIdentityClientId string
+
+@description('Child DNS zone name (e.g. swedencentral.alwayson.actor).')
+param dnsZoneName string
+
+@description('Resource group containing the child DNS zone.')
+param dnsZoneResourceGroup string
+
+@description('Parent domain name (e.g. alwayson.actor).')
+param domainName string
+
 // ============================================================================
 // Derived Values
 // ============================================================================
@@ -302,6 +314,11 @@ resource fluxConfig 'Microsoft.KubernetesConfiguration/fluxConfigurations@2024-0
             CLUSTER_IDENTITY_CLIENT_ID: clusterIdentity.properties.clientId
             KUBELET_IDENTITY_CLIENT_ID: kubeletIdentity.properties.clientId
             AKS_OIDC_ISSUER_URL: aksCluster.properties.oidcIssuerProfile.issuerURL
+            DNS_IDENTITY_CLIENT_ID: dnsIdentityClientId
+            DNS_ZONE_NAME: dnsZoneName
+            DNS_ZONE_RESOURCE_GROUP: dnsZoneResourceGroup
+            AZURE_SUBSCRIPTION_ID: subscription().subscriptionId
+            DOMAIN_NAME: domainName
           }
         }
       }

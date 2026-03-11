@@ -6,12 +6,24 @@ metadata:
   annotations:
     service.beta.kubernetes.io/azure-dns-label-name: ${DNS_LABEL}
     service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: /healthz
+    cert-manager.io/cluster-issuer: letsencrypt-staging
 spec:
   gatewayClassName: istio
   listeners:
     - name: http
       port: 80
       protocol: HTTP
+      allowedRoutes:
+        namespaces:
+          from: All
+    - name: https
+      port: 443
+      protocol: HTTPS
+      hostname: "level0-${STAMP_NAME}.${DNS_ZONE_NAME}"
+      tls:
+        mode: Terminate
+        certificateRefs:
+          - name: level0-gateway-tls
       allowedRoutes:
         namespaces:
           from: All
