@@ -107,6 +107,18 @@ resource cnameLevel0 'Microsoft.Network/dnsZones/CNAME@2023-07-01-preview' = {
   }
 }
 
+// TXT: _dnsauth.level0.{domainName} → validation token for Front Door managed cert
+resource dnsAuthLevel0 'Microsoft.Network/dnsZones/TXT@2023-07-01-preview' = {
+  parent: dnsZone
+  name: '_dnsauth.level0'
+  properties: {
+    TTL: 3600
+    TXTRecords: [
+      { value: [ customDomain.properties.validationProperties.validationToken ] }
+    ]
+  }
+}
+
 // ============================================================================
 // Route: level0.{domainName} → og-level0
 // ============================================================================
