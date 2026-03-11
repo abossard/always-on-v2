@@ -2,7 +2,7 @@ apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
   name: level0-gateway
-  namespace: istio-ingress
+  namespace: aks-istio-ingress
   annotations:
     service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: /healthz
 spec:

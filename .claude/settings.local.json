@@ -20,7 +20,14 @@
       "Bash(az ad:*)",
       "Bash(gh issue:*)",
       "Bash(gh search:*)",
-      "Bash(gh api:*)"
+      "Bash(gh api:*)",
+      "Bash(gh *)",
+      "Bash(git *)",
+      "Bash(git commit:*)",
+      "Bash(dig NS:*)",
+      "Bash(dig A:*)",
+      "Bash(az deployment:*)",
+      "Bash(az aks:*)"
     ]
   }
 }

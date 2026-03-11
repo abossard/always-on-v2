@@ -53,7 +53,7 @@ metadata:
 spec:
   parentRefs:
     - name: level0-gateway
-      namespace: istio-ingress
+      namespace: aks-istio-ingress
   rules:
     - matches:
         - path:
