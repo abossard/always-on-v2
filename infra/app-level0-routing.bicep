@@ -107,17 +107,9 @@ resource cnameLevel0 'Microsoft.Network/dnsZones/CNAME@2023-07-01-preview' = {
   }
 }
 
-// TXT: _dnsauth.level0.{domainName} → validation token for Front Door managed cert
-resource dnsAuthLevel0 'Microsoft.Network/dnsZones/TXT@2023-07-01-preview' = {
-  parent: dnsZone
-  name: '_dnsauth.level0'
-  properties: {
-    TTL: 3600
-    TXTRecords: [
-      { value: [ customDomain.properties.validationProperties.validationToken ] }
-    ]
-  }
-}
+// DNS validation TXT record (_dnsauth.level0) is auto-managed by Azure Front Door
+// via the azureDnsZone linkage on the custom domain resource above.
+// Do NOT create it manually — that causes stale token conflicts on redeployment.
 
 // ============================================================================
 // Route: level0.{domainName} → og-level0
