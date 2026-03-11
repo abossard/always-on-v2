@@ -170,6 +170,14 @@ module stamps 'stamp.bicep' = [
       logAnalyticsWorkspaceId: regional[stampRegionIndex[i]].outputs.logAnalyticsWorkspaceId
       monitorWorkspaceId: regional[stampRegionIndex[i]].outputs.monitorWorkspaceId
       fluxGitRepoUrl: fluxGitRepoUrl
+      acrLoginServer: global.outputs.acrLoginServer
+      cosmosEndpoint: global.outputs.cosmosEndpoint
+      appInsightsConnectionString: global.outputs.appInsightsConnectionString
+      appIdentityClientId: playerOnLevel0.outputs.identityClientId
+      appIdentityId: playerOnLevel0.outputs.identityId
+      cosmosDatabaseName: playerOnLevel0.outputs.databaseName
+      cosmosContainerName: playerOnLevel0.outputs.containerName
+      tenantId: tenant().tenantId
     }
   }
 ]

@@ -4,6 +4,7 @@ metadata:
   name: level0-gateway
   namespace: aks-istio-ingress
   annotations:
+    service.beta.kubernetes.io/azure-dns-label-name: ${DNS_LABEL}
     service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: /healthz
 spec:
   gatewayClassName: istio

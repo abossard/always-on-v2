@@ -26,6 +26,31 @@ param monitorWorkspaceId string
 @description('Git repository SSH URL for Flux GitOps.')
 param fluxGitRepoUrl string
 
+// ── Flux postBuild substitution values (injected from main.bicep) ─────────────
+@description('ACR login server hostname.')
+param acrLoginServer string
+
+@description('Cosmos DB endpoint URL.')
+param cosmosEndpoint string
+
+@description('Application Insights connection string.')
+param appInsightsConnectionString string
+
+@description('Managed identity client ID for workload identity.')
+param appIdentityClientId string
+
+@description('Managed identity resource ID for workload identity federation.')
+param appIdentityId string
+
+@description('Cosmos DB database name.')
+param cosmosDatabaseName string
+
+@description('Cosmos DB container name.')
+param cosmosContainerName string
+
+@description('Azure tenant ID.')
+param tenantId string
+
 // ============================================================================
 // Derived Values
 // ============================================================================
@@ -259,6 +284,26 @@ resource fluxConfig 'Microsoft.KubernetesConfiguration/fluxConfigurations@2024-0
         syncIntervalInSeconds: 120
         retryIntervalInSeconds: 60
         prune: true
+        postBuild: {
+          substitute: {
+            STAMP_NAME: stampName
+            REGION: regionKey
+            STAMP_KEY: stampKey
+            LOCATION: location
+            DNS_LABEL: 'level0-${stampName}'
+            ACR_LOGIN_SERVER: acrLoginServer
+            COSMOS_ENDPOINT: cosmosEndpoint
+            COSMOS_DATABASE: cosmosDatabaseName
+            COSMOS_CONTAINER: cosmosContainerName
+            APP_INSIGHTS_CONNECTION_STRING: appInsightsConnectionString
+            APP_IDENTITY_CLIENT_ID: appIdentityClientId
+            APP_IDENTITY_ID: appIdentityId
+            AZURE_TENANT_ID: tenantId
+            CLUSTER_IDENTITY_CLIENT_ID: clusterIdentity.properties.clientId
+            KUBELET_IDENTITY_CLIENT_ID: kubeletIdentity.properties.clientId
+            AKS_OIDC_ISSUER_URL: aksCluster.properties.oidcIssuerProfile.issuerURL
+          }
+        }
       }
     }
   }
