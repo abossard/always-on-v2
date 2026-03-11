@@ -22,7 +22,7 @@ resource certManagerFederatedCred 'Microsoft.ManagedIdentity/userAssignedIdentit
   name: 'cert-manager-${stampName}'
   properties: {
     issuer: oidcIssuerUrl
-    subject: 'system:serviceaccount:cert-manager:cert-manager'
+    subject: 'system:serviceaccount:cert-manager:cert-manager-cert-manager'
     audiences: [ 'api://AzureADTokenExchange' ]
   }
 }
@@ -33,7 +33,7 @@ resource externalDnsFederatedCred 'Microsoft.ManagedIdentity/userAssignedIdentit
   dependsOn: [ certManagerFederatedCred ]
   properties: {
     issuer: oidcIssuerUrl
-    subject: 'system:serviceaccount:external-dns:external-dns'
+    subject: 'system:serviceaccount:external-dns:external-dns-external-dns'
     audiences: [ 'api://AzureADTokenExchange' ]
   }
 }

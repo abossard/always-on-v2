@@ -42,7 +42,6 @@ spec:
       kind: ControllerConfiguration
       enableGatewayAPI: true
     serviceAccount:
-      name: cert-manager
       annotations:
         azure.workload.identity/client-id: ${DNS_IDENTITY_CLIENT_ID}
     podLabels:
