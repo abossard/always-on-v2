@@ -98,17 +98,37 @@ VPA and HPA must not fight over the same scaling dimension. The rule is:
 
 #### 4. GitOps — Flux v2 via AKS GitOps Extension
 
-Install **Flux v2** on each member cluster using the [`microsoft.flux` AKS extension](https://learn.microsoft.com/en-us/azure/azure-arc/kubernetes/tutorial-use-gitops-flux2). This is a managed extension — Azure handles Flux lifecycle, upgrades, and monitoring.
+Install **Flux v2** on each member cluster using the [`microsoft.flux` AKS extension](https://learn.microsoft.com/en-us/azure/azure-arc/kubernetes/tutorial-use-gitops-flux2). This is a managed extension — Azure handles Flux lifecycle, upgrades, and monitoring. The extension is **free** on AKS (no additional charges).
+
+**Current state (March 2026):**
+
+| Aspect | Detail |
+|---|---|
+| **Upstream version** | Flux v2.8.0 (GA February 2026) — includes Helm v4 support (server-side apply, enhanced health checks) and PR comment notifications |
+| **Extension versioning** | Microsoft supports current + two previous versions (N-2). The extension lags slightly behind upstream releases. |
+| **API deprecations** | v1beta1/v2beta1 APIs were removed in early 2026. All manifests must use stable API versions (`source.toolkit.fluxcd.io/v1`, `helm.toolkit.fluxcd.io/v2`, `kustomize.toolkit.fluxcd.io/v1`, etc.) |
+| **Maturity** | Production-ready. Widely adopted on AKS. Security patches are applied automatically by Azure. |
 
 **Why the AKS extension over `flux bootstrap`:**
 
 | Aspect | `microsoft.flux` extension | `flux bootstrap` |
 |---|---|---|
 | Lifecycle management | Azure-managed upgrades | Self-managed |
-| Azure Portal visibility | Full integration | None |
+| Azure Portal visibility | Full integration (sync status, compliance) | None |
 | Azure Policy support | Can enforce GitOps configs across Fleet via policy | Manual per-cluster |
 | OCI artifact support | Yes (API version `2025-04-01`+) | Yes |
-| Private repo auth | Azure Key Vault integration or PAT | SSH key or PAT |
+| Private repo auth | Azure Key Vault integration or Managed Identity | SSH key or PAT |
+| Configurability | Less flexible (subset of Flux flags exposed) | Full control |
+| Version freshness | Lags upstream by weeks/months | Immediate |
+
+**Trade-off**: The extension sacrifices some configurability and version freshness for zero-ops lifecycle management. For this project, the Azure-managed lifecycle is the priority — we do not need bleeding-edge Flux features, and the Portal/Policy integration is valuable for multi-cluster Fleet management.
+
+> **DECISION NEEDED — Flux observability UI**: The extension provides Azure Portal views and Grafana dashboards out of the box. Flux v2.8 also ships a new first-party **Flux Web UI** (cluster dashboard, sync stats, HelmRelease/Kustomization drill-down, pod status). Alternatively, **Weave GitOps OSS** is a mature third-party Flux dashboard. Options:
+>
+> - **(a) Azure Portal + Grafana only** — No additional install. Sufficient for operators who live in Azure Portal. Limited drill-down into individual reconciliations.
+> - **(b) Flux Web UI** — New in v2.8, lightweight, first-party. Requires Flux Operator install. Less mature than Weave GitOps but no third-party dependency.
+> - **(c) Weave GitOps OSS** — Most feature-rich Flux UI. Mature, actively maintained. Adds a third-party component to manage.
+> - **(d) Defer** — Start with Portal + Grafana, evaluate UI options after initial rollout.
 
 **Provisioning**: Add the extension via Bicep in `stamp.bicep`:
 
@@ -289,31 +309,65 @@ The complete bootstrapping sequence for a new AKS stamp:
 - **Operational complexity** — Multiple new components (Flux, Istio, Flagger, Fleet CRPs) increase the surface area for debugging. Mitigate with strong observability (ADR-0009) and runbooks.
 - **Migration effort** — Transitioning from Web App Routing to Istio Gateway API requires updating Front Door backends, DNS records, and TLS configuration per-stamp.
 
+## Decisions Needed
+
+These items must be resolved before this ADR can move from **Proposed** to **Accepted**:
+
+### Platform Stack
+
+| # | Decision | Options | Recommendation | Impact |
+|---|----------|---------|----------------|--------|
+| D1 | **Istio Gateway API timing** — adopt preview now or wait for GA (~May 2026)? | (a) Start now with preview (b) Wait for GA | **(b) Wait** — GA is ~2 months away; avoids preview breaking changes. Use Web App Routing until then. | Delays canary/Flagger work by ~2 months |
+| D2 | **Flagger mesh provider** — Istio classic or `gatewayapi:v1`? | (a) `istio` provider (b) `gatewayapi:v1` provider | **(b) gatewayapi:v1** — more portable, aligns with Gateway API direction. Newer but actively maintained. | Determines Flagger config and which CRDs are needed |
+| D3 | **Flux observability UI** — what dashboard for GitOps visibility? | (a) Azure Portal + Grafana only (b) Flux Web UI (new in v2.8) (c) Weave GitOps OSS (d) Defer | **(d) Defer** — start with Portal + Grafana, evaluate after initial rollout when we know what's missing. | Low impact; can add UI later without changing architecture |
+| D4 | **Istio ambient mode** — adopt when AKS add-on supports it? | (a) Yes, switch immediately (b) Evaluate then decide | **(b) Evaluate** — ambient mode + Flagger has [known issues](https://github.com/fluxcd/flagger/issues/1822). Wait for Flagger compatibility. | Reduces sidecar overhead (~50MB/pod) but requires Flagger validation |
+
+### Resource Management
+
+| # | Decision | Options | Recommendation | Impact |
+|---|----------|---------|----------------|--------|
+| D5 | **Node sizing** — is `Standard_B2ms` (8GB) sufficient for Istio sidecars + Flux + Flagger + app workloads? | (a) Keep B2ms (b) Upgrade to B4ms (c) Let NAP select | **(c) Let NAP select** — constrain `AKSNodeClass` to B-series and D-series families; NAP picks the cheapest fit. If B2ms is too small, NAP auto-selects larger. | Affects cost baseline; NAP approach is self-correcting |
+| D6 | **VPA mode for API workloads** — `Auto` (continuous resize) or `Initial` (set-at-creation only)? | (a) `Auto` with in-place resize (b) `Initial` to avoid conflicts with KEDA | **(a) Auto** for the Level 0 API (no KEDA scaler on it today). Switch to `Initial` if/when KEDA is added for the same workload. | Wrong choice causes VPA/HPA oscillation |
+
 ## Open Questions
 
-- [ ] Should we wait for Istio Gateway API GA (May 2026) before adopting, or start with preview now?
-- [ ] Is the `Standard_B2ms` node size sufficient for Istio sidecars + Flux + Flagger + application workloads?
-- [ ] Should Flagger target the Istio provider (classic) or `gatewayapi:v1` provider? The latter is more portable but newer.
-- [ ] Should we adopt Istio ambient mode as soon as the AKS add-on supports it, to reduce sidecar overhead?
+These are informational / research items (not blocking acceptance):
+
+- [ ] What is the memory overhead of the `microsoft.flux` extension itself on a B2ms node? (Flux controllers + source-controller + helm-controller)
+- [ ] Does the managed Flux extension support the new Flux v2.8 Web UI, or is that only available via `flux bootstrap` + Flux Operator?
+- [ ] How much lag does the `microsoft.flux` extension typically have behind upstream Flux releases? (Relevant for Helm v4 support timeline)
 
 ## References
 
+### Resource Management
 - [AKS Node Autoprovision](https://learn.microsoft.com/azure/aks/node-autoprovision)
 - [AKS Spot Virtual Machines](https://learn.microsoft.com/azure/aks/spot-node-pool)
 - [Vertical Pod Autoscaler on AKS](https://learn.microsoft.com/azure/aks/vertical-pod-autoscaler)
 - [KEP-1287: In-Place Pod Vertical Scaling](https://github.com/kubernetes/enhancements/tree/master/keps/sig-node/1287-in-place-update-pod-resources)
 - [VPA + HPA Co-existence](https://cloud.google.com/kubernetes-engine/docs/concepts/verticalpodautoscaler#scalingrecommendations)
 - [Karpenter (upstream of NAP)](https://karpenter.sh/docs/)
+
+### Flux / GitOps
+- [AKS GitOps with Flux v2](https://learn.microsoft.com/en-us/azure/azure-arc/kubernetes/tutorial-use-gitops-flux2)
+- [Flux v2.8.0 GA Announcement](https://fluxcd.io/blog/2026/02/flux-v2.8.0/) — Helm v4 support, Web UI, PR comment notifications
+- [AKS Flux Extension — Available Versions](https://learn.microsoft.com/en-us/azure/azure-arc/kubernetes/extensions-release)
+- [Monitor GitOps (Flux v2) Status and Activity](https://learn.microsoft.com/en-us/azure/azure-arc/kubernetes/monitor-gitops-flux-2) — Grafana dashboards, Azure Monitor integration
+- [Flux vs Microsoft Extension (community discussion)](https://github.com/fluxcd/flux2/discussions/2635)
+- [Flux OCI Artifacts on AKS](https://www.teknologi.nl/posts/aksfluxociartifacts/)
+
+### Istio / Gateway API
 - [Istio AKS Add-on — Gateway API (Preview)](https://learn.microsoft.com/en-us/azure/aks/istio-gateway-api)
 - [AKS Managed Gateway API](https://learn.microsoft.com/en-us/azure/aks/managed-gateway-api)
 - [Istio Add-on Overview](https://learn.microsoft.com/en-us/azure/aks/istio-about)
-- [AKS GitOps with Flux v2](https://learn.microsoft.com/en-us/azure/azure-arc/kubernetes/tutorial-use-gitops-flux2)
-- [Flux OCI Artifacts on AKS](https://www.teknologi.nl/posts/aksfluxociartifacts/)
+- [Gateway API Implementations](https://gateway-api.sigs.k8s.io/implementations/)
+- [AKS Ingress-NGINX Update (Nov 2025)](https://blog.aks.azure.com/2025/11/13/ingress-nginx-update)
+
+### Progressive Delivery / Fleet
 - [Flagger Gateway API Tutorial](https://docs.flagger.app/tutorials/gatewayapi-progressive-delivery)
 - [Flagger + Istio Ambient Issue #1822](https://github.com/fluxcd/flagger/issues/1822)
-- [AKS Ingress-NGINX Update (Nov 2025)](https://blog.aks.azure.com/2025/11/13/ingress-nginx-update)
 - [Fleet ClusterResourcePlacement](https://learn.microsoft.com/en-us/azure/kubernetes-fleet/concepts-resource-propagation)
-- [Gateway API Implementations](https://gateway-api.sigs.k8s.io/implementations/)
+
+### Internal
 - Current infra: `infra/stamp.bicep`
 - ADR-0001: How to deploy workloads to regional AKS clusters
 - ADR-0024: Deployment Strategy
