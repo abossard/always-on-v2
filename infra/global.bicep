@@ -167,27 +167,7 @@ resource fdEndpoint 'Microsoft.Cdn/profiles/afdEndpoints@2025-04-15' = {
   }
 }
 
-resource fdOriginGroup 'Microsoft.Cdn/profiles/originGroups@2025-04-15' = {
-  parent: frontDoor
-  name: 'og-default'
-  properties: {
-    loadBalancingSettings: {
-      sampleSize: 4
-      successfulSamplesRequired: 3
-      additionalLatencyInMilliseconds: 50
-    }
-    healthProbeSettings: {
-      probePath: '/healthz'
-      probeRequestType: 'HEAD'
-      probeProtocol: 'Https'
-      probeIntervalInSeconds: 30
-    }
-  }
-}
-
-// Front Door route + origins are added once AKS ingress endpoints are known.
-// Use: az afd origin create --profile-name ${fdName} --origin-group-name og-default ...
-// Then: az afd route create --profile-name ${fdName} --endpoint-name ep-${baseName} ...
+// Front Door origins + routes are defined in app-level0-routing.bicep.
 
 // Front Door custom domain for apex domain
 resource fdCustomDomain 'Microsoft.Cdn/profiles/customDomains@2025-04-15' = {
