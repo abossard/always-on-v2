@@ -230,15 +230,11 @@ module dnsFederatedCreds 'dns-federated-credentials.bicep' = [
 module level0Routing 'app-level0-routing.bicep' = {
   name: 'deploy-level0-routing'
   scope: globalRg
+  dependsOn: [for (stamp, i) in allStamps: stamps[i]]
   params: {
     baseName: baseName
     domainName: domainName
-    stamps: [for (stamp, i) in allStamps: {
-      regionKey: stamp.regionKey
-      location: stamp.location
-      stampKey: stamp.stampKey
-      gatewayHostname: stamps[i].outputs.gatewayHostname
-    }]
+    stamps: allStamps
   }
 }
 

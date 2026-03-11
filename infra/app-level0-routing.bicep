@@ -59,17 +59,18 @@ resource originGroup 'Microsoft.Cdn/profiles/originGroups@2025-04-15' = {
 }
 
 // One origin per stamp.
-// gatewayHostname is the single source of truth, computed in stamp.bicep and also
-// passed to Kubernetes via Flux substitution (GATEWAY_HOSTNAME).
+// Gateway hostname mirrors the GATEWAY_HOSTNAME Flux variable in stamp.bicep:
+//   'level0-${stampName}.${dnsZoneName}' where stampName = regionKey-stampKey
+//   and dnsZoneName = regionKey.domainName
 resource origins 'Microsoft.Cdn/profiles/originGroups/origins@2025-04-15' = [
   for stamp in stamps: {
     parent: originGroup
     name: 'origin-${stamp.regionKey}-${stamp.stampKey}'
     properties: {
-      hostName: stamp.gatewayHostname
+      hostName: 'level0-${stamp.regionKey}-${stamp.stampKey}.${stamp.regionKey}.${domainName}'
       httpPort: 80
       httpsPort: 443
-      originHostHeader: stamp.gatewayHostname
+      originHostHeader: 'level0-${stamp.regionKey}-${stamp.stampKey}.${stamp.regionKey}.${domainName}'
       priority: 1
       weight: 1000
       enabledState: 'Enabled'
@@ -141,7 +142,7 @@ resource route 'Microsoft.Cdn/profiles/afdEndpoints/routes@2025-04-15' = {
 //   service.beta.kubernetes.io/azure-dns-label-name: <value>
 output stampOrigins array = [for (stamp, i) in stamps: {
   stampName: '${stamp.regionKey}-${stamp.stampKey}'
-  gatewayHostname: stamp.gatewayHostname
+  gatewayHostname: 'level0-${stamp.regionKey}-${stamp.stampKey}.${stamp.regionKey}.${domainName}'
 }]
 
 output level0Hostname string = 'level0.${domainName}'
