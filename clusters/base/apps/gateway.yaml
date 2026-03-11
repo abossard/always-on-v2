@@ -6,7 +6,7 @@ metadata:
   annotations:
     service.beta.kubernetes.io/azure-dns-label-name: ${DNS_LABEL}
     service.beta.kubernetes.io/azure-load-balancer-health-probe-request-path: /healthz
-    cert-manager.io/cluster-issuer: letsencrypt-staging
+    cert-manager.io/cluster-issuer: letsencrypt-prod
 spec:
   gatewayClassName: istio
   listeners:
