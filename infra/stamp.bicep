@@ -274,6 +274,30 @@ resource fluxExtension 'Microsoft.KubernetesConfiguration/extensions@2023-05-01'
 // github.com ecdsa-sha2-nistp256 public key, base64-encoded
 var githubSshKnownHosts = 'Z2l0aHViLmNvbSBlY2RzYS1zaGEyLW5pc3RwMjU2IEFBQUFFMlZqWkhOaExYTm9ZVEl0Ym1semRIQXlOVFlBQUFBSWJtbHpkSEF5TlRZQUFBQkJCRW1LU0VOalFFZXpPbXhrWk15N29wS2d3RkI5bmt0NVlScllNak51RzVOODd1UmdnNkNMcmJvNXdBZFQveTZ2MG1LVjBVMncwV1oyWUIvKytUcG9ja2c9'
 
+var fluxSubstitute = {
+  STAMP_NAME: stampName
+  REGION: regionKey
+  STAMP_KEY: stampKey
+  LOCATION: location
+  DNS_LABEL: 'level0-${stampName}'
+  ACR_LOGIN_SERVER: acrLoginServer
+  COSMOS_ENDPOINT: cosmosEndpoint
+  COSMOS_DATABASE: cosmosDatabaseName
+  COSMOS_CONTAINER: cosmosContainerName
+  APP_INSIGHTS_CONNECTION_STRING: appInsightsConnectionString
+  APP_IDENTITY_CLIENT_ID: appIdentityClientId
+  APP_IDENTITY_ID: appIdentityId
+  AZURE_TENANT_ID: tenantId
+  CLUSTER_IDENTITY_CLIENT_ID: clusterIdentity.properties.clientId
+  KUBELET_IDENTITY_CLIENT_ID: kubeletIdentity.properties.clientId
+  AKS_OIDC_ISSUER_URL: aksCluster.properties.oidcIssuerProfile.issuerURL
+  DNS_IDENTITY_CLIENT_ID: dnsIdentityClientId
+  DNS_ZONE_NAME: dnsZoneName
+  DNS_ZONE_RESOURCE_GROUP: dnsZoneResourceGroup
+  AZURE_SUBSCRIPTION_ID: subscription().subscriptionId
+  DOMAIN_NAME: domainName
+}
+
 resource fluxConfig 'Microsoft.KubernetesConfiguration/fluxConfigurations@2024-04-01-preview' = {
   scope: aksCluster
   name: 'cluster-config'
@@ -291,35 +315,23 @@ resource fluxConfig 'Microsoft.KubernetesConfiguration/fluxConfigurations@2024-0
       sshKnownHosts: githubSshKnownHosts
     }
     kustomizations: {
-      cluster: {
-        path: 'clusters/${regionKey}'
+      infra: {
+        path: 'clusters/${regionKey}/infra'
         syncIntervalInSeconds: 120
         retryIntervalInSeconds: 60
         prune: true
         postBuild: {
-          substitute: {
-            STAMP_NAME: stampName
-            REGION: regionKey
-            STAMP_KEY: stampKey
-            LOCATION: location
-            DNS_LABEL: 'level0-${stampName}'
-            ACR_LOGIN_SERVER: acrLoginServer
-            COSMOS_ENDPOINT: cosmosEndpoint
-            COSMOS_DATABASE: cosmosDatabaseName
-            COSMOS_CONTAINER: cosmosContainerName
-            APP_INSIGHTS_CONNECTION_STRING: appInsightsConnectionString
-            APP_IDENTITY_CLIENT_ID: appIdentityClientId
-            APP_IDENTITY_ID: appIdentityId
-            AZURE_TENANT_ID: tenantId
-            CLUSTER_IDENTITY_CLIENT_ID: clusterIdentity.properties.clientId
-            KUBELET_IDENTITY_CLIENT_ID: kubeletIdentity.properties.clientId
-            AKS_OIDC_ISSUER_URL: aksCluster.properties.oidcIssuerProfile.issuerURL
-            DNS_IDENTITY_CLIENT_ID: dnsIdentityClientId
-            DNS_ZONE_NAME: dnsZoneName
-            DNS_ZONE_RESOURCE_GROUP: dnsZoneResourceGroup
-            AZURE_SUBSCRIPTION_ID: subscription().subscriptionId
-            DOMAIN_NAME: domainName
-          }
+          substitute: fluxSubstitute
+        }
+      }
+      apps: {
+        path: 'clusters/${regionKey}/apps'
+        syncIntervalInSeconds: 120
+        retryIntervalInSeconds: 60
+        prune: true
+        dependsOn: [ 'infra' ]
+        postBuild: {
+          substitute: fluxSubstitute
         }
       }
     }
