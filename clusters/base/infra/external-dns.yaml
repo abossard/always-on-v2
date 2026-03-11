@@ -41,6 +41,7 @@ spec:
     policy: upsert-only
     txtOwnerId: ${STAMP_NAME}
     serviceAccount:
+      name: external-dns
       annotations:
         azure.workload.identity/client-id: ${DNS_IDENTITY_CLIENT_ID}
     podLabels:
