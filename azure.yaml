@@ -3,6 +3,9 @@ infra:
   provider: bicep
   path: ./infra
   module: main
+  parameters:
+    baseName: ${AZURE_ENV_NAME}
+    globalLocation: ${AZURE_LOCATION}
   deploymentStacks:
     actionOnUnmanage:
       resources: detach

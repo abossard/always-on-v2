@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep:*)",
+      "Bash(kill 74039:*)",
+      "Bash(lsof:*)",
+      "Bash(curl:*)",
+      "Bash(services__web__http__0=http://localhost:58475 services__api__http__0=http://localhost:5036 npx playwright:*)",
+      "Bash(open:*)",
+      "Bash(dotnet test:*)",
+      "Bash(dotnet run:*)",
+      "WebFetch(domain:github.com)",
+      "Bash(xargs ls:*)",
+      "Bash(az bicep:*)",
+      "Bash(azd auth:*)",
+      "Bash(gh auth:*)",
+      "Bash(gh repo:*)",
+      "Bash(azd pipeline:*)",
+      "Bash(azd env:*)",
+      "Bash(az ad:*)",
+      "Bash(gh issue:*)",
+      "Bash(gh search:*)",
+      "Bash(gh api:*)"
+    ]
+  }
+}

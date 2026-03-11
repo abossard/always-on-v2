@@ -9,6 +9,16 @@ import { PlayerStats } from '../components/PlayerStats/PlayerStats';
 import { AchievementList } from '../components/AchievementList/AchievementList';
 import { vars } from '../theme/theme.css';
 
+const TOTAL_CLICK_MILESTONES = [100, 1_000, 10_000, 100_000, 1_000_000];
+
+function nextMilestone(totalClicks: number): { label: string; target: number; progress: number } | null {
+  const target = TOTAL_CLICK_MILESTONES.find((m) => totalClicks < m);
+  if (!target) return null;
+  const prev = TOTAL_CLICK_MILESTONES[TOTAL_CLICK_MILESTONES.indexOf(target) - 1] ?? 0;
+  const progress = Math.min(1, (totalClicks - prev) / (target - prev));
+  return { label: target >= 1_000_000 ? '1M' : target >= 1_000 ? `${target / 1_000}K` : String(target), target, progress };
+}
+
 // State managed by reducer — single source of truth for this page
 type State =
   | { status: 'loading' }
@@ -151,6 +161,41 @@ export function PlayerPage() {
 
       <PlayerStats level={player.level} score={player.score} />
       <ClickButton totalClicks={player.totalClicks} onClick={handleClick} />
+
+      {/* Next milestone progress */}
+      {(() => {
+        const next = nextMilestone(player.totalClicks);
+        if (!next) return (
+          <p style={{ color: vars.color.accent, fontSize: '0.85rem', textAlign: 'center', margin: '0.5rem 0 1.5rem' }}>
+            🎉 All click milestones reached!
+          </p>
+        );
+        return (
+          <div style={{ width: '100%', marginBottom: '1.5rem' }} aria-label="Progress to next milestone">
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: vars.color.textMuted, marginBottom: '4px' }}>
+              <span>Next: {next.label} clicks</span>
+              <span>{player.totalClicks.toLocaleString()} / {next.target.toLocaleString()}</span>
+            </div>
+            <div style={{ width: '100%', height: '4px', backgroundColor: vars.color.surface, borderRadius: vars.radius.full }}>
+              <div
+                role="progressbar"
+                aria-label={`Progress to ${next.label} clicks`}
+                aria-valuenow={Math.round(next.progress * 100)}
+                aria-valuemin={0}
+                aria-valuemax={100}
+                style={{
+                  width: `${next.progress * 100}%`,
+                  height: '100%',
+                  backgroundColor: vars.color.primary,
+                  borderRadius: vars.radius.full,
+                  transition: 'width 0.3s ease',
+                }}
+              />
+            </div>
+          </div>
+        );
+      })()}
+
       <AchievementList
         achievements={player.achievements}
         clickAchievements={player.clickAchievements}

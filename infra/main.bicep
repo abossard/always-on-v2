@@ -7,18 +7,20 @@ targetScope = 'subscription'
 @minLength(3)
 @maxLength(12)
 @description('Base name used to derive all resource names. Maps to AZURE_ENV_NAME.')
-param baseName string
+@metadata({ azd: { type: 'environmentName' } })
+param baseName string = 'alwayson'
 
 @description('Primary location for global resources. Maps to AZURE_LOCATION.')
-param globalLocation string
+@metadata({ azd: { type: 'location' } })
+param globalLocation string = 'swedencentral'
 
 @description('SKU for Azure Container Registry. Premium required for geo-replication.')
-@allowed([
-  'Basic'
-  'Standard'
-  'Premium'
-])
+@allowed(['Basic', 'Standard', 'Premium'])
 param acrSku string = 'Premium'
+
+@description('Front Door SKU. Premium_AzureFrontDoor for prod (WAF, Private Link to internal LB). Standard_AzureFrontDoor for dev.')
+@allowed(['Premium_AzureFrontDoor', 'Standard_AzureFrontDoor'])
+param frontDoorSku string = 'Standard_AzureFrontDoor'
 
 @description('Cosmos DB autoscale max throughput (RU/s) at database level. Minimum 1000.')
 @minValue(1000)
@@ -41,12 +43,26 @@ param regions array = [
   }
 ]
 
+// ── Stamp config defaults ─────────────────────────────────────────────────────
+// Priority (lowest → highest): defaultStampConfig < region.stampDefaults < stamp.*
+// Any key present in a higher-priority object wins. This means:
+//   • All stamps get budget defaults unless overridden.
+//   • A region can lift all its stamps to production via stampDefaults.
+//   • Individual stamps can still override any single property.
+// ─────────────────────────────────────────────────────────────────────────────
+var defaultStampConfig = {
+  aksNodeVmSize: 'Standard_B2ms'       // budget: 2 vCPU / 8 GB
+  aksSystemNodeCount: 1
+  aksAvailabilityZones: []             // no AZ — requires Free tier
+  aksTier: 'Free'
+}
+
 // Flatten regions × stamps into a single array for loops
 var _stampArrays = [for region in regions: map(region.stamps, stamp => {
   regionKey: region.key
   location: region.location
   stampKey: stamp.key
-  stampConfig: stamp
+  stampConfig: union(defaultStampConfig, region.?stampDefaults ?? {}, stamp)
 })]
 var allStamps = flatten(_stampArrays)
 
@@ -84,6 +100,7 @@ module global 'global.bicep' = {
     baseName: baseName
     location: globalLocation
     acrSku: acrSku
+    frontDoorSku: frontDoorSku
     cosmosAutoscaleMaxThroughput: cosmosAutoscaleMaxThroughput
     domainName: domainName
     regions: regions

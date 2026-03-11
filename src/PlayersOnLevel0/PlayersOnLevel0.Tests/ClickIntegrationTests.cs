@@ -45,15 +45,17 @@ public abstract class ClickIntegrationTests(HttpClient client)
     }
 
     [Test]
-    public async Task Click_DoesNotAffectScore()
+    public async Task Click_AddsOnePointPerClick()
     {
         var id = Guid.NewGuid();
         await Api.UpdatePlayer(client, id, new { addScore = 500 });
         await client.PostAsync(ClickPath(id), null);
+        await client.PostAsync(ClickPath(id), null);
+        await client.PostAsync(ClickPath(id), null);
 
         var player = await Api.GetPlayer(client, id);
-        await Assert.That(player!.Score).IsEqualTo(500);
-        await Assert.That(player.TotalClicks).IsEqualTo(1);
+        await Assert.That(player!.Score).IsEqualTo(503); // 500 + 3 clicks × 1 pt
+        await Assert.That(player.TotalClicks).IsEqualTo(3);
     }
 
     [Test]
@@ -128,8 +130,8 @@ public abstract class ClickIntegrationTests(HttpClient client)
         await client.PostAsync(ClickPath(id), null);
 
         var player = await Api.GetPlayer(client, id);
-        await Assert.That(player!.Score).IsEqualTo(1500);
+        await Assert.That(player!.Score).IsEqualTo(1503); // 1000 + 3 clicks + 500
         await Assert.That(player.TotalClicks).IsEqualTo(3);
-        await Assert.That(player.Level).IsEqualTo(2); // 1500/1000 + 1 = 2
+        await Assert.That(player.Level).IsEqualTo(2); // 1503/1000 + 1 = 2
     }
 }

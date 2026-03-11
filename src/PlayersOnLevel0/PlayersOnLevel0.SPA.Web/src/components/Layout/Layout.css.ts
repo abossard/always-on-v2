@@ -24,4 +24,23 @@ export const title = style({
   fontWeight: 700,
   color: vars.color.accent,
   letterSpacing: '0.05em',
+  margin: 0,
+});
+
+export const nav = style({
+  marginTop: vars.space.sm,
+  display: 'flex',
+  justifyContent: 'center',
+  gap: vars.space.md,
+});
+
+export const navLink = style({
+  fontSize: '0.8rem',
+  color: vars.color.textMuted,
+  textDecoration: 'none',
+  padding: '2px 8px',
+  borderRadius: vars.radius.sm,
+  ':hover': {
+    color: vars.color.text,
+  },
 });

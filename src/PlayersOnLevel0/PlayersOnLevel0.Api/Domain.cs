@@ -115,6 +115,8 @@ public sealed record PlayerProgression
     /// Pure click transition. Returns new state + events produced.
     /// Rate snapshot is passed in (computed externally by rate tracker) to keep domain pure.
     /// </summary>
+    public const long PointsPerClick = 1;
+
     public ClickResult WithClick(DateTimeOffset now, ClickRateSnapshot rates)
     {
         var newClicks = TotalClicks == long.MaxValue
@@ -123,6 +125,11 @@ public sealed record PlayerProgression
         var events = new List<PlayerEvent>();
 
         events.Add(new ClickRecorded(PlayerId, newClicks, now));
+
+        // Each click awards score points
+        var newScore = Score.Add(PointsPerClick);
+        var newLevel = ComputeLevel(newScore);
+        events.Add(new ScoreUpdated(PlayerId, newScore.Value, newLevel.Value, now));
 
         // Evaluate click achievements
         var newClickAchievements = ClickAchievementEvaluator.Evaluate(
@@ -135,6 +142,8 @@ public sealed record PlayerProgression
         var newState = this with
         {
             TotalClicks = newClicks,
+            Score = newScore,
+            Level = newLevel,
             ClickAchievements = newClickAchievements,
             UpdatedAt = now
         };

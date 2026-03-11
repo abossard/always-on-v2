@@ -86,6 +86,62 @@ azd up
 | 4     | Validation & Presentation      | All NFRs   |
 | 5     | Advanced Topics (Optional)     | —          |
 
+## Deploying Infrastructure
+
+Infrastructure is deployed via the `Deploy Infrastructure` GitHub Actions workflow using Azure Developer CLI (`azd`) with OIDC federated credentials — no secrets stored in GitHub.
+
+### One-time Setup
+
+**Option A — automated (recommended):**
+```bash
+azd auth login
+azd pipeline config --provider github
+```
+This creates the Entra app registration, federated credentials, and sets all required GitHub variables automatically.
+
+**Option B — manual:**
+
+1. Create an Entra ID app registration with a federated credential for GitHub Actions:
+   - Issuer: `https://token.actions.githubusercontent.com`
+   - Subject: `repo:<org>/<repo>:environment:dev` (repeat for `prod`)
+
+2. Grant the app **Contributor** + **User Access Administrator** on your subscription.
+
+3. Set these **GitHub Environment variables** on each environment (`dev`, `prod`):
+
+   | Variable | Value |
+   |---|---|
+   | `AZURE_CLIENT_ID` | App registration Client ID |
+   | `AZURE_ENV_NAME` | e.g. `alwayson-dev` or `alwayson-prod` |
+   | `AZURE_LOCATION` | e.g. `swedencentral` |
+
+4. Set these **repository-level variables** (shared across environments):
+
+   | Variable | Value |
+   |---|---|
+   | `AZURE_TENANT_ID` | Your Entra tenant ID |
+   | `AZURE_SUBSCRIPTION_ID` | Target subscription ID |
+
+5. Add a **required reviewer** to the `prod` GitHub Environment for approval gates.
+
+### Running a Deployment
+
+Go to **Actions → Deploy Infrastructure → Run workflow**, choose `dev` or `prod`, and click **Run workflow**.
+
+- `dev` deploys a single AKS stamp (Standard_B2ms, Free tier, public LB, Standard Front Door)
+- `prod` deploys 3 stamps across 2 regions (Standard_D4s_v5, Standard tier, internal LB, Premium Front Door) — requires reviewer approval
+
+### Switching Environments Locally
+
+```bash
+# Deploy dev
+azd provision  # main.bicepparam points to dev by default
+
+# Deploy prod (swap param file first)
+cp infra/main.prod.bicepparam infra/main.bicepparam
+azd provision
+```
+
 ## Architecture Decisions
 
 All architecture decisions are documented as ADRs in [`docs/adr/`](docs/adr/README.md).

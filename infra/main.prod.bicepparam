@@ -60,7 +60,7 @@ var prod = {
 }
 
 // ── Active environment ────────────────────────────────────────────────────────
-var env = dev  // ← switch to prod for production deployments
+var env = prod  // ← production deployment
 
 param baseName = 'alwayson'
 param globalLocation = 'swedencentral'

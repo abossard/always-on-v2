@@ -28,8 +28,19 @@ param monitorWorkspaceId string
 // ============================================================================
 
 var stampName = '${regionKey}-${stampKey}'
-var aksVmSize = stampConfig.?aksNodeVmSize ?? 'Standard_D2s_v3'
-var aksSystemNodeCount = stampConfig.?aksSystemNodeCount ?? 1
+
+// ── Node pool profiles ────────────────────────────────────────────────────────
+// Budget  (default): Single Standard_B2ms, no AZ, Free tier
+// Production        : 3× Standard_D4s_v5, AZ 1-2-3, Standard tier
+// Set aksProfile = 'production' in the stamp config to switch.
+// ─────────────────────────────────────────────────────────────────────────────
+var aksVmSize            = stampConfig.?aksNodeVmSize         ?? 'Standard_B2ms'
+var aksSystemNodeCount   = stampConfig.?aksSystemNodeCount    ?? 1
+var aksAvailabilityZones = stampConfig.?aksAvailabilityZones  ?? []
+var aksTier              = stampConfig.?aksTier               ?? 'Free'
+// External = public LB (dev, Standard Front Door)
+// Internal = private LB only (prod, Premium Front Door via Private Link)
+var aksIngressType       = stampConfig.?aksIngressType        ?? 'External'
 
 // ============================================================================
 // Identities
@@ -109,7 +120,7 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2025-10-01' = {
   }
   sku: {
     name: 'Base'
-    tier: 'Free'
+    tier: aksTier
   }
   properties: {
     dnsPrefix: 'aks-${baseName}-${stampName}'
@@ -143,6 +154,7 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2025-10-01' = {
         vmSize: aksVmSize
         osType: 'Linux'
         osSKU: 'AzureLinux'
+        availabilityZones: aksAvailabilityZones
       }
     ]
 
@@ -159,7 +171,12 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2025-10-01' = {
     }
 
     ingressProfile: {
-      webAppRouting: { enabled: true }
+      webAppRouting: {
+        enabled: true
+        nginxSettings: {
+          defaultIngressControllerType: aksIngressType
+        }
+      }
     }
 
     addonProfiles: {

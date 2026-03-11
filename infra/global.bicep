@@ -20,6 +20,10 @@ param domainName string
 @description('Region configurations array.')
 param regions array
 
+@description('Front Door SKU. Premium for prod (WAF, Private Link to internal LB). Standard for dev (public origins, lower cost).')
+@allowed(['Premium_AzureFrontDoor', 'Standard_AzureFrontDoor'])
+param frontDoorSku string = 'Premium_AzureFrontDoor'
+
 // ============================================================================
 // User-Assigned Managed Identities (one per global service)
 // ============================================================================
@@ -133,7 +137,7 @@ resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2025
 }
 
 // ============================================================================
-// Azure Front Door (Standard)
+// Azure Front Door (conditional — skipped when frontDoorSku == 'none')
 // ============================================================================
 
 var fdName = 'fd-${baseName}'
@@ -141,7 +145,7 @@ var fdName = 'fd-${baseName}'
 resource frontDoor 'Microsoft.Cdn/profiles@2025-04-15' = {
   name: fdName
   location: 'global'
-  sku: { name: 'Standard_AzureFrontDoor' }
+  sku: { name: frontDoorSku }
   identity: {
     type: 'UserAssigned'
     userAssignedIdentities: {

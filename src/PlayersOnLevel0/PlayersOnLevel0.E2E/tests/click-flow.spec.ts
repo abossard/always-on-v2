@@ -71,4 +71,32 @@ test.describe('Player Click Flow', () => {
     await page.getByText('Diagnostics').click();
     await expect(page.getByText('clickRecorded').first()).toBeVisible({ timeout: 5000 });
   });
+
+  test('click counter increments and is visible on button', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: /start a new player/i }).click();
+    const clickBtn = page.getByRole('button', { name: /click to earn/i });
+    await clickBtn.waitFor();
+
+    // Button should initially show 0
+    await expect(clickBtn).toContainText('0');
+
+    // Click 5 times
+    for (let i = 0; i < 5; i++) {
+      await clickBtn.click();
+    }
+
+    // Wait for SSE updates to arrive and update the button
+    await expect(clickBtn).not.toContainText('0', { timeout: 5000 });
+  });
+
+  test('progress bar is visible and shows next milestone', async ({ page }) => {
+    await page.goto('/');
+    await page.getByRole('button', { name: /start a new player/i }).click();
+    await page.getByRole('button', { name: /click to earn/i }).waitFor();
+
+    // Progress bar toward first milestone should be visible
+    await expect(page.getByLabel('Progress to next milestone')).toBeVisible();
+    await expect(page.getByText(/Next: 100 clicks/)).toBeVisible();
+  });
 });
