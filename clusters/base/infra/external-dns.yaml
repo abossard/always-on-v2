@@ -14,6 +14,20 @@ spec:
   interval: 24h
   url: https://kubernetes-sigs.github.io/external-dns
 ---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: azure-config
+  namespace: external-dns
+stringData:
+  azure.json: |
+    {
+      "tenantId": "${AZURE_TENANT_ID}",
+      "subscriptionId": "${AZURE_SUBSCRIPTION_ID}",
+      "resourceGroup": "${DNS_ZONE_RESOURCE_GROUP}",
+      "useWorkloadIdentityExtension": true
+    }
+---
 apiVersion: helm.toolkit.fluxcd.io/v2
 kind: HelmRelease
 metadata:
@@ -45,10 +59,11 @@ spec:
         azure.workload.identity/client-id: ${DNS_IDENTITY_CLIENT_ID}
     podLabels:
       azure.workload.identity/use: "true"
-    env:
-      - name: AZURE_TENANT_ID
-        value: ${AZURE_TENANT_ID}
-      - name: AZURE_SUBSCRIPTION_ID
-        value: ${AZURE_SUBSCRIPTION_ID}
-      - name: AZURE_RESOURCE_GROUP
-        value: ${DNS_ZONE_RESOURCE_GROUP}
+    extraVolumes:
+      - name: azure-config
+        secret:
+          secretName: azure-config
+    extraVolumeMounts:
+      - name: azure-config
+        mountPath: /etc/kubernetes
+        readOnly: true
