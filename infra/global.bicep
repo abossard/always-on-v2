@@ -52,7 +52,8 @@ resource loadTestIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023
 // Azure Container Registry
 // ============================================================================
 
-var acrName = replace('acr${baseName}', '-', '')
+var salt = substring(uniqueString(subscription().id, baseName), 0, 6)
+var acrName = replace('acr${baseName}${salt}', '-', '')
 
 resource acr 'Microsoft.ContainerRegistry/registries@2025-11-01' = {
   name: acrName
@@ -67,7 +68,7 @@ resource acr 'Microsoft.ContainerRegistry/registries@2025-11-01' = {
   properties: {
     adminUserEnabled: false
     publicNetworkAccess: 'Enabled'
-    dataEndpointEnabled: true
+    dataEndpointEnabled: acrSku == 'Premium'   // only supported on Premium SKU
   }
 }
 
@@ -84,7 +85,7 @@ resource acrReplications 'Microsoft.ContainerRegistry/registries/replications@20
 // Azure Cosmos DB (Provisioned Autoscale, Multi-Region Write)
 // ============================================================================
 
-var cosmosName = 'cosmos-${baseName}'
+var cosmosName = 'cosmos-${baseName}-${salt}'
 
 resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2025-04-15' = {
   name: cosmosName
