@@ -17,7 +17,6 @@ concurrency:
 permissions:
   id-token: write
   contents: read
-  administration: write
 
 jobs:
   build:
@@ -68,15 +67,47 @@ jobs:
       - name: Register Flux SSH deploy keys
         if: steps.provision.outcome == 'success'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.DEPLOY_KEY_ADMIN_TOKEN }}
         run: |
           set -euo pipefail
 
-          # Get the deployment name and resource group from azd environment
-          ENV_NAME=$(azd env get-value AZURE_ENV_NAME 2>/dev/null || echo "always-on-v2")
-          SUB_ID=$(azd env get-value AZURE_SUBSCRIPTION_ID 2>/dev/null || echo "$AZURE_SUBSCRIPTION_ID")
+          # Skip if no PAT configured for deploy key management
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::warning::DEPLOY_KEY_ADMIN_TOKEN secret not set — printing keys for manual registration"
 
-          # Find the latest successful subscription-level deployment for this environment
+            # Still try to read keys from deployment outputs for display
+            ENV_NAME=$(azd env get-value AZURE_ENV_NAME 2>/dev/null || echo "always-on-v2")
+            DEPLOYMENT_NAME=$(az deployment sub list \
+              --query "[?starts_with(name, '${ENV_NAME}') && properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
+              -o tsv 2>/dev/null || echo "")
+
+            if [ -n "$DEPLOYMENT_NAME" ]; then
+              FLUX_KEYS=$(az deployment sub show \
+                --name "$DEPLOYMENT_NAME" \
+                --query "properties.outputs.fluxSshPublicKeys.value" \
+                -o json 2>/dev/null || echo "[]")
+
+              echo "## 🔑 Flux SSH Public Keys" >> $GITHUB_STEP_SUMMARY
+              echo "Add these as **read-only deploy keys** at:" >> $GITHUB_STEP_SUMMARY
+              echo "https://github.com/${{ github.repository }}/settings/keys" >> $GITHUB_STEP_SUMMARY
+              echo "" >> $GITHUB_STEP_SUMMARY
+
+              echo "$FLUX_KEYS" | jq -c '.[]' 2>/dev/null | while read -r entry; do
+                STAMP=$(echo "$entry" | jq -r '.stampName')
+                PUB_KEY=$(echo "$entry" | jq -r '.sshPublicKey')
+                echo "### flux-${STAMP}" >> $GITHUB_STEP_SUMMARY
+                echo '```' >> $GITHUB_STEP_SUMMARY
+                echo "$PUB_KEY" >> $GITHUB_STEP_SUMMARY
+                echo '```' >> $GITHUB_STEP_SUMMARY
+              done
+            fi
+            exit 0
+          fi
+
+          # Get the deployment name from azd environment
+          ENV_NAME=$(azd env get-value AZURE_ENV_NAME 2>/dev/null || echo "always-on-v2")
+
+          # Find the latest successful subscription-level deployment
           DEPLOYMENT_NAME=$(az deployment sub list \
             --query "[?starts_with(name, '${ENV_NAME}') && properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
             -o tsv)
@@ -88,7 +119,6 @@ jobs:
 
           echo "Reading Flux SSH public keys from deployment: $DEPLOYMENT_NAME"
 
-          # Extract the fluxSshPublicKeys array output
           FLUX_KEYS=$(az deployment sub show \
             --name "$DEPLOYMENT_NAME" \
             --query "properties.outputs.fluxSshPublicKeys.value" \
@@ -99,10 +129,8 @@ jobs:
             exit 0
           fi
 
-          # Get existing deploy keys to avoid duplicates
           EXISTING_KEYS=$(gh api repos/${{ github.repository }}/keys --jq '.[].title' 2>/dev/null || echo "")
 
-          # Register each SSH public key as a read-only deploy key
           echo "$FLUX_KEYS" | jq -c '.[]' | while read -r entry; do
             STAMP=$(echo "$entry" | jq -r '.stampName')
             PUB_KEY=$(echo "$entry" | jq -r '.sshPublicKey')
@@ -129,7 +157,7 @@ jobs:
               -F read_only=true
           done
 
-          echo "✅ Flux deploy keys registered"
+          echo "✅ Flux deploy keys registered" | tee -a $GITHUB_STEP_SUMMARY
 
       - name: Deploy Application
         if: steps.changes.outputs.app == 'true' || github.event_name == 'workflow_dispatch'
