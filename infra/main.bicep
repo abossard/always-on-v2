@@ -183,6 +183,21 @@ module wiring 'wiring.bicep' = [
 ]
 
 // ============================================================================
+// Level0 Front Door Routing
+// ============================================================================
+
+module level0Routing 'app-level0-routing.bicep' = {
+  name: 'deploy-level0-routing'
+  scope: globalRg
+  dependsOn: [global]
+  params: {
+    baseName: baseName
+    domainName: domainName
+    stamps: allStamps
+  }
+}
+
+// ============================================================================
 // Outputs
 // ============================================================================
 
@@ -199,3 +214,5 @@ output aksClusterNames array = [
 ]
 output playerOnLevel0IdentityClientId string = playerOnLevel0.outputs.identityClientId
 output appInsightsConnectionString string = global.outputs.appInsightsConnectionString
+output level0Hostname string = level0Routing.outputs.level0Hostname
+output level0NginxDnsLabels array = level0Routing.outputs.nginxDnsLabels
