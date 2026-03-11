@@ -198,6 +198,7 @@ module wiring 'wiring.bicep' = [
       fleetName: global.outputs.fleetName
       acrName: global.outputs.acrName
       regionKey: '${stamp.regionKey}-${stamp.stampKey}'
+      dnsRegionKey: stamp.regionKey
       aksClusterId: stamps[i].outputs.aksClusterId
       kubeletPrincipalId: stamps[i].outputs.kubeletIdentityPrincipalId
       parentDnsZoneName: domainName

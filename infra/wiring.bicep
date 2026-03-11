@@ -9,8 +9,11 @@ param fleetName string
 @description('ACR name.')
 param acrName string
 
-@description('Region key.')
+@description('Region key (stamp-scoped, e.g. swedencentral-001). Used for fleet member naming.')
 param regionKey string
+
+@description('Region name for DNS delegation (e.g. swedencentral). Used for NS record name.')
+param dnsRegionKey string
 
 @description('AKS cluster resource ID.')
 param aksClusterId string
@@ -73,7 +76,7 @@ resource parentDnsZone 'Microsoft.Network/dnsZones@2023-07-01-preview' existing 
 
 resource nsDelegation 'Microsoft.Network/dnsZones/NS@2023-07-01-preview' = {
   parent: parentDnsZone
-  name: regionKey
+  name: dnsRegionKey
   properties: {
     TTL: 3600
     NSRecords: [
