@@ -29,6 +29,9 @@ param cosmosAutoscaleMaxThroughput int = 1000
 @description('Domain name for Azure DNS zone (e.g. alwayson.actor).')
 param domainName string = 'alwayson.actor'
 
+@description('Git repository SSH URL for Flux GitOps.')
+param fluxGitRepoUrl string = 'ssh://git@github.com/abossard/always-on-v2'
+
 @description('Region configurations with stamps. Each region has a key, location, and stamps array.')
 param regions array = [
   {
@@ -158,6 +161,7 @@ module stamps 'stamp.bicep' = [
       location: stamp.location
       logAnalyticsWorkspaceId: regional[stampRegionIndex[i]].outputs.logAnalyticsWorkspaceId
       monitorWorkspaceId: regional[stampRegionIndex[i]].outputs.monitorWorkspaceId
+      fluxGitRepoUrl: fluxGitRepoUrl
     }
   }
 ]
@@ -238,3 +242,9 @@ output playerOnLevel0IdentityClientId string = playerOnLevel0.outputs.identityCl
 output appInsightsConnectionString string = global.outputs.appInsightsConnectionString
 output level0Hostname string = level0Routing.outputs.level0Hostname
 output level0StampOrigins array = level0Routing.outputs.stampOrigins
+output fluxSshPublicKeys array = [
+  for (stamp, i) in allStamps: {
+    stampName: stamps[i].outputs.stampName
+    sshPublicKey: stamps[i].outputs.fluxSshPublicKey
+  }
+]

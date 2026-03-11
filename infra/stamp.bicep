@@ -23,6 +23,9 @@ param logAnalyticsWorkspaceId string
 @description('Monitor Workspace ID from the regional module.')
 param monitorWorkspaceId string
 
+@description('Git repository SSH URL for Flux GitOps.')
+param fluxGitRepoUrl string
+
 // ============================================================================
 // Derived Values
 // ============================================================================
@@ -216,7 +219,7 @@ resource prometheusDcra 'Microsoft.Insights/dataCollectionRuleAssociations@2022-
 }
 
 // ============================================================================
-// Flux GitOps Extension
+// Flux GitOps Extension + Configuration
 // ============================================================================
 
 resource fluxExtension 'Microsoft.KubernetesConfiguration/extensions@2023-05-01' = {
@@ -225,6 +228,36 @@ resource fluxExtension 'Microsoft.KubernetesConfiguration/extensions@2023-05-01'
   properties: {
     extensionType: 'microsoft.flux'
     autoUpgradeMinorVersion: true
+  }
+}
+
+// github.com ecdsa-sha2-nistp256 public key, base64-encoded
+var githubSshKnownHosts = 'Z2l0aHViLmNvbSBlY2RzYS1zaGEyLW5pc3RwMjU2IEFBQUFFMlZqWkhOaExYTm9ZVEl0Ym1semRIQXlOVFlBQUFBSWJtbHpkSEF5TlRZQUFBQkJCRW1LU0VOalFFZXpPbXhrWk15N29wS2d3RkI5bmt0NVlScllNak51RzVOODd1UmdnNkNMcmJvNXdBZFQveTZ2MG1LVjBVMncwV1oyWUIvKytUcG9ja2c9'
+
+resource fluxConfig 'Microsoft.KubernetesConfiguration/fluxConfigurations@2024-04-01-preview' = {
+  scope: aksCluster
+  name: 'cluster-config'
+  properties: {
+    scope: 'cluster'
+    namespace: 'flux-system'
+    sourceKind: 'GitRepository'
+    gitRepository: {
+      url: fluxGitRepoUrl
+      repositoryRef: {
+        branch: 'main'
+      }
+      syncIntervalInSeconds: 120
+      timeoutInSeconds: 600
+      sshKnownHosts: githubSshKnownHosts
+    }
+    kustomizations: {
+      cluster: {
+        path: 'clusters/${regionKey}'
+        syncIntervalInSeconds: 120
+        retryIntervalInSeconds: 60
+        prune: true
+      }
+    }
   }
 }
 
@@ -262,3 +295,4 @@ output aksClusterName string = aksCluster.name
 output aksOidcIssuerUrl string = aksCluster.properties.oidcIssuerProfile.issuerURL
 output kubeletIdentityPrincipalId string = kubeletIdentity.properties.principalId
 output stampName string = stampName
+output fluxSshPublicKey string = fluxConfig.properties.repositoryPublicKey
