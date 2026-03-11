@@ -17,6 +17,7 @@ concurrency:
 permissions:
   id-token: write
   contents: read
+  administration: write
 
 jobs:
   build:
@@ -52,9 +53,83 @@ jobs:
             --tenant-id "$Env:AZURE_TENANT_ID"
         shell: pwsh
 
+      - name: Log in Azure CLI (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
       - name: Provision Infrastructure
+        id: provision
         if: steps.changes.outputs.infra == 'true' || github.event_name == 'workflow_dispatch'
         run: azd provision --no-prompt
+
+      - name: Register Flux SSH deploy keys
+        if: steps.provision.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+
+          # Get the deployment name and resource group from azd environment
+          ENV_NAME=$(azd env get-value AZURE_ENV_NAME 2>/dev/null || echo "always-on-v2")
+          SUB_ID=$(azd env get-value AZURE_SUBSCRIPTION_ID 2>/dev/null || echo "$AZURE_SUBSCRIPTION_ID")
+
+          # Find the latest successful subscription-level deployment for this environment
+          DEPLOYMENT_NAME=$(az deployment sub list \
+            --query "[?starts_with(name, '${ENV_NAME}') && properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
+            -o tsv)
+
+          if [ -z "$DEPLOYMENT_NAME" ]; then
+            echo "::warning::No successful deployment found — skipping deploy key registration"
+            exit 0
+          fi
+
+          echo "Reading Flux SSH public keys from deployment: $DEPLOYMENT_NAME"
+
+          # Extract the fluxSshPublicKeys array output
+          FLUX_KEYS=$(az deployment sub show \
+            --name "$DEPLOYMENT_NAME" \
+            --query "properties.outputs.fluxSshPublicKeys.value" \
+            -o json 2>/dev/null || echo "[]")
+
+          if [ "$FLUX_KEYS" = "[]" ] || [ "$FLUX_KEYS" = "null" ]; then
+            echo "::warning::No Flux SSH public keys found in deployment outputs"
+            exit 0
+          fi
+
+          # Get existing deploy keys to avoid duplicates
+          EXISTING_KEYS=$(gh api repos/${{ github.repository }}/keys --jq '.[].title' 2>/dev/null || echo "")
+
+          # Register each SSH public key as a read-only deploy key
+          echo "$FLUX_KEYS" | jq -c '.[]' | while read -r entry; do
+            STAMP=$(echo "$entry" | jq -r '.stampName')
+            PUB_KEY=$(echo "$entry" | jq -r '.sshPublicKey')
+            KEY_TITLE="flux-${STAMP}"
+
+            if [ -z "$PUB_KEY" ] || [ "$PUB_KEY" = "null" ]; then
+              echo "::warning::Empty SSH key for stamp $STAMP — skipping"
+              continue
+            fi
+
+            # Remove existing key with same title to allow update
+            if echo "$EXISTING_KEYS" | grep -qF "$KEY_TITLE"; then
+              echo "Removing existing deploy key: $KEY_TITLE"
+              KEY_ID=$(gh api repos/${{ github.repository }}/keys --jq ".[] | select(.title==\"${KEY_TITLE}\") | .id")
+              if [ -n "$KEY_ID" ]; then
+                gh api -X DELETE "repos/${{ github.repository }}/keys/${KEY_ID}" || true
+              fi
+            fi
+
+            echo "Adding deploy key: $KEY_TITLE"
+            gh api repos/${{ github.repository }}/keys \
+              -f title="$KEY_TITLE" \
+              -f key="$PUB_KEY" \
+              -F read_only=true
+          done
+
+          echo "✅ Flux deploy keys registered"
 
       - name: Deploy Application
         if: steps.changes.outputs.app == 'true' || github.event_name == 'workflow_dispatch'
