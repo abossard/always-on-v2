@@ -45,8 +45,6 @@ spec:
         azure.workload.identity/client-id: ${DNS_IDENTITY_CLIENT_ID}
     podLabels:
       azure.workload.identity/use: "true"
-    extraArgs:
-      - --azure-config-file=""
     env:
       - name: AZURE_TENANT_ID
         value: ${AZURE_TENANT_ID}
