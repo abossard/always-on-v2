@@ -8,8 +8,6 @@
 // Creates:
 //   namespace:  level0
 //   configmap:  level0-config  (in namespace level0)
-//   annotation: service.beta.kubernetes.io/azure-dns-label-name on nginx svc
-//               → wires the public IP DNS label so Front Door origins resolve
 //
 // The ConfigMap is the single source of truth for all deployment values
 // that the app and Helm charts need at deploy time.
@@ -51,12 +49,6 @@ param cosmosContainerName string
 
 var namespace = 'level0'
 
-// DNS label to set on the nginx ingress LoadBalancer service:
-//   service.beta.kubernetes.io/azure-dns-label-name: <nginxDnsLabel>
-// Resulting public hostname: <nginxDnsLabel>.<location>.cloudapp.azure.com
-var nginxDnsLabel = 'level0-${stampName}'
-var nginxOriginHostname = '${nginxDnsLabel}.${location}.cloudapp.azure.com'
-
 // ============================================================================
 // AKS Cluster (existing)
 // ============================================================================
@@ -66,67 +58,54 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2025-10-01' exis
 }
 
 // ============================================================================
-// Bootstrap: create namespace + ConfigMap, wire nginx DNS label via Run Command
+// Bootstrap: create namespace + ConfigMap via Run Command
 //
-// Three steps, all idempotent:
-//   1. Apply namespace + ConfigMap (kubectl apply)
-//   2. Patch the nginx Web App Routing LoadBalancer service with the DNS label
-//      → Azure assigns <nginxDnsLabel>.<location>.cloudapp.azure.com to the IP
-//      → Front Door origin (configured in app-level0-routing.bicep) resolves
-//
+// Idempotent — kubectl apply is safe to re-run.
 // The run command name includes a hash of key values so ARM re-executes
 // it automatically whenever any config value changes.
+//
+// NOTE: Bicep triple-quoted strings (''') do NOT interpolate ${...}.
+// We use join() + single-quoted lines so Bicep injects param values.
 // ============================================================================
 
 var configHash = uniqueString(
-  cosmosEndpoint, appInsightsConnectionString, acrLoginServer, nginxDnsLabel
+  cosmosEndpoint, appInsightsConnectionString, acrLoginServer, stampName
 )
+
+var bootstrapCommand = join([
+  'set -e'
+  'kubectl apply -f - <<EOF'
+  'apiVersion: v1'
+  'kind: Namespace'
+  'metadata:'
+  '  name: ${namespace}'
+  '  labels:'
+  '    app: level0'
+  '---'
+  'apiVersion: v1'
+  'kind: ConfigMap'
+  'metadata:'
+  '  name: level0-config'
+  '  namespace: ${namespace}'
+  'data:'
+  '  STAMP_NAME: "${stampName}"'
+  '  AZURE_LOCATION: "${location}"'
+  '  COSMOS_ENDPOINT: "${cosmosEndpoint}"'
+  '  COSMOS_DATABASE: "${cosmosDatabaseName}"'
+  '  COSMOS_CONTAINER: "${cosmosContainerName}"'
+  '  ACR_LOGIN_SERVER: "${acrLoginServer}"'
+  '  APP_INSIGHTS_CONNECTION_STRING: "${appInsightsConnectionString}"'
+  '  AZURE_CLIENT_ID: "${appIdentityClientId}"'
+  '  WORKLOAD_IDENTITY_ID: "${appIdentityId}"'
+  'EOF'
+  'echo "Bootstrap complete for stamp ${stampName}."'
+], '\n')
 
 resource bootstrapK8s 'Microsoft.ContainerService/managedClusters/runCommands@2024-02-01' = {
   parent: aksCluster
   name: 'bootstrap-level0-${configHash}'
   properties: {
-    command: '''
-set -e
-
-# ── 1. Namespace + ConfigMap ──────────────────────────────────────────────────
-kubectl apply -f - <<'MANIFEST'
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: ${namespace}
-  labels:
-    app: level0
----
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: level0-config
-  namespace: ${namespace}
-data:
-  STAMP_NAME: "${stampName}"
-  AZURE_LOCATION: "${location}"
-  NGINX_DNS_LABEL: "${nginxDnsLabel}"
-  NGINX_ORIGIN_HOSTNAME: "${nginxOriginHostname}"
-  COSMOS_ENDPOINT: "${cosmosEndpoint}"
-  COSMOS_DATABASE: "${cosmosDatabaseName}"
-  COSMOS_CONTAINER: "${cosmosContainerName}"
-  ACR_LOGIN_SERVER: "${acrLoginServer}"
-  APP_INSIGHTS_CONNECTION_STRING: "${appInsightsConnectionString}"
-  AZURE_CLIENT_ID: "${appIdentityClientId}"
-  WORKLOAD_IDENTITY_ID: "${appIdentityId}"
-MANIFEST
-
-# ── 2. Patch nginx Web App Routing service with DNS label ─────────────────────
-# This assigns <nginxDnsLabel>.<location>.cloudapp.azure.com to the public IP,
-# which is what Front Door's origin group points at.
-kubectl patch service nginx \
-  --namespace app-routing-system \
-  --type merge \
-  --patch '{"metadata":{"annotations":{"service.beta.kubernetes.io/azure-dns-label-name":"${nginxDnsLabel}"}}}'
-
-echo "Bootstrap complete. nginx public hostname: ${nginxOriginHostname}"
-'''
+    command: bootstrapCommand
     clusterToken: ''
   }
 }
@@ -136,5 +115,3 @@ echo "Bootstrap complete. nginx public hostname: ${nginxOriginHostname}"
 // ============================================================================
 
 output namespace string = namespace
-output nginxDnsLabel string = nginxDnsLabel
-output nginxOriginHostname string = nginxOriginHostname

@@ -170,9 +170,17 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2025-10-01' = {
       verticalPodAutoscaler: { enabled: true }
     }
 
-    ingressProfile: {
-      webAppRouting: {
-        enabled: true
+    serviceMeshProfile: {
+      mode: 'Istio'
+      istio: {
+        components: {
+          ingressGateways: [
+            {
+              enabled: true
+              mode: aksIngressType
+            }
+          ]
+        }
       }
     }
 
@@ -204,6 +212,19 @@ resource prometheusDcra 'Microsoft.Insights/dataCollectionRuleAssociations@2022-
   properties: {
     dataCollectionRuleId: prometheusDcr.id
     description: 'Prometheus metrics collection for AKS'
+  }
+}
+
+// ============================================================================
+// Flux GitOps Extension
+// ============================================================================
+
+resource fluxExtension 'Microsoft.KubernetesConfiguration/extensions@2023-05-01' = {
+  name: 'flux'
+  scope: aksCluster
+  properties: {
+    extensionType: 'microsoft.flux'
+    autoUpgradeMinorVersion: true
   }
 }
 

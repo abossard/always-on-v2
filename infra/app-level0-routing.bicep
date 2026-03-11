@@ -2,12 +2,12 @@
 // Level0 Front Door Routing
 // Wires level0.{domainName} → Front Door → one origin per AKS stamp.
 //
-// Origin hostnames are deterministic — based on the DNS label we set on the
-// nginx LoadBalancer public IP via a Kubernetes annotation at deploy time:
-//   service.beta.kubernetes.io/azure-dns-label-name: level0-{regionKey}-{stampKey}
-//
-// This gives us:
+// Origin hostnames use a deterministic DNS label per stamp:
 //   level0-swedencentral-001.swedencentral.cloudapp.azure.com
+//
+// The DNS label is set on the Istio ingress gateway LoadBalancer service
+// at deploy time via the annotation:
+//   service.beta.kubernetes.io/azure-dns-label-name: level0-{regionKey}-{stampKey}
 // ============================================================================
 
 @description('Base name for all resources.')
@@ -59,7 +59,7 @@ resource originGroup 'Microsoft.Cdn/profiles/originGroups@2025-04-15' = {
 }
 
 // One origin per stamp.
-// Hostname matches the DNS label set on the nginx ingress LoadBalancer service.
+// Hostname matches the DNS label set on the Istio ingress gateway LoadBalancer service.
 resource origins 'Microsoft.Cdn/profiles/originGroups/origins@2025-04-15' = [
   for stamp in stamps: {
     parent: originGroup
@@ -114,7 +114,6 @@ resource cnameLevel0 'Microsoft.Network/dnsZones/CNAME@2023-07-01-preview' = {
 resource route 'Microsoft.Cdn/profiles/afdEndpoints/routes@2025-04-15' = {
   parent: fdEndpoint
   name: 'route-level0'
-  dependsOn: [origins]
   properties: {
     customDomains: [
       { id: customDomain.id }
@@ -130,12 +129,12 @@ resource route 'Microsoft.Cdn/profiles/afdEndpoints/routes@2025-04-15' = {
 }
 
 // ============================================================================
-// Outputs — use these values as Kubernetes annotations when deploying Level0
+// Outputs
 // ============================================================================
 
-// The DNS label to set on the nginx ingress LoadBalancer service per stamp:
+// The DNS label to set on the Istio ingress gateway LoadBalancer service per stamp:
 //   service.beta.kubernetes.io/azure-dns-label-name: <value>
-output nginxDnsLabels array = [for (stamp, i) in stamps: {
+output stampOrigins array = [for (stamp, i) in stamps: {
   stampName: '${stamp.regionKey}-${stamp.stampKey}'
   dnsLabel: 'level0-${stamp.regionKey}-${stamp.stampKey}'
   originHostname: 'level0-${stamp.regionKey}-${stamp.stampKey}.${stamp.location}.cloudapp.azure.com'

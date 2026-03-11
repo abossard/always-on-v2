@@ -212,7 +212,6 @@ module level0K8s 'app-level0-k8s.bicep' = [
 module level0Routing 'app-level0-routing.bicep' = {
   name: 'deploy-level0-routing'
   scope: globalRg
-  dependsOn: [global, level0K8s, wiring]
   params: {
     baseName: baseName
     domainName: domainName
@@ -238,4 +237,4 @@ output aksClusterNames array = [
 output playerOnLevel0IdentityClientId string = playerOnLevel0.outputs.identityClientId
 output appInsightsConnectionString string = global.outputs.appInsightsConnectionString
 output level0Hostname string = level0Routing.outputs.level0Hostname
-output level0NginxDnsLabels array = level0Routing.outputs.nginxDnsLabels
+output level0StampOrigins array = level0Routing.outputs.stampOrigins
