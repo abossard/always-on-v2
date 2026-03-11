@@ -187,29 +187,6 @@ module wiring 'wiring.bicep' = [
 ]
 
 // ============================================================================
-// Level0 Kubernetes Bootstrap (namespace + ConfigMap per stamp)
-// ============================================================================
-
-module level0K8s 'app-level0-k8s.bicep' = [
-  for (stamp, i) in allStamps: {
-    name: 'deploy-level0-k8s-${stamp.regionKey}-${stamp.stampKey}'
-    scope: stampRgs[i]
-    params: {
-      aksClusterName: stamps[i].outputs.aksClusterName
-      stampName: stamps[i].outputs.stampName
-      location: stamp.location
-      cosmosEndpoint: global.outputs.cosmosEndpoint
-      appInsightsConnectionString: global.outputs.appInsightsConnectionString
-      acrLoginServer: global.outputs.acrLoginServer
-      appIdentityClientId: playerOnLevel0.outputs.identityClientId
-      appIdentityId: playerOnLevel0.outputs.identityId
-      cosmosDatabaseName: playerOnLevel0.outputs.databaseName
-      cosmosContainerName: playerOnLevel0.outputs.containerName
-    }
-  }
-]
-
-// ============================================================================
 // Level0 Front Door Routing
 // ============================================================================
 
