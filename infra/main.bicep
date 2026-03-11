@@ -32,6 +32,14 @@ param domainName string = 'alwayson.actor'
 @description('Git repository SSH URL for Flux GitOps.')
 param fluxGitRepoUrl string = 'ssh://git@github.com/abossard/always-on-v2'
 
+@description('Enable dev permissions: grants admin access to all data planes for the listed identities.')
+param enableDevPermissions bool = true
+
+@description('Entra ID object IDs to grant dev admin access (AKS Cluster Admin, Cosmos Data Contributor, ACR Push).')
+param devIdentities array = [
+  'c64dabd5-242b-481b-ac5d-92be5c683e9f' // anbossar
+]
+
 @description('Region configurations with stamps. Each region has a key, location, and stamps array.')
 param regions array = [
   {
@@ -199,6 +207,23 @@ module level0Routing 'app-level0-routing.bicep' = {
     stamps: allStamps
   }
 }
+
+// ============================================================================
+// Dev Permissions (optional — grants admin access to data planes)
+// ============================================================================
+
+module devPermissions 'dev-permissions.bicep' = [
+  for (identity, i) in (enableDevPermissions ? devIdentities : []): {
+    name: 'deploy-dev-permissions-${i}'
+    scope: globalRg
+    params: {
+      principalId: identity
+      aksClusterIds: [for (stamp, j) in allStamps: stamps[j].outputs.aksClusterId]
+      cosmosAccountName: global.outputs.cosmosName
+      acrName: global.outputs.acrName
+    }
+  }
+]
 
 // ============================================================================
 // Outputs
