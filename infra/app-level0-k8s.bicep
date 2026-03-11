@@ -8,6 +8,8 @@
 // Creates:
 //   namespace:  level0
 //   configmap:  level0-config  (in namespace level0)
+//   annotation: service.beta.kubernetes.io/azure-dns-label-name on nginx svc
+//               → wires the public IP DNS label so Front Door origins resolve
 //
 // The ConfigMap is the single source of truth for all deployment values
 // that the app and Helm charts need at deploy time.
@@ -64,11 +66,16 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2025-10-01' exis
 }
 
 // ============================================================================
-// Bootstrap: create namespace + ConfigMap via Run Command
+// Bootstrap: create namespace + ConfigMap, wire nginx DNS label via Run Command
 //
-// kubectl apply -f - is idempotent — safe to re-run on every provision.
+// Three steps, all idempotent:
+//   1. Apply namespace + ConfigMap (kubectl apply)
+//   2. Patch the nginx Web App Routing LoadBalancer service with the DNS label
+//      → Azure assigns <nginxDnsLabel>.<location>.cloudapp.azure.com to the IP
+//      → Front Door origin (configured in app-level0-routing.bicep) resolves
+//
 // The run command name includes a hash of key values so ARM re-executes
-// it whenever the config changes.
+// it automatically whenever any config value changes.
 // ============================================================================
 
 var configHash = uniqueString(
@@ -80,6 +87,9 @@ resource bootstrapK8s 'Microsoft.ContainerService/managedClusters/runCommands@20
   name: 'bootstrap-level0-${configHash}'
   properties: {
     command: '''
+set -e
+
+# ── 1. Namespace + ConfigMap ──────────────────────────────────────────────────
 kubectl apply -f - <<'MANIFEST'
 apiVersion: v1
 kind: Namespace
@@ -106,6 +116,16 @@ data:
   AZURE_CLIENT_ID: "${appIdentityClientId}"
   WORKLOAD_IDENTITY_ID: "${appIdentityId}"
 MANIFEST
+
+# ── 2. Patch nginx Web App Routing service with DNS label ─────────────────────
+# This assigns <nginxDnsLabel>.<location>.cloudapp.azure.com to the public IP,
+# which is what Front Door's origin group points at.
+kubectl patch service nginx \
+  --namespace app-routing-system \
+  --type merge \
+  --patch '{"metadata":{"annotations":{"service.beta.kubernetes.io/azure-dns-label-name":"${nginxDnsLabel}"}}}'
+
+echo "Bootstrap complete. nginx public hostname: ${nginxOriginHostname}"
 '''
     clusterToken: ''
   }
