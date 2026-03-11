@@ -37,7 +37,7 @@ var stampName = '${regionKey}-${stampKey}'
 // Production        : 3× Standard_D4s_v5, AZ 1-2-3, Standard tier
 // Set aksProfile = 'production' in the stamp config to switch.
 // ─────────────────────────────────────────────────────────────────────────────
-var aksVmSize            = stampConfig.?aksNodeVmSize         ?? 'Standard_B2ms'
+var aksVmSize            = stampConfig.?aksNodeVmSize         ?? 'Standard_B4ms'
 var aksSystemNodeCount   = stampConfig.?aksSystemNodeCount    ?? 1
 var aksAvailabilityZones = stampConfig.?aksAvailabilityZones  ?? []
 var aksTier              = stampConfig.?aksTier               ?? 'Free'
@@ -158,6 +158,9 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2025-10-01' = {
         osType: 'Linux'
         osSKU: 'AzureLinux'
         availabilityZones: aksAvailabilityZones
+        nodeTaints: [
+          'CriticalAddonsOnly=true:NoSchedule'
+        ]
       }
     ]
 
