@@ -212,7 +212,7 @@ module level0K8s 'app-level0-k8s.bicep' = [
 module level0Routing 'app-level0-routing.bicep' = {
   name: 'deploy-level0-routing'
   scope: globalRg
-  dependsOn: [global]
+  dependsOn: [global, level0K8s, wiring]
   params: {
     baseName: baseName
     domainName: domainName

@@ -1,22 +1,27 @@
-# Run when commits are pushed to main
+name: Provision & Deploy
+
 on:
   workflow_dispatch:
   push:
-    # Run when commits are pushed to mainline branch (main or master)
-    # Set this to the mainline branch you are using
-    branches:
-      - main
+    branches: [main]
+    paths:
+      - 'infra/**'
+      - 'src/PlayersOnLevel0/**'
+      - 'azure.yaml'
+      - '.github/workflows/azure-dev.yml'
 
-# Set up permissions for deploying with secretless Azure federated credentials
-# https://learn.microsoft.com/en-us/azure/developer/github/connect-from-azure?tabs=azure-portal%2Clinux#set-up-azure-login-with-openid-connect-authentication
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 permissions:
   id-token: write
   contents: read
 
-
 jobs:
   build:
     runs-on: ubuntu-latest
+    timeout-minutes: 60
     env:
       AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
       AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
@@ -24,8 +29,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Detect changed paths
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            infra:
+              - 'infra/**'
+              - 'azure.yaml'
+            app:
+              - 'src/PlayersOnLevel0/**'
+
       - name: Install azd
         uses: Azure/setup-azd@v2
+
       - name: Log in with Azure (Federated Credentials)
         run: |
           azd auth login `
@@ -34,10 +52,11 @@ jobs:
             --tenant-id "$Env:AZURE_TENANT_ID"
         shell: pwsh
 
-
       - name: Provision Infrastructure
+        if: steps.changes.outputs.infra == 'true' || github.event_name == 'workflow_dispatch'
         run: azd provision --no-prompt
 
       - name: Deploy Application
+        if: steps.changes.outputs.app == 'true' || github.event_name == 'workflow_dispatch'
         run: azd deploy --no-prompt
-        
+
