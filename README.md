@@ -124,6 +124,26 @@ This creates the Entra app registration, federated credentials, and sets all req
 
 5. Add a **required reviewer** to the `prod` GitHub Environment for approval gates.
 
+### Flux GitOps — Deploy Key Setup
+
+After the first `azd provision`, each AKS stamp gets a Flux configuration that syncs from this repo via SSH. Flux auto-generates an SSH key pair per stamp. To grant Flux read access, register the public keys as deploy keys:
+
+**Automated (recommended):**
+
+1. Create a [fine-grained PAT](https://github.com/settings/personal-access-tokens/new) with:
+   - **Repository access**: Only this repo
+   - **Permissions**: Administration → Read and write
+2. Add it as a repo secret named `DEPLOY_KEY_ADMIN_TOKEN`:
+   ```bash
+   gh secret set DEPLOY_KEY_ADMIN_TOKEN
+   ```
+3. Done — the `Provision & Deploy` workflow will automatically register the deploy keys after each provision.
+
+**Manual fallback:**
+
+If no PAT is configured, the workflow prints the SSH public keys to the **workflow run summary**. Copy each key and add it at:
+Settings → Deploy keys → Add deploy key (read-only).
+
 ### Running a Deployment
 
 Go to **Actions → Deploy Infrastructure → Run workflow**, choose `dev` or `prod`, and click **Run workflow**.
