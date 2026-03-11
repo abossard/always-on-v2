@@ -59,16 +59,17 @@ resource originGroup 'Microsoft.Cdn/profiles/originGroups@2025-04-15' = {
 }
 
 // One origin per stamp.
-// Hostname matches the DNS label set on the Istio ingress gateway LoadBalancer service.
+// gatewayHostname is the single source of truth, computed in stamp.bicep and also
+// passed to Kubernetes via Flux substitution (GATEWAY_HOSTNAME).
 resource origins 'Microsoft.Cdn/profiles/originGroups/origins@2025-04-15' = [
   for stamp in stamps: {
     parent: originGroup
     name: 'origin-${stamp.regionKey}-${stamp.stampKey}'
     properties: {
-      hostName: 'level0-${stamp.regionKey}-${stamp.stampKey}.${stamp.location}.cloudapp.azure.com'
+      hostName: stamp.gatewayHostname
       httpPort: 80
       httpsPort: 443
-      originHostHeader: 'level0.${domainName}'
+      originHostHeader: stamp.gatewayHostname
       priority: 1
       weight: 1000
       enabledState: 'Enabled'
@@ -140,8 +141,7 @@ resource route 'Microsoft.Cdn/profiles/afdEndpoints/routes@2025-04-15' = {
 //   service.beta.kubernetes.io/azure-dns-label-name: <value>
 output stampOrigins array = [for (stamp, i) in stamps: {
   stampName: '${stamp.regionKey}-${stamp.stampKey}'
-  dnsLabel: 'level0-${stamp.regionKey}-${stamp.stampKey}'
-  originHostname: 'level0-${stamp.regionKey}-${stamp.stampKey}.${stamp.location}.cloudapp.azure.com'
+  gatewayHostname: stamp.gatewayHostname
 }]
 
 output level0Hostname string = 'level0.${domainName}'

@@ -280,6 +280,7 @@ var fluxSubstitute = {
   STAMP_KEY: stampKey
   LOCATION: location
   DNS_LABEL: 'level0-${stampName}'
+  GATEWAY_HOSTNAME: 'level0-${stampName}.${dnsZoneName}'
   ACR_LOGIN_SERVER: acrLoginServer
   COSMOS_ENDPOINT: cosmosEndpoint
   COSMOS_DATABASE: cosmosDatabaseName
@@ -372,4 +373,5 @@ output aksClusterName string = aksCluster.name
 output aksOidcIssuerUrl string = aksCluster.properties.oidcIssuerProfile.issuerURL
 output kubeletIdentityPrincipalId string = kubeletIdentity.properties.principalId
 output stampName string = stampName
+output gatewayHostname string = 'level0-${stampName}.${dnsZoneName}'
 output fluxSshPublicKey string = fluxConfig.properties.repositoryPublicKey

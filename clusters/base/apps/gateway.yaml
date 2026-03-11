@@ -19,7 +19,7 @@ spec:
     - name: https
       port: 443
       protocol: HTTPS
-      hostname: "level0-${STAMP_NAME}.${DNS_ZONE_NAME}"
+      hostname: "${GATEWAY_HOSTNAME}"
       tls:
         mode: Terminate
         certificateRefs:

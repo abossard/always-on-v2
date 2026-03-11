@@ -233,7 +233,12 @@ module level0Routing 'app-level0-routing.bicep' = {
   params: {
     baseName: baseName
     domainName: domainName
-    stamps: allStamps
+    stamps: [for (stamp, i) in allStamps: {
+      regionKey: stamp.regionKey
+      location: stamp.location
+      stampKey: stamp.stampKey
+      gatewayHostname: stamps[i].outputs.gatewayHostname
+    }]
   }
 }
 
