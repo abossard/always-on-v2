@@ -3,11 +3,11 @@
 // Wires level0.{domainName} → Front Door → one origin per AKS stamp.
 //
 // Origin hostnames use a deterministic DNS label per stamp:
-//   level0-swedencentral-001.swedencentral.cloudapp.azure.com
+//   app-swedencentral-001.swedencentral.cloudapp.azure.com
 //
 // The DNS label is set on the Istio ingress gateway LoadBalancer service
 // at deploy time via the annotation:
-//   service.beta.kubernetes.io/azure-dns-label-name: level0-{regionKey}-{stampKey}
+//   service.beta.kubernetes.io/azure-dns-label-name: app-{regionKey}-{stampKey}
 // ============================================================================
 
 @description('Base name for all resources.')
@@ -60,17 +60,17 @@ resource originGroup 'Microsoft.Cdn/profiles/originGroups@2025-04-15' = {
 
 // One origin per stamp.
 // Gateway hostname mirrors the GATEWAY_HOSTNAME Flux variable in stamp.bicep:
-//   'level0-${stampName}.${dnsZoneName}' where stampName = regionKey-stampKey
+//   'app-${stampName}.${dnsZoneName}' where stampName = regionKey-stampKey
 //   and dnsZoneName = regionKey.domainName
 resource origins 'Microsoft.Cdn/profiles/originGroups/origins@2025-04-15' = [
   for stamp in stamps: {
     parent: originGroup
     name: 'origin-${stamp.regionKey}-${stamp.stampKey}'
     properties: {
-      hostName: 'level0-${stamp.regionKey}-${stamp.stampKey}.${stamp.regionKey}.${domainName}'
+      hostName: 'app-${stamp.regionKey}-${stamp.stampKey}.${stamp.regionKey}.${domainName}'
       httpPort: 80
       httpsPort: 443
-      originHostHeader: 'level0-${stamp.regionKey}-${stamp.stampKey}.${stamp.regionKey}.${domainName}'
+      originHostHeader: 'app-${stamp.regionKey}-${stamp.stampKey}.${stamp.regionKey}.${domainName}'
       priority: 1
       weight: 1000
       enabledState: 'Enabled'
@@ -142,7 +142,7 @@ resource route 'Microsoft.Cdn/profiles/afdEndpoints/routes@2025-04-15' = {
 //   service.beta.kubernetes.io/azure-dns-label-name: <value>
 output stampOrigins array = [for (stamp, i) in stamps: {
   stampName: '${stamp.regionKey}-${stamp.stampKey}'
-  gatewayHostname: 'level0-${stamp.regionKey}-${stamp.stampKey}.${stamp.regionKey}.${domainName}'
+  gatewayHostname: 'app-${stamp.regionKey}-${stamp.stampKey}.${stamp.regionKey}.${domainName}'
 }]
 
 output level0Hostname string = 'level0.${domainName}'

@@ -1,7 +1,7 @@
 apiVersion: gateway.networking.k8s.io/v1
 kind: Gateway
 metadata:
-  name: level0-gateway
+  name: app-gateway
   namespace: aks-istio-ingress
   annotations:
     service.beta.kubernetes.io/azure-dns-label-name: ${DNS_LABEL}
@@ -23,7 +23,7 @@ spec:
       tls:
         mode: Terminate
         certificateRefs:
-          - name: level0-gateway-tls
+          - name: app-gateway-tls
       allowedRoutes:
         namespaces:
           from: All

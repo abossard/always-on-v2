@@ -36,17 +36,8 @@ param cosmosEndpoint string
 @description('Application Insights connection string.')
 param appInsightsConnectionString string
 
-@description('Managed identity client ID for workload identity.')
-param appIdentityClientId string
-
-@description('Managed identity resource ID for workload identity federation.')
-param appIdentityId string
-
-@description('Cosmos DB database name.')
-param cosmosDatabaseName string
-
-@description('Cosmos DB container name.')
-param cosmosContainerName string
+@description('Per-app Flux substitution variables.')
+param appFluxVars array = []
 
 @description('Azure tenant ID.')
 param tenantId string
@@ -327,20 +318,17 @@ resource fluxExtension 'Microsoft.KubernetesConfiguration/extensions@2023-05-01'
 // github.com ecdsa-sha2-nistp256 public key, base64-encoded
 var githubSshKnownHosts = 'Z2l0aHViLmNvbSBlY2RzYS1zaGEyLW5pc3RwMjU2IEFBQUFFMlZqWkhOaExYTm9ZVEl0Ym1semRIQXlOVFlBQUFBSWJtbHpkSEF5TlRZQUFBQkJCRW1LU0VOalFFZXpPbXhrWk15N29wS2d3RkI5bmt0NVlScllNak51RzVOODd1UmdnNkNMcmJvNXdBZFQveTZ2MG1LVjBVMncwV1oyWUIvKytUcG9ja2c9'
 
-var fluxSubstitute = {
+// Shared vars (available to all apps)
+var sharedFluxVars = {
   STAMP_NAME: stampName
   REGION: regionKey
   STAMP_KEY: stampKey
   LOCATION: location
-  DNS_LABEL: 'level0-${stampName}'
-  GATEWAY_HOSTNAME: 'level0-${stampName}.${dnsZoneName}'
+  DNS_LABEL: 'app-${stampName}'
+  GATEWAY_HOSTNAME: 'app-${stampName}.${dnsZoneName}'
   ACR_LOGIN_SERVER: acrLoginServer
   COSMOS_ENDPOINT: cosmosEndpoint
-  COSMOS_DATABASE: cosmosDatabaseName
-  COSMOS_CONTAINER: cosmosContainerName
   APP_INSIGHTS_CONNECTION_STRING: appInsightsConnectionString
-  APP_IDENTITY_CLIENT_ID: appIdentityClientId
-  APP_IDENTITY_ID: appIdentityId
   AZURE_TENANT_ID: tenantId
   CLUSTER_IDENTITY_CLIENT_ID: clusterIdentity.properties.clientId
   KUBELET_IDENTITY_CLIENT_ID: kubeletIdentity.properties.clientId
@@ -351,6 +339,17 @@ var fluxSubstitute = {
   AZURE_SUBSCRIPTION_ID: subscription().subscriptionId
   DOMAIN_NAME: domainName
 }
+
+// Per-app vars — prefixed with uppercase app name
+// Pattern: {APPNAME}_{VARNAME}. Add entries here for each app.
+var level0FluxVars = length(appFluxVars) > 0 && appFluxVars[0].name == 'level0' ? {
+  LEVEL0_IDENTITY_CLIENT_ID: appFluxVars[0].identityClientId
+  LEVEL0_IDENTITY_ID: appFluxVars[0].identityId
+  LEVEL0_COSMOS_DATABASE: appFluxVars[0].cosmosDatabase
+  LEVEL0_COSMOS_CONTAINER: appFluxVars[0].cosmosContainer
+} : {}
+
+var fluxSubstitute = union(sharedFluxVars, level0FluxVars)
 
 resource fluxConfig 'Microsoft.KubernetesConfiguration/fluxConfigurations@2024-04-01-preview' = {
   scope: aksCluster
@@ -426,5 +425,5 @@ output aksClusterName string = aksCluster.name
 output aksOidcIssuerUrl string = aksCluster.properties.oidcIssuerProfile.issuerURL
 output kubeletIdentityPrincipalId string = kubeletIdentity.properties.principalId
 output stampName string = stampName
-output gatewayHostname string = 'level0-${stampName}.${dnsZoneName}'
+output gatewayHostname string = 'app-${stampName}.${dnsZoneName}'
 output fluxSshPublicKey string = fluxConfig.properties.repositoryPublicKey

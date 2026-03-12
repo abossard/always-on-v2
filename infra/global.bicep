@@ -167,7 +167,7 @@ resource fdEndpoint 'Microsoft.Cdn/profiles/afdEndpoints@2025-04-15' = {
   }
 }
 
-// Front Door origins + routes are defined in app-level0-routing.bicep.
+// Front Door origins + routes are defined per-app in infra/apps/{name}/routing.bicep.
 
 // Front Door custom domain for apex domain
 resource fdCustomDomain 'Microsoft.Cdn/profiles/customDomains@2025-04-15' = {

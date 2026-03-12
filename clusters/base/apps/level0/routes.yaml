@@ -1,0 +1,35 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: level0-http-redirect
+  namespace: level0
+spec:
+  parentRefs:
+    - name: app-gateway
+      namespace: aks-istio-ingress
+      sectionName: http
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 301
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: level0-route
+  namespace: level0
+spec:
+  parentRefs:
+    - name: app-gateway
+      namespace: aks-istio-ingress
+      sectionName: https
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: level0
+          port: 8080

@@ -52,7 +52,7 @@ metadata:
   namespace: hello
 spec:
   parentRefs:
-    - name: level0-gateway
+    - name: app-gateway
       namespace: aks-istio-ingress
       sectionName: http
   rules:
@@ -69,7 +69,7 @@ metadata:
   namespace: hello
 spec:
   parentRefs:
-    - name: level0-gateway
+    - name: app-gateway
       namespace: aks-istio-ingress
       sectionName: https
   rules:

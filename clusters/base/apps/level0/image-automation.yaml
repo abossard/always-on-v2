@@ -44,5 +44,5 @@ spec:
     push:
       branch: main
   update:
-    path: ./clusters/base/apps
+    path: ./clusters/base/apps/level0
     strategy: Setters

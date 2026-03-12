@@ -40,6 +40,15 @@ param devIdentities array = [
   'c64dabd5-242b-481b-ac5d-92be5c683e9f' // anbossar
 ]
 
+@description('Applications to deploy. Each entry creates per-app infrastructure, routing, and workload identity.')
+param apps array = [
+  {
+    name: 'level0'
+    subdomain: 'level0'
+    namespace: 'level0'
+  }
+]
+
 @description('Region configurations with stamps. Each region has a key, location, and stamps array.')
 param regions array = [
   {
@@ -122,7 +131,7 @@ module global 'global.bicep' = {
 // Application: PlayersOnLevel0
 // ============================================================================
 
-module playerOnLevel0 'app-playeronlevel0.bicep' = {
+module playerOnLevel0 'apps/level0/infra.bicep' = {
   name: 'deploy-app-playeronlevel0'
   scope: globalRg
   params: {
@@ -157,6 +166,18 @@ module regional 'region.bicep' = [
 // Helper: map each stamp to its region index for accessing regional outputs
 var stampRegionIndex = [for stamp in allStamps: indexOf(map(regions, r => r.key), stamp.regionKey)]
 
+// Build per-app outputs for Flux vars
+// Note: when adding apps, add an entry here and wire the corresponding module outputs.
+var appFluxVars = [
+  {
+    name: apps[0].name
+    identityClientId: playerOnLevel0.outputs.identityClientId
+    identityId: playerOnLevel0.outputs.identityId
+    cosmosDatabase: playerOnLevel0.outputs.databaseName
+    cosmosContainer: playerOnLevel0.outputs.containerName
+  }
+]
+
 module stamps 'stamp.bicep' = [
   for (stamp, i) in allStamps: {
     name: 'deploy-stamp-${stamp.regionKey}-${stamp.stampKey}'
@@ -173,10 +194,7 @@ module stamps 'stamp.bicep' = [
       acrLoginServer: global.outputs.acrLoginServer
       cosmosEndpoint: global.outputs.cosmosEndpoint
       appInsightsConnectionString: global.outputs.appInsightsConnectionString
-      appIdentityClientId: playerOnLevel0.outputs.identityClientId
-      appIdentityId: playerOnLevel0.outputs.identityId
-      cosmosDatabaseName: playerOnLevel0.outputs.databaseName
-      cosmosContainerName: playerOnLevel0.outputs.containerName
+      appFluxVars: appFluxVars
       tenantId: tenant().tenantId
       dnsIdentityClientId: regional[stampRegionIndex[i]].outputs.certManagerIdentityClientId
       dnsZoneName: regional[stampRegionIndex[i]].outputs.childDnsZoneName
@@ -227,7 +245,7 @@ module dnsFederatedCreds 'dns-federated-credentials.bicep' = [
 // App Federated Credentials (PlayersOnLevel0 workload identity per stamp)
 // ============================================================================
 
-module appFederatedCreds 'app-federated-credentials.bicep' = [
+module appFederatedCreds 'apps/level0/federated-creds.bicep' = [
   for (stamp, i) in allStamps: {
     name: 'deploy-app-fedcred-${stamp.regionKey}-${stamp.stampKey}'
     scope: globalRg
@@ -245,7 +263,7 @@ module appFederatedCreds 'app-federated-credentials.bicep' = [
 // Level0 Front Door Routing
 // ============================================================================
 
-module level0Routing 'app-level0-routing.bicep' = {
+module level0Routing 'apps/level0/routing.bicep' = {
   name: 'deploy-level0-routing'
   scope: globalRg
   dependsOn: [for (stamp, i) in allStamps: stamps[i]]
