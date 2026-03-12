@@ -6,13 +6,11 @@ on:
     paths:
       - 'src/PlayersOnLevel0/**'
       - '.github/workflows/level0-cicd.yml'
-      - '.github/workflows/app-cicd.yml'
   pull_request:
     branches: [main]
     paths:
       - 'src/PlayersOnLevel0/**'
       - '.github/workflows/level0-cicd.yml'
-      - '.github/workflows/app-cicd.yml'
   workflow_dispatch:
 
 concurrency:
@@ -26,17 +24,62 @@ permissions:
   id-token: write
 
 jobs:
-  tests:
-    uses: ./.github/workflows/app-cicd.yml
-    with:
-      app-name: level0
-      app-path: src/PlayersOnLevel0
-      dockerfile: src/PlayersOnLevel0/PlayersOnLevel0.Api/Dockerfile
-      test-project: PlayersOnLevel0.Tests
-      acr-name: ${{ vars.ACR_NAME }}
-      acr-login-server: ${{ vars.ACR_LOGIN_SERVER }}
-      skip-docker: true
-    secrets: inherit
+  unit-and-integration:
+    name: Unit + Integration Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Install Aspire workload
+        run: dotnet workload install aspire
+      - name: Restore
+        run: dotnet restore
+        working-directory: src/PlayersOnLevel0
+      - name: Build
+        run: dotnet build --no-restore
+        working-directory: src/PlayersOnLevel0
+      - name: Expose GitHub Actions runtime
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env['ACTIONS_RUNTIME_TOKEN']);
+            core.exportVariable('ACTIONS_RESULTS_URL', process.env['ACTIONS_RESULTS_URL']);
+      - name: Run tests with coverage
+        run: >
+          dotnet run --project PlayersOnLevel0.Tests --no-build --
+          --report-trx --report-trx-filename results.trx
+          --coverage --coverage-output-format cobertura
+          --coverage-output ${{ github.workspace }}/coverage.cobertura.xml
+        working-directory: src/PlayersOnLevel0
+      - name: Publish test results
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: src/PlayersOnLevel0/**/TestResults/**/*.trx
+          check_name: Level0 Test Results
+      - name: Publish coverage summary
+        if: always()
+        uses: irongut/CodeCoverageSummary@v1.3.0
+        with:
+          filename: coverage.cobertura.xml
+          badge: true
+          format: markdown
+          output: both
+      - name: Add coverage to summary
+        if: always()
+        run: cat code-coverage-results.md >> $GITHUB_STEP_SUMMARY
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          retention-days: 5
+          path: |
+            src/PlayersOnLevel0/**/TestResults/
 
   e2e:
     name: Playwright E2E Tests
@@ -107,7 +150,7 @@ jobs:
 
   docker-build-push:
     name: Build & Push Container Image
-    needs: [tests, e2e]
+    needs: [unit-and-integration, e2e]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 15
