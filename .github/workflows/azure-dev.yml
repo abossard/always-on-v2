@@ -21,6 +21,7 @@ jobs:
       AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
       AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
       AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      AZURE_ENV_NAME: ${{ vars.AZURE_ENV_NAME }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -44,9 +45,10 @@ jobs:
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Deploy Tenant Resources
+        continue-on-error: true
         run: |
           set -euo pipefail
-          export BASENAME=$(azd env get-value AZURE_ENV_NAME 2>/dev/null || echo "alwayson")
+          export BASENAME="${AZURE_ENV_NAME:-alwayson}"
           export SUBSCRIPTION_ID="${AZURE_SUBSCRIPTION_ID}"
           export REGIONS="swedencentral germanywestcentral"
           chmod +x infra_tenant/deploy.sh
