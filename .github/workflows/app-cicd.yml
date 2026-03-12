@@ -15,18 +15,8 @@ on:
         description: 'Path to Dockerfile'
         required: true
         type: string
-      run-e2e:
-        description: 'Whether to run E2E tests'
-        required: false
-        type: boolean
-        default: false
       test-project:
         description: 'Path to test project (relative to app-path)'
-        required: false
-        type: string
-        default: ''
-      e2e-project:
-        description: 'Path to E2E project (if run-e2e is true)'
         required: false
         type: string
         default: ''
@@ -38,6 +28,11 @@ on:
         description: 'ACR login server (e.g., myacr.azurecr.io)'
         required: true
         type: string
+      skip-docker:
+        description: 'Skip docker build+push (caller handles it separately)'
+        required: false
+        type: boolean
+        default: false
 
 jobs:
   unit-and-integration:
@@ -98,33 +93,14 @@ jobs:
           path: |
             ${{ inputs.app-path }}/**/TestResults/
 
-  e2e:
-    name: Playwright E2E Tests
-    if: inputs.run-e2e
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - name: Setup .NET 10
-        uses: actions/setup-dotnet@v4
-        with:
-          dotnet-version: '10.0.x'
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: 'lts/*'
-      - name: Install Aspire workload
-        run: dotnet workload install aspire
-      # E2E steps are app-specific — caller workflow handles via e2e-project input
-      # For now, this is a placeholder that individual apps can extend
-      - name: Build .NET projects
-        run: dotnet build
-        working-directory: ${{ inputs.app-path }}
-
   docker-build-push:
     name: Build & Push Container Image
-    needs: [unit-and-integration, e2e]
-    if: always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && needs.unit-and-integration.result == 'success' && (needs.e2e.result == 'success' || needs.e2e.result == 'skipped')
+    needs: [unit-and-integration]
+    if: >-
+      !inputs.skip-docker
+      && github.ref == 'refs/heads/main'
+      && github.event_name != 'pull_request'
+      && needs.unit-and-integration.result == 'success'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
