@@ -50,9 +50,9 @@ resource originGroup 'Microsoft.Cdn/profiles/originGroups@2025-04-15' = {
       additionalLatencyInMilliseconds: 50
     }
     healthProbeSettings: {
-      probePath: '/healthz'
+      probePath: '/'
       probeRequestType: 'HEAD'
-      probeProtocol: 'Http'
+      probeProtocol: 'Https'
       probeIntervalInSeconds: 30
     }
   }
