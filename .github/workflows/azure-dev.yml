@@ -25,19 +25,6 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Detect changed paths
-        uses: dorny/paths-filter@v3
-        id: changes
-        with:
-          filters: |
-            infra:
-              - 'infra/**'
-              - 'azure.yaml'
-            infra_tenant:
-              - 'infra_tenant/**'
-            app:
-              - 'src/PlayersOnLevel0/**'
-
       - name: Install azd
         uses: Azure/setup-azd@v2
 
@@ -57,7 +44,6 @@ jobs:
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Deploy Tenant Resources
-        if: steps.changes.outputs.infra_tenant == 'true' || github.event_name == 'workflow_dispatch'
         run: |
           set -euo pipefail
           export BASENAME=$(azd env get-value AZURE_ENV_NAME 2>/dev/null || echo "alwayson")
@@ -68,7 +54,6 @@ jobs:
 
       - name: Provision Infrastructure
         id: provision
-        if: steps.changes.outputs.infra == 'true' || github.event_name == 'workflow_dispatch'
         run: azd provision --no-prompt
 
       - name: Save deployment outputs to repo variables
@@ -224,6 +209,5 @@ jobs:
           echo "✅ Flux deploy keys registered" | tee -a $GITHUB_STEP_SUMMARY
 
       - name: Deploy Application
-        if: steps.changes.outputs.app == 'true' || github.event_name == 'workflow_dispatch'
         run: azd deploy --no-prompt
 
