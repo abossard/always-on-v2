@@ -44,16 +44,6 @@ jobs:
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
-      - name: Deploy Tenant Resources
-        continue-on-error: true
-        run: |
-          set -euo pipefail
-          export BASENAME="${AZURE_ENV_NAME:-alwayson}"
-          export SUBSCRIPTION_ID="${AZURE_SUBSCRIPTION_ID}"
-          export REGIONS="swedencentral germanywestcentral"
-          chmod +x infra_tenant/deploy.sh
-          infra_tenant/deploy.sh
-
       - name: Provision Infrastructure
         id: provision
         run: azd provision --no-prompt
