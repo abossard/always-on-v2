@@ -12,7 +12,6 @@ concurrency:
 permissions:
   id-token: write
   contents: read
-  variables: write
 
 jobs:
   build:
@@ -52,10 +51,10 @@ jobs:
       - name: Save deployment outputs to repo variables
         if: steps.provision.outcome == 'success'
         env:
-          GH_TOKEN: ${{ github.token }}
+          GH_TOKEN: ${{ secrets.DEPLOY_KEY_ADMIN_TOKEN }}
         run: |
           set -euo pipefail
-          ENV_NAME=$(azd env get-value AZURE_ENV_NAME 2>/dev/null || echo "always-on-v2")
+          ENV_NAME="${AZURE_ENV_NAME:-alwayson}"
           DEPLOYMENT_NAME=$(az deployment sub list \
             --query "[?starts_with(name, '${ENV_NAME}') && properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
             -o tsv)
@@ -66,9 +65,13 @@ jobs:
           ACR_LOGIN_SERVER=$(az deployment sub show --name "$DEPLOYMENT_NAME" \
             --query "properties.outputs.acrLoginServer.value" -o tsv)
           ACR_NAME=$(echo "$ACR_LOGIN_SERVER" | cut -d. -f1)
-          gh variable set ACR_LOGIN_SERVER --body "$ACR_LOGIN_SERVER" --repo "${{ github.repository }}"
-          gh variable set ACR_NAME --body "$ACR_NAME" --repo "${{ github.repository }}"
-          echo "✅ Repo variables set: ACR_LOGIN_SERVER=$ACR_LOGIN_SERVER, ACR_NAME=$ACR_NAME" | tee -a $GITHUB_STEP_SUMMARY
+          if [ -n "${GH_TOKEN:-}" ]; then
+            gh variable set ACR_LOGIN_SERVER --body "$ACR_LOGIN_SERVER" --repo "${{ github.repository }}"
+            gh variable set ACR_NAME --body "$ACR_NAME" --repo "${{ github.repository }}"
+            echo "✅ Repo variables set: ACR_LOGIN_SERVER=$ACR_LOGIN_SERVER, ACR_NAME=$ACR_NAME" | tee -a $GITHUB_STEP_SUMMARY
+          else
+            echo "::warning::DEPLOY_KEY_ADMIN_TOKEN not set — set ACR_NAME=$ACR_NAME and ACR_LOGIN_SERVER=$ACR_LOGIN_SERVER manually"
+          fi
 
       - name: Enable Managed Gateway API on AKS clusters
         if: steps.provision.outcome == 'success'
