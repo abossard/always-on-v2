@@ -48,31 +48,6 @@ jobs:
         id: provision
         run: azd provision --no-prompt
 
-      - name: Save deployment outputs to repo variables
-        if: steps.provision.outcome == 'success'
-        env:
-          GH_TOKEN: ${{ secrets.DEPLOY_KEY_ADMIN_TOKEN }}
-        run: |
-          set -euo pipefail
-          ENV_NAME="${AZURE_ENV_NAME:-alwayson}"
-          DEPLOYMENT_NAME=$(az deployment sub list \
-            --query "[?starts_with(name, '${ENV_NAME}') && properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
-            -o tsv)
-          if [ -z "$DEPLOYMENT_NAME" ]; then
-            echo "::warning::No deployment found — skipping variable export"
-            exit 0
-          fi
-          ACR_LOGIN_SERVER=$(az deployment sub show --name "$DEPLOYMENT_NAME" \
-            --query "properties.outputs.acrLoginServer.value" -o tsv)
-          ACR_NAME=$(echo "$ACR_LOGIN_SERVER" | cut -d. -f1)
-          if [ -n "${GH_TOKEN:-}" ]; then
-            gh variable set ACR_LOGIN_SERVER --body "$ACR_LOGIN_SERVER" --repo "${{ github.repository }}"
-            gh variable set ACR_NAME --body "$ACR_NAME" --repo "${{ github.repository }}"
-            echo "✅ Repo variables set: ACR_LOGIN_SERVER=$ACR_LOGIN_SERVER, ACR_NAME=$ACR_NAME" | tee -a $GITHUB_STEP_SUMMARY
-          else
-            echo "::warning::DEPLOY_KEY_ADMIN_TOKEN not set — set ACR_NAME=$ACR_NAME and ACR_LOGIN_SERVER=$ACR_LOGIN_SERVER manually"
-          fi
-
       - name: Enable Managed Gateway API on AKS clusters
         if: steps.provision.outcome == 'success'
         run: |
