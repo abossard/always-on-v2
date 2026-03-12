@@ -34,4 +34,6 @@ jobs:
       dockerfile: src/PlayersOnLevel0/PlayersOnLevel0.Api/Dockerfile
       test-project: PlayersOnLevel0.Tests
       run-e2e: false
+      acr-name: ${{ vars.ACR_NAME }}
+      acr-login-server: ${{ vars.ACR_LOGIN_SERVER }}
     secrets: inherit
