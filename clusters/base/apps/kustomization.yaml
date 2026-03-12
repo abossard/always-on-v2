@@ -3,5 +3,4 @@ kind: Kustomization
 resources:
   - cluster-issuer.yaml
   - gateway.yaml
-  - hello.yaml
   - ./level0/
