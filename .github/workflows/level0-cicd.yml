@@ -165,14 +165,24 @@ jobs:
       - name: Resolve ACR from deployment outputs
         id: acr
         run: |
+          set -euo pipefail
           DEPLOYMENT_NAME=$(az deployment sub list \
             --query "[?properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
             -o tsv)
+          if [ -z "$DEPLOYMENT_NAME" ]; then
+            echo "::error::No successful Azure deployment found. Run 'azd provision' first."
+            exit 1
+          fi
           ACR_LOGIN_SERVER=$(az deployment sub show --name "$DEPLOYMENT_NAME" \
-            --query "properties.outputs.acrLoginServer.value" -o tsv)
+            --query "properties.outputs.acrLoginServer.value" -o tsv 2>/dev/null || true)
+          if [ -z "$ACR_LOGIN_SERVER" ] || [ "$ACR_LOGIN_SERVER" = "None" ]; then
+            echo "::error::Deployment '$DEPLOYMENT_NAME' is missing the 'acrLoginServer' output. Add this to your Bicep: output acrLoginServer string = <acr>.properties.loginServer"
+            exit 1
+          fi
           ACR_NAME=$(echo "$ACR_LOGIN_SERVER" | cut -d. -f1)
           echo "name=$ACR_NAME" >> "$GITHUB_OUTPUT"
           echo "login_server=$ACR_LOGIN_SERVER" >> "$GITHUB_OUTPUT"
+          echo "✅ Resolved ACR: $ACR_LOGIN_SERVER" >> "$GITHUB_STEP_SUMMARY"
       - name: ACR Login
         run: az acr login -n ${{ steps.acr.outputs.name }}
       - name: Set up Docker Buildx
