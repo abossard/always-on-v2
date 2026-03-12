@@ -19,6 +19,9 @@ param domainName string
 @description('All stamps: array of { regionKey, stampKey, location }.')
 param stamps array
 
+@description('Front Door cache duration (ISO 8601). Set to empty string to disable caching.')
+param cacheDuration string = 'PT5M'
+
 // ============================================================================
 // Existing resources
 // ============================================================================
@@ -131,6 +134,20 @@ resource route 'Microsoft.Cdn/profiles/afdEndpoints/routes@2025-04-15' = {
     linkToDefaultDomain: 'Disabled'
     httpsRedirect: 'Enabled'
     enabledState: 'Enabled'
+    cacheConfiguration: cacheDuration != '' ? {
+      queryStringCachingBehavior: 'IgnoreQueryString'
+      compressionSettings: {
+        isCompressionEnabled: true
+        contentTypesToCompress: [
+          'text/html'
+          'text/css'
+          'application/javascript'
+          'application/json'
+          'image/svg+xml'
+          'application/font-woff2'
+        ]
+      }
+    } : null
   }
 }
 

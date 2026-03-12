@@ -9,6 +9,16 @@ spec:
   provider: azure
 ---
 apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: level0-web
+  namespace: flux-system
+spec:
+  image: ${ACR_LOGIN_SERVER}/level0-web
+  interval: 1m
+  provider: azure
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
 kind: ImagePolicy
 metadata:
   name: level0
@@ -16,6 +26,20 @@ metadata:
 spec:
   imageRepositoryRef:
     name: level0
+  filterTags:
+    pattern: '^[a-f0-9]{40}$'
+  policy:
+    alphabetical:
+      order: asc
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: level0-web
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: level0-web
   filterTags:
     pattern: '^[a-f0-9]{40}$'
   policy:
@@ -40,7 +64,7 @@ spec:
       author:
         name: Flux Image Automation
         email: flux@alwayson.actor
-      messageTemplate: "chore: update level0 image to {{.NewTag}}"
+      messageTemplate: "chore: update level0 images to {{range .Changed.Changes}}{{.NewTag}} {{end}}"
     push:
       branch: main
   update:

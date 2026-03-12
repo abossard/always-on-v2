@@ -1,0 +1,24 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: PlayersOnLevel0.Api/Dockerfile
+    ports:
+      - "5036:8080"
+    environment:
+      - Storage__Provider=InMemory
+      - ASPNETCORE_ENVIRONMENT=Development
+
+  web:
+    build:
+      context: PlayersOnLevel0.SPA.Web
+      dockerfile: Dockerfile
+    ports:
+      - "5173:8080"
+    environment:
+      - SERVER_PORT=8080
+      - SERVER_FALLBACK_PAGE=/public/index.html
+      - SERVER_LOG_LEVEL=info
+      - SERVER_HEALTH=true
+    depends_on:
+      - api

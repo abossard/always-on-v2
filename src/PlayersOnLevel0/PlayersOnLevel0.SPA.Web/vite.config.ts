@@ -12,7 +12,7 @@ export default defineConfig({
         changeOrigin: true,
         // SSE requires unbuffered streaming and no timeout
         configure: (proxy) => {
-          proxy.on('proxyRes', (proxyRes, req, res) => {
+          proxy.on('proxyRes', (_proxyRes, req, res) => {
             if (req.headers.accept === 'text/event-stream') {
               res.setHeader('Content-Type', 'text/event-stream');
               res.setHeader('Cache-Control', 'no-cache');
