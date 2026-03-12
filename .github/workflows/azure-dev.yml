@@ -6,6 +6,7 @@ on:
     branches: [main]
     paths:
       - 'infra/**'
+      - 'infra_tenant/**'
       - 'src/PlayersOnLevel0/**'
       - 'azure.yaml'
       - '.github/workflows/azure-dev.yml'
@@ -38,6 +39,8 @@ jobs:
             infra:
               - 'infra/**'
               - 'azure.yaml'
+            infra_tenant:
+              - 'infra_tenant/**'
             app:
               - 'src/PlayersOnLevel0/**'
 
@@ -58,6 +61,16 @@ jobs:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Deploy Tenant Resources
+        if: steps.changes.outputs.infra_tenant == 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          set -euo pipefail
+          export BASENAME=$(azd env get-value AZURE_ENV_NAME 2>/dev/null || echo "alwayson")
+          export SUBSCRIPTION_ID="${AZURE_SUBSCRIPTION_ID}"
+          export REGIONS="swedencentral germanywestcentral"
+          chmod +x infra_tenant/deploy.sh
+          infra_tenant/deploy.sh
 
       - name: Provision Infrastructure
         id: provision
