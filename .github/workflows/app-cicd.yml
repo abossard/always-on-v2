@@ -123,8 +123,8 @@ jobs:
 
   docker-build-push:
     name: Build & Push Container Image
-    needs: [unit-and-integration]
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: [unit-and-integration, e2e]
+    if: always() && github.ref == 'refs/heads/main' && github.event_name != 'pull_request' && needs.unit-and-integration.result == 'success' && (needs.e2e.result == 'success' || needs.e2e.result == 'skipped')
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
