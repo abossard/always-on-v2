@@ -4,12 +4,6 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths:
-      - 'infra/**'
-      - 'infra_tenant/**'
-      - 'src/PlayersOnLevel0/**'
-      - 'azure.yaml'
-      - '.github/workflows/azure-dev.yml'
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
