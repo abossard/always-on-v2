@@ -31,12 +31,6 @@ on:
         type: string
         default: ''
 
-permissions:
-  contents: read
-  checks: write
-  pull-requests: write
-  id-token: write
-
 jobs:
   unit-and-integration:
     name: Unit + Integration Tests
