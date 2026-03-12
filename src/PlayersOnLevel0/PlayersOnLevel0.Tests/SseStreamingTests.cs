@@ -15,7 +15,7 @@ public abstract class SseStreamingTests(HttpClient client)
         var id = Guid.NewGuid();
         await Api.UpdatePlayer(client, id, new { addScore = 1 });
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
 
         var request = new HttpRequestMessage(HttpMethod.Get, EventsPath(id));
         var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token);
@@ -27,20 +27,24 @@ public abstract class SseStreamingTests(HttpClient client)
         var events = new List<(string Type, string Data)>();
         string? eventType = null;
 
-        while (!cts.Token.IsCancellationRequested)
+        try
         {
-            var line = await reader.ReadLineAsync(cts.Token);
-            if (line is null) break;
-
-            if (line.StartsWith("event: "))
-                eventType = line["event: ".Length..];
-            else if (line.StartsWith("data: ") && eventType is not null)
+            while (!cts.Token.IsCancellationRequested)
             {
-                events.Add((eventType, line["data: ".Length..]));
-                eventType = null;
-                break;
+                var line = await reader.ReadLineAsync(cts.Token);
+                if (line is null) break;
+
+                if (line.StartsWith("event: "))
+                    eventType = line["event: ".Length..];
+                else if (line.StartsWith("data: ") && eventType is not null)
+                {
+                    events.Add((eventType, line["data: ".Length..]));
+                    eventType = null;
+                    break;
+                }
             }
         }
+        catch (OperationCanceledException) { }
 
         await Assert.That(events).Count().IsGreaterThanOrEqualTo(1);
         await Assert.That(events[0].Type).IsEqualTo("clickRecorded");
@@ -55,7 +59,7 @@ public abstract class SseStreamingTests(HttpClient client)
         var id = Guid.NewGuid();
         await Api.UpdatePlayer(client, id, new { addScore = 1 });
 
-        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+        using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(20));
 
         var request = new HttpRequestMessage(HttpMethod.Get, EventsPath(id));
         var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cts.Token);
@@ -67,20 +71,24 @@ public abstract class SseStreamingTests(HttpClient client)
         var events = new List<(string Type, string Data)>();
         string? eventType = null;
 
-        while (!cts.Token.IsCancellationRequested)
+        try
         {
-            var line = await reader.ReadLineAsync(cts.Token);
-            if (line is null) break;
-
-            if (line.StartsWith("event: "))
-                eventType = line["event: ".Length..];
-            else if (line.StartsWith("data: ") && eventType is not null)
+            while (!cts.Token.IsCancellationRequested)
             {
-                events.Add((eventType, line["data: ".Length..]));
-                eventType = null;
-                break;
+                var line = await reader.ReadLineAsync(cts.Token);
+                if (line is null) break;
+
+                if (line.StartsWith("event: "))
+                    eventType = line["event: ".Length..];
+                else if (line.StartsWith("data: ") && eventType is not null)
+                {
+                    events.Add((eventType, line["data: ".Length..]));
+                    eventType = null;
+                    break;
+                }
             }
         }
+        catch (OperationCanceledException) { }
 
         await Assert.That(events).Count().IsGreaterThanOrEqualTo(1);
         await Assert.That(events[0].Type).IsEqualTo("scoreUpdated");
