@@ -224,6 +224,24 @@ module dnsFederatedCreds 'dns-federated-credentials.bicep' = [
 ]
 
 // ============================================================================
+// App Federated Credentials (PlayersOnLevel0 workload identity per stamp)
+// ============================================================================
+
+module appFederatedCreds 'app-federated-credentials.bicep' = [
+  for (stamp, i) in allStamps: {
+    name: 'deploy-app-fedcred-${stamp.regionKey}-${stamp.stampKey}'
+    scope: globalRg
+    params: {
+      identityName: 'id-playeronlevel0-${baseName}'
+      stampName: stamps[i].outputs.stampName
+      oidcIssuerUrl: stamps[i].outputs.aksOidcIssuerUrl
+      serviceAccountNamespace: 'level0'
+      serviceAccountName: 'level0'
+    }
+  }
+]
+
+// ============================================================================
 // Level0 Front Door Routing
 // ============================================================================
 

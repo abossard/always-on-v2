@@ -1,0 +1,20 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ama-metrics-settings-configmap
+  namespace: kube-system
+data:
+  default-scrape-settings-enabled: |-
+    kubelet = true
+    coredns = true
+    cadvisor = true
+    kubeproxy = false
+    apiserver = false
+    kube-state-metrics = true
+    windowsexporter = false
+    windowskubeproxy = false
+    prometheuscollectorhealth = false
+  pod-annotation-based-scraping: |-
+    podannotationnamespaceregex = "default|hello|level0|alwayson.*|aks-istio-ingress|aks-istio-system"
+  default-targets-metrics-keep-list: |-
+    minimalingestionprofile = true

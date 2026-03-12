@@ -1,0 +1,48 @@
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: level0
+  namespace: flux-system
+spec:
+  image: ${ACR_LOGIN_SERVER}/level0
+  interval: 1m
+  provider: azure
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: level0
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: level0
+  filterTags:
+    pattern: '^[a-f0-9]{40}$'
+  policy:
+    alphabetical:
+      order: asc
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageUpdateAutomation
+metadata:
+  name: level0
+  namespace: flux-system
+spec:
+  interval: 1m
+  sourceRef:
+    kind: GitRepository
+    name: cluster-config
+  git:
+    checkout:
+      ref:
+        branch: main
+    commit:
+      author:
+        name: Flux Image Automation
+        email: flux@alwayson.actor
+      messageTemplate: "chore: update level0 image to {{.NewTag}}"
+    push:
+      branch: main
+  update:
+    path: ./clusters/base/apps
+    strategy: Setters

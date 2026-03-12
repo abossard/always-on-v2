@@ -1,0 +1,119 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: level0
+  labels:
+    istio.io/rev: asm-1-28
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: level0
+  namespace: level0
+  annotations:
+    azure.workload.identity/client-id: ${APP_IDENTITY_CLIENT_ID}
+  labels:
+    azure.workload.identity/use: "true"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: level0
+  namespace: level0
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: level0
+  template:
+    metadata:
+      labels:
+        app: level0
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: level0
+      containers:
+        - name: level0
+          image: ${ACR_LOGIN_SERVER}/level0:latest # {"$imagepolicy": "flux-system:level0"}
+          ports:
+            - containerPort: 8080
+          env:
+            - name: Storage__Provider
+              value: "CosmosDb"
+            - name: CosmosDb__Endpoint
+              value: ${COSMOS_ENDPOINT}
+            - name: CosmosDb__DatabaseName
+              value: ${COSMOS_DATABASE}
+            - name: CosmosDb__ContainerName
+              value: ${COSMOS_CONTAINER}
+            - name: AZURE_CLIENT_ID
+              value: ${APP_IDENTITY_CLIENT_ID}
+            - name: APPLICATIONINSIGHTS_CONNECTION_STRING
+              value: ${APP_INSIGHTS_CONNECTION_STRING}
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: level0
+  namespace: level0
+spec:
+  selector:
+    app: level0
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: level0-http-redirect
+  namespace: level0
+spec:
+  parentRefs:
+    - name: level0-gateway
+      namespace: aks-istio-ingress
+      sectionName: http
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 301
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: level0-route
+  namespace: level0
+spec:
+  parentRefs:
+    - name: level0-gateway
+      namespace: aks-istio-ingress
+      sectionName: https
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: level0
+          port: 8080

@@ -169,7 +169,13 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2025-10-01' = {
     disableLocalAccounts: true
 
     oidcIssuerProfile: { enabled: true }
-    securityProfile: { workloadIdentity: { enabled: true } }
+    securityProfile: {
+      workloadIdentity: { enabled: true }
+      imageCleaner: {
+        enabled: true
+        intervalHours: 168
+      }
+    }
 
     aadProfile: {
       managed: true
@@ -216,6 +222,7 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2025-10-01' = {
     serviceMeshProfile: {
       mode: 'Istio'
       istio: {
+        revisions: ['asm-1-28']
         components: {
           ingressGateways: [
             {
@@ -259,6 +266,48 @@ resource prometheusDcra 'Microsoft.Insights/dataCollectionRuleAssociations@2022-
 }
 
 // ============================================================================
+// Maintenance Windows — Sunday afternoon CET
+// ============================================================================
+
+resource autoUpgradeMaintenanceWindow 'Microsoft.ContainerService/managedClusters/maintenanceConfigurations@2024-09-02-preview' = {
+  parent: aksCluster
+  name: 'aksManagedAutoUpgradeSchedule'
+  properties: {
+    maintenanceWindow: {
+      schedule: {
+        weekly: {
+          intervalWeeks: 1
+          dayOfWeek: 'Sunday'
+        }
+      }
+      durationHours: 4
+      utcOffset: '+01:00'
+      startTime: '13:00'
+      startDate: '2026-03-15'
+    }
+  }
+}
+
+resource nodeOSMaintenanceWindow 'Microsoft.ContainerService/managedClusters/maintenanceConfigurations@2024-09-02-preview' = {
+  parent: aksCluster
+  name: 'aksManagedNodeOSUpgradeSchedule'
+  properties: {
+    maintenanceWindow: {
+      schedule: {
+        weekly: {
+          intervalWeeks: 1
+          dayOfWeek: 'Sunday'
+        }
+      }
+      durationHours: 4
+      utcOffset: '+01:00'
+      startTime: '13:00'
+      startDate: '2026-03-15'
+    }
+  }
+}
+
+// ============================================================================
 // Flux GitOps Extension + Configuration
 // ============================================================================
 
@@ -268,6 +317,10 @@ resource fluxExtension 'Microsoft.KubernetesConfiguration/extensions@2023-05-01'
   properties: {
     extensionType: 'microsoft.flux'
     autoUpgradeMinorVersion: true
+    configurationSettings: {
+      'image-automation-controller.enabled': 'true'
+      'image-reflector-controller.enabled': 'true'
+    }
   }
 }
 

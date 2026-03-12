@@ -4,3 +4,5 @@ resources:
   - cluster-issuer.yaml
   - gateway.yaml
   - hello.yaml
+  - level0.yaml
+  - level0-image-automation.yaml

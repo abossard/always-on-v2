@@ -1,16 +1,16 @@
-name: Level0 Tests
+name: Level0 CI/CD
 
 on:
   push:
     branches: [main]
     paths:
       - 'src/PlayersOnLevel0/**'
-      - '.github/workflows/level0-tests.yml'
+      - '.github/workflows/level0-cicd.yml'
   pull_request:
     branches: [main]
     paths:
       - 'src/PlayersOnLevel0/**'
-      - '.github/workflows/level0-tests.yml'
+      - '.github/workflows/level0-cicd.yml'
   workflow_dispatch:
 
 concurrency:
@@ -21,6 +21,7 @@ permissions:
   contents: read
   checks: write
   pull-requests: write
+  id-token: write
 
 jobs:
   unit-and-integration:
@@ -176,3 +177,47 @@ jobs:
           path: |
             src/PlayersOnLevel0/PlayersOnLevel0.E2E/playwright-report/
             src/PlayersOnLevel0/PlayersOnLevel0.E2E/test-results/
+
+  docker-build-push:
+    name: Build & Push Container Image
+    needs: [unit-and-integration, e2e]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Get ACR login server
+        id: acr
+        run: |
+          ACR_NAME=$(az acr list --query "[0].name" -o tsv)
+          ACR_LOGIN_SERVER=$(az acr show -n "$ACR_NAME" --query loginServer -o tsv)
+          echo "login_server=$ACR_LOGIN_SERVER" >> "$GITHUB_OUTPUT"
+          echo "name=$ACR_NAME" >> "$GITHUB_OUTPUT"
+
+      - name: ACR Login
+        run: az acr login -n ${{ steps.acr.outputs.name }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: src/PlayersOnLevel0
+          file: src/PlayersOnLevel0/PlayersOnLevel0.Api/Dockerfile
+          push: true
+          tags: |
+            ${{ steps.acr.outputs.login_server }}/level0:${{ github.sha }}
+            ${{ steps.acr.outputs.login_server }}/level0:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          provenance: false
