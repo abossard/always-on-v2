@@ -1,6 +1,5 @@
 <linker>
-  <!-- Cosmos DB SDK uses System.Configuration internally via reflection.
-       These types are trimmed out by Native AOT without explicit preservation. -->
+  <!-- Cosmos DB SDK uses System.Configuration internally via reflection. -->
   <assembly fullname="System.Configuration.ConfigurationManager">
     <type fullname="System.Configuration.ClientConfigurationHost" preserve="all" />
     <type fullname="System.Configuration.ClientConfigurationSystem" preserve="all" />
@@ -9,4 +8,10 @@
     <type fullname="System.Configuration.Internal.ConfigSystem" preserve="all" />
     <type fullname="System.Configuration.Internal.InternalConfigRoot" preserve="all" />
   </assembly>
+
+  <!-- Cosmos DB SDK uses Newtonsoft.Json with reflection-based JsonConverters
+       for internal types like PartitionKeyInternal. These converters get trimmed. -->
+  <assembly fullname="Microsoft.Azure.Cosmos.Client" preserve="all" />
+
+  <assembly fullname="Newtonsoft.Json" preserve="all" />
 </linker>

@@ -24,6 +24,8 @@
        ClientConfigurationHost — trimmed out by Native AOT without this. -->
   <ItemGroup>
     <TrimmerRootAssembly Include="System.Configuration.ConfigurationManager" />
+    <TrimmerRootAssembly Include="Newtonsoft.Json" />
+    <TrimmerRootAssembly Include="Microsoft.Azure.Cosmos.Client" />
   </ItemGroup>
 
   <ItemGroup>
