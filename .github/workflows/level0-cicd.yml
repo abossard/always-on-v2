@@ -198,6 +198,7 @@ jobs:
           push: true
           tags: |
             ${{ steps.acr.outputs.login_server }}/level0:${{ steps.tag.outputs.ts }}
+            ${{ steps.acr.outputs.login_server }}/level0:${{ github.sha }}
             ${{ steps.acr.outputs.login_server }}/level0:latest
           cache-from: type=gha,scope=level0-api
           cache-to: type=gha,mode=max,scope=level0-api
@@ -210,6 +211,7 @@ jobs:
           push: true
           tags: |
             ${{ steps.acr.outputs.login_server }}/level0-web:${{ steps.tag.outputs.ts }}
+            ${{ steps.acr.outputs.login_server }}/level0-web:${{ github.sha }}
             ${{ steps.acr.outputs.login_server }}/level0-web:latest
           cache-from: type=gha,scope=level0-web
           cache-to: type=gha,mode=max,scope=level0-web
