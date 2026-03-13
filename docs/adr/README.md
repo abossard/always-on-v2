@@ -50,6 +50,7 @@ This directory contains all Architecture Decision Records (ADRs) for the AlwaysO
 | 0041 | Accessibility-First Selectors for E2E Testing | Accepted |
 | 0042 | Command Stream Storage Port for Click Processing | Proposed |
 | 0043 | Event Reactors for Achievement Evaluation | Proposed |
+| 0044 | Native AOT for PlayersOnLevel0 API | Accepted |
 
 ## Format
 
