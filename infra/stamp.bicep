@@ -307,23 +307,8 @@ resource fluxExtension 'Microsoft.KubernetesConfiguration/extensions@2023-05-01'
     configurationSettings: {
       'image-automation-controller.enabled': 'true'
       'image-reflector-controller.enabled': 'true'
-      // Specify which managed identity the image-reflector-controller uses for ACR auth.
-      // Required when the cluster has multiple user-assigned identities.
-      'image-reflector-controller.serviceAccount.annotations.azure\\.workload\\.identity/client-id': kubeletIdentity.properties.clientId
-      'image-reflector-controller.podLabels.azure\\.workload\\.identity/use': 'true'
+      'useKubeletIdentity': 'true'
     }
-  }
-}
-
-// Federated credential: image-reflector-controller → kubelet identity
-// Allows the Flux image reflector to authenticate to ACR via workload identity.
-resource imageReflectorFederatedCred 'Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials@2023-01-31' = {
-  parent: kubeletIdentity
-  name: 'image-reflector-${stampName}'
-  properties: {
-    issuer: aksCluster.properties.oidcIssuerProfile.issuerURL
-    subject: 'system:serviceaccount:flux-system:image-reflector-controller'
-    audiences: [ 'api://AzureADTokenExchange' ]
   }
 }
 
