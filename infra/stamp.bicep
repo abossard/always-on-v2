@@ -343,6 +343,8 @@ var sharedFluxVars = {
 // Per-app vars — prefixed with uppercase app name
 // Pattern: {APPNAME}_{VARNAME}. Add entries here for each app.
 var level0FluxVars = length(appFluxVars) > 0 && appFluxVars[0].name == 'level0' ? {
+  LEVEL0_NAMESPACE: appFluxVars[0].namespace
+  LEVEL0_SA_NAME: appFluxVars[0].name
   LEVEL0_IDENTITY_CLIENT_ID: appFluxVars[0].identityClientId
   LEVEL0_IDENTITY_ID: appFluxVars[0].identityId
   LEVEL0_COSMOS_DATABASE: appFluxVars[0].cosmosDatabase

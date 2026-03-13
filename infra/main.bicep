@@ -171,6 +171,7 @@ var stampRegionIndex = [for stamp in allStamps: indexOf(map(regions, r => r.key)
 var appFluxVars = [
   {
     name: apps[0].name
+    namespace: apps[0].namespace
     identityClientId: playerOnLevel0.outputs.identityClientId
     identityId: playerOnLevel0.outputs.identityId
     cosmosDatabase: playerOnLevel0.outputs.databaseName
@@ -253,8 +254,8 @@ module appFederatedCreds 'apps/level0/federated-creds.bicep' = [
       identityName: 'id-playeronlevel0-${baseName}'
       stampName: stamps[i].outputs.stampName
       oidcIssuerUrl: stamps[i].outputs.aksOidcIssuerUrl
-      serviceAccountNamespace: 'level0'
-      serviceAccountName: 'level0'
+      serviceAccountNamespace: apps[0].namespace
+      serviceAccountName: apps[0].name
     }
   }
 ]
