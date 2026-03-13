@@ -27,9 +27,10 @@ spec:
   imageRepositoryRef:
     name: level0
   filterTags:
-    pattern: '^[a-f0-9]{40}$'
+    pattern: '^(?P<ts>[0-9]+)-[a-f0-9]{8}$'
+    extract: '$ts'
   policy:
-    alphabetical:
+    numerical:
       order: asc
 ---
 apiVersion: image.toolkit.fluxcd.io/v1beta2
@@ -41,9 +42,10 @@ spec:
   imageRepositoryRef:
     name: level0-web
   filterTags:
-    pattern: '^[a-f0-9]{40}$'
+    pattern: '^(?P<ts>[0-9]+)-[a-f0-9]{8}$'
+    extract: '$ts'
   policy:
-    alphabetical:
+    numerical:
       order: asc
 ---
 apiVersion: image.toolkit.fluxcd.io/v1beta2
@@ -64,7 +66,7 @@ spec:
       author:
         name: Flux Image Automation
         email: flux@alwayson.actor
-      messageTemplate: "chore: update level0 images to {{range .Changed.Changes}}{{.NewTag}} {{end}}"
+      messageTemplate: "chore: update level0 images {{range .Changed.Changes}}{{println .NewValue}}{{end}}"
     push:
       branch: main
   update:

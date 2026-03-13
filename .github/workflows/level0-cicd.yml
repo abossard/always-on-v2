@@ -185,6 +185,9 @@ jobs:
           echo "✅ Resolved ACR: $ACR_LOGIN_SERVER" >> "$GITHUB_STEP_SUMMARY"
       - name: ACR Login
         run: az acr login -n ${{ steps.acr.outputs.name }}
+      - name: Generate timestamp tag
+        id: tag
+        run: echo "ts=$(date +%s)-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
       - name: Build and push API
@@ -194,7 +197,7 @@ jobs:
           file: src/PlayersOnLevel0/PlayersOnLevel0.Api/Dockerfile
           push: true
           tags: |
-            ${{ steps.acr.outputs.login_server }}/level0:${{ github.sha }}
+            ${{ steps.acr.outputs.login_server }}/level0:${{ steps.tag.outputs.ts }}
             ${{ steps.acr.outputs.login_server }}/level0:latest
           cache-from: type=gha,scope=level0-api
           cache-to: type=gha,mode=max,scope=level0-api
@@ -206,7 +209,7 @@ jobs:
           file: src/PlayersOnLevel0/PlayersOnLevel0.SPA.Web/Dockerfile
           push: true
           tags: |
-            ${{ steps.acr.outputs.login_server }}/level0-web:${{ github.sha }}
+            ${{ steps.acr.outputs.login_server }}/level0-web:${{ steps.tag.outputs.ts }}
             ${{ steps.acr.outputs.login_server }}/level0-web:latest
           cache-from: type=gha,scope=level0-web
           cache-to: type=gha,mode=max,scope=level0-web

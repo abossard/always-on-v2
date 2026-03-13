@@ -19,13 +19,17 @@
     <ProjectReference Include="..\PlayersOnLevel0.ServiceDefaults\PlayersOnLevel0.ServiceDefaults.csproj" />
   </ItemGroup>
 
-  <!-- Preserve System.Configuration types needed by Cosmos DB SDK at runtime.
-       The SDK uses ConfigurationManager.AppSettings internally which requires
-       ClientConfigurationHost — trimmed out by Native AOT without this. -->
+  <!-- Preserve all Cosmos DB SDK assemblies and Newtonsoft.Json.
+       The SDK uses Newtonsoft.Json with reflection-based JsonConverters for
+       internal types (PartitionKeyInternalJsonConverter in Direct.dll).
+       All four Cosmos DLLs must be preserved to avoid trimming issues. -->
   <ItemGroup>
     <TrimmerRootAssembly Include="System.Configuration.ConfigurationManager" />
     <TrimmerRootAssembly Include="Newtonsoft.Json" />
     <TrimmerRootAssembly Include="Microsoft.Azure.Cosmos.Client" />
+    <TrimmerRootAssembly Include="Microsoft.Azure.Cosmos.Direct" />
+    <TrimmerRootAssembly Include="Microsoft.Azure.Cosmos.Core" />
+    <TrimmerRootAssembly Include="Microsoft.Azure.Cosmos.Serialization.HybridRow" />
   </ItemGroup>
 
   <ItemGroup>

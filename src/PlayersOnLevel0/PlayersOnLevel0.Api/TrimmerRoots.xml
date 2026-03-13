@@ -9,9 +9,12 @@
     <type fullname="System.Configuration.Internal.InternalConfigRoot" preserve="all" />
   </assembly>
 
-  <!-- Cosmos DB SDK uses Newtonsoft.Json with reflection-based JsonConverters
-       for internal types like PartitionKeyInternal. These converters get trimmed. -->
+  <!-- Cosmos DB SDK ships 4 assemblies. PartitionKeyInternalJsonConverter
+       lives in Direct.dll, not Client.dll. All must be preserved. -->
   <assembly fullname="Microsoft.Azure.Cosmos.Client" preserve="all" />
+  <assembly fullname="Microsoft.Azure.Cosmos.Direct" preserve="all" />
+  <assembly fullname="Microsoft.Azure.Cosmos.Core" preserve="all" />
+  <assembly fullname="Microsoft.Azure.Cosmos.Serialization.HybridRow" preserve="all" />
 
   <assembly fullname="Newtonsoft.Json" preserve="all" />
 </linker>
