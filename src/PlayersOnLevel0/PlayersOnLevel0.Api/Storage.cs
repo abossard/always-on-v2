@@ -112,11 +112,6 @@ public sealed class InMemoryPlayerProgressionStore : IPlayerProgressionStore
 public sealed class CosmosPlayerProgressionStore : IPlayerProgressionStore
 {
     readonly Container _container;
-    static readonly JsonSerializerOptions JsonOptions = new()
-    {
-        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-    };
 
     public CosmosPlayerProgressionStore(CosmosClient cosmosClient, IOptions<CosmosOptions> options)
     {
@@ -287,7 +282,17 @@ public static class StorageExtensions
                 {
                     var cosmosOpts = configuration.GetSection(CosmosOptions.Section).Get<CosmosOptions>()!;
                     services.AddSingleton(_ => new CosmosClient(cosmosOpts.Endpoint,
-                        new Azure.Identity.DefaultAzureCredential()));
+                        new Azure.Identity.DefaultAzureCredential(),
+                        new CosmosClientOptions
+                        {
+                            // Use System.Text.Json for user document serialization (AOT-native).
+                            // SDK internals still use Newtonsoft.Json (preserved via TrimmerRoots).
+                            UseSystemTextJsonSerializerWithOptions = new System.Text.Json.JsonSerializerOptions
+                            {
+                                PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
+                                DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+                            }
+                        }));
                 }
                 services.AddSingleton<IPlayerProgressionStore, CosmosPlayerProgressionStore>();
                 break;
