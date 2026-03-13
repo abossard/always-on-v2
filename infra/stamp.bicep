@@ -307,7 +307,7 @@ resource fluxExtension 'Microsoft.KubernetesConfiguration/extensions@2023-05-01'
     configurationSettings: {
       'image-automation-controller.enabled': 'true'
       'image-reflector-controller.enabled': 'true'
-      'useKubeletIdentity': 'true'
+      useKubeletIdentity: 'true'
     }
   }
 }
