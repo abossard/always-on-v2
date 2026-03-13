@@ -47,28 +47,6 @@ spec:
   policy:
     numerical:
       order: asc
----
-apiVersion: image.toolkit.fluxcd.io/v1beta2
-kind: ImageUpdateAutomation
-metadata:
-  name: level0
-  namespace: flux-system
-spec:
-  interval: 1m
-  sourceRef:
-    kind: GitRepository
-    name: cluster-config
-  git:
-    checkout:
-      ref:
-        branch: main
-    commit:
-      author:
-        name: Flux Image Automation
-        email: flux@alwayson.actor
-      messageTemplate: "chore: update level0 images {{range .Changed.Changes}}{{println .NewValue}}{{end}}"
-    push:
-      branch: main
-  update:
-    path: ./clusters/base/apps/level0
-    strategy: Setters
+# ImageUpdateAutomation removed — CI pipeline commits image tag updates instead.
+# See ADR-0046 for rationale (multi-cluster safety, no Git write access needed).
+# ImageRepository + ImagePolicy kept for visibility into available tags.

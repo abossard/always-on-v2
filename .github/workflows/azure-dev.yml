@@ -113,7 +113,7 @@ jobs:
                 -o json 2>/dev/null || echo "[]")
 
               echo "## 🔑 Flux SSH Public Keys" >> $GITHUB_STEP_SUMMARY
-              echo "Add these as **read-write deploy keys** (Flux image automation needs push access) at:" >> $GITHUB_STEP_SUMMARY
+              echo "Add these as **read-only deploy keys** at:" >> $GITHUB_STEP_SUMMARY
               echo "https://github.com/${{ github.repository }}/settings/keys" >> $GITHUB_STEP_SUMMARY
               echo "" >> $GITHUB_STEP_SUMMARY
 
@@ -179,7 +179,7 @@ jobs:
             gh api repos/${{ github.repository }}/keys \
               -f title="$KEY_TITLE" \
               -f key="$PUB_KEY" \
-              -F read_only=false
+              -F read_only=true
           done
 
           echo "✅ Flux deploy keys registered" | tee -a $GITHUB_STEP_SUMMARY

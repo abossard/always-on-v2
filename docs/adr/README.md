@@ -52,6 +52,7 @@ This directory contains all Architecture Decision Records (ADRs) for the AlwaysO
 | 0043 | Event Reactors for Achievement Evaluation | Proposed |
 | 0044 | Native AOT for PlayersOnLevel0 API | Accepted |
 | 0045 | Flux Variable Substitution Conventions | Accepted |
+| 0046 | CI-Driven Image Tag Updates | Accepted |
 
 ## Format
 
