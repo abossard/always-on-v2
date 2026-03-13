@@ -112,7 +112,7 @@ spec:
             - name: SERVER_HEALTH
               value: "true"
             - name: SERVER_CACHE_CONTROL_HEADERS
-              value: "no-cache, no-store"
+              value: "false"
           resources:
             requests:
               cpu: 50m
