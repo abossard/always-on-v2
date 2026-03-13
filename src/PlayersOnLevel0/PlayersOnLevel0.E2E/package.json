@@ -6,6 +6,7 @@
   "scripts": {
     "test": "playwright test",
     "test:headed": "playwright test --headed",
+    "test:docker": "cd .. && docker compose --profile e2e run --rm e2e",
     "report": "playwright show-report"
   },
   "keywords": [],

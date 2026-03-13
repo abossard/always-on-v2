@@ -8,6 +8,12 @@ services:
     environment:
       - Storage__Provider=InMemory
       - ASPNETCORE_ENVIRONMENT=Development
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
 
   web:
     build:
@@ -22,4 +28,27 @@ services:
       - SERVER_LOG_LEVEL=info
       - SERVER_HEALTH=true
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080/health"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 3s
+
+  e2e:
+    image: mcr.microsoft.com/playwright:v1.52.0-noble
+    working_dir: /e2e
+    volumes:
+      - ./PlayersOnLevel0.E2E:/e2e
+    environment:
+      - services__web__http__0=http://web:8080
+      - CI=true
+    command: >
+      bash -c "npm ci && npx playwright test"
+    depends_on:
+      web:
+        condition: service_healthy
+    profiles:
+      - e2e
