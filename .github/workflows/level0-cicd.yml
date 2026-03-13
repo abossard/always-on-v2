@@ -217,14 +217,14 @@ jobs:
           cache-to: type=gha,mode=max,scope=level0-web
           provenance: false
       - name: Update K8s manifests with new image tag
+        env:
+          TAG: ${{ steps.tag.outputs.ts }}
         run: |
           set -euo pipefail
-          TAG="${{ steps.tag.outputs.ts }}"
           DEPLOY="clusters/base/apps/level0/deployment.yaml"
 
-          # Replace image tags (preserves ${ACR_LOGIN_SERVER} Flux var)
-          sed -i "s|/level0:[^ ]*|/level0:${TAG}|g" "$DEPLOY"
-          sed -i "s|/level0-web:[^ ]*|/level0-web:${TAG}|g" "$DEPLOY"
+          # Update image tags in all Deployments (YAML-safe, preserves Flux vars)
+          yq -i "(select(.kind == \"Deployment\") | .spec.template.spec.containers[0].image) |= sub(\":[^:]*$\", \":${TAG}\")" "$DEPLOY"
 
           # Commit and push (if changed)
           git config user.name 'github-actions[bot]'
