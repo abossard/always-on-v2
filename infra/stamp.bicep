@@ -162,10 +162,6 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2025-10-01' = {
     oidcIssuerProfile: { enabled: true }
     securityProfile: {
       workloadIdentity: { enabled: true }
-      imageCleaner: {
-        enabled: true
-        intervalHours: 168
-      }
     }
 
     aadProfile: {
