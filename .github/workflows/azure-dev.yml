@@ -7,7 +7,6 @@ on:
     paths:
       - 'infra/**'
       - 'infra_tenant/**'
-      - 'clusters/**'
       - 'azure.yaml'
       - '.github/workflows/azure-dev.yml'
 
