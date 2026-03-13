@@ -55,9 +55,9 @@ jobs:
 
           az extension add --name aks-preview --upgrade --allow-preview true 2>/dev/null || true
 
-          ENV_NAME=$(azd env get-value AZURE_ENV_NAME 2>/dev/null || echo "always-on-v2")
+          ENV_NAME="${AZURE_ENV_NAME:-alwayson}"
           DEPLOYMENT_NAME=$(az deployment sub list \
-            --query "[?starts_with(name, '${ENV_NAME}') && properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
+            --query "[?properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
             -o tsv)
 
           if [ -z "$DEPLOYMENT_NAME" ]; then
@@ -71,14 +71,23 @@ jobs:
             -o json 2>/dev/null || echo "[]")
 
           echo "$CLUSTER_NAMES" | jq -r '.[]' | while read -r CLUSTER; do
-            # Derive resource group from cluster name: aks-alwayson-swedencentral-001 → rg-alwayson-swedencentral-001
             RG="rg-${CLUSTER#aks-}"
-            echo "Enabling Gateway API on $CLUSTER in $RG"
+
+            # Check if Gateway API is already enabled
+            GW_STATUS=$(az aks show --resource-group "$RG" --name "$CLUSTER" \
+              --query "ingressProfile.gatewayApi.installation" -o tsv 2>/dev/null || echo "")
+
+            if [ "$GW_STATUS" = "Standard" ]; then
+              echo "✅ Gateway API already enabled on $CLUSTER — skipping"
+              continue
+            fi
+
+            echo "Enabling Gateway API on $CLUSTER in $RG..."
             az aks update --resource-group "$RG" --name "$CLUSTER" --enable-gateway-api --only-show-errors 2>&1 || \
-              echo "::warning::Gateway API enablement failed for $CLUSTER (may already be enabled)"
+              echo "::warning::Gateway API enablement failed for $CLUSTER"
           done
 
-          echo "✅ Managed Gateway API enabled" | tee -a $GITHUB_STEP_SUMMARY
+          echo "✅ Managed Gateway API check complete" | tee -a $GITHUB_STEP_SUMMARY
 
       - name: Register Flux SSH deploy keys
         if: steps.provision.outcome == 'success'
