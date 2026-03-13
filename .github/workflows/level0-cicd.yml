@@ -229,10 +229,10 @@ jobs:
           # Commit and push (if changed)
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
-          git pull --rebase origin main
           git add "$DEPLOY"
           if ! git diff --cached --quiet; then
             git commit -m "chore: update level0 images to ${TAG} [skip ci]"
+            git pull --rebase origin main
             git push
             echo "✅ Manifest updated to ${TAG}" >> "$GITHUB_STEP_SUMMARY"
           else
