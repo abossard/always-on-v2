@@ -16,6 +16,7 @@ services:
     ports:
       - "5173:8080"
     environment:
+      - SERVER_ROOT=/public
       - SERVER_PORT=8080
       - SERVER_FALLBACK_PAGE=/public/index.html
       - SERVER_LOG_LEVEL=info
