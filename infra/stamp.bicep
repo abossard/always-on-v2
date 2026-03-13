@@ -345,7 +345,6 @@ var level0FluxVars = length(appFluxVars) > 0 && appFluxVars[0].name == 'level0' 
   LEVEL0_IDENTITY_ID: appFluxVars[0].identityId
   LEVEL0_COSMOS_DATABASE: appFluxVars[0].cosmosDatabase
   LEVEL0_COSMOS_CONTAINER: appFluxVars[0].cosmosContainer
-  LEVEL0_CACHE_CONTROL: appFluxVars[0].cacheControl
 } : {}
 
 var fluxSubstitute = union(sharedFluxVars, level0FluxVars)
