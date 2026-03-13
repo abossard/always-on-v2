@@ -1,0 +1,35 @@
+apiVersion: skaffold/v4beta11
+kind: Config
+metadata:
+  name: level0
+
+build:
+  local:
+    push: false
+    useBuildkit: true
+  artifacts:
+    - image: level0
+      context: src/PlayersOnLevel0
+      docker:
+        dockerfile: PlayersOnLevel0.Api/Dockerfile
+    - image: level0-web
+      context: src/PlayersOnLevel0/PlayersOnLevel0.SPA.Web
+      docker:
+        dockerfile: Dockerfile
+
+deploy:
+  kustomize:
+    paths:
+      - clusters/minikube/apps
+
+portForward:
+  - resourceType: service
+    resourceName: envoy-gateway
+    namespace: envoy-gateway-system
+    port: 80
+    localPort: 8080
+  - resourceType: service
+    resourceName: cosmos-emulator
+    namespace: level0
+    port: 1234
+    localPort: 1234
