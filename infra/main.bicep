@@ -46,6 +46,7 @@ param apps array = [
     name: 'level0'
     subdomain: 'level0'
     namespace: 'level0'
+    cacheDuration: ''
   }
 ]
 
@@ -176,6 +177,7 @@ var appFluxVars = [
     identityId: playerOnLevel0.outputs.identityId
     cosmosDatabase: playerOnLevel0.outputs.databaseName
     cosmosContainer: playerOnLevel0.outputs.containerName
+    cacheControl: apps[0].cacheDuration != '' ? 'public, max-age=300' : 'no-cache, no-store, must-revalidate, max-age=0'
   }
 ]
 
@@ -272,6 +274,7 @@ module level0Routing 'apps/level0/routing.bicep' = {
     baseName: baseName
     domainName: domainName
     stamps: allStamps
+    cacheDuration: apps[0].cacheDuration
   }
 }
 

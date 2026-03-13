@@ -209,6 +209,8 @@ spec:
               value: info
             - name: SERVER_HEALTH
               value: "true"
+            - name: SERVER_CACHE_CONTROL_HEADERS
+              value: "${LEVEL0_CACHE_CONTROL}"
           resources:
             requests:
               cpu: 50m
