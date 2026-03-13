@@ -19,4 +19,15 @@
     <ProjectReference Include="..\PlayersOnLevel0.ServiceDefaults\PlayersOnLevel0.ServiceDefaults.csproj" />
   </ItemGroup>
 
+  <!-- Preserve System.Configuration types needed by Cosmos DB SDK at runtime.
+       The SDK uses ConfigurationManager.AppSettings internally which requires
+       ClientConfigurationHost — trimmed out by Native AOT without this. -->
+  <ItemGroup>
+    <TrimmerRootAssembly Include="System.Configuration.ConfigurationManager" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <TrimmerRootDescriptor Include="TrimmerRoots.xml" />
+  </ItemGroup>
+
 </Project>

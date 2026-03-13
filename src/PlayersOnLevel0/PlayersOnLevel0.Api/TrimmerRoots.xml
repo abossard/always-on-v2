@@ -1,0 +1,12 @@
+<linker>
+  <!-- Cosmos DB SDK uses System.Configuration internally via reflection.
+       These types are trimmed out by Native AOT without explicit preservation. -->
+  <assembly fullname="System.Configuration.ConfigurationManager">
+    <type fullname="System.Configuration.ClientConfigurationHost" preserve="all" />
+    <type fullname="System.Configuration.ClientConfigurationSystem" preserve="all" />
+    <type fullname="System.Configuration.ConfigurationManager" preserve="all" />
+    <type fullname="System.Configuration.AppSettingsSection" preserve="all" />
+    <type fullname="System.Configuration.Internal.ConfigSystem" preserve="all" />
+    <type fullname="System.Configuration.Internal.InternalConfigRoot" preserve="all" />
+  </assembly>
+</linker>
