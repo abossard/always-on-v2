@@ -5,17 +5,19 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
+    <OutputType>Exe</OutputType>
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="coverlet.collector" Version="6.0.4" />
-    <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
-    <PackageReference Include="xunit" Version="2.9.3" />
-    <PackageReference Include="xunit.runner.visualstudio" Version="3.1.4" />
+    <PackageReference Include="Aspire.Hosting.Testing" />
+    <PackageReference Include="TUnit" />
   </ItemGroup>
 
   <ItemGroup>
-    <Using Include="Xunit" />
+    <ProjectReference Include="..\PlayersOnOrleons.Abstractions\PlayersOnOrleons.Abstractions.csproj" />
+    <ProjectReference Include="..\PlayersOnOrleons.Api\PlayersOnOrleons.Api.csproj" />
+    <ProjectReference Include="..\PlayersOnOrleons.AppHost\PlayersOnOrleons.AppHost.csproj" />
   </ItemGroup>
 
 </Project>

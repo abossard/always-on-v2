@@ -259,6 +259,20 @@ internal sealed class CosmosClickAchievementEntry
 }
 
 // ──────────────────────────────────────────────
+// Source-generated JSON context for Cosmos document types (AOT-safe)
+// ──────────────────────────────────────────────
+
+[JsonSerializable(typeof(CosmosPlayerDocument))]
+[JsonSerializable(typeof(CosmosAchievementEntry))]
+[JsonSerializable(typeof(CosmosClickAchievementEntry))]
+[JsonSerializable(typeof(List<CosmosAchievementEntry>))]
+[JsonSerializable(typeof(List<CosmosClickAchievementEntry>))]
+[JsonSourceGenerationOptions(
+    PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
+    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
+internal partial class CosmosJsonContext : JsonSerializerContext;
+
+// ──────────────────────────────────────────────
 // DI registration
 // ──────────────────────────────────────────────
 
@@ -285,12 +299,12 @@ public static class StorageExtensions
                         new Azure.Identity.DefaultAzureCredential(),
                         new CosmosClientOptions
                         {
-                            // Use System.Text.Json for user document serialization (AOT-native).
-                            // SDK internals still use Newtonsoft.Json (preserved via TrimmerRoots).
+                            // AOT-safe: source-generated System.Text.Json for document serialization.
                             UseSystemTextJsonSerializerWithOptions = new System.Text.Json.JsonSerializerOptions
                             {
                                 PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
                                 DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
+                                TypeInfoResolver = CosmosJsonContext.Default,
                             }
                         }));
                 }

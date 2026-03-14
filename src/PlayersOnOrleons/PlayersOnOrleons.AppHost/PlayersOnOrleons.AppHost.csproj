@@ -1,17 +1,21 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <Sdk Name="Aspire.AppHost.Sdk" Version="9.4.2" />
+  <Sdk Name="Aspire.AppHost.Sdk" Version="13.1.2" />
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <UserSecretsId>8e575a9c-37de-4dba-8c3d-f2a70609f90b</UserSecretsId>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Aspire.Hosting.AppHost" Version="9.4.2" />
+    <PackageReference Include="Aspire.Hosting.AppHost" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\PlayersOnOrleons.Api\PlayersOnOrleons.Api.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,4 +1,11 @@
 <Solution>
+  <Folder Name="/PlayersOnOrleons/">
+    <Project Path="PlayersOnOrleons/PlayersOnOrleons.Abstractions/PlayersOnOrleons.Abstractions.csproj" />
+    <Project Path="PlayersOnOrleons/PlayersOnOrleons.Api/PlayersOnOrleons.Api.csproj" />
+    <Project Path="PlayersOnOrleons/PlayersOnOrleons.AppHost/PlayersOnOrleons.AppHost.csproj" />
+    <Project Path="PlayersOnOrleons/PlayersOnOrleons.ServiceDefaults/PlayersOnOrleons.ServiceDefaults.csproj" />
+    <Project Path="PlayersOnOrleons/PlayersOnOrleons.Tests/PlayersOnOrleons.Tests.csproj" />
+  </Folder>
   <Project Path="AlwaysOn.Client.Host.Console/AlwaysOn.Client.Host.Console.csproj" />
   <Project Path="AlwaysOn.GrainInterface/AlwaysOn.GrainInterface.csproj" />
   <Project Path="AlwaysOn.Grains/AlwaysOn.Grains.csproj" />
