@@ -325,7 +325,7 @@ var sharedFluxVars = {
   GATEWAY_HOSTNAME: 'app-${stampName}.${dnsZoneName}'
   ACR_LOGIN_SERVER: acrLoginServer
   COSMOS_ENDPOINT: cosmosEndpoint
-  APP_INSIGHTS_CONNECTION_STRING: appInsightsConnectionString
+  APPLICATIONINSIGHTS_CONNECTION_STRING: appInsightsConnectionString
   AZURE_TENANT_ID: tenantId
   CLUSTER_IDENTITY_CLIENT_ID: clusterIdentity.properties.clientId
   KUBELET_IDENTITY_CLIENT_ID: kubeletIdentity.properties.clientId

@@ -47,7 +47,7 @@ spec:
             - name: AZURE_CLIENT_ID
               value: ${LEVEL0_IDENTITY_CLIENT_ID}
             - name: APPLICATIONINSIGHTS_CONNECTION_STRING
-              value: ${APP_INSIGHTS_CONNECTION_STRING}
+              value: ${APPLICATIONINSIGHTS_CONNECTION_STRING}
           resources:
             requests:
               cpu: 100m
