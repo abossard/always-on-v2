@@ -2,6 +2,11 @@ name: Provision & Deploy
 
 on:
   workflow_dispatch:
+    inputs:
+      force-provision:
+        description: 'Force provision even if no template changes (corrects drift)'
+        type: boolean
+        default: false
   schedule:
     - cron: '0 5 * * *'  # 5:00 UTC = 6:00 CET — re-enables public endpoints after nightly policy
   push:
@@ -53,7 +58,13 @@ jobs:
 
       - name: Provision Infrastructure
         id: provision
-        run: azd provision --no-prompt --no-state
+        run: |
+          ARGS="--no-prompt"
+          # Force --no-state on scheduled runs (drift correction) or manual trigger with force
+          if [[ "${{ github.event_name }}" == "schedule" ]] || [[ "${{ inputs.force-provision }}" == "true" ]]; then
+            ARGS="$ARGS --no-state"
+          fi
+          azd provision $ARGS
 
       - name: Enable Managed Gateway API on AKS clusters
         if: steps.provision.outcome == 'success'
