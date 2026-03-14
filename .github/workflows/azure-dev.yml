@@ -2,6 +2,8 @@ name: Provision & Deploy
 
 on:
   workflow_dispatch:
+  schedule:
+    - cron: '0 5 * * *'  # 5:00 UTC = 6:00 CET — re-enables public endpoints after nightly policy
   push:
     branches: [main]
     paths:
