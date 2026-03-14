@@ -1,6 +1,7 @@
 using PlayersOnOrleons.Api;
 
 var builder = WebApplication.CreateSlimBuilder(args);
+builder.WebHost.UseKestrelHttpsConfiguration();
 builder.AddServiceDefaults();
 
 builder.Host.UseOrleans(silo =>

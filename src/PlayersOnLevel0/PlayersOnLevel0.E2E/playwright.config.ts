@@ -2,10 +2,11 @@ import { defineConfig, devices } from '@playwright/test';
 
 // Aspire injects service URLs as env vars via WithReference()
 // Format: services__<name>__<scheme>__<index>
-const webUrl = process.env.services__web__http__0 || 'http://localhost:5173';
+const webUrl = process.env.services__web__http__0;
 
 export default defineConfig({
   testDir: './tests',
+  globalSetup: './global-setup.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,

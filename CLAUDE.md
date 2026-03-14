@@ -18,13 +18,16 @@ dotnet build src/PlayersOnLevel0/PlayersOnLevel0.slnx
 dotnet run --project src/PlayersOnLevel0/PlayersOnLevel0.Api
 
 # Run unit + integration tests
-dotnet test src/PlayersOnLevel0/PlayersOnLevel0.Tests
+dotnet test --project src/PlayersOnLevel0/PlayersOnLevel0.Tests/PlayersOnLevel0.Tests.csproj
 
 # Run a single test (TUnit)
-dotnet test src/PlayersOnLevel0/PlayersOnLevel0.Tests --filter "FullyQualifiedName~TestName"
+dotnet test --project src/PlayersOnLevel0/PlayersOnLevel0.Tests/PlayersOnLevel0.Tests.csproj --filter "FullyQualifiedName~TestName"
 
 # Run E2E tests (Playwright)
-dotnet test src/PlayersOnLevel0/PlayersOnLevel0.E2E
+dotnet run --project src/PlayersOnLevel0/PlayersOnLevel0.AppHost
+# Then start the explicit `e2e` resource from the Aspire dashboard.
+# Standalone `cd src/PlayersOnLevel0/PlayersOnLevel0.E2E && npm test` is unsupported
+# because Aspire only injects `services__web__http__0` into resources it launches.
 
 # Deploy to Azure
 azd auth login && azd up

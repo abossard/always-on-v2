@@ -8,13 +8,13 @@ public abstract record Address([property: Id(0)] string Value)
 }
 
 [GenerateSerializer, Immutable]
-public sealed record AccountAddress([property: Id(0)] string Value) : Address(Value)
+public sealed record AccountAddress(string Value) : Address(Value)
 {
     public static implicit operator AccountAddress(string s) => new(s);
 }
 
 [GenerateSerializer, Immutable]
-public sealed record PolicyAddress([property: Id(0)] string Value) : Address(Value)
+public sealed record PolicyAddress(string Value) : Address(Value)
 {
     public static implicit operator PolicyAddress(string s) => new(s);
 }
