@@ -54,6 +54,9 @@ param dnsZoneResourceGroup string
 @description('Parent domain name (e.g. alwayson.actor).')
 param domainName string
 
+@description('Enable OpenTelemetry distributed tracing for application workloads.')
+param defaultTracing bool = true
+
 // ============================================================================
 // Derived Values
 // ============================================================================
@@ -335,6 +338,7 @@ var sharedFluxVars = {
   DNS_ZONE_RESOURCE_GROUP: dnsZoneResourceGroup
   AZURE_SUBSCRIPTION_ID: subscription().subscriptionId
   DOMAIN_NAME: domainName
+  DISTRIBUTED_TRACING_ENABLED: string(defaultTracing)
 }
 
 // Per-app vars — prefixed with uppercase app name

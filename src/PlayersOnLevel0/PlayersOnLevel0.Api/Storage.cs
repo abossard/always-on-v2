@@ -295,6 +295,9 @@ public static class StorageExtensions
                 if (services.All(s => s.ServiceType != typeof(CosmosClient)))
                 {
                     var cosmosOpts = configuration.GetSection(CosmosOptions.Section).Get<CosmosOptions>()!;
+                    var tracingEnabled = string.Equals(
+                        configuration["DISTRIBUTED_TRACING_ENABLED"], "true",
+                        StringComparison.OrdinalIgnoreCase);
                     services.AddSingleton(_ => new CosmosClient(cosmosOpts.Endpoint,
                         new Azure.Identity.DefaultAzureCredential(),
                         new CosmosClientOptions
@@ -305,6 +308,10 @@ public static class StorageExtensions
                                 PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase,
                                 DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull,
                                 TypeInfoResolver = CosmosJsonContext.Default,
+                            },
+                            CosmosClientTelemetryOptions = new CosmosClientTelemetryOptions
+                            {
+                                DisableDistributedTracing = !tracingEnabled
                             }
                         }));
                 }
