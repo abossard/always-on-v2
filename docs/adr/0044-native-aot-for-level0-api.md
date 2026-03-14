@@ -24,17 +24,38 @@ This ADR documents the decision to keep Native AOT enabled and work around the C
 | Issue | Root Cause | Fix |
 |---|---|---|
 | `MissingMethodException: ClientConfigurationHost` | SDK uses `ConfigurationManager.AppSettings` internally — type trimmed by AOT | `TrimmerRootAssembly` for `System.Configuration.ConfigurationManager` |
-| `JsonException: PartitionKeyInternalJsonConverter` | SDK uses Newtonsoft.Json with reflection-based converters for internal routing types | `TrimmerRootAssembly` for `Newtonsoft.Json` + `Microsoft.Azure.Cosmos.Client` |
+| `JsonException: PartitionKeyInternalJsonConverter` | SDK uses Newtonsoft.Json with reflection-based converters for internal routing types | `TrimmerRootAssembly` for all 4 Cosmos DLLs (`Client`, `Direct`, `Core`, `Serialization.HybridRow`) + `Newtonsoft.Json` |
+| `Cosmos 400 BadRequest` on `CreateItemAsync` | Newtonsoft.Json document serialization broken under AOT (reflection-based converters for `DateTimeOffset` etc.) | Switch user document serialization to `UseSystemTextJsonSerializerWithOptions` |
+| `Reflection-based serialization disabled` | System.Text.Json in AOT requires source generators, not runtime reflection | Add `CosmosJsonContext` with `[JsonSerializable]` for all document types, wire as `TypeInfoResolver` |
 
-### Why not UseSystemTextJsonSerializerWithOptions?
+### Three-Layer Serialization Strategy
 
-The SDK offers `CosmosClientOptions.UseSystemTextJsonSerializerWithOptions` (since v3.47.0) to use System.Text.Json for **user document** serialization. However, this does NOT fix the AOT issues because:
+The Cosmos SDK has two serialization paths that must both work under AOT:
 
-- The SDK **internally still uses Newtonsoft.Json** for partition key routing, request metadata, change feed processing, and query parsing ([GitHub issue #5397](https://github.com/Azure/azure-cosmos-dotnet-v3/issues/5397), [#2533](https://github.com/Azure/azure-cosmos-dotnet-v3/issues/2533))
-- `PartitionKeyInternalJsonConverter` is in the SDK's internal plumbing, not in user document serialization
-- Full migration to System.Text.Json is planned for SDK v4 (no release date)
+1. **SDK internals** (partition keys, routing, metadata) → **Newtonsoft.Json** (preserved via `TrimmerRootAssembly`)
+2. **User documents** (reads/writes) → **System.Text.Json with source generation** (AOT-native)
 
-The trimmer root approach preserves both Newtonsoft.Json and the Cosmos SDK internals, keeping AOT benefits while preventing runtime reflection failures.
+```
+CosmosClientOptions.UseSystemTextJsonSerializerWithOptions = new JsonSerializerOptions
+{
+    TypeInfoResolver = CosmosJsonContext.Default,  // Source-generated, no reflection
+}
+```
+
+The `CosmosJsonContext` is a `[JsonSerializable]` source-generated context covering:
+- `CosmosPlayerDocument` (the main document type)
+- `CosmosAchievementEntry`, `CosmosClickAchievementEntry` (nested types)
+- `List<>` variants of the nested types
+
+This produces compile-time serialization code — no reflection needed at runtime.
+
+### Why UseSystemTextJsonSerializerWithOptions IS needed (updated)
+
+Earlier analysis concluded this wasn't needed. That was wrong. While it doesn't fix the SDK internal issues (trimmer roots handle those), it's essential because:
+
+- **Newtonsoft.Json under AOT can't serialize user documents correctly** — its reflection-based converter discovery is broken even with `preserve="all"`, causing Cosmos 400 BadRequest
+- **System.Text.Json with source generation is the only AOT-safe option** for user document serialization
+- The SDK still uses Newtonsoft.Json internally (trimmer roots preserve those types), but user documents go through the System.Text.Json path
 
 ### Benefits of Native AOT
 
@@ -98,12 +119,13 @@ The trimmer root approach preserves both Newtonsoft.Json and the Cosmos SDK inte
 - **Small, secure container images** — chiseled base with no shell or package manager
 - **Lower resource requests** — less memory per pod = more pods per node = lower cost
 - **Future-proof** — as the .NET ecosystem moves toward AOT, we're already there
-- **Clean workaround** — `TrimmerRoots.xml` is explicit, maintainable, and well-documented
+- **Clean workaround** — `TrimmerRoots.xml` for SDK internals + source-generated `CosmosJsonContext` for user documents
 
 ### Negative
 
-- **Maintenance overhead** — when upgrading the Cosmos SDK, the trimmer roots may need updating if the SDK changes its internal reflection usage. Both `System.Configuration` and `Newtonsoft.Json` internals are affected.
-- **Binary size** — preserving entire assemblies (`Newtonsoft.Json`, `Microsoft.Azure.Cosmos.Client`) increases the AOT binary. This is the trade-off for keeping AOT vs disabling it entirely.
+- **Maintenance overhead** — when upgrading the Cosmos SDK, the trimmer roots may need updating. When adding new Cosmos document types, they must be added to `CosmosJsonContext` with `[JsonSerializable]`.
+- **Binary size** — preserving entire assemblies (`Newtonsoft.Json`, all 4 Cosmos DLLs) increases the AOT binary. This is the trade-off for keeping AOT vs disabling it entirely.
+- **Two serialization contexts** — `AppJsonContext` for API responses, `CosmosJsonContext` for Cosmos documents. Developers must add new types to the right context.
 - **Build time** — AOT compilation is slower than JIT publish (~90s vs ~10s in CI). Mitigated by Docker layer caching and `sdk:10.0-noble-aot` base image
 - **Debugging** — stack traces in AOT binaries can be less detailed. Mitigated by OpenTelemetry tracing and Application Insights integration
 - **Library compatibility** — any new dependency must be AOT-compatible or have trimmer roots. This is a discipline the team must maintain
