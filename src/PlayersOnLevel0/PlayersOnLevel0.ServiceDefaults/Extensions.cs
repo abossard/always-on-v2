@@ -91,7 +91,10 @@ public static class ServiceDefaultsExtensions
         if (!string.IsNullOrEmpty(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]))
         {
             builder.Services.AddOpenTelemetry().UseAzureMonitor(o =>
-                o.ConnectionString = builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]);
+            {
+                o.ConnectionString = builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"];
+                o.Credential = new Azure.Identity.DefaultAzureCredential();
+            });
         }
 
         return builder;
