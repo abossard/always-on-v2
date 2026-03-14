@@ -1,6 +1,6 @@
 // ============================================================================
-// Level0 Front Door Routing
-// Wires level0.{domainName} → Front Door → one origin per AKS stamp.
+// Generic App Front Door Routing
+// Wires {subdomain}.{domainName} → Front Door → one origin per AKS stamp.
 //
 // Origin hostnames use a deterministic DNS label per stamp:
 //   app-swedencentral-001.swedencentral.cloudapp.azure.com
@@ -15,6 +15,12 @@ param baseName string
 
 @description('Domain name (e.g. alwayson.actor).')
 param domainName string
+
+@description('App name (used for Azure resource naming: origin group, route).')
+param appName string
+
+@description('Subdomain for this app (e.g. level0 → level0.alwayson.actor).')
+param subdomain string
 
 @description('All stamps: array of { regionKey, stampKey, location }.')
 param stamps array
@@ -45,7 +51,7 @@ resource dnsZone 'Microsoft.Network/dnsZones@2023-07-01-preview' existing = {
 
 resource originGroup 'Microsoft.Cdn/profiles/originGroups@2025-04-15' = {
   parent: frontDoor
-  name: 'og-level0'
+  name: 'og-${appName}'
   properties: {
     loadBalancingSettings: {
       sampleSize: 4
@@ -82,14 +88,14 @@ resource origins 'Microsoft.Cdn/profiles/originGroups/origins@2025-04-15' = [
 ]
 
 // ============================================================================
-// Custom Domain: level0.{domainName}
+// Custom Domain: {subdomain}.{domainName}
 // ============================================================================
 
 resource customDomain 'Microsoft.Cdn/profiles/customDomains@2025-04-15' = {
   parent: frontDoor
-  name: 'level0-${replace(domainName, '.', '-')}'
+  name: '${subdomain}-${replace(domainName, '.', '-')}'
   properties: {
-    hostName: 'level0.${domainName}'
+    hostName: '${subdomain}.${domainName}'
     tlsSettings: {
       certificateType: 'ManagedCertificate'
       minimumTlsVersion: 'TLS12'
@@ -100,10 +106,10 @@ resource customDomain 'Microsoft.Cdn/profiles/customDomains@2025-04-15' = {
   }
 }
 
-// CNAME: level0.{domainName} → Front Door endpoint
-resource cnameLevel0 'Microsoft.Network/dnsZones/CNAME@2023-07-01-preview' = {
+// CNAME: {subdomain}.{domainName} → Front Door endpoint
+resource cnameRecord 'Microsoft.Network/dnsZones/CNAME@2023-07-01-preview' = {
   parent: dnsZone
-  name: 'level0'
+  name: subdomain
   properties: {
     TTL: 300
     CNAMERecord: {
@@ -112,17 +118,17 @@ resource cnameLevel0 'Microsoft.Network/dnsZones/CNAME@2023-07-01-preview' = {
   }
 }
 
-// DNS validation TXT record (_dnsauth.level0) is auto-managed by Azure Front Door
+// DNS validation TXT record (_dnsauth.{subdomain}) is auto-managed by Azure Front Door
 // via the azureDnsZone linkage on the custom domain resource above.
 // Do NOT create it manually — that causes stale token conflicts on redeployment.
 
 // ============================================================================
-// Route: level0.{domainName} → og-level0
+// Route: {subdomain}.{domainName} → og-{appName}
 // ============================================================================
 
 resource route 'Microsoft.Cdn/profiles/afdEndpoints/routes@2025-04-15' = {
   parent: fdEndpoint
-  name: 'route-level0'
+  name: 'route-${appName}'
   properties: {
     customDomains: [
       { id: customDomain.id }
@@ -162,4 +168,4 @@ output stampOrigins array = [for (stamp, i) in stamps: {
   gatewayHostname: 'app-${stamp.regionKey}-${stamp.stampKey}.${stamp.regionKey}.${domainName}'
 }]
 
-output level0Hostname string = 'level0.${domainName}'
+output hostname string = '${subdomain}.${domainName}'

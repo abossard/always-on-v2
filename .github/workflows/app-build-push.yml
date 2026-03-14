@@ -1,0 +1,152 @@
+name: App Build & Push (Reusable)
+
+# Reusable workflow for building, pushing container images, and updating K8s manifests.
+# Called by per-app CI/CD workflows after their app-specific tests pass.
+#
+# Usage:
+#   jobs:
+#     build-push:
+#       uses: ./.github/workflows/app-build-push.yml
+#       with:
+#         app_name: level0
+#         docker_context: src/PlayersOnLevel0
+#         dockerfile: src/PlayersOnLevel0/PlayersOnLevel0.Api/Dockerfile
+#         deploy_manifest: clusters/base/apps/level0/deployment.yaml
+#       secrets: inherit
+
+on:
+  workflow_call:
+    inputs:
+      app_name:
+        description: 'Short app name (used for image name and cache scope)'
+        required: true
+        type: string
+      docker_context:
+        description: 'Docker build context path'
+        required: true
+        type: string
+      dockerfile:
+        description: 'Path to Dockerfile'
+        required: true
+        type: string
+      deploy_manifest:
+        description: 'Path to K8s deployment.yaml to update with new image tag'
+        required: true
+        type: string
+      extra_images:
+        description: 'JSON array of extra images to build: [{"name":"level0-web","context":"...","dockerfile":"..."}]'
+        required: false
+        type: string
+        default: '[]'
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  build-push:
+    name: Build & Push ${{ inputs.app_name }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Resolve ACR from deployment outputs
+        id: acr
+        run: |
+          set -euo pipefail
+          DEPLOYMENT_NAME=$(az deployment sub list \
+            --query "[?properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
+            -o tsv)
+          if [ -z "$DEPLOYMENT_NAME" ]; then
+            echo "::error::No successful Azure deployment found. Run 'azd provision' first."
+            exit 1
+          fi
+          ACR_LOGIN_SERVER=$(az deployment sub show --name "$DEPLOYMENT_NAME" \
+            --query "properties.outputs.acrLoginServer.value" -o tsv 2>/dev/null || true)
+          if [ -z "$ACR_LOGIN_SERVER" ] || [ "$ACR_LOGIN_SERVER" = "None" ]; then
+            echo "::error::Deployment '$DEPLOYMENT_NAME' is missing the 'acrLoginServer' output."
+            exit 1
+          fi
+          ACR_NAME=$(echo "$ACR_LOGIN_SERVER" | cut -d. -f1)
+          echo "name=$ACR_NAME" >> "$GITHUB_OUTPUT"
+          echo "login_server=$ACR_LOGIN_SERVER" >> "$GITHUB_OUTPUT"
+          echo "✅ Resolved ACR: $ACR_LOGIN_SERVER" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: ACR Login
+        run: az acr login -n ${{ steps.acr.outputs.name }}
+
+      - name: Generate timestamp tag
+        id: tag
+        run: echo "ts=$(date +%s)-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and push primary image
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ inputs.docker_context }}
+          file: ${{ inputs.dockerfile }}
+          push: true
+          tags: |
+            ${{ steps.acr.outputs.login_server }}/${{ inputs.app_name }}:${{ steps.tag.outputs.ts }}
+            ${{ steps.acr.outputs.login_server }}/${{ inputs.app_name }}:${{ github.sha }}
+            ${{ steps.acr.outputs.login_server }}/${{ inputs.app_name }}:latest
+          cache-from: type=gha,scope=${{ inputs.app_name }}
+          cache-to: type=gha,mode=max,scope=${{ inputs.app_name }}
+          provenance: false
+
+      - name: Build and push extra images
+        if: inputs.extra_images != '[]'
+        run: |
+          set -euo pipefail
+          echo '${{ inputs.extra_images }}' | jq -c '.[]' | while read -r img; do
+            NAME=$(echo "$img" | jq -r '.name')
+            CTX=$(echo "$img" | jq -r '.context')
+            DF=$(echo "$img" | jq -r '.dockerfile')
+            TAG="${{ steps.tag.outputs.ts }}"
+            SERVER="${{ steps.acr.outputs.login_server }}"
+
+            echo "Building $NAME from $CTX ($DF)..."
+            docker buildx build \
+              --file "$DF" \
+              --tag "$SERVER/$NAME:$TAG" \
+              --tag "$SERVER/$NAME:${{ github.sha }}" \
+              --tag "$SERVER/$NAME:latest" \
+              --cache-from "type=gha,scope=$NAME" \
+              --cache-to "type=gha,mode=max,scope=$NAME" \
+              --push \
+              "$CTX"
+          done
+
+      - name: Update K8s manifests with new image tag
+        env:
+          TAG: ${{ steps.tag.outputs.ts }}
+          DEPLOY: ${{ inputs.deploy_manifest }}
+          APP_NAME: ${{ inputs.app_name }}
+        run: |
+          set -euo pipefail
+
+          # Update image tags in all Deployments (YAML-safe, preserves Flux vars)
+          yq -i "(select(.kind == \"Deployment\") | .spec.template.spec.containers[0].image) |= sub(\":[^:]*$\", \":${TAG}\")" "$DEPLOY"
+
+          # Commit and push (if changed)
+          git config user.name 'github-actions[bot]'
+          git config user.email 'github-actions[bot]@users.noreply.github.com'
+          git add "$DEPLOY"
+          if ! git diff --cached --quiet; then
+            git commit -m "chore: update ${APP_NAME} images to ${TAG} [skip ci]"
+            git pull --rebase origin main
+            git push
+            echo "✅ Manifest updated to ${TAG}" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "ℹ️ No manifest changes needed" >> "$GITHUB_STEP_SUMMARY"
+          fi

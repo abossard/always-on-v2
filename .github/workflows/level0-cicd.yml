@@ -152,89 +152,11 @@ jobs:
     name: Build & Push Container Image
     needs: [unit-and-integration, e2e]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v4
-      - name: Azure Login (OIDC)
-        uses: azure/login@v2
-        with:
-          client-id: ${{ vars.AZURE_CLIENT_ID }}
-          tenant-id: ${{ vars.AZURE_TENANT_ID }}
-          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-      - name: Resolve ACR from deployment outputs
-        id: acr
-        run: |
-          set -euo pipefail
-          DEPLOYMENT_NAME=$(az deployment sub list \
-            --query "[?properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
-            -o tsv)
-          if [ -z "$DEPLOYMENT_NAME" ]; then
-            echo "::error::No successful Azure deployment found. Run 'azd provision' first."
-            exit 1
-          fi
-          ACR_LOGIN_SERVER=$(az deployment sub show --name "$DEPLOYMENT_NAME" \
-            --query "properties.outputs.acrLoginServer.value" -o tsv 2>/dev/null || true)
-          if [ -z "$ACR_LOGIN_SERVER" ] || [ "$ACR_LOGIN_SERVER" = "None" ]; then
-            echo "::error::Deployment '$DEPLOYMENT_NAME' is missing the 'acrLoginServer' output. Add this to your Bicep: output acrLoginServer string = <acr>.properties.loginServer"
-            exit 1
-          fi
-          ACR_NAME=$(echo "$ACR_LOGIN_SERVER" | cut -d. -f1)
-          echo "name=$ACR_NAME" >> "$GITHUB_OUTPUT"
-          echo "login_server=$ACR_LOGIN_SERVER" >> "$GITHUB_OUTPUT"
-          echo "✅ Resolved ACR: $ACR_LOGIN_SERVER" >> "$GITHUB_STEP_SUMMARY"
-      - name: ACR Login
-        run: az acr login -n ${{ steps.acr.outputs.name }}
-      - name: Generate timestamp tag
-        id: tag
-        run: echo "ts=$(date +%s)-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-      - name: Build and push API
-        uses: docker/build-push-action@v6
-        with:
-          context: src/PlayersOnLevel0
-          file: src/PlayersOnLevel0/PlayersOnLevel0.Api/Dockerfile
-          push: true
-          tags: |
-            ${{ steps.acr.outputs.login_server }}/level0:${{ steps.tag.outputs.ts }}
-            ${{ steps.acr.outputs.login_server }}/level0:${{ github.sha }}
-            ${{ steps.acr.outputs.login_server }}/level0:latest
-          cache-from: type=gha,scope=level0-api
-          cache-to: type=gha,mode=max,scope=level0-api
-          provenance: false
-      - name: Build and push SPA
-        uses: docker/build-push-action@v6
-        with:
-          context: src/PlayersOnLevel0/PlayersOnLevel0.SPA.Web
-          file: src/PlayersOnLevel0/PlayersOnLevel0.SPA.Web/Dockerfile
-          push: true
-          tags: |
-            ${{ steps.acr.outputs.login_server }}/level0-web:${{ steps.tag.outputs.ts }}
-            ${{ steps.acr.outputs.login_server }}/level0-web:${{ github.sha }}
-            ${{ steps.acr.outputs.login_server }}/level0-web:latest
-          cache-from: type=gha,scope=level0-web
-          cache-to: type=gha,mode=max,scope=level0-web
-          provenance: false
-      - name: Update K8s manifests with new image tag
-        env:
-          TAG: ${{ steps.tag.outputs.ts }}
-        run: |
-          set -euo pipefail
-          DEPLOY="clusters/base/apps/level0/deployment.yaml"
-
-          # Update image tags in all Deployments (YAML-safe, preserves Flux vars)
-          yq -i "(select(.kind == \"Deployment\") | .spec.template.spec.containers[0].image) |= sub(\":[^:]*$\", \":${TAG}\")" "$DEPLOY"
-
-          # Commit and push (if changed)
-          git config user.name 'github-actions[bot]'
-          git config user.email 'github-actions[bot]@users.noreply.github.com'
-          git add "$DEPLOY"
-          if ! git diff --cached --quiet; then
-            git commit -m "chore: update level0 images to ${TAG} [skip ci]"
-            git pull --rebase origin main
-            git push
-            echo "✅ Manifest updated to ${TAG}" >> "$GITHUB_STEP_SUMMARY"
-          else
-            echo "ℹ️ No manifest changes needed" >> "$GITHUB_STEP_SUMMARY"
-          fi
+    uses: ./.github/workflows/app-build-push.yml
+    with:
+      app_name: level0
+      docker_context: src/PlayersOnLevel0
+      dockerfile: src/PlayersOnLevel0/PlayersOnLevel0.Api/Dockerfile
+      deploy_manifest: clusters/base/apps/level0/deployment.yaml
+      extra_images: '[{"name":"level0-web","context":"src/PlayersOnLevel0/PlayersOnLevel0.SPA.Web","dockerfile":"src/PlayersOnLevel0/PlayersOnLevel0.SPA.Web/Dockerfile"}]'
+    secrets: inherit

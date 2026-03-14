@@ -266,16 +266,18 @@ module appFederatedCreds 'apps/level0/federated-creds.bicep' = [
 ]
 
 // ============================================================================
-// Level0 Front Door Routing
+// App Front Door Routing (generic module — reused per app)
 // ============================================================================
 
-module level0Routing 'apps/level0/routing.bicep' = {
-  name: 'deploy-level0-routing'
+module level0Routing 'app-routing.bicep' = {
+  name: 'deploy-routing-level0'
   scope: globalRg
   dependsOn: [for (stamp, i) in allStamps: stamps[i]]
   params: {
     baseName: baseName
     domainName: domainName
+    appName: 'level0'
+    subdomain: apps[0].subdomain
     stamps: allStamps
     cacheDuration: apps[0].cacheDuration
   }
@@ -315,7 +317,7 @@ output aksClusterNames array = [
 ]
 output playerOnLevel0IdentityClientId string = playerOnLevel0.outputs.identityClientId
 output appInsightsConnectionString string = global.outputs.appInsightsConnectionString
-output level0Hostname string = level0Routing.outputs.level0Hostname
+output level0Hostname string = level0Routing.outputs.hostname
 output level0StampOrigins array = level0Routing.outputs.stampOrigins
 output fluxSshPublicKeys array = [
   for (stamp, i) in allStamps: {
