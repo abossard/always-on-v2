@@ -53,7 +53,7 @@ jobs:
 
       - name: Provision Infrastructure
         id: provision
-        run: azd provision --no-prompt
+        run: azd provision --no-prompt --no-state
 
       - name: Enable Managed Gateway API on AKS clusters
         if: steps.provision.outcome == 'success'
