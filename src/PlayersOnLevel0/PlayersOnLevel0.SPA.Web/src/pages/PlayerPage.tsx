@@ -87,6 +87,7 @@ export function PlayerPage() {
   const { playerId } = useParams<{ playerId: string }>();
   const [state, dispatch] = useReducer(reducer, { status: 'loading' });
   const [sseEvents, setSseEvents] = useState<PlayerEvent[]>([]);
+  const [sseTotal, setSseTotal] = useState(0);
   const [clickCount, setClickCount] = useState(0);
   const [lastError, setLastError] = useState<string | null>(null);
   const renderCount = useRef(0);
@@ -102,6 +103,7 @@ export function PlayerPage() {
   const onEvent = useCallback(
     (event: PlayerEvent) => {
       dispatch({ type: 'event', event });
+      setSseTotal((t) => t + 1);
       setSseEvents((prev) => [...prev.slice(-19), event]);
     },
     [],
@@ -213,7 +215,7 @@ export function PlayerPage() {
           <div><strong>Updated:</strong> {player.updatedAt}</div>
           <div><strong>Renders:</strong> {renderCount.current}</div>
           <div><strong>Clicks sent:</strong> {clickCount}</div>
-          <div><strong>SSE events received:</strong> {sseEvents.length}</div>
+          <div><strong>SSE events received:</strong> {sseTotal}</div>
           {lastError && <div style={{ color: '#ff6b6b' }}><strong>Last error:</strong> {lastError}</div>}
 
           <div style={{ marginTop: '0.75rem' }}>
