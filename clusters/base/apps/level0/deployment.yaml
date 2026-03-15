@@ -19,7 +19,7 @@ metadata:
   name: level0
   namespace: ${LEVEL0_NAMESPACE}
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: level0
@@ -49,7 +49,7 @@ spec:
             - name: APPLICATIONINSIGHTS_CONNECTION_STRING
               value: ${APPLICATIONINSIGHTS_CONNECTION_STRING}
             - name: DISTRIBUTED_TRACING_ENABLED
-              value: "${DISTRIBUTED_TRACING_ENABLED}"
+              value: ${DISTRIBUTED_TRACING_ENABLED}
           resources:
             requests:
               cpu: 100m
