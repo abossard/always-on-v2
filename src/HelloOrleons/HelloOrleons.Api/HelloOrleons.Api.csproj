@@ -4,8 +4,6 @@
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
-    <PublishAot>true</PublishAot>
-    <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,20 +14,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\HelloOrleons.ServiceDefaults\HelloOrleons.ServiceDefaults.csproj" />
-  </ItemGroup>
-
-  <!-- Preserve Orleans and Newtonsoft.Json assemblies that use reflection
-       and are not fully AOT/trim-compatible. Also root the app assembly
-       to keep Orleans source-generated metadata types (e.g.
-       Metadata_OrleansPersistenceMemory) that DI resolves by constructor. -->
-  <ItemGroup>
-    <TrimmerRootAssembly Include="Orleans.Core" />
-    <TrimmerRootAssembly Include="Orleans.Runtime" />
-    <TrimmerRootAssembly Include="Orleans.Serialization" />
-    <TrimmerRootAssembly Include="Orleans.Core.Abstractions" />
-    <TrimmerRootAssembly Include="Orleans.Persistence.Memory" />
-    <TrimmerRootAssembly Include="Newtonsoft.Json" />
-    <TrimmerRootAssembly Include="HelloOrleons.Api" />
   </ItemGroup>
 
 </Project>
