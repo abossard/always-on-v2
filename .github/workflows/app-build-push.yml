@@ -62,11 +62,12 @@ jobs:
         id: acr
         run: |
           set -euo pipefail
+          ENV_NAME="${{ vars.AZURE_ENV_NAME }}"
           DEPLOYMENT_NAME=$(az deployment sub list \
-            --query "[?properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
+            --query "[?starts_with(name, '${ENV_NAME}') && properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
             -o tsv)
           if [ -z "$DEPLOYMENT_NAME" ]; then
-            echo "::error::No successful Azure deployment found. Run 'azd provision' first."
+            echo "::error::No successful Azure deployment found for env '${ENV_NAME}'. Run 'azd provision' first."
             exit 1
           fi
           ACR_LOGIN_SERVER=$(az deployment sub show --name "$DEPLOYMENT_NAME" \
