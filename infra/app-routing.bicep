@@ -25,6 +25,9 @@ param subdomain string
 @description('All stamps: array of { regionKey, stampKey, location }.')
 param stamps array
 
+@description('Health probe path for origin group (e.g. / or /health). Default: /')
+param probePath string = '/'
+
 @description('Front Door cache duration (ISO 8601, e.g. PT5M, PT1H). Empty string disables caching entirely.')
 param cacheDuration string = ''
 
@@ -59,7 +62,7 @@ resource originGroup 'Microsoft.Cdn/profiles/originGroups@2025-04-15' = {
       additionalLatencyInMilliseconds: 50
     }
     healthProbeSettings: {
-      probePath: '/'
+      probePath: probePath
       probeRequestType: 'HEAD'
       probeProtocol: 'Https'
       probeIntervalInSeconds: 30

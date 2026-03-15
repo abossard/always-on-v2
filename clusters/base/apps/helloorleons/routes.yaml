@@ -40,3 +40,10 @@ spec:
       backendRefs:
         - name: helloorleons
           port: 8080
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: helloorleons
+          port: 8080

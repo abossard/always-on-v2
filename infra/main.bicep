@@ -338,6 +338,7 @@ module helloOrleonsRouting 'app-routing.bicep' = {
     subdomain: apps[1].subdomain
     stamps: allStamps
     cacheDuration: apps[1].cacheDuration
+    probePath: '/health'
   }
 }
 

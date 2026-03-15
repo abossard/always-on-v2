@@ -128,6 +128,41 @@ This creates the Entra app registration, federated credentials, and sets all req
 
 After the first `azd provision`, each AKS stamp gets a Flux configuration that syncs from this repo via SSH. Flux auto-generates an SSH key pair per stamp. To grant Flux read access, register the public keys as deploy keys:
 
+### Current GitOps Implementation
+
+The current implementation is:
+
+- `azd provision` / `azd up` deploys each AKS stamp
+- [infra/stamp.bicep](/Users/abossard/Desktop/projects/always_on_v2/infra/stamp.bicep) installs the Azure-managed Flux extension (`microsoft.flux`)
+- The same Bicep file creates a `fluxConfiguration` named `cluster-config`
+- Each cluster pulls and reconciles its own paths from Git:
+   - `clusters/<region>/infra`
+   - `clusters/<region>/apps`
+
+This means GitOps is **distributed per cluster**. There is no Fleet hub in the steady-state critical path for reconciliation.
+
+The file [bootstrap.sh](/Users/abossard/Desktop/projects/always_on_v2/bootstrap.sh) is a **manual fallback only**. It uses `flux bootstrap github`, but it is not part of the normal deployment flow.
+
+### Changing The Git Source
+
+The Git repository used by Flux is configured through the `fluxGitRepoUrl` parameter in [infra/main.bicep](/Users/abossard/Desktop/projects/always_on_v2/infra/main.bicep).
+
+Today the default is an SSH GitHub URL. To point clusters at a different repository:
+
+- change `fluxGitRepoUrl`
+- ensure the target repo contains the expected `clusters/<region>/infra` and `clusters/<region>/apps` layout
+- ensure Flux can authenticate to that repo if it is private
+- redeploy the infrastructure so the `fluxConfiguration` resources are updated on the clusters
+
+This does **not** require Fleet. The current implementation updates each cluster through the IaC that already owns the Flux configuration.
+
+Fleet can still be added later for **mass orchestration** across clusters, but that is a separate concern:
+
+- current implementation: Bicep owns the per-cluster Git source
+- optional future Fleet usage: enforce or coordinate changes across many member clusters at once
+
+So yes, Fleet can help with mass updates, but it is not how this repo currently wires GitOps.
+
 **Automated (recommended):**
 
 1. Create a [fine-grained PAT](https://github.com/settings/personal-access-tokens/new) with:
