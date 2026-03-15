@@ -352,7 +352,14 @@ var level0FluxVars = length(appFluxVars) > 0 && appFluxVars[0].name == 'level0' 
   LEVEL0_COSMOS_CONTAINER: appFluxVars[0].cosmosContainer
 } : {}
 
-var fluxSubstitute = union(sharedFluxVars, level0FluxVars)
+var helloOrleonsFluxVars = length(appFluxVars) > 1 && appFluxVars[1].name == 'helloorleons' ? {
+  HELLOORLEONS_NAMESPACE: appFluxVars[1].namespace
+  HELLOORLEONS_SA_NAME: appFluxVars[1].name
+  HELLOORLEONS_IDENTITY_CLIENT_ID: appFluxVars[1].identityClientId
+  HELLOORLEONS_IDENTITY_ID: appFluxVars[1].identityId
+} : {}
+
+var fluxSubstitute = union(sharedFluxVars, level0FluxVars, helloOrleonsFluxVars)
 
 resource fluxConfig 'Microsoft.KubernetesConfiguration/fluxConfigurations@2024-04-01-preview' = {
   scope: aksCluster

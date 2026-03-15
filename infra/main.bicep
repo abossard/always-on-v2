@@ -51,6 +51,12 @@ param apps array = [
     namespace: 'level0'
     cacheDuration: ''
   }
+  {
+    name: 'helloorleons'
+    subdomain: 'hello'
+    namespace: 'helloorleons'
+    cacheDuration: ''
+  }
 ]
 
 @description('Region configurations with stamps. Each region has a key, location, and stamps array.')
@@ -147,6 +153,20 @@ module playerOnLevel0 'apps/level0/infra.bicep' = {
 }
 
 // ============================================================================
+// Application: HelloOrleons
+// ============================================================================
+
+module helloOrleons 'apps/helloorleons/infra.bicep' = {
+  name: 'deploy-app-helloorleons'
+  scope: globalRg
+  params: {
+    baseName: baseName
+    location: globalLocation
+    appInsightsId: global.outputs.appInsightsId
+  }
+}
+
+// ============================================================================
 // Regional Resources (shared per region)
 // ============================================================================
 
@@ -180,6 +200,12 @@ var appFluxVars = [
     identityId: playerOnLevel0.outputs.identityId
     cosmosDatabase: playerOnLevel0.outputs.databaseName
     cosmosContainer: playerOnLevel0.outputs.containerName
+  }
+  {
+    name: apps[1].name
+    namespace: apps[1].namespace
+    identityClientId: helloOrleons.outputs.identityClientId
+    identityId: helloOrleons.outputs.identityId
   }
 ]
 
@@ -266,6 +292,24 @@ module appFederatedCreds 'apps/level0/federated-creds.bicep' = [
 ]
 
 // ============================================================================
+// App Federated Credentials (HelloOrleons workload identity per stamp)
+// ============================================================================
+
+module helloOrleonsFederatedCreds 'apps/helloorleons/federated-creds.bicep' = [
+  for (stamp, i) in allStamps: {
+    name: 'deploy-helloorleons-fedcred-${stamp.regionKey}-${stamp.stampKey}'
+    scope: globalRg
+    params: {
+      identityName: 'id-helloorleons-${baseName}'
+      stampName: stamps[i].outputs.stampName
+      oidcIssuerUrl: stamps[i].outputs.aksOidcIssuerUrl
+      serviceAccountNamespace: apps[1].namespace
+      serviceAccountName: apps[1].name
+    }
+  }
+]
+
+// ============================================================================
 // App Front Door Routing (generic module — reused per app)
 // ============================================================================
 
@@ -280,6 +324,20 @@ module level0Routing 'app-routing.bicep' = {
     subdomain: apps[0].subdomain
     stamps: allStamps
     cacheDuration: apps[0].cacheDuration
+  }
+}
+
+module helloOrleonsRouting 'app-routing.bicep' = {
+  name: 'deploy-routing-helloorleons'
+  scope: globalRg
+  dependsOn: [for (stamp, i) in allStamps: stamps[i]]
+  params: {
+    baseName: baseName
+    domainName: domainName
+    appName: 'helloorleons'
+    subdomain: apps[1].subdomain
+    stamps: allStamps
+    cacheDuration: apps[1].cacheDuration
   }
 }
 
@@ -319,6 +377,9 @@ output playerOnLevel0IdentityClientId string = playerOnLevel0.outputs.identityCl
 output appInsightsConnectionString string = global.outputs.appInsightsConnectionString
 output level0Hostname string = level0Routing.outputs.hostname
 output level0StampOrigins array = level0Routing.outputs.stampOrigins
+output helloOrleonsHostname string = helloOrleonsRouting.outputs.hostname
+output helloOrleonsStampOrigins array = helloOrleonsRouting.outputs.stampOrigins
+output helloOrleonsIdentityClientId string = helloOrleons.outputs.identityClientId
 output fluxSshPublicKeys array = [
   for (stamp, i) in allStamps: {
     stampName: stamps[i].outputs.stampName

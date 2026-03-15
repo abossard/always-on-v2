@@ -1,0 +1,56 @@
+name: HelloOrleons CI/CD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/HelloOrleons/**'
+      - '.github/workflows/helloorleons-cicd.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/HelloOrleons/**'
+      - '.github/workflows/helloorleons-cicd.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: helloorleons-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  checks: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Install Aspire workload
+        run: dotnet workload install aspire
+      - name: Restore
+        run: dotnet restore
+        working-directory: src/HelloOrleons
+      - name: Build
+        run: dotnet build --no-restore
+        working-directory: src/HelloOrleons
+
+  docker-build-push:
+    name: Build & Push Container Image
+    needs: [build-and-test]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    uses: ./.github/workflows/app-build-push.yml
+    with:
+      app_name: helloorleons
+      docker_context: src/HelloOrleons
+      dockerfile: src/HelloOrleons/HelloOrleons.Api/Dockerfile
+      deploy_manifest: clusters/base/apps/helloorleons/deployment.yaml
+    secrets: inherit

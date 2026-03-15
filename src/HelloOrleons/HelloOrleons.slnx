@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="HelloOrleons.Api/HelloOrleons.Api.csproj" />
+  <Project Path="HelloOrleons.AppHost/HelloOrleons.AppHost.csproj" />
+  <Project Path="HelloOrleons.ServiceDefaults/HelloOrleons.ServiceDefaults.csproj" />
+</Solution>
