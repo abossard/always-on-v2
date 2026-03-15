@@ -18,4 +18,14 @@
     <ProjectReference Include="..\HelloOrleons.ServiceDefaults\HelloOrleons.ServiceDefaults.csproj" />
   </ItemGroup>
 
+  <!-- Preserve Orleans and Newtonsoft.Json assemblies that use reflection
+       and are not fully AOT/trim-compatible. -->
+  <ItemGroup>
+    <TrimmerRootAssembly Include="Orleans.Core" />
+    <TrimmerRootAssembly Include="Orleans.Runtime" />
+    <TrimmerRootAssembly Include="Orleans.Serialization" />
+    <TrimmerRootAssembly Include="Orleans.Core.Abstractions" />
+    <TrimmerRootAssembly Include="Newtonsoft.Json" />
+  </ItemGroup>
+
 </Project>
