@@ -379,7 +379,7 @@ module healthModel 'healthmodel/healthmodel.bicep' = {
   dependsOn: [healthModelRbac]
   params: {
     name: 'hm-${baseName}'
-    location: globalLocation
+    location: 'uksouth' // Microsoft.CloudHealth/healthmodels only available in uksouth, canadacentral
     identityId: global.outputs.healthModelIdentityId
     discoverySubscriptionId: subscription().subscriptionId
     discoverySubscriptionName: subscription().displayName
