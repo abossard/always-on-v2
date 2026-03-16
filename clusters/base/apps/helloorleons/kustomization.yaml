@@ -1,13 +1,15 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
-  - redis.yaml
   - deployment.yaml
   - routes.yaml
   - image-automation.yaml
 components:
   - ../gateway-component
+  - ../orleans-redis-component
+  - ../orleans-infra-component
 patches:
+  # Gateway patches
   - target:
       kind: Gateway
       name: APPNAME-gateway
@@ -24,3 +26,59 @@ patches:
       - op: replace
         path: /spec/listeners/1/tls/certificateRefs/0/name
         value: hello-gateway-tls
+  # Orleans Redis — set namespace
+  - target:
+      kind: Deployment
+      name: redis
+    patch: |
+      - op: replace
+        path: /metadata/namespace
+        value: ${HELLOORLEONS_NAMESPACE}
+  - target:
+      kind: Service
+      name: redis
+    patch: |
+      - op: replace
+        path: /metadata/namespace
+        value: ${HELLOORLEONS_NAMESPACE}
+  # Orleans RBAC — set namespace, SA name, role name
+  - target:
+      kind: Role
+      name: APPNAME-orleans-pod-reader
+    patch: |
+      - op: replace
+        path: /metadata/name
+        value: orleans-pod-reader
+      - op: replace
+        path: /metadata/namespace
+        value: ${HELLOORLEONS_NAMESPACE}
+  - target:
+      kind: RoleBinding
+      name: APPNAME-orleans-binding
+    patch: |
+      - op: replace
+        path: /metadata/name
+        value: orleans-pod-reader-binding
+      - op: replace
+        path: /metadata/namespace
+        value: ${HELLOORLEONS_NAMESPACE}
+      - op: replace
+        path: /subjects/0/name
+        value: ${HELLOORLEONS_SA_NAME}
+      - op: replace
+        path: /subjects/0/namespace
+        value: ${HELLOORLEONS_NAMESPACE}
+  # Orleans headless silo service — set namespace, app selector
+  - target:
+      kind: Service
+      name: APPNAME-silo
+    patch: |
+      - op: replace
+        path: /metadata/name
+        value: helloorleons-silo
+      - op: replace
+        path: /metadata/namespace
+        value: ${HELLOORLEONS_NAMESPACE}
+      - op: replace
+        path: /spec/selector/app
+        value: helloorleons

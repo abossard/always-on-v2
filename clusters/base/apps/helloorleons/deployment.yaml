@@ -13,30 +13,6 @@ metadata:
   labels:
     azure.workload.identity/use: "true"
 ---
-apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
-metadata:
-  name: orleans-pod-reader
-  namespace: ${HELLOORLEONS_NAMESPACE}
-rules:
-  - apiGroups: [""]
-    resources: ["pods"]
-    verbs: ["get", "list", "watch", "patch"]
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
-metadata:
-  name: orleans-pod-reader-binding
-  namespace: ${HELLOORLEONS_NAMESPACE}
-subjects:
-  - kind: ServiceAccount
-    name: ${HELLOORLEONS_SA_NAME}
-    namespace: ${HELLOORLEONS_NAMESPACE}
-roleRef:
-  kind: Role
-  name: orleans-pod-reader
-  apiGroup: rbac.authorization.k8s.io
----
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -108,18 +84,3 @@ spec:
   ports:
     - port: 8080
       targetPort: 8080
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: helloorleons-silo
-  namespace: ${HELLOORLEONS_NAMESPACE}
-spec:
-  clusterIP: None
-  selector:
-    app: helloorleons
-  ports:
-    - name: silo
-      port: 11111
-    - name: gateway
-      port: 30000
