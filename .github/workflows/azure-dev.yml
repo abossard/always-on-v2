@@ -205,3 +205,37 @@ jobs:
       - name: Deploy Application
         run: azd deploy --no-prompt
 
+      - name: Display application endpoints
+        if: steps.provision.outcome == 'success'
+        run: |
+          set -euo pipefail
+          ENV_NAME="${AZURE_ENV_NAME:-alwayson}"
+          DEPLOYMENT_NAME=$(az deployment sub list \
+            --query "[?starts_with(name, '${ENV_NAME}') && properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
+            -o tsv 2>/dev/null || echo "")
+
+          if [ -z "$DEPLOYMENT_NAME" ]; then
+            echo "::warning::No deployment found — skipping endpoint display"
+            exit 0
+          fi
+
+          ENDPOINTS=$(az deployment sub show --name "$DEPLOYMENT_NAME" \
+            --query "properties.outputs.appEndpoints.value" -o json 2>/dev/null || echo "[]")
+
+          if [ "$ENDPOINTS" = "[]" ] || [ "$ENDPOINTS" = "null" ]; then
+            echo "ℹ️ No app endpoints in deployment outputs" >> $GITHUB_STEP_SUMMARY
+            exit 0
+          fi
+
+          echo "## 🌐 Application Endpoints" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| App | Front Door | Gateway Origins |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|-----------|-----------------|" >> $GITHUB_STEP_SUMMARY
+
+          echo "$ENDPOINTS" | jq -c '.[]' | while read -r app; do
+            NAME=$(echo "$app" | jq -r '.name')
+            FD_URL=$(echo "$app" | jq -r '.frontDoorUrl')
+            ORIGINS=$(echo "$app" | jq -r '[.stampOrigins[] | "https://\(.gatewayHostname)"] | join(", ")')
+            echo "| ${NAME} | ${FD_URL} | ${ORIGINS} |" >> $GITHUB_STEP_SUMMARY
+          done
+

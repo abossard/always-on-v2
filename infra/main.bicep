@@ -376,11 +376,22 @@ output aksClusterNames array = [
 ]
 output playerOnLevel0IdentityClientId string = playerOnLevel0.outputs.identityClientId
 output appInsightsConnectionString string = global.outputs.appInsightsConnectionString
-output level0Hostname string = level0Routing.outputs.hostname
-output level0StampOrigins array = level0Routing.outputs.stampOrigins
-output helloOrleonsHostname string = helloOrleonsRouting.outputs.hostname
-output helloOrleonsStampOrigins array = helloOrleonsRouting.outputs.stampOrigins
 output helloOrleonsIdentityClientId string = helloOrleons.outputs.identityClientId
+
+// Generic app endpoints — used by CI/CD to display all URLs
+output appEndpoints array = [
+  {
+    name: apps[0].name
+    frontDoorUrl: 'https://${level0Routing.outputs.hostname}'
+    stampOrigins: level0Routing.outputs.stampOrigins
+  }
+  {
+    name: apps[1].name
+    frontDoorUrl: 'https://${helloOrleonsRouting.outputs.hostname}'
+    stampOrigins: helloOrleonsRouting.outputs.stampOrigins
+  }
+]
+
 output fluxSshPublicKeys array = [
   for (stamp, i) in allStamps: {
     stampName: stamps[i].outputs.stampName
