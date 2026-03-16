@@ -48,6 +48,11 @@ resource loadTestIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023
   location: location
 }
 
+resource healthModelIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: 'id-healthmodel-${baseName}'
+  location: location
+}
+
 // ============================================================================
 // Azure Container Registry
 // ============================================================================
@@ -288,3 +293,6 @@ output dnsZoneName string = dnsZone.name
 output dnsNameServers array = dnsZone.properties.nameServers
 output appInsightsConnectionString string = appInsights.properties.ConnectionString
 output appInsightsId string = appInsights.id
+output healthModelIdentityId string = healthModelIdentity.id
+output healthModelIdentityClientId string = healthModelIdentity.properties.clientId
+output healthModelIdentityPrincipalId string = healthModelIdentity.properties.principalId

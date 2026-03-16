@@ -360,6 +360,35 @@ module devPermissions 'dev-permissions.bicep' = [
 ]
 
 // ============================================================================
+// Health Model — subscription-scope RBAC + global resource group deployment
+// ============================================================================
+
+// Monitoring Reader + Reader at subscription scope — lets the identity read
+// metrics/logs and discover resources across all resource groups.
+module healthModelRbac 'healthmodel/rbac.bicep' = {
+  name: 'deploy-healthmodel-rbac'
+  scope: subscription()
+  params: {
+    principalId: global.outputs.healthModelIdentityPrincipalId
+  }
+}
+
+module healthModel 'healthmodel/healthmodel.bicep' = {
+  name: 'deploy-healthmodel'
+  scope: globalRg
+  dependsOn: [healthModelRbac]
+  params: {
+    name: 'hm-${baseName}'
+    location: globalLocation
+    identityId: global.outputs.healthModelIdentityId
+    discoverySubscriptionId: subscription().subscriptionId
+    discoverySubscriptionName: subscription().displayName
+    addRecommendedSignals: true
+    discoverRelationships: true
+  }
+}
+
+// ============================================================================
 // Outputs
 // ============================================================================
 
