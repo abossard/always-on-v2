@@ -8,6 +8,14 @@ builder.Host.UseOrleans(silo =>
 {
     silo.AddMemoryGrainStorageAsDefault();
 
+    var tracingEnabled = string.Equals(
+        builder.Configuration["DISTRIBUTED_TRACING_ENABLED"], "true",
+        StringComparison.OrdinalIgnoreCase);
+    if (tracingEnabled)
+    {
+        silo.AddActivityPropagation();
+    }
+
     var clustering = builder.Configuration["ORLEANS_CLUSTERING"];
     if (clustering == "Redis")
     {
