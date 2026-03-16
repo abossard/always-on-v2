@@ -35,6 +35,10 @@ param fluxGitRepoUrl string = 'ssh://git@github.com/abossard/always-on-v2'
 @description('Enable OpenTelemetry distributed tracing for application workloads.')
 param defaultTracing bool = true
 
+@description('Location for the health model resource. Limited to regions where Microsoft.CloudHealth/healthmodels is available.')
+@allowed(['uksouth', 'canadacentral'])
+param healthModelLocation string = 'uksouth'
+
 @description('Enable dev permissions: grants admin access to all data planes for the listed identities.')
 param enableDevPermissions bool = true
 
@@ -376,10 +380,9 @@ module healthModelRbac 'healthmodel/rbac.bicep' = {
 module healthModel 'healthmodel/healthmodel.bicep' = {
   name: 'deploy-healthmodel'
   scope: globalRg
-  dependsOn: [healthModelRbac]
   params: {
     name: 'hm-${baseName}'
-    location: 'uksouth' // Microsoft.CloudHealth/healthmodels only available in uksouth, canadacentral
+    location: healthModelLocation
     identityId: global.outputs.healthModelIdentityId
     discoverySubscriptionId: subscription().subscriptionId
     discoverySubscriptionName: subscription().displayName

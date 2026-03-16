@@ -294,5 +294,4 @@ output dnsNameServers array = dnsZone.properties.nameServers
 output appInsightsConnectionString string = appInsights.properties.ConnectionString
 output appInsightsId string = appInsights.id
 output healthModelIdentityId string = healthModelIdentity.id
-output healthModelIdentityClientId string = healthModelIdentity.properties.clientId
 output healthModelIdentityPrincipalId string = healthModelIdentity.properties.principalId

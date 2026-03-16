@@ -31,6 +31,7 @@ param discoverRelationships bool = true
 
 var identityName = last(split(identityId, '/'))
 var enableDiscovery = !empty(discoverySubscriptionId)
+var discoveryRuleGuid = guid(discoverySubscriptionId)
 
 // ─── Health Model ───────────────────────────────────────────────
 
@@ -61,7 +62,7 @@ resource authsetting 'Microsoft.CloudHealth/healthmodels/authenticationsettings@
 // ─── Discovery Rule (subscription scope) ────────────────────────
 
 resource discoveryRule 'Microsoft.CloudHealth/healthmodels/discoveryrules@2025-05-01-preview' = if (enableDiscovery) {
-  name: guid(discoverySubscriptionId)
+  name: discoveryRuleGuid
   parent: healthmodel
   properties: {
     displayName: !empty(discoverySubscriptionName) ? discoverySubscriptionName : discoverySubscriptionId
@@ -75,12 +76,11 @@ resource discoveryRule 'Microsoft.CloudHealth/healthmodels/discoveryrules@2025-0
 // ─── Root ↔ Discovery Rule Relationship ─────────────────────────
 
 resource rootDiscoveryRelationship 'Microsoft.CloudHealth/healthmodels/relationships@2025-05-01-preview' = if (enableDiscovery) {
-  name: guid('root-${guid(discoverySubscriptionId)}-relationship')
+  name: guid('root-${discoveryRuleGuid}-relationship')
   parent: healthmodel
-  dependsOn: [discoveryRule]
   properties: {
     parentEntityName: name
-    childEntityName: 'discoveryrule-${guid(discoverySubscriptionId)}'
+    childEntityName: discoveryRule.name
   }
 }
 
