@@ -76,7 +76,7 @@ resource discoveryRule 'Microsoft.CloudHealth/healthmodels/discoveryrules@2025-0
 // ─── Root ↔ Discovery Rule Relationship ─────────────────────────
 
 resource rootDiscoveryRelationship 'Microsoft.CloudHealth/healthmodels/relationships@2025-05-01-preview' = if (enableDiscovery) {
-  name: guid('root-${discoveryRuleGuid}-relationship')
+  name: guid('root-${discoveryRuleGuid}-discovery-relationship')
   parent: healthmodel
   properties: {
     parentEntityName: name
