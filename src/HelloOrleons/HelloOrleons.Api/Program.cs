@@ -6,8 +6,18 @@ builder.AddServiceDefaults();
 
 builder.Host.UseOrleans(silo =>
 {
-    silo.UseLocalhostClustering();
     silo.AddMemoryGrainStorageAsDefault();
+
+    var clustering = builder.Configuration["ORLEANS_CLUSTERING"];
+    if (clustering == "Redis")
+    {
+        silo.UseKubernetesHosting();
+        silo.UseRedisClustering(builder.Configuration["Redis__ConnectionString"] ?? "redis:6379");
+    }
+    else
+    {
+        silo.UseLocalhostClustering();
+    }
 });
 
 var app = builder.Build();
