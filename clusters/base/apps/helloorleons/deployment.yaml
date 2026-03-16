@@ -58,7 +58,7 @@ spec:
       serviceAccountName: ${HELLOORLEONS_SA_NAME}
       containers:
         - name: helloorleons
-          image: ${ACR_LOGIN_SERVER}/helloorleons:1773609971-71b41dfe
+          image: ${ACR_LOGIN_SERVER}/helloorleons:1773648618-d4afd05f
           ports:
             - containerPort: 8080
               name: http
