@@ -63,11 +63,10 @@ resource authsetting 'Microsoft.CloudHealth/healthmodels/authenticationsettings@
 resource discoveryRule 'Microsoft.CloudHealth/healthmodels/discoveryrules@2025-05-01-preview' = if (enableDiscovery) {
   name: guid(discoverySubscriptionId)
   parent: healthmodel
-  dependsOn: [authsetting]
   properties: {
     displayName: !empty(discoverySubscriptionName) ? discoverySubscriptionName : discoverySubscriptionId
     addRecommendedSignals: addRecommendedSignals ? 'Enabled' : 'Disabled'
-    authenticationSetting: guid(identityName)
+    authenticationSetting: authsetting.name
     discoverRelationships: discoverRelationships ? 'Enabled' : 'Disabled'
     resourceGraphQuery: 'resources\n| where subscriptionId =~ "${discoverySubscriptionId}"'
   }
