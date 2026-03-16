@@ -5,7 +5,7 @@ metadata:
   namespace: ${HELLOORLEONS_NAMESPACE}
 spec:
   parentRefs:
-    - name: app-gateway
+    - name: hello-gateway
       namespace: aks-istio-ingress
       sectionName: http
   rules:
@@ -22,7 +22,7 @@ metadata:
   namespace: ${HELLOORLEONS_NAMESPACE}
 spec:
   parentRefs:
-    - name: app-gateway
+    - name: hello-gateway
       namespace: aks-istio-ingress
       sectionName: https
   rules:

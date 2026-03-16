@@ -5,7 +5,7 @@ metadata:
   namespace: ${LEVEL0_NAMESPACE}
 spec:
   parentRefs:
-    - name: app-gateway
+    - name: level0-gateway
       namespace: aks-istio-ingress
       sectionName: http
   rules:
@@ -22,7 +22,7 @@ metadata:
   namespace: ${LEVEL0_NAMESPACE}
 spec:
   parentRefs:
-    - name: app-gateway
+    - name: level0-gateway
       namespace: aks-istio-ingress
       sectionName: https
   rules:
@@ -48,7 +48,7 @@ metadata:
   namespace: ${LEVEL0_NAMESPACE}
 spec:
   parentRefs:
-    - name: app-gateway
+    - name: level0-gateway
       namespace: aks-istio-ingress
       sectionName: https
   rules:

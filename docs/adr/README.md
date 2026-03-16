@@ -53,6 +53,8 @@ This directory contains all Architecture Decision Records (ADRs) for the AlwaysO
 | 0044 | Native AOT for PlayersOnLevel0 API | Accepted |
 | 0045 | Flux Variable Substitution Conventions | Accepted |
 | 0046 | CI-Driven Image Tag Updates | Accepted |
+| 0047 | PlayersOnOrleans — Minimal Orleans Alternative | Accepted |
+| 0048 | Per-App Istio Gateways for Traffic Isolation | Accepted |
 
 ## Format
 

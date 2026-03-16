@@ -2,12 +2,11 @@
 // Generic App Front Door Routing
 // Wires {subdomain}.{domainName} → Front Door → one origin per AKS stamp.
 //
-// Origin hostnames use a deterministic DNS label per stamp:
-//   app-swedencentral-001.swedencentral.cloudapp.azure.com
+// Origin hostnames use a per-app DNS label per stamp (see ADR-0048):
+//   {appName}-swedencentral-001.swedencentral.cloudapp.azure.com
 //
-// The DNS label is set on the Istio ingress gateway LoadBalancer service
-// at deploy time via the annotation:
-//   service.beta.kubernetes.io/azure-dns-label-name: app-{regionKey}-{stampKey}
+// Each app deploys its own Istio Gateway with a unique DNS label set via:
+//   service.beta.kubernetes.io/azure-dns-label-name: {appName}-{regionKey}-{stampKey}
 // ============================================================================
 
 @description('Base name for all resources.')
@@ -71,18 +70,21 @@ resource originGroup 'Microsoft.Cdn/profiles/originGroups@2025-04-15' = {
 }
 
 // One origin per stamp.
-// Gateway hostname mirrors the GATEWAY_HOSTNAME Flux variable in stamp.bicep:
-//   'app-${stampName}.${dnsZoneName}' where stampName = regionKey-stampKey
-//   and dnsZoneName = regionKey.domainName
+// Gateway hostname uses the app-specific DNS label per stamp:
+//   '{appName}-{stampName}.{regionKey}.{domainName}'
+//
+// The DNS label is set on each app's Istio Gateway LoadBalancer service
+// at deploy time via the annotation:
+//   service.beta.kubernetes.io/azure-dns-label-name: {appName}-{regionKey}-{stampKey}
 resource origins 'Microsoft.Cdn/profiles/originGroups/origins@2025-04-15' = [
   for stamp in stamps: {
     parent: originGroup
     name: 'origin-${stamp.regionKey}-${stamp.stampKey}'
     properties: {
-      hostName: 'app-${stamp.regionKey}-${stamp.stampKey}.${stamp.regionKey}.${domainName}'
+      hostName: '${appName}-${stamp.regionKey}-${stamp.stampKey}.${stamp.regionKey}.${domainName}'
       httpPort: 80
       httpsPort: 443
-      originHostHeader: 'app-${stamp.regionKey}-${stamp.stampKey}.${stamp.regionKey}.${domainName}'
+      originHostHeader: '${appName}-${stamp.regionKey}-${stamp.stampKey}.${stamp.regionKey}.${domainName}'
       priority: 1
       weight: 1000
       enabledState: 'Enabled'
@@ -164,11 +166,11 @@ resource route 'Microsoft.Cdn/profiles/afdEndpoints/routes@2025-04-15' = {
 // Outputs
 // ============================================================================
 
-// The DNS label to set on the Istio ingress gateway LoadBalancer service per stamp:
+// The DNS label set on each app's Istio Gateway LoadBalancer service per stamp:
 //   service.beta.kubernetes.io/azure-dns-label-name: <value>
 output stampOrigins array = [for (stamp, i) in stamps: {
   stampName: '${stamp.regionKey}-${stamp.stampKey}'
-  gatewayHostname: 'app-${stamp.regionKey}-${stamp.stampKey}.${stamp.regionKey}.${domainName}'
+  gatewayHostname: '${appName}-${stamp.regionKey}-${stamp.stampKey}.${stamp.regionKey}.${domainName}'
 }]
 
 output hostname string = '${subdomain}.${domainName}'
