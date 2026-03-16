@@ -1,6 +1,21 @@
+using Orleans.Runtime;
+
 namespace HelloOrleons.Api;
 
-public sealed class HelloGrain : Grain, IHelloGrain
+[GenerateSerializer]
+public sealed class HelloGrainState
 {
-    public Task<string> SayHello() => Task.FromResult("World");
+    [Id(0)]
+    public int Count { get; set; }
+}
+
+public sealed class HelloGrain(
+    [PersistentState("hello")] IPersistentState<HelloGrainState> state) : Grain, IHelloGrain
+{
+    public async Task<string> SayHello()
+    {
+        state.State.Count++;
+        await state.WriteStateAsync();
+        return $"{this.GetPrimaryKeyString()} ({state.State.Count}x times)";
+    }
 }
