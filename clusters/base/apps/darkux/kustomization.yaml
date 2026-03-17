@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - deployment.yaml
+  - routes.yaml
+  - image-automation.yaml
+components:
+  - ../gateway-component
+patches:
+  - target:
+      kind: Gateway
+      name: APPNAME-gateway
+    patch: |
+      - op: replace
+        path: /metadata/name
+        value: darkux-gateway
+      - op: replace
+        path: /metadata/annotations/service.beta.kubernetes.io~1azure-dns-label-name
+        value: ${DARKUX_DNS_LABEL}
+      - op: replace
+        path: /spec/listeners/1/hostname
+        value: ${DARKUX_GATEWAY_HOSTNAME}
+      - op: replace
+        path: /spec/listeners/1/tls/certificateRefs/0/name
+        value: darkux-gateway-tls

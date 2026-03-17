@@ -16,6 +16,14 @@ build:
       context: src/PlayersOnLevel0/PlayersOnLevel0.SPA.Web
       docker:
         dockerfile: Dockerfile
+    - image: darkux
+      context: src/DarkUxChallenge
+      docker:
+        dockerfile: DarkUxChallenge.Api/Dockerfile
+    - image: darkux-web
+      context: src/DarkUxChallenge/DarkUxChallenge.SPA.Web
+      docker:
+        dockerfile: Dockerfile
 
 deploy:
   kustomize:

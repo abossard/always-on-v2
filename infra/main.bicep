@@ -61,6 +61,12 @@ param apps array = [
     namespace: 'helloorleons'
     cacheDuration: ''
   }
+  {
+    name: 'darkux'
+    subdomain: 'darkux'
+    namespace: 'darkux'
+    cacheDuration: ''
+  }
 ]
 
 @description('Region configurations with stamps. Each region has a key, location, and stamps array.')
@@ -166,6 +172,21 @@ module playerOnLevel0 'apps/level0/infra.bicep' = {
 }
 
 // ============================================================================
+// Application: DarkUxChallenge
+// ============================================================================
+
+module darkUxChallenge 'apps/darkux/infra.bicep' = {
+  name: 'deploy-app-darkuxchallenge'
+  scope: globalRg
+  params: {
+    baseName: baseName
+    location: globalLocation
+    cosmosAccountName: global.outputs.cosmosName
+    appInsightsId: global.outputs.appInsightsId
+  }
+}
+
+// ============================================================================
 // Application: HelloOrleons
 // ============================================================================
 
@@ -219,6 +240,14 @@ var appFluxVars = [
     namespace: apps[1].namespace
     identityClientId: helloOrleons.outputs.identityClientId
     identityId: helloOrleons.outputs.identityId
+  }
+  {
+    name: apps[2].name
+    namespace: apps[2].namespace
+    identityClientId: darkUxChallenge.outputs.identityClientId
+    identityId: darkUxChallenge.outputs.identityId
+    cosmosDatabase: darkUxChallenge.outputs.databaseName
+    cosmosContainer: darkUxChallenge.outputs.containerName
   }
 ]
 
@@ -305,6 +334,24 @@ module appFederatedCreds 'apps/level0/federated-creds.bicep' = [
 ]
 
 // ============================================================================
+// App Federated Credentials (DarkUxChallenge workload identity per stamp)
+// ============================================================================
+
+module darkUxFederatedCreds 'apps/darkux/federated-creds.bicep' = [
+  for (stamp, i) in allStamps: {
+    name: 'deploy-darkux-fedcred-${stamp.regionKey}-${stamp.stampKey}'
+    scope: globalRg
+    params: {
+      identityName: 'id-darkuxchallenge-${baseName}'
+      stampName: stamps[i].outputs.stampName
+      oidcIssuerUrl: stamps[i].outputs.aksOidcIssuerUrl
+      serviceAccountNamespace: apps[2].namespace
+      serviceAccountName: apps[2].name
+    }
+  }
+]
+
+// ============================================================================
 // App Federated Credentials (HelloOrleons workload identity per stamp)
 // ============================================================================
 
@@ -352,6 +399,20 @@ module helloOrleonsRouting 'app-routing.bicep' = {
     stamps: allStamps
     cacheDuration: apps[1].cacheDuration
     probePath: '/health'
+  }
+}
+
+module darkUxRouting 'app-routing.bicep' = {
+  name: 'deploy-routing-darkux'
+  scope: globalRg
+  dependsOn: [for (stamp, i) in allStamps: stamps[i]]
+  params: {
+    baseName: baseName
+    domainName: domainName
+    appName: 'darkux'
+    subdomain: apps[2].subdomain
+    stamps: allStamps
+    cacheDuration: apps[2].cacheDuration
   }
 }
 
@@ -419,6 +480,7 @@ output aksClusterNames array = [
 output playerOnLevel0IdentityClientId string = playerOnLevel0.outputs.identityClientId
 output appInsightsConnectionString string = global.outputs.appInsightsConnectionString
 output helloOrleonsIdentityClientId string = helloOrleons.outputs.identityClientId
+output darkUxChallengeIdentityClientId string = darkUxChallenge.outputs.identityClientId
 
 // Generic app endpoints — used by CI/CD to display all URLs
 output appEndpoints array = [
@@ -431,6 +493,11 @@ output appEndpoints array = [
     name: apps[1].name
     frontDoorUrl: 'https://${helloOrleonsRouting.outputs.hostname}'
     stampOrigins: helloOrleonsRouting.outputs.stampOrigins
+  }
+  {
+    name: apps[2].name
+    frontDoorUrl: 'https://${darkUxRouting.outputs.hostname}'
+    stampOrigins: darkUxRouting.outputs.stampOrigins
   }
 ]
 

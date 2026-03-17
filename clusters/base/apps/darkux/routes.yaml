@@ -1,0 +1,61 @@
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: darkux-http-redirect
+  namespace: ${DARKUX_NAMESPACE}
+spec:
+  parentRefs:
+    - name: darkux-gateway
+      namespace: aks-istio-ingress
+      sectionName: http
+  rules:
+    - filters:
+        - type: RequestRedirect
+          requestRedirect:
+            scheme: https
+            statusCode: 301
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: darkux-api-route
+  namespace: ${DARKUX_NAMESPACE}
+spec:
+  parentRefs:
+    - name: darkux-gateway
+      namespace: aks-istio-ingress
+      sectionName: https
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /api
+      backendRefs:
+        - name: darkux
+          port: 8080
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /health
+      backendRefs:
+        - name: darkux
+          port: 8080
+---
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: darkux-web-route
+  namespace: ${DARKUX_NAMESPACE}
+spec:
+  parentRefs:
+    - name: darkux-gateway
+      namespace: aks-istio-ingress
+      sectionName: https
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: /
+      backendRefs:
+        - name: darkux-web
+          port: 8080

@@ -4,3 +4,4 @@ resources:
   - cluster-issuer.yaml
   - ./level0/
   - ./helloorleons/
+  - ./darkux/

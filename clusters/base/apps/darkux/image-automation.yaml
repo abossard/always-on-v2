@@ -1,0 +1,49 @@
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: darkux
+  namespace: flux-system
+spec:
+  image: ${ACR_LOGIN_SERVER}/darkux
+  interval: 1m
+  provider: azure
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: darkux-web
+  namespace: flux-system
+spec:
+  image: ${ACR_LOGIN_SERVER}/darkux-web
+  interval: 1m
+  provider: azure
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: darkux
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: darkux
+  filterTags:
+    pattern: '^(?P<ts>[0-9]+)-[a-f0-9]{8}$'
+    extract: '$ts'
+  policy:
+    numerical:
+      order: asc
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: darkux-web
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: darkux-web
+  filterTags:
+    pattern: '^(?P<ts>[0-9]+)-[a-f0-9]{8}$'
+    extract: '$ts'
+  policy:
+    numerical:
+      order: asc
