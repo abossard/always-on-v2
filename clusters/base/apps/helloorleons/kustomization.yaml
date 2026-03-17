@@ -4,6 +4,7 @@ resources:
   - deployment.yaml
   - routes.yaml
   - image-automation.yaml
+  - vpa.yaml
 components:
   - ../gateway-component
   - ../orleans-redis-component
