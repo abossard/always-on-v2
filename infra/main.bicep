@@ -89,9 +89,12 @@ param regions array = [
 //   • All stamps get budget defaults unless overridden.
 //   • A region can lift all its stamps to production via stampDefaults.
 //   • Individual stamps can still override any single property.
+//
+// System node pool: runs only CriticalAddonsOnly (Istio, Flux, kube-system).
+// Worker nodes: provisioned by Karpenter (NAP mode=Auto) using spot instances.
 // ─────────────────────────────────────────────────────────────────────────────
 var defaultStampConfig = {
-  aksNodeVmSize: 'Standard_B2ms'       // budget: 2 vCPU / 8 GB
+  aksNodeVmSize: 'Standard_D2s_v5'     // system pool: 2 vCPU / 8 GB (D v5 series)
   aksSystemNodeCount: 1
   aksAvailabilityZones: []             // no AZ — requires Free tier
   aksTier: 'Free'

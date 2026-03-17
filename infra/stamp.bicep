@@ -64,11 +64,10 @@ param defaultTracing bool = true
 var stampName = '${regionKey}-${stampKey}'
 
 // ── Node pool profiles ────────────────────────────────────────────────────────
-// Budget  (default): Single Standard_B2ms, no AZ, Free tier
-// Production        : 3× Standard_D4s_v5, AZ 1-2-3, Standard tier
-// Set aksProfile = 'production' in the stamp config to switch.
+// System pool: D v5 series for Istio, Flux, kube-system (CriticalAddonsOnly taint)
+// Worker nodes: Karpenter (NAP mode=Auto) provisions spot instances on demand
 // ─────────────────────────────────────────────────────────────────────────────
-var aksVmSize            = stampConfig.?aksNodeVmSize         ?? 'Standard_B4ms'
+var aksVmSize            = stampConfig.?aksNodeVmSize         ?? 'Standard_D2s_v5'
 var aksSystemNodeCount   = stampConfig.?aksSystemNodeCount    ?? 1
 var aksAvailabilityZones = stampConfig.?aksAvailabilityZones  ?? []
 var aksTier              = stampConfig.?aksTier               ?? 'Free'
