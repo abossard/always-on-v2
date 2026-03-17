@@ -439,8 +439,10 @@ module devPermissions 'dev-permissions.bicep' = [
 
 // Monitoring Reader + Reader at subscription scope — lets the identity read
 // metrics/logs and discover resources across all resource groups.
+// Pinned to globalLocation to avoid ARM InvalidDeploymentLocation errors
+// when re-deploying (ARM caches subscription deployments by name+location).
 module healthModelRbac 'healthmodel/rbac.bicep' = {
-  name: 'healthmodel-rbac'
+  name: 'HEALTHMODEL-RBAC-${globalLocation}'
   scope: subscription()
   params: {
     principalId: global.outputs.healthModelIdentityPrincipalId
