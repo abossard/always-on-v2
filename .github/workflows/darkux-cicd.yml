@@ -48,13 +48,12 @@ jobs:
           script: |
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env['ACTIONS_RUNTIME_TOKEN']);
             core.exportVariable('ACTIONS_RESULTS_URL', process.env['ACTIONS_RESULTS_URL']);
-      - name: Run tests with coverage (skip Cosmos)
+      - name: Run tests with coverage
         run: >
           dotnet run --project DarkUxChallenge.Tests --no-build --
           --report-trx --report-trx-filename results.trx
           --coverage --coverage-output-format cobertura
           --coverage-output ${{ github.workspace }}/coverage.cobertura.xml
-          --filter "Category!~cosmos"
         working-directory: src/DarkUxChallenge
       - name: Publish test results
         if: always()
@@ -64,6 +63,7 @@ jobs:
           check_name: DarkUX Test Results
       - name: Publish coverage summary
         if: always()
+        continue-on-error: true
         uses: irongut/CodeCoverageSummary@v1.3.0
         with:
           filename: coverage.cobertura.xml
@@ -72,6 +72,7 @@ jobs:
           output: both
       - name: Add coverage to summary
         if: always()
+        continue-on-error: true
         run: cat code-coverage-results.md >> $GITHUB_STEP_SUMMARY
       - name: Upload artifacts
         if: always()
@@ -114,7 +115,7 @@ jobs:
         run: dotnet run --project DarkUxChallenge.AppHost --no-build &
         working-directory: src/DarkUxChallenge
       - name: Wait for API to be healthy
-        run: npx wait-on http://localhost:5036/health --timeout 120000
+        run: npx wait-on http://localhost:5199/health --timeout 120000
       - name: Find SPA port and wait for ready
         run: |
           for i in $(seq 1 60); do
@@ -137,7 +138,7 @@ jobs:
         if: always()
         uses: daun/playwright-report-summary@v3
         with:
-          report-file: src/DarkUxChallenge/DarkUxChallenge.E2E/results.json
+          report-file: src/DarkUxChallenge/DarkUxChallenge.E2E/test-results/results.json
           job-summary: true
       - name: Upload Playwright report
         if: always()
