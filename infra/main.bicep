@@ -74,7 +74,7 @@ param regions array = [
   {
     key: 'swedencentral'
     location: 'swedencentral'
-    stamps: [ { key: '002' } ]
+    stamps: [ { key: '001' }, { key: '002' } ]
   }
   {
     key: 'germanywestcentral'
