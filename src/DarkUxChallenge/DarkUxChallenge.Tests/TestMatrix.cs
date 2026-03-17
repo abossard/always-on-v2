@@ -62,6 +62,21 @@ public class InMemoryLevel9Tests(InMemoryFixture f)
 public class InMemoryLevel10Tests(InMemoryFixture f)
     : Level10EmotionalManipulationTests(f.Client);
 
+[InheritsTests]
+[ClassDataSource<InMemoryFixture>(Shared = SharedType.PerTestSession)]
+public class InMemoryLevel11Tests(InMemoryFixture f)
+    : Level11SpeedTrapTests(f.Client);
+
+[InheritsTests]
+[ClassDataSource<InMemoryFixture>(Shared = SharedType.PerTestSession)]
+public class InMemoryLevel12Tests(InMemoryFixture f)
+    : Level12FlashRecallTests(f.Client);
+
+[InheritsTests]
+[ClassDataSource<InMemoryFixture>(Shared = SharedType.PerTestSession)]
+public class InMemoryLevel13Tests(InMemoryFixture f)
+    : Level13NeedleHaystackTests(f.Client);
+
 // ──────────────────────────────────────────────
 // Cosmos DB via Aspire (emulator)
 // ──────────────────────────────────────────────
@@ -131,3 +146,21 @@ public class CosmosLevel9Tests(AspireFixture f)
 [ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
 public class CosmosLevel10Tests(AspireFixture f)
     : Level10EmotionalManipulationTests(f.Client);
+
+[InheritsTests]
+[Category("cosmos")]
+[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
+public class CosmosLevel11Tests(AspireFixture f)
+    : Level11SpeedTrapTests(f.Client);
+
+[InheritsTests]
+[Category("cosmos")]
+[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
+public class CosmosLevel12Tests(AspireFixture f)
+    : Level12FlashRecallTests(f.Client);
+
+[InheritsTests]
+[Category("cosmos")]
+[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
+public class CosmosLevel13Tests(AspireFixture f)
+    : Level13NeedleHaystackTests(f.Client);

@@ -125,6 +125,46 @@ public sealed record LevelCompletion(
     bool SolvedByAutomation,
     DateTimeOffset CompletedAt);
 
+public sealed record SpeedTrapSession
+{
+    public required string ChallengeId { get; init; }
+    public required string Prompt { get; init; }
+    public required string ExpectedAnswer { get; init; }
+    public required string AutomationHint { get; init; }
+    public required IReadOnlyList<string> NoiseTokens { get; init; }
+    public required DateTimeOffset IssuedAt { get; init; }
+    public required DateTimeOffset DeadlineAt { get; init; }
+
+    public int TimeLimitMs => Math.Max(0, (int)(DeadlineAt - IssuedAt).TotalMilliseconds);
+}
+
+public sealed record FlashRecallSession
+{
+    public required string ChallengeId { get; init; }
+    public required string Prompt { get; init; }
+    public required string ExpectedAnswer { get; init; }
+    public required string AutomationHint { get; init; }
+    public required IReadOnlyList<string> NoiseWords { get; init; }
+    public required DateTimeOffset IssuedAt { get; init; }
+    public required DateTimeOffset RevealUntil { get; init; }
+    public required DateTimeOffset DeadlineAt { get; init; }
+
+    public int TimeLimitMs => Math.Max(0, (int)(DeadlineAt - IssuedAt).TotalMilliseconds);
+    public int RevealMs => Math.Max(0, (int)(RevealUntil - IssuedAt).TotalMilliseconds);
+}
+
+public sealed record NeedleClause(string Id, string Title, string Body);
+
+public sealed record NeedleHaystackSession
+{
+    public required string ChallengeId { get; init; }
+    public required string Prompt { get; init; }
+    public required string CorrectClauseId { get; init; }
+    public required string AutomationHint { get; init; }
+    public required IReadOnlyList<NeedleClause> Clauses { get; init; }
+    public required DateTimeOffset IssuedAt { get; init; }
+}
+
 // ──────────────────────────────────────────────
 // Cancellation flow state — for Roach Motel (Level 2)
 // ──────────────────────────────────────────────
@@ -177,6 +217,9 @@ public sealed record DarkUxUser
     public UserSettings Settings { get; init; } = UserSettings.Defaults;
     public CancellationFlow CancellationFlow { get; init; } = CancellationFlow.NotStarted;
     public NagState NagState { get; init; } = NagState.Initial;
+    public SpeedTrapSession? ActiveSpeedTrap { get; init; }
+    public FlashRecallSession? ActiveFlashRecall { get; init; }
+    public NeedleHaystackSession? ActiveNeedleHaystack { get; init; }
     public IReadOnlyList<LevelCompletion> Completions { get; init; } = [];
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; init; } = DateTimeOffset.UtcNow;
@@ -602,6 +645,272 @@ public sealed record UrgencyVerifyResponse(bool TimerIsGenuine, bool StockIsGenu
 public sealed record UrgencyPurchaseRequest { public required bool Purchased { get; init; } }
 
 // ──────────────────────────────────────────────
+// Speed Trap — Level 11 types
+// ──────────────────────────────────────────────
+
+public sealed record SpeedTrapChallengeResponse(
+    string ChallengeId,
+    string Prompt,
+    DateTimeOffset DeadlineAt,
+    int TimeLimitMs,
+    int AnswerLength,
+    IReadOnlyList<string> NoiseTokens,
+    string AutomationHint,
+    string Instruction)
+{
+    public static SpeedTrapChallengeResponse From(SpeedTrapSession s) => new(
+        s.ChallengeId,
+        s.Prompt,
+        s.DeadlineAt,
+        s.TimeLimitMs,
+        s.ExpectedAnswer.Length,
+        s.NoiseTokens,
+        s.AutomationHint,
+        "Answer before the timer hits zero. Automation can read the machine hint hidden in the DOM.");
+}
+
+public sealed record SpeedTrapSubmission
+{
+    public required string ChallengeId { get; init; }
+    public required string Answer { get; init; }
+}
+
+public sealed record SpeedTrapResult(
+    bool Accepted,
+    bool DeadlineMissed,
+    bool AnswerCorrect,
+    int ElapsedMs,
+    int TimeLimitMs,
+    string ExpectedAnswer,
+    string Explanation,
+    string? SolvedBy);
+
+public static class SpeedTrapGenerator
+{
+    static readonly string[] NoiseVocabulary =
+    [
+        "UPSELL", "IGNORE", "LAST CALL", "CONSENT", "BOOST", "NOW", "LIMITED", "PREMIUM", "FLASH", "HURRY"
+    ];
+
+    public static SpeedTrapSession Generate(UserId userId, DateTimeOffset now)
+    {
+        var variant = Random.Shared.Next(4);
+        return variant switch
+        {
+            0 => CreateMathTrap(now),
+            1 => CreateAnimalTrap(now),
+            2 => CreateCodeTrap(now),
+            _ => CreateColorTrap(now)
+        } with
+        {
+            ChallengeId = $"speed-{userId.Value:N}-{Guid.NewGuid():N}"[..30]
+        };
+    }
+
+    static SpeedTrapSession CreateMathTrap(DateTimeOffset now)
+    {
+        var left = Random.Shared.Next(18, 67);
+        var right = Random.Shared.Next(11, 38);
+        return CreateSession(
+            $"What is {left} + {right}? Type digits only.",
+            (left + right).ToString(),
+            now);
+    }
+
+    static SpeedTrapSession CreateAnimalTrap(DateTimeOffset now)
+    {
+        var animals = new[] { "RAVEN", "OTTER", "PANDA", "LYNX", "FOX" };
+        var animal = animals[Random.Shared.Next(animals.Length)];
+        var prefix = Random.Shared.Next(100, 999);
+        var suffix = Random.Shared.Next(100, 999);
+        return CreateSession(
+            $"Type only the animal from this string: {prefix}-{animal}-{suffix}",
+            animal,
+            now);
+    }
+
+    static SpeedTrapSession CreateCodeTrap(DateTimeOffset now)
+    {
+        var code = Random.Shared.Next(1000, 9999).ToString();
+        return CreateSession(
+            $"Enter the 4-digit code hidden in this phrase: CORAL/{code}/GLASS",
+            code,
+            now);
+    }
+
+    static SpeedTrapSession CreateColorTrap(DateTimeOffset now)
+    {
+        var colors = new[] { "AMBER", "TEAL", "SCARLET", "INDIGO" };
+        var color = colors[Random.Shared.Next(colors.Length)];
+        return CreateSession(
+            $"Type the color name only: SIGNAL<{color}>BLINK",
+            color,
+            now);
+    }
+
+    static SpeedTrapSession CreateSession(string prompt, string expectedAnswer, DateTimeOffset now)
+    {
+        var noise = NoiseVocabulary
+            .OrderBy(_ => Random.Shared.Next())
+            .Take(6)
+            .Concat([expectedAnswer.Length.ToString()])
+            .ToArray();
+
+        return new SpeedTrapSession
+        {
+            ChallengeId = "pending",
+            Prompt = prompt,
+            ExpectedAnswer = expectedAnswer,
+            AutomationHint = expectedAnswer,
+            NoiseTokens = noise,
+            IssuedAt = now,
+            DeadlineAt = now.AddMilliseconds(2600)
+        };
+    }
+}
+
+// ──────────────────────────────────────────────
+// Flash Recall — Level 12 types
+// ──────────────────────────────────────────────
+
+public sealed record FlashRecallChallengeResponse(
+    string ChallengeId,
+    string Prompt,
+    DateTimeOffset RevealUntil,
+    DateTimeOffset DeadlineAt,
+    int RevealMs,
+    int TimeLimitMs,
+    IReadOnlyList<string> NoiseWords,
+    string AutomationHint,
+    string Instruction)
+{
+    public static FlashRecallChallengeResponse From(FlashRecallSession s) => new(
+        s.ChallengeId,
+        s.Prompt,
+        s.RevealUntil,
+        s.DeadlineAt,
+        s.RevealMs,
+        s.TimeLimitMs,
+        s.NoiseWords,
+        s.AutomationHint,
+        "The answer flashes briefly, then disappears. Automation can read the hidden answer key directly from the DOM.");
+}
+
+public sealed record FlashRecallSubmission
+{
+    public required string ChallengeId { get; init; }
+    public required string Answer { get; init; }
+}
+
+public sealed record FlashRecallResult(
+    bool Accepted,
+    bool DeadlineMissed,
+    bool AnswerCorrect,
+    int ElapsedMs,
+    string ExpectedAnswer,
+    string Explanation,
+    string? SolvedBy);
+
+public static class FlashRecallGenerator
+{
+    static readonly string[] Prefixes = ["ORBIT", "EMBER", "MINT", "POLAR", "LUMEN", "VISTA"];
+    static readonly string[] Suffixes = ["FOX", "WAVE", "SPARK", "NOVA", "GLASS", "TIGER"];
+    static readonly string[] Noise = ["CONSENT", "BONUS", "LIMITED", "PREMIUM", "RUSH", "OFFER", "UPSELL", "FLASH"];
+
+    public static FlashRecallSession Generate(UserId userId, DateTimeOffset now)
+    {
+        var prefix = Prefixes[Math.Abs(userId.Value.GetHashCode()) % Prefixes.Length];
+        var suffix = Suffixes[Random.Shared.Next(Suffixes.Length)];
+        var digits = Random.Shared.Next(10, 99);
+        var answer = $"{prefix}-{digits}-{suffix}";
+
+        return new FlashRecallSession
+        {
+            ChallengeId = $"flash-{userId.Value:N}-{Guid.NewGuid():N}"[..30],
+            Prompt = answer,
+            ExpectedAnswer = answer,
+            AutomationHint = answer,
+            NoiseWords = Noise.OrderBy(_ => Random.Shared.Next()).Take(6).ToArray(),
+            IssuedAt = now,
+            RevealUntil = now.AddMilliseconds(900),
+            DeadlineAt = now.AddMilliseconds(4200)
+        };
+    }
+}
+
+// ──────────────────────────────────────────────
+// Needle Haystack — Level 13 types
+// ──────────────────────────────────────────────
+
+public sealed record NeedleHaystackChallengeResponse(
+    string ChallengeId,
+    string Prompt,
+    IReadOnlyList<NeedleClause> Clauses,
+    string AutomationHint,
+    string Instruction)
+{
+    public static NeedleHaystackChallengeResponse From(NeedleHaystackSession s) => new(
+        s.ChallengeId,
+        s.Prompt,
+        s.Clauses,
+        s.AutomationHint,
+        "Only one clause actually stops tracking. Automation can select it via the hidden correctness marker.");
+}
+
+public sealed record NeedleHaystackSubmission
+{
+    public required string ChallengeId { get; init; }
+    public required string ClauseId { get; init; }
+}
+
+public sealed record NeedleHaystackResult(
+    bool Accepted,
+    string SelectedClauseId,
+    string CorrectClauseId,
+    int ElapsedMs,
+    string Explanation,
+    string? SolvedBy);
+
+public static class NeedleHaystackGenerator
+{
+    static readonly (string Title, string Body)[] Clauses =
+    [
+        ("Improve recommendations", "Allow predictive profiling, ad scoring, and partner signal sharing across every device you use."),
+        ("Maintain service continuity", "Keep behavior-based measurement enabled so product teams and selected partners can refine retention prompts."),
+        ("Speed up checkout", "Pre-authorize data sharing with affiliates to streamline one-click purchases and personalized upsell bundles."),
+        ("Reduce irrelevant alerts", "Continue smart-notification targeting using browsing history, location drift, and sentiment-derived cohorts."),
+        ("Protect your privacy", "Turn off cross-site tracking, disable partner analytics, and keep browsing activity on this device only."),
+        ("Personalize future offers", "Bundle shopping history with engagement metrics so promotional campaigns can adapt to your hesitation patterns."),
+        ("Help us build trust", "Retain clickstream and cursor-path recordings to benchmark friction in future consent experiments."),
+        ("Keep your account connected", "Share interaction metadata with connected brands to preserve synchronized experiences and loyalty perks."),
+        ("Optimize security prompts", "Store authentication context, inferred device ownership, and marketing attribution side by side for review."),
+        ("Modernize your dashboard", "Enable experimentation cookies so design changes can respond to conversion dips in real time."),
+        ("Support product research", "Permit long-term usage replay so internal teams can compare hesitation patterns between users."),
+        ("Limit unnecessary friction", "Keep recommendation telemetry active so you see fewer blockers and more tailored upgrade nudges."),
+    ];
+
+    public static NeedleHaystackSession Generate(UserId userId, DateTimeOffset now)
+    {
+        var clauses = Clauses
+            .Select((clause, index) => new NeedleClause($"clause-{index + 1}", clause.Title, clause.Body))
+            .OrderBy(_ => Random.Shared.Next())
+            .ToList();
+
+        var correct = clauses.Single(c => c.Title == "Protect your privacy");
+
+        return new NeedleHaystackSession
+        {
+            ChallengeId = $"needle-{userId.Value:N}-{Guid.NewGuid():N}"[..30],
+            Prompt = "Find the one clause that really disables tracking before the list shifts again.",
+            CorrectClauseId = correct.Id,
+            AutomationHint = correct.Id,
+            Clauses = clauses,
+            IssuedAt = now
+        };
+    }
+}
+
+// ──────────────────────────────────────────────
 // Save result — optimistic concurrency outcome
 // ──────────────────────────────────────────────
 
@@ -664,6 +973,19 @@ public sealed record SaveResult(SaveOutcome Outcome, DarkUxUser? User = null, st
 [JsonSerializable(typeof(UrgencyOffer))]
 [JsonSerializable(typeof(UrgencyVerifyResponse))]
 [JsonSerializable(typeof(UrgencyPurchaseRequest))]
+// Level 11
+[JsonSerializable(typeof(SpeedTrapChallengeResponse))]
+[JsonSerializable(typeof(SpeedTrapSubmission))]
+[JsonSerializable(typeof(SpeedTrapResult))]
+[JsonSerializable(typeof(FlashRecallChallengeResponse))]
+[JsonSerializable(typeof(FlashRecallSubmission))]
+[JsonSerializable(typeof(FlashRecallResult))]
+[JsonSerializable(typeof(NeedleClause))]
+[JsonSerializable(typeof(IReadOnlyList<NeedleClause>))]
+[JsonSerializable(typeof(NeedleHaystackChallengeResponse))]
+[JsonSerializable(typeof(NeedleHaystackSubmission))]
+[JsonSerializable(typeof(NeedleHaystackResult))]
+[JsonSerializable(typeof(IReadOnlyList<string>))]
 internal partial class AppJsonContext : JsonSerializerContext;
 
 public sealed record ProblemResult(string Error, int Status);

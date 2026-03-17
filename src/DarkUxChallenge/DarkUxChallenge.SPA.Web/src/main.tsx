@@ -14,6 +14,9 @@ import { Level7Nagging } from './levels/Level7Nagging/Level7Nagging';
 import { Level8InterfaceInterference } from './levels/Level8InterfaceInterference/Level8InterfaceInterference';
 import { Level9Zuckering } from './levels/Level9Zuckering/Level9Zuckering';
 import { Level10EmotionalManipulation } from './levels/Level10EmotionalManipulation/Level10EmotionalManipulation';
+import { Level11SpeedTrap } from './levels/Level11SpeedTrap/Level11SpeedTrap';
+import { Level12FlashRecall } from './levels/Level12FlashRecall/Level12FlashRecall';
+import { Level13NeedleHaystack } from './levels/Level13NeedleHaystack/Level13NeedleHaystack';
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
@@ -32,6 +35,9 @@ createRoot(document.getElementById('root')!).render(
           <Route path="levels/8" element={<Level8InterfaceInterference />} />
           <Route path="levels/9" element={<Level9Zuckering />} />
           <Route path="levels/10" element={<Level10EmotionalManipulation />} />
+          <Route path="levels/11" element={<Level11SpeedTrap />} />
+          <Route path="levels/12" element={<Level12FlashRecall />} />
+          <Route path="levels/13" element={<Level13NeedleHaystack />} />
         </Route>
       </Routes>
     </BrowserRouter>

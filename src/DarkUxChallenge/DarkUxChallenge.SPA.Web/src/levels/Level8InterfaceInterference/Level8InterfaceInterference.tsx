@@ -2,8 +2,12 @@ import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api, type InterfaceTrap, type InterfaceActionResult } from '../../api/client';
 
+function shuffleActions<T>(items: T[]) {
+  return [...items].sort(() => Math.random() - 0.5);
+}
+
 const WEIGHT_STYLES: Record<string, React.CSSProperties> = {
-  high: {
+  prominent: {
     padding: '1.25rem 2rem',
     fontSize: '1.3rem',
     fontWeight: 'bold',
@@ -31,7 +35,7 @@ const WEIGHT_STYLES: Record<string, React.CSSProperties> = {
     border: '1px solid #2a2a2a',
     borderRadius: '4px',
   },
-  minimal: {
+  hidden: {
     padding: '0.2rem 0.4rem',
     fontSize: '0.6rem',
     fontWeight: 'normal',
@@ -47,10 +51,25 @@ export function Level8InterfaceInterference() {
   const { userId = '' } = useParams<{ userId: string }>();
   const [trap, setTrap] = useState<InterfaceTrap | null>(null);
   const [result, setResult] = useState<InterfaceActionResult | null>(null);
+  const [displayActions, setDisplayActions] = useState<InterfaceTrap['actions']>([]);
+  const [pulse, setPulse] = useState(false);
 
   useEffect(() => {
     if (userId) api.getInterfacePage(userId).then(setTrap);
   }, [userId]);
+
+  useEffect(() => {
+    if (!trap) return;
+
+    setDisplayActions(shuffleActions(trap.actions));
+
+    const interval = setInterval(() => {
+      setDisplayActions(current => shuffleActions(current.length > 0 ? current : trap.actions));
+      setPulse(current => !current);
+    }, 700);
+
+    return () => clearInterval(interval);
+  }, [trap]);
 
   async function handleAction(actionId: string) {
     const r = await api.submitInterfaceAction(userId, actionId);
@@ -76,7 +95,8 @@ export function Level8InterfaceInterference() {
           <p style={{ color: '#ccc', lineHeight: 1.6, marginBottom: '1rem' }}>
             <strong>Interface Interference</strong> uses visual hierarchy to mislead you.
             Decoy buttons are large, colorful, and prominent — drawing your attention away from
-            the small, low-contrast button that actually does what you want.
+            the small, low-contrast button that actually does what you want. In this version the
+            actions also keep reordering, which makes the real choice even harder to target manually.
           </p>
           <div style={{ textAlign: 'left', marginTop: '1rem' }}>
             {trap.actions.map(a => (
@@ -104,7 +124,7 @@ export function Level8InterfaceInterference() {
     <div style={{ maxWidth: '500px', margin: '4rem auto' }}>
       <h2 style={{ textAlign: 'center', marginBottom: '0.5rem' }}>Level 8: Interface Interference</h2>
       <p style={{ color: '#999', textAlign: 'center', marginBottom: '2rem' }}>
-        Find and click the button to manage your account settings.
+        Find and click the button to manage your account settings before the layout shifts again.
       </p>
       <div style={{
         background: '#1a1a2e',
@@ -115,8 +135,23 @@ export function Level8InterfaceInterference() {
         flexDirection: 'column',
         alignItems: 'center',
         gap: '1rem',
+        transform: pulse ? 'scale(1.01)' : 'scale(1)',
+        transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+        boxShadow: pulse ? '0 0 0 4px rgba(233, 69, 96, 0.14)' : 'none',
       }}>
-        {trap.actions.map(action => (
+        <div style={{
+          width: '100%',
+          padding: '0.75rem 1rem',
+          borderRadius: '10px',
+          background: 'rgba(233, 69, 96, 0.08)',
+          border: '1px dashed rgba(233, 69, 96, 0.45)',
+          color: '#999',
+          fontSize: '0.85rem',
+          textAlign: 'center',
+        }}>
+          Visual priority keeps shifting. Automation can ignore the motion and read the attributes.
+        </div>
+        {displayActions.map(action => (
           <button
             key={action.id}
             data-testid={`action-${action.id}`}
@@ -125,7 +160,10 @@ export function Level8InterfaceInterference() {
             style={{
               ...(WEIGHT_STYLES[action.visualWeight] || WEIGHT_STYLES.medium),
               cursor: 'pointer',
-              width: action.visualWeight === 'high' ? '100%' : 'auto',
+              width: action.visualWeight === 'prominent' ? '100%' : 'auto',
+              opacity: action.isDecoy ? 1 : pulse ? 0.5 : 0.35,
+              transform: action.isDecoy ? 'none' : pulse ? 'translateX(10px)' : 'translateX(-10px)',
+              transition: 'transform 0.2s ease, opacity 0.2s ease',
             }}
           >
             {action.label}

@@ -125,6 +125,76 @@ export interface UrgencyVerifyResponse {
   explanation: string;
 }
 
+// Level 11 types
+export interface SpeedTrapChallenge {
+  challengeId: string;
+  prompt: string;
+  deadlineAt: string;
+  timeLimitMs: number;
+  answerLength: number;
+  noiseTokens: string[];
+  automationHint: string;
+  instruction: string;
+}
+
+export interface SpeedTrapResult {
+  accepted: boolean;
+  deadlineMissed: boolean;
+  answerCorrect: boolean;
+  elapsedMs: number;
+  timeLimitMs: number;
+  expectedAnswer: string;
+  explanation: string;
+  solvedBy: 'human' | 'automation' | null;
+}
+
+// Level 12 types
+export interface FlashRecallChallenge {
+  challengeId: string;
+  prompt: string;
+  revealUntil: string;
+  deadlineAt: string;
+  revealMs: number;
+  timeLimitMs: number;
+  noiseWords: string[];
+  automationHint: string;
+  instruction: string;
+}
+
+export interface FlashRecallResult {
+  accepted: boolean;
+  deadlineMissed: boolean;
+  answerCorrect: boolean;
+  elapsedMs: number;
+  expectedAnswer: string;
+  explanation: string;
+  solvedBy: 'human' | 'automation' | null;
+}
+
+// Level 13 types
+export interface NeedleClause {
+  id: string;
+  title: string;
+  body: string;
+}
+
+export interface NeedleHaystackChallenge {
+  challengeId: string;
+  prompt: string;
+  clauses: NeedleClause[];
+  automationHint: string;
+  instruction: string;
+}
+
+export interface NeedleHaystackResult {
+  accepted: boolean;
+  selectedClauseId: string;
+  correctClauseId: string;
+  elapsedMs: number;
+  explanation: string;
+  solvedBy: 'human' | 'automation' | null;
+}
+
 export const api = {
   createUser: (userId: string, displayName?: string) =>
     request<UserResponse>(`/users/${userId}`, { method: 'PUT', body: JSON.stringify({ displayName }) }),
@@ -205,4 +275,22 @@ export const api = {
     request<UrgencyVerifyResponse>(`/levels/10/offer/${userId}/verify`),
   purchaseUrgency: (userId: string, purchased: boolean) =>
     request<UserResponse>(`/levels/10/offer/${userId}/purchase`, { method: 'POST', body: JSON.stringify({ purchased }) }),
+
+  // Level 11: Speed Trap
+  getSpeedTrap: (userId: string) =>
+    request<SpeedTrapChallenge>(`/levels/11/challenge/${userId}`),
+  submitSpeedTrap: (userId: string, challengeId: string, answer: string) =>
+    request<SpeedTrapResult>(`/levels/11/submit/${userId}`, { method: 'POST', body: JSON.stringify({ challengeId, answer }) }),
+
+  // Level 12: Flash Recall
+  getFlashRecall: (userId: string) =>
+    request<FlashRecallChallenge>(`/levels/12/challenge/${userId}`),
+  submitFlashRecall: (userId: string, challengeId: string, answer: string) =>
+    request<FlashRecallResult>(`/levels/12/submit/${userId}`, { method: 'POST', body: JSON.stringify({ challengeId, answer }) }),
+
+  // Level 13: Needle Haystack
+  getNeedleHaystack: (userId: string) =>
+    request<NeedleHaystackChallenge>(`/levels/13/challenge/${userId}`),
+  submitNeedleHaystack: (userId: string, challengeId: string, clauseId: string) =>
+    request<NeedleHaystackResult>(`/levels/13/submit/${userId}`, { method: 'POST', body: JSON.stringify({ challengeId, clauseId }) }),
 };

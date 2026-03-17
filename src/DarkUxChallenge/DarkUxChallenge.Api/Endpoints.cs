@@ -72,6 +72,21 @@ public static class Endpoints
         level10.MapGet("/offer/{userId}/verify", VerifyUrgency);
         level10.MapPost("/offer/{userId}/purchase", PurchaseUrgency);
 
+        // Level 11: Speed Trap
+        var level11 = app.MapGroup($"{BasePath}/levels/11");
+        level11.MapGet("/challenge/{userId}", GetSpeedTrapChallenge);
+        level11.MapPost("/submit/{userId}", SubmitSpeedTrap);
+
+        // Level 12: Flash Recall
+        var level12 = app.MapGroup($"{BasePath}/levels/12");
+        level12.MapGet("/challenge/{userId}", GetFlashRecallChallenge);
+        level12.MapPost("/submit/{userId}", SubmitFlashRecall);
+
+        // Level 13: Needle Haystack
+        var level13 = app.MapGroup($"{BasePath}/levels/13");
+        level13.MapGet("/challenge/{userId}", GetNeedleHaystackChallenge);
+        level13.MapPost("/submit/{userId}", SubmitNeedleHaystack);
+
         return app;
     }
 
@@ -689,5 +704,222 @@ public static class Endpoints
         var updated = user.WithCompletion(10, byHuman: !request.Purchased, byAutomation: false, DateTimeOffset.UtcNow);
         await store.SaveUser(updated, ct);
         return Results.Json(UserResponse.From(updated), AppJsonContext.Default.UserResponse);
+    }
+
+    // ── Level 11: Speed Trap ───────────────────
+
+    static async Task<IResult> GetSpeedTrapChallenge(string userId, IUserStore store, CancellationToken ct)
+    {
+        if (!UserId.TryParse(userId, out var id))
+            return Results.Json(new ProblemResult("Invalid user ID.", 400), AppJsonContext.Default.ProblemResult, statusCode: 400);
+
+        var user = await store.GetUser(id.Value, ct);
+        if (user is null)
+            return Results.Json(new ProblemResult("User not found.", 404), AppJsonContext.Default.ProblemResult, statusCode: 404);
+
+        var now = DateTimeOffset.UtcNow;
+        var session = SpeedTrapGenerator.Generate(id.Value, now);
+        var updated = user with { ActiveSpeedTrap = session, UpdatedAt = now };
+
+        var save = await store.SaveUser(updated, ct);
+        if (save.Outcome != SaveOutcome.Success)
+            return Results.Json(new ProblemResult(save.Error ?? "Could not start challenge.", 409), AppJsonContext.Default.ProblemResult, statusCode: 409);
+
+        return Results.Json(SpeedTrapChallengeResponse.From(session), AppJsonContext.Default.SpeedTrapChallengeResponse);
+    }
+
+    static async Task<IResult> SubmitSpeedTrap(string userId, SpeedTrapSubmission submission, IUserStore store, CancellationToken ct)
+    {
+        if (!UserId.TryParse(userId, out var id))
+            return Results.Json(new ProblemResult("Invalid user ID.", 400), AppJsonContext.Default.ProblemResult, statusCode: 400);
+
+        var user = await store.GetUser(id.Value, ct);
+        if (user is null)
+            return Results.Json(new ProblemResult("User not found.", 404), AppJsonContext.Default.ProblemResult, statusCode: 404);
+
+        var session = user.ActiveSpeedTrap;
+        if (session is null || !string.Equals(session.ChallengeId, submission.ChallengeId, StringComparison.Ordinal))
+            return Results.Json(new ProblemResult("No active speed challenge found.", 400), AppJsonContext.Default.ProblemResult, statusCode: 400);
+
+        var now = DateTimeOffset.UtcNow;
+        var elapsedMs = Math.Max(0, (int)(now - session.IssuedAt).TotalMilliseconds);
+        var deadlineMissed = now > session.DeadlineAt;
+        var answerCorrect = string.Equals(
+            NormalizeSpeedTrapAnswer(submission.Answer),
+            NormalizeSpeedTrapAnswer(session.ExpectedAnswer),
+            StringComparison.OrdinalIgnoreCase);
+        var accepted = answerCorrect && !deadlineMissed;
+        var solvedByAutomation = accepted && elapsedMs <= 1200;
+
+        var updated = user with { ActiveSpeedTrap = null, UpdatedAt = now };
+        if (accepted)
+        {
+            updated = updated.WithCompletion(11, byHuman: !solvedByAutomation, byAutomation: solvedByAutomation, now);
+        }
+
+        await store.SaveUser(updated, ct);
+
+        var explanation = accepted
+            ? solvedByAutomation
+                ? "You beat the deadline in automation territory. The machine-readable hint made this trivial for Playwright."
+                : "You answered in time, but only just. This level is designed to reward automation-grade speed."
+            : deadlineMissed
+                ? "The timer expired before the answer reached the server. Time pressure is the dark pattern here."
+                : "That answer was wrong. The visual noise is meant to increase mistakes under pressure.";
+
+        return Results.Json(
+            new SpeedTrapResult(
+                accepted,
+                deadlineMissed,
+                answerCorrect,
+                elapsedMs,
+                session.TimeLimitMs,
+                session.ExpectedAnswer,
+                explanation,
+                accepted ? solvedByAutomation ? "automation" : "human" : null),
+            AppJsonContext.Default.SpeedTrapResult);
+    }
+
+    static string NormalizeSpeedTrapAnswer(string value) =>
+        new string((value ?? string.Empty)
+            .Where(c => !char.IsWhiteSpace(c) && c != '-' && c != '/' && c != '<' && c != '>')
+            .ToArray()).Trim();
+
+    // ── Level 12: Flash Recall ─────────────────
+
+    static async Task<IResult> GetFlashRecallChallenge(string userId, IUserStore store, CancellationToken ct)
+    {
+        if (!UserId.TryParse(userId, out var id))
+            return Results.Json(new ProblemResult("Invalid user ID.", 400), AppJsonContext.Default.ProblemResult, statusCode: 400);
+
+        var user = await store.GetUser(id.Value, ct);
+        if (user is null)
+            return Results.Json(new ProblemResult("User not found.", 404), AppJsonContext.Default.ProblemResult, statusCode: 404);
+
+        var now = DateTimeOffset.UtcNow;
+        var session = FlashRecallGenerator.Generate(id.Value, now);
+        var updated = user with { ActiveFlashRecall = session, UpdatedAt = now };
+
+        var save = await store.SaveUser(updated, ct);
+        if (save.Outcome != SaveOutcome.Success)
+            return Results.Json(new ProblemResult(save.Error ?? "Could not start flash recall.", 409), AppJsonContext.Default.ProblemResult, statusCode: 409);
+
+        return Results.Json(FlashRecallChallengeResponse.From(session), AppJsonContext.Default.FlashRecallChallengeResponse);
+    }
+
+    static async Task<IResult> SubmitFlashRecall(string userId, FlashRecallSubmission submission, IUserStore store, CancellationToken ct)
+    {
+        if (!UserId.TryParse(userId, out var id))
+            return Results.Json(new ProblemResult("Invalid user ID.", 400), AppJsonContext.Default.ProblemResult, statusCode: 400);
+
+        var user = await store.GetUser(id.Value, ct);
+        if (user is null)
+            return Results.Json(new ProblemResult("User not found.", 404), AppJsonContext.Default.ProblemResult, statusCode: 404);
+
+        var session = user.ActiveFlashRecall;
+        if (session is null || !string.Equals(session.ChallengeId, submission.ChallengeId, StringComparison.Ordinal))
+            return Results.Json(new ProblemResult("No active flash recall challenge found.", 400), AppJsonContext.Default.ProblemResult, statusCode: 400);
+
+        var now = DateTimeOffset.UtcNow;
+        var elapsedMs = Math.Max(0, (int)(now - session.IssuedAt).TotalMilliseconds);
+        var deadlineMissed = now > session.DeadlineAt;
+        var answerCorrect = string.Equals(
+            NormalizeSpeedTrapAnswer(submission.Answer),
+            NormalizeSpeedTrapAnswer(session.ExpectedAnswer),
+            StringComparison.OrdinalIgnoreCase);
+        var accepted = answerCorrect && !deadlineMissed;
+        var solvedByAutomation = accepted && elapsedMs <= 1700;
+
+        var updated = user with { ActiveFlashRecall = null, UpdatedAt = now };
+        if (accepted)
+        {
+            updated = updated.WithCompletion(12, byHuman: !solvedByAutomation, byAutomation: solvedByAutomation, now);
+        }
+
+        await store.SaveUser(updated, ct);
+
+        var explanation = accepted
+            ? solvedByAutomation
+                ? "The phrase only flashed for a moment, but automation could read the hidden answer key without relying on memory."
+                : "You held the token in memory long enough to beat the disappearing prompt."
+            : deadlineMissed
+                ? "The phrase vanished and the answer arrived too late. This challenge exploits short-lived visibility."
+                : "The answer drifted under pressure. The disappearing prompt is meant to force recall mistakes.";
+
+        return Results.Json(
+            new FlashRecallResult(
+                accepted,
+                deadlineMissed,
+                answerCorrect,
+                elapsedMs,
+                session.ExpectedAnswer,
+                explanation,
+                accepted ? solvedByAutomation ? "automation" : "human" : null),
+            AppJsonContext.Default.FlashRecallResult);
+    }
+
+    // ── Level 13: Needle Haystack ──────────────
+
+    static async Task<IResult> GetNeedleHaystackChallenge(string userId, IUserStore store, CancellationToken ct)
+    {
+        if (!UserId.TryParse(userId, out var id))
+            return Results.Json(new ProblemResult("Invalid user ID.", 400), AppJsonContext.Default.ProblemResult, statusCode: 400);
+
+        var user = await store.GetUser(id.Value, ct);
+        if (user is null)
+            return Results.Json(new ProblemResult("User not found.", 404), AppJsonContext.Default.ProblemResult, statusCode: 404);
+
+        var now = DateTimeOffset.UtcNow;
+        var session = NeedleHaystackGenerator.Generate(id.Value, now);
+        var updated = user with { ActiveNeedleHaystack = session, UpdatedAt = now };
+
+        var save = await store.SaveUser(updated, ct);
+        if (save.Outcome != SaveOutcome.Success)
+            return Results.Json(new ProblemResult(save.Error ?? "Could not start needle challenge.", 409), AppJsonContext.Default.ProblemResult, statusCode: 409);
+
+        return Results.Json(NeedleHaystackChallengeResponse.From(session), AppJsonContext.Default.NeedleHaystackChallengeResponse);
+    }
+
+    static async Task<IResult> SubmitNeedleHaystack(string userId, NeedleHaystackSubmission submission, IUserStore store, CancellationToken ct)
+    {
+        if (!UserId.TryParse(userId, out var id))
+            return Results.Json(new ProblemResult("Invalid user ID.", 400), AppJsonContext.Default.ProblemResult, statusCode: 400);
+
+        var user = await store.GetUser(id.Value, ct);
+        if (user is null)
+            return Results.Json(new ProblemResult("User not found.", 404), AppJsonContext.Default.ProblemResult, statusCode: 404);
+
+        var session = user.ActiveNeedleHaystack;
+        if (session is null || !string.Equals(session.ChallengeId, submission.ChallengeId, StringComparison.Ordinal))
+            return Results.Json(new ProblemResult("No active needle challenge found.", 400), AppJsonContext.Default.ProblemResult, statusCode: 400);
+
+        var now = DateTimeOffset.UtcNow;
+        var elapsedMs = Math.Max(0, (int)(now - session.IssuedAt).TotalMilliseconds);
+        var accepted = string.Equals(submission.ClauseId, session.CorrectClauseId, StringComparison.Ordinal);
+        var solvedByAutomation = accepted && elapsedMs <= 1500;
+
+        var updated = user with { ActiveNeedleHaystack = null, UpdatedAt = now };
+        if (accepted)
+        {
+            updated = updated.WithCompletion(13, byHuman: !solvedByAutomation, byAutomation: solvedByAutomation, now);
+        }
+
+        await store.SaveUser(updated, ct);
+
+        var explanation = accepted
+            ? solvedByAutomation
+                ? "Automation ignored the wall of consent text and chose the only clause marked as the real opt-out."
+                : "You found the one clause that actually disables tracking despite the noisy consent language."
+            : "Most clauses were dressed up to sound safe while preserving tracking. Only one actually turned it off.";
+
+        return Results.Json(
+            new NeedleHaystackResult(
+                accepted,
+                submission.ClauseId,
+                session.CorrectClauseId,
+                elapsedMs,
+                explanation,
+                accepted ? solvedByAutomation ? "automation" : "human" : null),
+            AppJsonContext.Default.NeedleHaystackResult);
     }
 }

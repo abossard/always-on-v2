@@ -13,6 +13,9 @@ const LEVELS = [
   { id: 8, name: 'Interface Interference', description: 'Visual deception', icon: '👁️', available: true },
   { id: 9, name: 'Zuckering', description: 'Data exploitation', icon: '🔒', available: true },
   { id: 10, name: 'Emotional Manipulation', description: 'Fake urgency & scarcity', icon: '⏰', available: true },
+  { id: 11, name: 'Speed Trap', description: 'Time pressure built for bots', icon: '⚡', available: true },
+  { id: 12, name: 'Flash Recall', description: 'Disappearing memory bait', icon: '🧠', available: true },
+  { id: 13, name: 'Needle Haystack', description: 'Consent maze with one safe exit', icon: '🪡', available: true },
 ];
 
 export function Hub() {
@@ -38,7 +41,7 @@ export function Hub() {
       <div style={{ marginBottom: '2rem' }}>
         <h1 style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🕵️ Dark Pattern Levels</h1>
         <p style={{ color: '#999' }}>
-          Experience each dark pattern firsthand, then learn how Playwright automation defeats them.
+          Experience each dark pattern firsthand, then learn how Playwright automation defeats flows that are intentionally hostile to humans.
         </p>
       </div>
 

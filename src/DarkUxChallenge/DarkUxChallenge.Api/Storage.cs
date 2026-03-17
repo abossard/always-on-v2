@@ -157,6 +157,27 @@ internal sealed class CosmosUserDocument
     public int nagDismissCount { get; set; }
     public DateTimeOffset? nagLastDismissedAt { get; set; }
     public bool nagPermanentlyDismissed { get; set; }
+    public string? speedTrapChallengeId { get; set; }
+    public string? speedTrapPrompt { get; set; }
+    public string? speedTrapExpectedAnswer { get; set; }
+    public string? speedTrapAutomationHint { get; set; }
+    public List<string> speedTrapNoiseTokens { get; set; } = [];
+    public DateTimeOffset? speedTrapIssuedAt { get; set; }
+    public DateTimeOffset? speedTrapDeadlineAt { get; set; }
+    public string? flashRecallChallengeId { get; set; }
+    public string? flashRecallPrompt { get; set; }
+    public string? flashRecallExpectedAnswer { get; set; }
+    public string? flashRecallAutomationHint { get; set; }
+    public List<string> flashRecallNoiseWords { get; set; } = [];
+    public DateTimeOffset? flashRecallIssuedAt { get; set; }
+    public DateTimeOffset? flashRecallRevealUntil { get; set; }
+    public DateTimeOffset? flashRecallDeadlineAt { get; set; }
+    public string? needleChallengeId { get; set; }
+    public string? needlePrompt { get; set; }
+    public string? needleCorrectClauseId { get; set; }
+    public string? needleAutomationHint { get; set; }
+    public List<CosmosNeedleClauseEntry> needleClauses { get; set; } = [];
+    public DateTimeOffset? needleIssuedAt { get; set; }
     public List<string> grantedPermissions { get; set; } = [];
     public DateTimeOffset createdAt { get; set; }
     public DateTimeOffset updatedAt { get; set; }
@@ -189,6 +210,57 @@ internal sealed class CosmosUserDocument
         },
         Cart = new Cart { Items = cartItems.Select(i => new CartItem(i.id, i.name, i.price, i.userAdded)).ToList() },
         NagState = new NagState { DismissCount = nagDismissCount, LastDismissedAt = nagLastDismissedAt, PermanentlyDismissed = nagPermanentlyDismissed },
+        ActiveSpeedTrap = speedTrapChallengeId is not null
+            && speedTrapPrompt is not null
+            && speedTrapExpectedAnswer is not null
+            && speedTrapAutomationHint is not null
+            && speedTrapIssuedAt is not null
+            && speedTrapDeadlineAt is not null
+            ? new SpeedTrapSession
+            {
+                ChallengeId = speedTrapChallengeId,
+                Prompt = speedTrapPrompt,
+                ExpectedAnswer = speedTrapExpectedAnswer,
+                AutomationHint = speedTrapAutomationHint,
+                NoiseTokens = speedTrapNoiseTokens,
+                IssuedAt = speedTrapIssuedAt.Value,
+                DeadlineAt = speedTrapDeadlineAt.Value
+            }
+            : null,
+        ActiveFlashRecall = flashRecallChallengeId is not null
+            && flashRecallPrompt is not null
+            && flashRecallExpectedAnswer is not null
+            && flashRecallAutomationHint is not null
+            && flashRecallIssuedAt is not null
+            && flashRecallRevealUntil is not null
+            && flashRecallDeadlineAt is not null
+            ? new FlashRecallSession
+            {
+                ChallengeId = flashRecallChallengeId,
+                Prompt = flashRecallPrompt,
+                ExpectedAnswer = flashRecallExpectedAnswer,
+                AutomationHint = flashRecallAutomationHint,
+                NoiseWords = flashRecallNoiseWords,
+                IssuedAt = flashRecallIssuedAt.Value,
+                RevealUntil = flashRecallRevealUntil.Value,
+                DeadlineAt = flashRecallDeadlineAt.Value
+            }
+            : null,
+        ActiveNeedleHaystack = needleChallengeId is not null
+            && needlePrompt is not null
+            && needleCorrectClauseId is not null
+            && needleAutomationHint is not null
+            && needleIssuedAt is not null
+            ? new NeedleHaystackSession
+            {
+                ChallengeId = needleChallengeId,
+                Prompt = needlePrompt,
+                CorrectClauseId = needleCorrectClauseId,
+                AutomationHint = needleAutomationHint,
+                Clauses = needleClauses.Select(c => new NeedleClause(c.id, c.title, c.body)).ToList(),
+                IssuedAt = needleIssuedAt.Value
+            }
+            : null,
         Completions = completions.Select(c => new LevelCompletion(
             c.level, c.solvedByHuman, c.solvedByAutomation, c.completedAt)).ToList(),
         CreatedAt = createdAt,
@@ -225,6 +297,27 @@ internal sealed class CosmosUserDocument
         nagDismissCount = u.NagState.DismissCount,
         nagLastDismissedAt = u.NagState.LastDismissedAt,
         nagPermanentlyDismissed = u.NagState.PermanentlyDismissed,
+        speedTrapChallengeId = u.ActiveSpeedTrap?.ChallengeId,
+        speedTrapPrompt = u.ActiveSpeedTrap?.Prompt,
+        speedTrapExpectedAnswer = u.ActiveSpeedTrap?.ExpectedAnswer,
+        speedTrapAutomationHint = u.ActiveSpeedTrap?.AutomationHint,
+        speedTrapNoiseTokens = u.ActiveSpeedTrap?.NoiseTokens.ToList() ?? [],
+        speedTrapIssuedAt = u.ActiveSpeedTrap?.IssuedAt,
+        speedTrapDeadlineAt = u.ActiveSpeedTrap?.DeadlineAt,
+        flashRecallChallengeId = u.ActiveFlashRecall?.ChallengeId,
+        flashRecallPrompt = u.ActiveFlashRecall?.Prompt,
+        flashRecallExpectedAnswer = u.ActiveFlashRecall?.ExpectedAnswer,
+        flashRecallAutomationHint = u.ActiveFlashRecall?.AutomationHint,
+        flashRecallNoiseWords = u.ActiveFlashRecall?.NoiseWords.ToList() ?? [],
+        flashRecallIssuedAt = u.ActiveFlashRecall?.IssuedAt,
+        flashRecallRevealUntil = u.ActiveFlashRecall?.RevealUntil,
+        flashRecallDeadlineAt = u.ActiveFlashRecall?.DeadlineAt,
+        needleChallengeId = u.ActiveNeedleHaystack?.ChallengeId,
+        needlePrompt = u.ActiveNeedleHaystack?.Prompt,
+        needleCorrectClauseId = u.ActiveNeedleHaystack?.CorrectClauseId,
+        needleAutomationHint = u.ActiveNeedleHaystack?.AutomationHint,
+        needleClauses = u.ActiveNeedleHaystack?.Clauses.Select(c => new CosmosNeedleClauseEntry { id = c.Id, title = c.Title, body = c.Body }).ToList() ?? [],
+        needleIssuedAt = u.ActiveNeedleHaystack?.IssuedAt,
         createdAt = u.CreatedAt,
         updatedAt = u.UpdatedAt
     };
@@ -246,6 +339,13 @@ internal sealed class CosmosCartItemEntry
     public bool userAdded { get; set; }
 }
 
+internal sealed class CosmosNeedleClauseEntry
+{
+    public string id { get; set; } = "";
+    public string title { get; set; } = "";
+    public string body { get; set; } = "";
+}
+
 // ──────────────────────────────────────────────
 // Source-generated JSON context for Cosmos document types (AOT-safe)
 // ──────────────────────────────────────────────
@@ -255,6 +355,9 @@ internal sealed class CosmosCartItemEntry
 [JsonSerializable(typeof(List<CosmosLevelCompletionEntry>))]
 [JsonSerializable(typeof(CosmosCartItemEntry))]
 [JsonSerializable(typeof(List<CosmosCartItemEntry>))]
+[JsonSerializable(typeof(CosmosNeedleClauseEntry))]
+[JsonSerializable(typeof(List<CosmosNeedleClauseEntry>))]
+[JsonSerializable(typeof(List<string>))]
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
