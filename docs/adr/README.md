@@ -67,6 +67,7 @@ This directory contains all Architecture Decision Records (ADRs) for the AlwaysO
 | [ADR-0046](DI-0046-ci-driven-image-tag-updates.md) | CI-Driven Image Tag Updates | Accepted | DI |
 | [ADR-0047](DI-0047-playersonorleons-minimal-orleans-alternative.md) | PlayersOnOrleans — Minimal Orleans Alternative | Accepted | DI |
 | [ADR-0048](DI-0048-per-app-istio-gateways.md) | Per-App Istio Gateways for Traffic Isolation | Accepted | DI |
+| [ADR-0049](0049-cicd-infrastructure-deployment-lessons.md) | CI/CD and Infrastructure Deployment Lessons | Accepted | DarkUX |
 
 ## Format
 
