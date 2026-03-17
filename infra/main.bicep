@@ -107,12 +107,18 @@ var allStamps = flatten(_stampArrays)
 resource globalRg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
   name: 'rg-${baseName}-global'
   location: globalLocation
+  tags: {
+    'alwayson-env': baseName
+  }
 }
 
 resource regionalRgs 'Microsoft.Resources/resourceGroups@2024-03-01' = [
   for region in regions: {
     name: 'rg-${baseName}-${region.key}'
     location: region.location
+    tags: {
+      'alwayson-env': baseName
+    }
   }
 ]
 
@@ -120,6 +126,9 @@ resource stampRgs 'Microsoft.Resources/resourceGroups@2024-03-01' = [
   for stamp in allStamps: {
     name: 'rg-${baseName}-${stamp.regionKey}-${stamp.stampKey}'
     location: stamp.location
+    tags: {
+      'alwayson-env': baseName
+    }
   }
 ]
 
@@ -388,6 +397,7 @@ module healthModel 'healthmodel/healthmodel.bicep' = {
     discoverySubscriptionName: subscription().displayName
     addRecommendedSignals: true
     discoverRelationships: true
+    environmentTag: baseName
   }
 }
 

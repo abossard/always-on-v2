@@ -27,6 +27,9 @@ param addRecommendedSignals bool = true
 @description('Whether to discover relationships between resources.')
 param discoverRelationships bool = true
 
+@description('Value of the alwayson-env tag used to scope discovery to managed resource groups.')
+param environmentTag string
+
 // ─── Variables ──────────────────────────────────────────────────
 
 var identityName = last(split(identityId, '/'))
@@ -69,7 +72,7 @@ resource discoveryRule 'Microsoft.CloudHealth/healthmodels/discoveryrules@2025-0
     addRecommendedSignals: addRecommendedSignals ? 'Enabled' : 'Disabled'
     authenticationSetting: authsetting.name
     discoverRelationships: discoverRelationships ? 'Enabled' : 'Disabled'
-    resourceGraphQuery: 'resources\n| where subscriptionId =~ "${discoverySubscriptionId}"'
+    resourceGraphQuery: 'resources\n| where subscriptionId =~ "${discoverySubscriptionId}"\n| where resourceGroup in (\n    resourcecontainers\n    | where type == "microsoft.resources/subscriptions/resourcegroups"\n    | where tags["alwayson-env"] == "${environmentTag}"\n    | project name\n  )\n| where type in~ (\n    "microsoft.documentdb/databaseaccounts",\n    "microsoft.storage/storageaccounts",\n    "microsoft.cdn/profiles",\n    "microsoft.containerservice/managedclusters",\n    "microsoft.containerregistry/registries",\n    "microsoft.operationalinsights/workspaces",\n    "microsoft.insights/components",\n    "microsoft.network/dnszones",\n    "microsoft.containerservice/fleets",\n    "microsoft.monitor/accounts",\n    "microsoft.loadtestservice/loadtests"\n  )'
   }
 }
 
