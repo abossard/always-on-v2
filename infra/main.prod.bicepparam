@@ -2,7 +2,7 @@ using 'main.bicep'
 
 // ── Stamp profiles ────────────────────────────────────────────────────────────
 var budgetStamp = {
-  aksNodeVmSize: 'Standard_B2ms'       // 2 vCPU / 8 GB
+  aksNodeVmSize: 'Standard_D2s_v5'     // 2 vCPU / 8 GB (D v5 series, no burst throttling)
   aksSystemNodeCount: 1
   aksAvailabilityZones: []
   aksTier: 'Free'
