@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { api, type NagPageResponse } from '../../api/client';
 
 export function Level7Nagging() {
-  const userId = localStorage.getItem('darkux-user-id') || '';
+  const { userId = '' } = useParams<{ userId: string }>();
   const [page, setPage] = useState<NagPageResponse | null>(null);
   const [showNag, setShowNag] = useState(false);
   const [dismissed, setDismissed] = useState(false);
@@ -59,7 +59,7 @@ export function Level7Nagging() {
             and click "Accept" instead.
           </p>
         </div>
-        <Link to="/" data-testid="back-to-hub" style={{ color: '#e94560' }}>← Back to Hub</Link>
+        <Link to={`/${userId}`} data-testid="back-to-hub" style={{ color: '#e94560' }}>← Back to Hub</Link>
       </div>
     );
   }

@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { api, type PermissionRequestType, type PermissionRevealResponse } from '../../api/client';
 
 export function Level9Zuckering() {
-  const userId = localStorage.getItem('darkux-user-id') || '';
+  const { userId = '' } = useParams<{ userId: string }>();
   const [permissions, setPermissions] = useState<PermissionRequestType[]>([]);
   const [granted, setGranted] = useState<Set<string>>(new Set());
   const [reveal, setReveal] = useState<PermissionRevealResponse | null>(null);
@@ -69,7 +69,7 @@ export function Level9Zuckering() {
             ))}
           </div>
         </div>
-        <Link to="/" data-testid="back-to-hub" style={{ color: '#e94560' }}>← Back to Hub</Link>
+        <Link to={`/${userId}`} data-testid="back-to-hub" style={{ color: '#e94560' }}>← Back to Hub</Link>
       </div>
     );
   }

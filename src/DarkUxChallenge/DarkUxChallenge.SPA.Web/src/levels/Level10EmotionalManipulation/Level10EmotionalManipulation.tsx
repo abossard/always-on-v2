@@ -1,9 +1,9 @@
 import { useEffect, useState, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { api, type UrgencyOffer, type UrgencyVerifyResponse } from '../../api/client';
 
 export function Level10EmotionalManipulation() {
-  const userId = localStorage.getItem('darkux-user-id') || '';
+  const { userId = '' } = useParams<{ userId: string }>();
   const [offer, setOffer] = useState<UrgencyOffer | null>(null);
   const [timeLeft, setTimeLeft] = useState('');
   const [verified, setVerified] = useState<UrgencyVerifyResponse | null>(null);
@@ -83,7 +83,7 @@ export function Level10EmotionalManipulation() {
             The "deal" is always available and the stock is never actually low.
           </p>
         </div>
-        <Link to="/" data-testid="back-to-hub" style={{ color: '#e94560' }}>← Back to Hub</Link>
+        <Link to={`/${userId}`} data-testid="back-to-hub" style={{ color: '#e94560' }}>← Back to Hub</Link>
       </div>
     );
   }

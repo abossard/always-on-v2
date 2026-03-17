@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { api, type CartResponse } from '../../api/client';
 
 const CATALOG = [
@@ -9,7 +9,7 @@ const CATALOG = [
 ];
 
 export function Level6BasketSneaking() {
-  const userId = localStorage.getItem('darkux-user-id') || '';
+  const { userId = '' } = useParams<{ userId: string }>();
   const [phase, setPhase] = useState<'shopping' | 'checkout' | 'done'>('shopping');
   const [cart, setCart] = useState<CartResponse | null>(null);
   const [addedItems, setAddedItems] = useState<Set<string>>(new Set());
@@ -51,7 +51,7 @@ export function Level6BasketSneaking() {
             You must actively remove them to avoid paying extra.
           </p>
         </div>
-        <Link to="/" data-testid="back-to-hub" style={{ color: '#e94560' }}>← Back to Hub</Link>
+        <Link to={`/${userId}`} data-testid="back-to-hub" style={{ color: '#e94560' }}>← Back to Hub</Link>
       </div>
     );
   }

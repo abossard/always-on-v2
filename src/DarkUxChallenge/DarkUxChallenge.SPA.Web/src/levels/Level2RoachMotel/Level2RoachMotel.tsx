@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { api, type CancelStepResponse, type UserResponse } from '../../api/client';
 
 export function Level2RoachMotel() {
-  const userId = localStorage.getItem('darkux-user-id') || '';
+  const { userId = '' } = useParams<{ userId: string }>();
   const [phase, setPhase] = useState<'intro' | 'subscribed' | 'cancelling' | 'done'>('intro');
   const [cancelStep, setCancelStep] = useState<CancelStepResponse | null>(null);
   const [, setResult] = useState<UserResponse | null>(null);
@@ -42,7 +42,7 @@ export function Level2RoachMotel() {
             and a hidden final confirmation button.
           </p>
         </div>
-        <Link to="/" data-testid="back-to-hub" style={{ color: '#e94560' }}>← Back to Hub</Link>
+        <Link to={`/${userId}`} data-testid="back-to-hub" style={{ color: '#e94560' }}>← Back to Hub</Link>
       </div>
     );
   }

@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Level 6: Basket Sneaking — Automation detects items added without consent', () => {
   test('adds item, detects sneaked items after checkout, removes them', async ({ page }) => {
     await page.goto('/');
+    await page.getByTestId('start-challenge').click();
     await page.getByTestId('level-link-6').click();
 
     // Add a product to the cart

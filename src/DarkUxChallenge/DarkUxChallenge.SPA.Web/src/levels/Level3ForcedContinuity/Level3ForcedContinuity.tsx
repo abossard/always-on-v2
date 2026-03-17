@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { api, type TrialStatusResponse } from '../../api/client';
 
 export function Level3ForcedContinuity() {
-  const userId = localStorage.getItem('darkux-user-id') || '';
+  const { userId = '' } = useParams<{ userId: string }>();
   const [phase, setPhase] = useState<'intro' | 'trial' | 'done'>('intro');
   const [status, setStatus] = useState<TrialStatusResponse | null>(null);
   const [cancelled, setCancelled] = useState(false);
@@ -41,7 +41,7 @@ export function Level3ForcedContinuity() {
             notification before conversion.
           </p>
         </div>
-        <Link to="/" data-testid="back-to-hub" style={{ color: '#e94560' }}>← Back to Hub</Link>
+        <Link to={`/${userId}`} data-testid="back-to-hub" style={{ color: '#e94560' }}>← Back to Hub</Link>
       </div>
     );
   }

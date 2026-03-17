@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Level 9: Zuckering — Automation grants minimal permissions', () => {
   test('declines all permissions instead of accepting all', async ({ page }) => {
     await page.goto('/');
+    await page.getByTestId('start-challenge').click();
     await page.getByTestId('level-link-9').click();
 
     // Verify "Accept All" button exists and is prominently displayed

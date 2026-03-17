@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Level 8: Interface Interference — Automation selects by attribute, not visual prominence', () => {
   test('identifies non-decoy action via data-is-decoy attribute', async ({ page }) => {
     await page.goto('/');
+    await page.getByTestId('start-challenge').click();
     await page.getByTestId('level-link-8').click();
 
     // Wait for the interface trap to load

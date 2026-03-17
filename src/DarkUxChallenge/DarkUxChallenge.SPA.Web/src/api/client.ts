@@ -126,8 +126,8 @@ export interface UrgencyVerifyResponse {
 }
 
 export const api = {
-  createUser: (displayName?: string) =>
-    request<UserResponse>('/users', { method: 'POST', body: JSON.stringify({ displayName }) }),
+  createUser: (userId: string, displayName?: string) =>
+    request<UserResponse>(`/users/${userId}`, { method: 'PUT', body: JSON.stringify({ displayName }) }),
 
   getUser: (userId: string) =>
     request<UserResponse>(`/users/${userId}`),

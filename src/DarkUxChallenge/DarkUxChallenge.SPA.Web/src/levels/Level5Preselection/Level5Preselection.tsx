@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { api, type SettingsResponse } from '../../api/client';
 
 const SETTING_LABELS: Record<string, string> = {
@@ -12,7 +12,7 @@ const SETTING_LABELS: Record<string, string> = {
 const SETTING_KEYS = Object.keys(SETTING_LABELS) as (keyof typeof SETTING_LABELS)[];
 
 export function Level5Preselection() {
-  const userId = localStorage.getItem('darkux-user-id') || '';
+  const { userId = '' } = useParams<{ userId: string }>();
   const [settings, setSettings] = useState<SettingsResponse | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [localSettings, setLocalSettings] = useState<Record<string, boolean>>({});
@@ -64,7 +64,7 @@ export function Level5Preselection() {
             You changed {settings.changedFromDefaults} setting(s) from their default values.
           </p>
         </div>
-        <Link to="/" data-testid="back-to-hub" style={{ color: '#e94560' }}>← Back to Hub</Link>
+        <Link to={`/${userId}`} data-testid="back-to-hub" style={{ color: '#e94560' }}>← Back to Hub</Link>
       </div>
     );
   }

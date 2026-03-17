@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { api, type InterfaceTrap, type InterfaceActionResult } from '../../api/client';
 
 const WEIGHT_STYLES: Record<string, React.CSSProperties> = {
@@ -44,7 +44,7 @@ const WEIGHT_STYLES: Record<string, React.CSSProperties> = {
 };
 
 export function Level8InterfaceInterference() {
-  const userId = localStorage.getItem('darkux-user-id') || '';
+  const { userId = '' } = useParams<{ userId: string }>();
   const [trap, setTrap] = useState<InterfaceTrap | null>(null);
   const [result, setResult] = useState<InterfaceActionResult | null>(null);
 
@@ -95,7 +95,7 @@ export function Level8InterfaceInterference() {
             ))}
           </div>
         </div>
-        <Link to="/" data-testid="back-to-hub" style={{ color: '#e94560' }}>← Back to Hub</Link>
+        <Link to={`/${userId}`} data-testid="back-to-hub" style={{ color: '#e94560' }}>← Back to Hub</Link>
       </div>
     );
   }

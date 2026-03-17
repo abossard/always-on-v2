@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Level 3: Forced Continuity — Automation detects silent conversion', () => {
   test('starts trial and cancels before silent conversion', async ({ page }) => {
     await page.goto('/');
+    await page.getByTestId('start-challenge').click();
     await page.getByTestId('level-link-3').click();
 
     // Start free trial
@@ -38,8 +39,9 @@ test.describe('Level 3: Forced Continuity — Automation detects silent conversi
   });
 
   test('fine print about charges is barely visible', async ({ page }) => {
-    // Must visit hub first to create a user in localStorage
+    // Must visit welcome + hub first to create a user in localStorage
     await page.goto('/');
+    await page.getByTestId('start-challenge').click();
     await page.getByTestId('level-link-3').click();
 
     // The terms text should be present but in tiny, low-contrast text

@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Level 7: Nagging — Automation finds permanent dismiss', () => {
   test('dismisses nag, encounters it again, finds permanent dismiss', async ({ page }) => {
     await page.goto('/');
+    await page.getByTestId('start-challenge').click();
     await page.getByTestId('level-link-7').click();
 
     // Nag overlay should appear

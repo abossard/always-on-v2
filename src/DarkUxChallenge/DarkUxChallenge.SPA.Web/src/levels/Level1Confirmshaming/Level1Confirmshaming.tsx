@@ -1,9 +1,9 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { api, type OfferResponse } from '../../api/client';
 
 export function Level1Confirmshaming() {
-  const userId = localStorage.getItem('darkux-user-id') || '';
+  const { userId = '' } = useParams<{ userId: string }>();
   const [offer, setOffer] = useState<OfferResponse | null>(null);
   const [responded, setResponded] = useState(false);
   const [accepted, setAccepted] = useState(false);
@@ -44,7 +44,7 @@ export function Level1Confirmshaming() {
             "{offer.declineText}".
           </p>
         </div>
-        <Link to="/" data-testid="back-to-hub" style={{ color: '#e94560' }}>← Back to Hub</Link>
+        <Link to={`/${userId}`} data-testid="back-to-hub" style={{ color: '#e94560' }}>← Back to Hub</Link>
       </div>
     );
   }

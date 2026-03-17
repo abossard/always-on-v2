@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Level 4: Trick Wording — Automation reads actual effects, not confusing labels', () => {
   test('reads actual effect attributes and selects none (all are traps)', async ({ page }) => {
     await page.goto('/');
+    await page.getByTestId('start-challenge').click();
     await page.getByTestId('level-link-4').click();
 
     // Wait for the challenge form to load

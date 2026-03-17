@@ -3,6 +3,7 @@ import { test, expect } from '@playwright/test';
 test.describe('Level 1: Confirmshaming — Automation defeats guilt-trip', () => {
   test('identifies manipulative decline text and clicks it anyway', async ({ page }) => {
     await page.goto('/');
+    await page.getByTestId('start-challenge').click();
 
     // Navigate to Level 1
     await page.getByTestId('level-link-1').click();
@@ -27,8 +28,9 @@ test.describe('Level 1: Confirmshaming — Automation defeats guilt-trip', () =>
   });
 
   test('accept button is visually prominent (larger, colored)', async ({ page }) => {
-    // Must visit hub first to create a user in localStorage
+    // Must visit welcome + hub first to create a user in localStorage
     await page.goto('/');
+    await page.getByTestId('start-challenge').click();
     await page.getByTestId('level-link-1').click();
 
     const acceptBtn = page.getByTestId('accept-button');

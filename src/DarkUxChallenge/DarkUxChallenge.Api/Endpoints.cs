@@ -11,6 +11,7 @@ public static class Endpoints
         // User management (hub)
         var users = app.MapGroup($"{BasePath}/users");
         users.MapPost("/", CreateUser);
+        users.MapPut("/{userId}", CreateOrGetUser);
         users.MapGet("/{userId}", GetUser);
         users.MapGet("/{userId}/progress", GetProgress);
 
@@ -92,6 +93,35 @@ public static class Endpoints
         return result.Outcome == SaveOutcome.Success
             ? Results.Json(UserResponse.From(result.User!), AppJsonContext.Default.UserResponse, statusCode: 201)
             : Results.Json(new ProblemResult(result.Error ?? "Failed to create user.", 500), AppJsonContext.Default.ProblemResult, statusCode: 500);
+    }
+
+    static async Task<IResult> CreateOrGetUser(
+        string userId,
+        CreateUserRequest request,
+        IUserStore store,
+        CancellationToken ct)
+    {
+        if (!UserId.TryParse(userId, out var id))
+            return Results.Json(new ProblemResult("Invalid user ID format. Expected GUID.", 400), AppJsonContext.Default.ProblemResult, statusCode: 400);
+
+        // Idempotent: return existing user or create new one
+        var existing = await store.GetUser(id.Value, ct);
+        if (existing is not null)
+            return Results.Json(UserResponse.From(existing), AppJsonContext.Default.UserResponse);
+
+        var user = new DarkUxUser
+        {
+            UserId = id.Value,
+            DisplayName = request.DisplayName ?? "Anonymous"
+        };
+
+        var result = await store.SaveUser(user, ct);
+        return result.Outcome switch
+        {
+            SaveOutcome.Success => Results.Json(UserResponse.From(result.User!), AppJsonContext.Default.UserResponse, statusCode: 201),
+            SaveOutcome.Conflict => Results.Json(UserResponse.From((await store.GetUser(id.Value, ct))!), AppJsonContext.Default.UserResponse),
+            _ => Results.Json(new ProblemResult(result.Error ?? "Failed", 500), AppJsonContext.Default.ProblemResult, statusCode: 500)
+        };
     }
 
     static async Task<IResult> GetUser(

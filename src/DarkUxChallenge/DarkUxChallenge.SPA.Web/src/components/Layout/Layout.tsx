@@ -1,7 +1,9 @@
 import type { ReactNode } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 
 export function Layout({ children }: { children: ReactNode }) {
+  const { userId } = useParams<{ userId: string }>();
+
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
       <header style={{
@@ -12,7 +14,7 @@ export function Layout({ children }: { children: ReactNode }) {
         alignItems: 'center',
         gap: '2rem',
       }}>
-        <Link to="/" style={{ textDecoration: 'none', color: '#e94560', fontWeight: 'bold', fontSize: '1.5rem' }}>
+        <Link to={userId ? `/${userId}` : '/'} style={{ textDecoration: 'none', color: '#e94560', fontWeight: 'bold', fontSize: '1.5rem' }}>
           🕵️ DarkUX Challenge
         </Link>
         <span style={{ color: '#666', fontSize: '0.9rem' }}>Educational Dark Pattern Demonstration</span>
