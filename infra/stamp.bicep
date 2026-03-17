@@ -211,7 +211,7 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2025-10-01' = {
     serviceMeshProfile: {
       mode: 'Istio'
       istio: {
-        revisions: ['asm-1-27', 'asm-1-28']
+        revisions: ['asm-1-28']
         components: {
           ingressGateways: [
             {
