@@ -28,7 +28,7 @@ var dev = {
       location: 'swedencentral'
       stampDefaults: budgetStamp
       stamps: [
-        { key: '001' }
+        { key: '002' }
       ]
     }
   ]
