@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="DarkUxChallenge.Api/DarkUxChallenge.Api.csproj" />
+  <Project Path="DarkUxChallenge.ServiceDefaults/DarkUxChallenge.ServiceDefaults.csproj" />
+  <Project Path="DarkUxChallenge.AppHost/DarkUxChallenge.AppHost.csproj" />
+  <Project Path="DarkUxChallenge.Tests/DarkUxChallenge.Tests.csproj" />
+</Solution>

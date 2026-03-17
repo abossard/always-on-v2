@@ -1,0 +1,14 @@
+<linker>
+  <assembly fullname="Microsoft.Azure.Cosmos.Client">
+    <type fullname="*" />
+  </assembly>
+  <assembly fullname="Microsoft.Azure.Cosmos.Direct">
+    <type fullname="*" />
+  </assembly>
+  <assembly fullname="Microsoft.Azure.Cosmos.Core">
+    <type fullname="*" />
+  </assembly>
+  <assembly fullname="Newtonsoft.Json">
+    <type fullname="*" />
+  </assembly>
+</linker>
