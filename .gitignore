@@ -46,3 +46,4 @@ local.settings.json
 # Test results
 coverage/
 *.coverage
+**/playwright-report/

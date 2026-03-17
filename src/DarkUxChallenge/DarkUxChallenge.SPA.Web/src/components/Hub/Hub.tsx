@@ -25,9 +25,8 @@ export function Hub() {
 
   useEffect(() => {
     if (!userId) return;
-    api.getUser(userId)
+    api.createUser(userId, 'Challenger')
       .then(setUser)
-      .catch(() => api.createUser(userId, 'Challenger').then(setUser))
       .finally(() => setLoading(false));
   }, [userId]);
 
