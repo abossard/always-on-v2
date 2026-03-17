@@ -14,9 +14,10 @@ test.describe('Smoke Tests', () => {
     await expect(page.getByTestId('level-card-3')).toBeVisible();
   });
 
-  test('API health endpoint responds', async ({ request }) => {
-    const apiBase = process.env.services__api__http__0 || 'http://localhost:5000';
-    const response = await request.get(`${apiBase}/health`);
-    expect(response.ok()).toBeTruthy();
+  test('API health endpoint responds', async ({ baseURL, request }) => {
+    // In CI, the API is proxied through the SPA's Vite dev server
+    const response = await request.get(`${baseURL}/api/users/00000000-0000-0000-0000-000000000000`);
+    // 404 = API is reachable (user doesn't exist, but the endpoint works)
+    expect(response.status()).toBe(404);
   });
 });
