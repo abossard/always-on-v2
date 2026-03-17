@@ -379,7 +379,7 @@ module devPermissions 'dev-permissions.bicep' = [
 // Monitoring Reader + Reader at subscription scope — lets the identity read
 // metrics/logs and discover resources across all resource groups.
 module healthModelRbac 'healthmodel/rbac.bicep' = {
-  name: 'deploy-healthmodel-rbac'
+  name: 'healthmodel-rbac'
   scope: subscription()
   params: {
     principalId: global.outputs.healthModelIdentityPrincipalId
