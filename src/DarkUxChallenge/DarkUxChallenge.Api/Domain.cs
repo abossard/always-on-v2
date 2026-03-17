@@ -176,6 +176,7 @@ public sealed record DarkUxUser
     public Cart Cart { get; init; } = Cart.Empty;
     public UserSettings Settings { get; init; } = UserSettings.Defaults;
     public CancellationFlow CancellationFlow { get; init; } = CancellationFlow.NotStarted;
+    public NagState NagState { get; init; } = NagState.Initial;
     public IReadOnlyList<LevelCompletion> Completions { get; init; } = [];
     public DateTimeOffset CreatedAt { get; init; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; init; } = DateTimeOffset.UtcNow;
@@ -401,6 +402,206 @@ public sealed record TrialStatusResponse(
 }
 
 // ──────────────────────────────────────────────
+// Trick Wording — Level 4 types
+// ──────────────────────────────────────────────
+
+public sealed record TrickWordingOption(string Id, string Label, string ActualEffect, string ClearLabel);
+
+public sealed record TrickWordingChallenge
+{
+    public required string ChallengeId { get; init; }
+    public required IReadOnlyList<TrickWordingOption> Options { get; init; }
+}
+
+public static class TrickWordingGenerator
+{
+    static readonly TrickWordingOption[] AllOptions =
+    [
+        new("opt-1", "Uncheck to not disable email notifications", "Enables email notifications", "Enable email notifications"),
+        new("opt-2", "I don't want to not receive partner offers", "Subscribes to partner offers", "Subscribe to partner offers"),
+        new("opt-3", "Decline to opt out of data sharing", "Shares data with third parties", "Share data with third parties"),
+        new("opt-4", "Unsubscribe from non-essential communication exclusion list", "Subscribes to marketing emails", "Subscribe to marketing emails"),
+        new("opt-5", "I disagree with declining the premium trial", "Starts premium trial", "Start premium trial"),
+    ];
+
+    public static TrickWordingChallenge Generate(UserId userId) => new()
+    {
+        ChallengeId = $"tw-{userId.Value:N}",
+        Options = AllOptions
+    };
+}
+
+public sealed record TrickWordingSubmission
+{
+    public required IReadOnlyList<string> SelectedOptionIds { get; init; }
+}
+
+public sealed record TrickWordingResult
+{
+    public required IReadOnlyList<TrickWordingOptionResult> Results { get; init; }
+    public required int CorrectCount { get; init; }
+    public required int TotalOptions { get; init; }
+}
+
+public sealed record TrickWordingOptionResult(string Id, string ConfusingLabel, string ActualEffect, string ClearLabel, bool WasSelected, bool ShouldHaveBeenSelected);
+
+// ──────────────────────────────────────────────
+// Level 5 — Settings contracts
+// ──────────────────────────────────────────────
+
+public sealed record SettingsUpdateRequest
+{
+    public bool? NewsletterOptIn { get; init; }
+    public bool? ShareDataWithPartners { get; init; }
+    public bool? LocationTracking { get; init; }
+    public bool? PushNotifications { get; init; }
+}
+
+public sealed record SettingsResponse(bool NewsletterOptIn, bool ShareDataWithPartners, bool LocationTracking, bool PushNotifications, int ChangedFromDefaults)
+{
+    public static SettingsResponse From(UserSettings s)
+    {
+        var defaults = UserSettings.Defaults;
+        var changed = 0;
+        if (s.NewsletterOptIn != defaults.NewsletterOptIn) changed++;
+        if (s.ShareDataWithPartners != defaults.ShareDataWithPartners) changed++;
+        if (s.LocationTracking != defaults.LocationTracking) changed++;
+        if (s.PushNotifications != defaults.PushNotifications) changed++;
+        return new(s.NewsletterOptIn, s.ShareDataWithPartners, s.LocationTracking, s.PushNotifications, changed);
+    }
+}
+
+// ──────────────────────────────────────────────
+// Level 6 — Cart response types
+// ──────────────────────────────────────────────
+
+public sealed record CartResponse(IReadOnlyList<CartItemResponse> Items, decimal Total, int SneakedCount)
+{
+    public static CartResponse From(Cart c) => new(
+        c.Items.Select(i => new CartItemResponse(i.Id, i.Name, i.Price, i.UserAdded)).ToList(),
+        c.Total,
+        c.SneakedItems.Count);
+}
+public sealed record CartItemResponse(string Id, string Name, decimal Price, bool UserAdded);
+public sealed record CartAddRequest { public required string ItemId { get; init; } public required string Name { get; init; } public required decimal Price { get; init; } }
+
+// ──────────────────────────────────────────────
+// Nagging — Level 7 types
+// ──────────────────────────────────────────────
+
+public sealed record NagState
+{
+    public int DismissCount { get; init; }
+    public DateTimeOffset? LastDismissedAt { get; init; }
+    public bool PermanentlyDismissed { get; init; }
+
+    public static readonly NagState Initial = new();
+
+    public bool ShouldShowNag => !PermanentlyDismissed;
+
+    public NagState Dismiss(DateTimeOffset now) =>
+        this with { DismissCount = DismissCount + 1, LastDismissedAt = now };
+
+    public NagState DismissPermanently() =>
+        this with { PermanentlyDismissed = true };
+}
+
+public sealed record NagPageResponse(string Content, bool ShowNag, string? NagTitle, string? NagMessage, int DismissCount);
+public sealed record NagDismissResponse(bool Dismissed, bool Permanent, int TotalDismissals);
+
+// ──────────────────────────────────────────────
+// Interface Interference — Level 8 types
+// ──────────────────────────────────────────────
+
+public sealed record InterfaceAction(string Id, string Label, bool IsDecoy, string VisualWeight);
+
+public sealed record InterfaceTrap
+{
+    public required IReadOnlyList<InterfaceAction> Actions { get; init; }
+
+    public static InterfaceTrap Generate() => new()
+    {
+        Actions =
+        [
+            new("agree-prominent", "Yes, I agree to all terms and conditions", true, "prominent"),
+            new("continue-medium", "Continue with recommended settings", true, "medium"),
+            new("decline-hidden", "No, I decline", false, "hidden"),
+            new("maybe-later", "Remind me later", true, "medium"),
+        ]
+    };
+}
+
+public sealed record InterfaceActionSubmission { public required string ActionId { get; init; } }
+public sealed record InterfaceActionResult(string ActionId, string Label, bool WasDecoy, bool ChoseCorrectly);
+
+// ──────────────────────────────────────────────
+// Zuckering — Level 9 types
+// ──────────────────────────────────────────────
+
+public sealed record PermissionRequest(string PermissionId, string DisplayLabel, string ActualScope, IReadOnlyList<string> BundledWith);
+
+public static class PermissionGenerator
+{
+    public static readonly PermissionRequest[] AllPermissions =
+    [
+        new("personalize", "Personalize your experience", "Track browsing history, purchases, and location for targeted advertising", ["ad-targeting", "location-history"]),
+        new("improve-service", "Help us improve our service", "Sell anonymized usage data to third-party analytics companies", ["third-party-analytics"]),
+        new("security", "Keep your account secure", "Use your phone number for account recovery AND send promotional SMS", ["sms-marketing"]),
+        new("contacts", "Find your friends on the platform", "Upload and permanently store your entire contact list", ["contact-storage"]),
+        new("notifications", "Stay updated with important alerts", "Send unlimited push notifications including promotional content", ["promo-push"]),
+    ];
+}
+
+public sealed record PermissionGrant
+{
+    public required IReadOnlyList<string> GrantedPermissionIds { get; init; }
+}
+
+public sealed record PermissionRevealResponse
+{
+    public required IReadOnlyList<PermissionRevealEntry> Permissions { get; init; }
+    public required int ExcessivePermissions { get; init; }
+}
+
+public sealed record PermissionRevealEntry(string PermissionId, string DisplayLabel, string ActualScope, IReadOnlyList<string> BundledWith, bool WasGranted);
+
+// ──────────────────────────────────────────────
+// Emotional Manipulation — Level 10 types
+// ──────────────────────────────────────────────
+
+public sealed record UrgencyOffer
+{
+    public required string OfferId { get; init; }
+    public required string ProductName { get; init; }
+    public required decimal OriginalPrice { get; init; }
+    public required decimal OfferPrice { get; init; }
+    public required int FakeItemsLeft { get; init; }
+    public required DateTimeOffset CountdownEnd { get; init; }
+    public required DateTimeOffset GeneratedAt { get; init; }
+}
+
+public static class UrgencyGenerator
+{
+    public static UrgencyOffer Generate()
+    {
+        var rng = Random.Shared;
+        return new UrgencyOffer
+        {
+            OfferId = Guid.NewGuid().ToString("N")[..8],
+            ProductName = "Premium Lifetime Access",
+            OriginalPrice = 299.99m,
+            OfferPrice = 49.99m + rng.Next(0, 50),
+            FakeItemsLeft = rng.Next(1, 5),
+            CountdownEnd = DateTimeOffset.UtcNow.AddMinutes(rng.Next(10, 30)),
+            GeneratedAt = DateTimeOffset.UtcNow
+        };
+    }
+}
+
+public sealed record UrgencyVerifyResponse(bool TimerIsGenuine, bool StockIsGenuine, string Explanation);
+public sealed record UrgencyPurchaseRequest { public required bool Purchased { get; init; } }
+
+// ──────────────────────────────────────────────
 // Save result — optimistic concurrency outcome
 // ──────────────────────────────────────────────
 
@@ -427,6 +628,42 @@ public sealed record SaveResult(SaveOutcome Outcome, DarkUxUser? User = null, st
 [JsonSerializable(typeof(TrialStartRequest))]
 [JsonSerializable(typeof(TrialStatusResponse))]
 [JsonSerializable(typeof(ProblemResult))]
+// Level 4
+[JsonSerializable(typeof(TrickWordingChallenge))]
+[JsonSerializable(typeof(TrickWordingOption))]
+[JsonSerializable(typeof(IReadOnlyList<TrickWordingOption>))]
+[JsonSerializable(typeof(TrickWordingSubmission))]
+[JsonSerializable(typeof(TrickWordingResult))]
+[JsonSerializable(typeof(TrickWordingOptionResult))]
+[JsonSerializable(typeof(IReadOnlyList<TrickWordingOptionResult>))]
+// Level 5
+[JsonSerializable(typeof(SettingsResponse))]
+[JsonSerializable(typeof(SettingsUpdateRequest))]
+// Level 6
+[JsonSerializable(typeof(CartResponse))]
+[JsonSerializable(typeof(CartItemResponse))]
+[JsonSerializable(typeof(IReadOnlyList<CartItemResponse>))]
+[JsonSerializable(typeof(CartAddRequest))]
+// Level 7
+[JsonSerializable(typeof(NagPageResponse))]
+[JsonSerializable(typeof(NagDismissResponse))]
+// Level 8
+[JsonSerializable(typeof(InterfaceTrap))]
+[JsonSerializable(typeof(InterfaceAction))]
+[JsonSerializable(typeof(IReadOnlyList<InterfaceAction>))]
+[JsonSerializable(typeof(InterfaceActionSubmission))]
+[JsonSerializable(typeof(InterfaceActionResult))]
+// Level 9
+[JsonSerializable(typeof(PermissionRequest))]
+[JsonSerializable(typeof(IReadOnlyList<PermissionRequest>))]
+[JsonSerializable(typeof(PermissionGrant))]
+[JsonSerializable(typeof(PermissionRevealResponse))]
+[JsonSerializable(typeof(PermissionRevealEntry))]
+[JsonSerializable(typeof(IReadOnlyList<PermissionRevealEntry>))]
+// Level 10
+[JsonSerializable(typeof(UrgencyOffer))]
+[JsonSerializable(typeof(UrgencyVerifyResponse))]
+[JsonSerializable(typeof(UrgencyPurchaseRequest))]
 internal partial class AppJsonContext : JsonSerializerContext;
 
 public sealed record ProblemResult(string Error, int Status);

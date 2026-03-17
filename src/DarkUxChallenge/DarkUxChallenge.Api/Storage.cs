@@ -153,6 +153,11 @@ internal sealed class CosmosUserDocument
     public bool locationTracking { get; set; }
     public bool pushNotifications { get; set; }
     public List<CosmosLevelCompletionEntry> completions { get; set; } = [];
+    public List<CosmosCartItemEntry> cartItems { get; set; } = [];
+    public int nagDismissCount { get; set; }
+    public DateTimeOffset? nagLastDismissedAt { get; set; }
+    public bool nagPermanentlyDismissed { get; set; }
+    public List<string> grantedPermissions { get; set; } = [];
     public DateTimeOffset createdAt { get; set; }
     public DateTimeOffset updatedAt { get; set; }
 
@@ -182,6 +187,8 @@ internal sealed class CosmosUserDocument
             LocationTracking = locationTracking,
             PushNotifications = pushNotifications,
         },
+        Cart = new Cart { Items = cartItems.Select(i => new CartItem(i.id, i.name, i.price, i.userAdded)).ToList() },
+        NagState = new NagState { DismissCount = nagDismissCount, LastDismissedAt = nagLastDismissedAt, PermanentlyDismissed = nagPermanentlyDismissed },
         Completions = completions.Select(c => new LevelCompletion(
             c.level, c.solvedByHuman, c.solvedByAutomation, c.completedAt)).ToList(),
         CreatedAt = createdAt,
@@ -214,6 +221,10 @@ internal sealed class CosmosUserDocument
             solvedByAutomation = c.SolvedByAutomation,
             completedAt = c.CompletedAt
         }).ToList(),
+        cartItems = u.Cart.Items.Select(i => new CosmosCartItemEntry { id = i.Id, name = i.Name, price = i.Price, userAdded = i.UserAdded }).ToList(),
+        nagDismissCount = u.NagState.DismissCount,
+        nagLastDismissedAt = u.NagState.LastDismissedAt,
+        nagPermanentlyDismissed = u.NagState.PermanentlyDismissed,
         createdAt = u.CreatedAt,
         updatedAt = u.UpdatedAt
     };
@@ -227,6 +238,14 @@ internal sealed class CosmosLevelCompletionEntry
     public DateTimeOffset completedAt { get; set; }
 }
 
+internal sealed class CosmosCartItemEntry
+{
+    public string id { get; set; } = "";
+    public string name { get; set; } = "";
+    public decimal price { get; set; }
+    public bool userAdded { get; set; }
+}
+
 // ──────────────────────────────────────────────
 // Source-generated JSON context for Cosmos document types (AOT-safe)
 // ──────────────────────────────────────────────
@@ -234,6 +253,8 @@ internal sealed class CosmosLevelCompletionEntry
 [JsonSerializable(typeof(CosmosUserDocument))]
 [JsonSerializable(typeof(CosmosLevelCompletionEntry))]
 [JsonSerializable(typeof(List<CosmosLevelCompletionEntry>))]
+[JsonSerializable(typeof(CosmosCartItemEntry))]
+[JsonSerializable(typeof(List<CosmosCartItemEntry>))]
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]

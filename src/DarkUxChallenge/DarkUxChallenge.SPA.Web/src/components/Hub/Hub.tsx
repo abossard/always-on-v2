@@ -6,13 +6,13 @@ const LEVELS = [
   { id: 1, name: 'Confirmshaming', description: 'Guilt-based decision making', icon: '😢', available: true },
   { id: 2, name: 'Roach Motel', description: 'Easy to enter, hard to leave', icon: '🪳', available: true },
   { id: 3, name: 'Forced Continuity', description: 'Silent subscription conversion', icon: '💳', available: true },
-  { id: 4, name: 'Trick Wording', description: 'Linguistic confusion', icon: '🔤', available: false },
-  { id: 5, name: 'Preselection', description: 'Default bias exploitation', icon: '☑️', available: false },
-  { id: 6, name: 'Basket Sneaking', description: 'Hidden cart additions', icon: '🛒', available: false },
-  { id: 7, name: 'Nagging', description: 'Persistent interruption', icon: '🔔', available: false },
-  { id: 8, name: 'Interface Interference', description: 'Visual deception', icon: '👁️', available: false },
-  { id: 9, name: 'Zuckering', description: 'Data exploitation', icon: '🔒', available: false },
-  { id: 10, name: 'Emotional Manipulation', description: 'Fake urgency & scarcity', icon: '⏰', available: false },
+  { id: 4, name: 'Trick Wording', description: 'Linguistic confusion', icon: '🔤', available: true },
+  { id: 5, name: 'Preselection', description: 'Default bias exploitation', icon: '☑️', available: true },
+  { id: 6, name: 'Basket Sneaking', description: 'Hidden cart additions', icon: '🛒', available: true },
+  { id: 7, name: 'Nagging', description: 'Persistent interruption', icon: '🔔', available: true },
+  { id: 8, name: 'Interface Interference', description: 'Visual deception', icon: '👁️', available: true },
+  { id: 9, name: 'Zuckering', description: 'Data exploitation', icon: '🔒', available: true },
+  { id: 10, name: 'Emotional Manipulation', description: 'Fake urgency & scarcity', icon: '⏰', available: true },
 ];
 
 export function Hub() {
