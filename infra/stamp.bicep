@@ -361,7 +361,18 @@ var helloOrleonsFluxVars = length(appFluxVars) > 1 && appFluxVars[1].name == 'he
   HELLOORLEONS_GATEWAY_HOSTNAME: 'helloorleons-${stampName}.${dnsZoneName}'
 } : {}
 
-var fluxSubstitute = union(sharedFluxVars, level0FluxVars, helloOrleonsFluxVars)
+var darkuxFluxVars = length(appFluxVars) > 2 && appFluxVars[2].name == 'darkux' ? {
+  DARKUX_NAMESPACE: appFluxVars[2].namespace
+  DARKUX_SA_NAME: appFluxVars[2].name
+  DARKUX_IDENTITY_CLIENT_ID: appFluxVars[2].identityClientId
+  DARKUX_IDENTITY_ID: appFluxVars[2].identityId
+  DARKUX_COSMOS_DATABASE: appFluxVars[2].cosmosDatabase
+  DARKUX_COSMOS_CONTAINER: appFluxVars[2].cosmosContainer
+  DARKUX_DNS_LABEL: 'darkux-${stampName}'
+  DARKUX_GATEWAY_HOSTNAME: 'darkux-${stampName}.${dnsZoneName}'
+} : {}
+
+var fluxSubstitute = union(sharedFluxVars, level0FluxVars, helloOrleonsFluxVars, darkuxFluxVars)
 
 resource fluxConfig 'Microsoft.KubernetesConfiguration/fluxConfigurations@2024-04-01-preview' = {
   scope: aksCluster
