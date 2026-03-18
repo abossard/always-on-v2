@@ -10,9 +10,6 @@
 @description('Principal ID (Entra object ID) to grant access.')
 param principalId string
 
-@description('AKS cluster resource IDs to grant Cluster Admin on.')
-param aksClusterIds array
-
 @description('Cosmos DB account name.')
 param cosmosAccountName string
 
@@ -35,9 +32,6 @@ resource acr 'Microsoft.ContainerRegistry/registries@2025-11-01' existing = {
 // Role definitions
 // ============================================================================
 
-// Azure Kubernetes Service RBAC Cluster Admin
-var aksClusterAdminRoleId = 'b1ff04bb-8a4e-4dc4-8eb5-8693973ce19b'
-
 // Cosmos DB Built-in Data Contributor
 var cosmosDataContributorRoleId = '00000000-0000-0000-0000-000000000002'
 
@@ -45,22 +39,14 @@ var cosmosDataContributorRoleId = '00000000-0000-0000-0000-000000000002'
 var acrPushRoleId = '8311e382-0749-4cb8-b61a-304f252e45ec'
 
 // ============================================================================
-// AKS RBAC Cluster Admin (one per cluster)
+// AKS RBAC Cluster Admin — assigned at resource group scope
+// The clusters are in different RGs, so we assign at subscription level
+// via the Contributor-like pattern. The actual AKS RBAC is namespace-scoped
+// inside the cluster regardless.
 // ============================================================================
 
-resource aksClusterAdmin 'Microsoft.Authorization/roleAssignments@2022-04-01' = [
-  for (clusterId, i) in aksClusterIds: {
-    name: guid(resourceGroup().id, clusterId, principalId, aksClusterAdminRoleId)
-    properties: {
-      principalId: principalId
-      roleDefinitionId: subscriptionResourceId(
-        'Microsoft.Authorization/roleDefinitions',
-        aksClusterAdminRoleId
-      )
-      principalType: 'User'
-    }
-  }
-]
+// Note: AKS Cluster Admin role assignments are handled per-stamp in stamp.bicep
+// to avoid cross-RG scope mismatch. This module only handles Cosmos + ACR.
 
 // ============================================================================
 // Cosmos DB Data Contributor

@@ -57,6 +57,9 @@ param domainName string
 @description('Enable OpenTelemetry distributed tracing for application workloads.')
 param defaultTracing bool = true
 
+@description('Entra ID object IDs to grant AKS Cluster Admin on this stamp.')
+param devIdentities array = []
+
 // ============================================================================
 // Derived Values
 // ============================================================================
@@ -253,6 +256,27 @@ resource prometheusDcra 'Microsoft.Insights/dataCollectionRuleAssociations@2022-
     description: 'Prometheus metrics collection for AKS'
   }
 }
+
+// ============================================================================
+// Dev Permissions — AKS Cluster Admin (scoped to this cluster)
+// ============================================================================
+
+var aksClusterAdminRoleId = 'b1ff04bb-8a4e-4dc4-8eb5-8693973ce19b'
+
+resource aksClusterAdminRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = [
+  for (identity, i) in devIdentities: {
+    name: guid(aksCluster.id, identity, aksClusterAdminRoleId)
+    scope: aksCluster
+    properties: {
+      principalId: identity
+      roleDefinitionId: subscriptionResourceId(
+        'Microsoft.Authorization/roleDefinitions',
+        aksClusterAdminRoleId
+      )
+      principalType: 'User'
+    }
+  }
+]
 
 // ============================================================================
 // Maintenance Windows — Sunday afternoon CET

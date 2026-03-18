@@ -74,7 +74,7 @@ param regions array = [
   {
     key: 'swedencentral'
     location: 'swedencentral'
-    stamps: [ { key: '001' }, { key: '002' } ]
+    stamps: [ { key: '002' } ]
   }
   {
     key: 'germanywestcentral'
@@ -277,6 +277,7 @@ module stamps 'stamp.bicep' = [
       dnsZoneResourceGroup: regionalRgs[stampRegionIndex[i]].name
       domainName: domainName
       defaultTracing: defaultTracing
+      devIdentities: enableDevPermissions ? devIdentities : []
     }
   }
 ]
@@ -429,7 +430,6 @@ module devPermissions 'dev-permissions.bicep' = [
     scope: globalRg
     params: {
       principalId: identity
-      aksClusterIds: [for (stamp, j) in allStamps: stamps[j].outputs.aksClusterId]
       cosmosAccountName: global.outputs.cosmosName
       acrName: global.outputs.acrName
     }
