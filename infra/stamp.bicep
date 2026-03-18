@@ -201,9 +201,6 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2025-10-01' = {
       networkPluginMode: 'overlay'
       networkDataplane: 'cilium'
       networkPolicy: 'cilium'
-      gatewayProfile: {
-        enabled: true
-      }
     }
 
     workloadAutoScalerProfile: {
