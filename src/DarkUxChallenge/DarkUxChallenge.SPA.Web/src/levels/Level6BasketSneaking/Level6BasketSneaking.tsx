@@ -51,7 +51,7 @@ export function Level6BasketSneaking() {
             You must actively remove them to avoid paying extra.
           </p>
         </div>
-        <Link to={`/${userId}`} data-testid="back-to-hub" style={{ color: '#e94560' }}>← Back to Hub</Link>
+        <Link to=".." relative="route" data-testid="back-to-hub" style={{ color: '#e94560' }}>← Back to Hub</Link>
       </div>
     );
   }

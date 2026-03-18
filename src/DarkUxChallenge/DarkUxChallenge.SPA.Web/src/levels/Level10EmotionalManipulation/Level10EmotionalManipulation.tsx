@@ -83,7 +83,7 @@ export function Level10EmotionalManipulation() {
             The "deal" is always available and the stock is never actually low.
           </p>
         </div>
-        <Link to={`/${userId}`} data-testid="back-to-hub" style={{ color: '#e94560' }}>← Back to Hub</Link>
+        <Link to=".." relative="route" data-testid="back-to-hub" style={{ color: '#e94560' }}>← Back to Hub</Link>
       </div>
     );
   }

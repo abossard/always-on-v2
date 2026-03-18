@@ -90,7 +90,7 @@ export function Level12FlashRecall() {
           >
             Try another flash token
           </button>
-          <Link to={`/${userId}`} data-testid="back-to-hub" style={{ color: '#e94560', alignSelf: 'center' }}>← Back to Hub</Link>
+          <Link to=".." relative="route" data-testid="back-to-hub" style={{ color: '#e94560', alignSelf: 'center' }}>← Back to Hub</Link>
         </div>
       </div>
     );

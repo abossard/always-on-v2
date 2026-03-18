@@ -112,7 +112,7 @@ export function Level11SpeedTrap() {
           >
             Try another timed trap
           </button>
-          <Link to={`/${userId}`} data-testid="back-to-hub" style={{ color: '#e94560', alignSelf: 'center' }}>
+          <Link to=".." relative="route" data-testid="back-to-hub" style={{ color: '#e94560', alignSelf: 'center' }}>
             ← Back to Hub
           </Link>
         </div>

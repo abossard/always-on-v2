@@ -64,7 +64,7 @@ export function Level5Preselection() {
             You changed {settings.changedFromDefaults} setting(s) from their default values.
           </p>
         </div>
-        <Link to={`/${userId}`} data-testid="back-to-hub" style={{ color: '#e94560' }}>← Back to Hub</Link>
+        <Link to=".." relative="route" data-testid="back-to-hub" style={{ color: '#e94560' }}>← Back to Hub</Link>
       </div>
     );
   }

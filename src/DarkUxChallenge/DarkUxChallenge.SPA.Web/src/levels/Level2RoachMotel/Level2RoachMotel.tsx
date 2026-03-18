@@ -42,7 +42,7 @@ export function Level2RoachMotel() {
             and a hidden final confirmation button.
           </p>
         </div>
-        <Link to={`/${userId}`} data-testid="back-to-hub" style={{ color: '#e94560' }}>← Back to Hub</Link>
+        <Link to=".." relative="route" data-testid="back-to-hub" style={{ color: '#e94560' }}>← Back to Hub</Link>
       </div>
     );
   }

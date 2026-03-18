@@ -1,6 +1,8 @@
+import type { MouseEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api, type UserResponse } from '../../api/client';
+import { useChallengeMode } from '../../challengeMode';
 
 const LEVELS = [
   { id: 1, name: 'Confirmshaming', description: 'Guilt-based decision making', icon: '😢', available: true },
@@ -22,6 +24,8 @@ export function Hub() {
   const { userId } = useParams<{ userId: string }>();
   const [user, setUser] = useState<UserResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [pendingLevel, setPendingLevel] = useState<number | null>(null);
+  const { enabled: challengeModeEnabled } = useChallengeMode();
 
   useEffect(() => {
     if (!userId) return;
@@ -29,6 +33,34 @@ export function Hub() {
       .then(setUser)
       .finally(() => setLoading(false));
   }, [userId]);
+
+  useEffect(() => {
+    if (!challengeModeEnabled || pendingLevel === null) {
+      return;
+    }
+
+    const timerId = window.setTimeout(() => {
+      setPendingLevel(null);
+    }, 2400);
+
+    return () => {
+      window.clearTimeout(timerId);
+    };
+  }, [challengeModeEnabled, pendingLevel]);
+
+  function handleLevelClick(event: MouseEvent<HTMLAnchorElement>, levelId: number) {
+    if (!challengeModeEnabled) {
+      return;
+    }
+
+    if (pendingLevel !== levelId) {
+      event.preventDefault();
+      setPendingLevel(levelId);
+      return;
+    }
+
+    setPendingLevel(null);
+  }
 
   if (loading) return <div data-testid="loading">Loading...</div>;
 
@@ -42,6 +74,21 @@ export function Hub() {
         <p style={{ color: '#999' }}>
           Experience each dark pattern firsthand, then learn how Playwright automation defeats flows that are intentionally hostile to humans.
         </p>
+        {challengeModeEnabled && (
+          <div
+            data-testid="challenge-mode-hub-note"
+            style={{
+              marginTop: '1rem',
+              padding: '0.85rem 1rem',
+              borderRadius: '10px',
+              border: '1px solid rgba(245, 158, 11, 0.45)',
+              background: 'rgba(245, 158, 11, 0.08)',
+              color: '#f8fafc',
+            }}
+          >
+            Challenge mode adds a second confirmation click on each level card after the route briefing is dismissed.
+          </div>
+        )}
       </div>
 
       {/* Progress summary */}
@@ -132,6 +179,7 @@ export function Hub() {
               {level.available ? (
                 <Link
                   to={`levels/${level.id}`}
+                  onClick={(event) => handleLevelClick(event, level.id)}
                   data-testid={`level-link-${level.id}`}
                   style={{
                     display: 'inline-block',
@@ -143,7 +191,12 @@ export function Hub() {
                     fontSize: '0.9rem',
                   }}
                 >
-                  {completion ? 'Replay' : 'Start'} →
+                  {challengeModeEnabled && pendingLevel === level.id
+                    ? 'Confirm entry →'
+                    : completion
+                      ? 'Replay'
+                      : 'Start'}{' '}
+                  →
                 </Link>
               ) : (
                 <span style={{ color: '#555', fontSize: '0.85rem' }}>Coming soon</span>
