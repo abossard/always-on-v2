@@ -57,7 +57,6 @@ resource aksClusterAdmin 'Microsoft.Authorization/roleAssignments@2022-04-01' = 
         'Microsoft.Authorization/roleDefinitions',
         aksClusterAdminRoleId
       )
-      scope: clusterId
       principalType: 'User'
     }
   }
