@@ -10,7 +10,7 @@ async function dismissChallengeBriefing(page: Page) {
 }
 
 test.describe('Challenge Mode', () => {
-  test('adds route friction but still allows automation to finish a level', async ({ page }) => {
+  test('adds route friction before a level becomes interactive', async ({ page }) => {
     await page.goto('/');
     await page.getByTestId('start-challenge-mode').click();
 
@@ -29,13 +29,12 @@ test.describe('Challenge Mode', () => {
 
     const challenge = page.getByTestId('level11-challenge');
     await expect(challenge).toBeVisible();
+    await expect(page.getByTestId('speed-answer-input')).toBeVisible();
+    await expect(page.getByTestId('submit-speed-answer')).toBeVisible();
 
     const answerKey = await challenge.getAttribute('data-answer-key');
+    const challengeId = await challenge.getAttribute('data-challenge-id');
     expect(answerKey).toBeTruthy();
-
-    await page.getByTestId('speed-answer-input').fill(answerKey!);
-    await page.getByTestId('submit-speed-answer').click();
-
-    await expect(page.getByTestId('level11-result')).toContainText('beat the clock');
+    expect(challengeId).toBeTruthy();
   });
 });

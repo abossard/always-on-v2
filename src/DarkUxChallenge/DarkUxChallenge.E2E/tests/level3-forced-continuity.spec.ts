@@ -44,9 +44,10 @@ test.describe('Level 3: Forced Continuity — Automation detects silent conversi
     await page.getByTestId('start-challenge').click();
     await page.getByTestId('level-link-3').click();
 
+    await expect(page.getByRole('heading', { name: 'Level 3: Forced Continuity' })).toBeVisible();
+
     // The terms text should be present but in tiny, low-contrast text
-    const pageContent = await page.textContent('body');
-    expect(pageContent).toContain('$9.99/month');
-    expect(pageContent).toContain('cancel before the trial period expires');
+    const termsText = page.locator('p').filter({ hasText: '$9.99/month' }).first();
+    await expect(termsText).toContainText('cancel before the trial period expires');
   });
 });
