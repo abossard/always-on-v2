@@ -193,19 +193,11 @@ jobs:
               fi
             fi
 
-            # Also remove any existing key with the same SSH public key value (different title)
-            KEY_PREFIX=$(echo "$PUB_KEY" | awk '{print $2}' | cut -c1-40)
-            DUPE_ID=$(gh api repos/${{ github.repository }}/keys --jq ".[] | select(.key | contains(\"${KEY_PREFIX}\")) | .id")
-            if [ -n "$DUPE_ID" ]; then
-              echo "Removing duplicate deploy key (same public key, different title): $DUPE_ID"
-              gh api -X DELETE "repos/${{ github.repository }}/keys/${DUPE_ID}" || true
-            fi
-
             echo "Adding deploy key: $KEY_TITLE"
             gh api repos/${{ github.repository }}/keys \
               -f title="$KEY_TITLE" \
               -f key="$PUB_KEY" \
-              -F read_only=true
+              -F read_only=true || echo "Deploy key already exists — skipping"
           done
 
           echo "✅ Flux deploy keys registered" | tee -a $GITHUB_STEP_SUMMARY
