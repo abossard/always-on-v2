@@ -228,38 +228,6 @@ resource appAiRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = [
   }
 ]
 
-// Hub identity needs Key Vault Secrets Officer for secret management
-var keyVaultSecretsOfficerRoleId = 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7'
-
-resource hubKvRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(keyVault.id, aiHub.id, keyVaultSecretsOfficerRoleId)
-  scope: keyVault
-  properties: {
-    principalId: aiHub.identity.principalId
-    roleDefinitionId: subscriptionResourceId(
-      'Microsoft.Authorization/roleDefinitions',
-      keyVaultSecretsOfficerRoleId
-    )
-    principalType: 'ServicePrincipal'
-  }
-}
-
-// Hub identity needs Storage Blob Data Contributor
-var storageBlobDataContributorRoleId = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
-
-resource hubStorageRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(storageAccount.id, aiHub.id, storageBlobDataContributorRoleId)
-  scope: storageAccount
-  properties: {
-    principalId: aiHub.identity.principalId
-    roleDefinitionId: subscriptionResourceId(
-      'Microsoft.Authorization/roleDefinitions',
-      storageBlobDataContributorRoleId
-    )
-    principalType: 'ServicePrincipal'
-  }
-}
-
 // ============================================================================
 // Outputs
 // ============================================================================
