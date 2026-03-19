@@ -94,6 +94,23 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 'lts/*'
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Resolve AI Services endpoint from last deployment
+        id: ai
+        run: |
+          set -euo pipefail
+          DEPLOYMENT_NAME=$(az deployment sub list \
+            --query "[?properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
+            -o tsv)
+          ENDPOINT=$(az deployment sub show --name "$DEPLOYMENT_NAME" \
+            --query "properties.outputs.aiServicesEndpoint.value" -o tsv)
+          echo "endpoint=$ENDPOINT" >> "$GITHUB_OUTPUT"
+          echo "AI Services endpoint: $ENDPOINT"
       - name: Install Aspire workload
         run: dotnet workload install aspire
       - name: Install Web dependencies
@@ -111,6 +128,9 @@ jobs:
       - name: Start Aspire AppHost
         run: dotnet run --project HelloAgents.AppHost --no-build &
         working-directory: src/HelloAgents
+        env:
+          AZURE_OPENAI_ENDPOINT: ${{ steps.ai.outputs.endpoint }}
+          AZURE_OPENAI_DEPLOYMENT_NAME: gpt-41-mini
       - name: Wait for API to be healthy
         run: npx wait-on http://localhost:5100/health --timeout 120000
       - name: Find SPA port and wait for ready
