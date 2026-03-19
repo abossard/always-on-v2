@@ -34,6 +34,12 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '10.0.x'
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
       - name: Install Aspire workload
         run: dotnet workload install aspire
       - name: Restore
@@ -53,6 +59,9 @@ jobs:
           dotnet run --project HelloAgents.Tests --no-build --
           --report-trx --report-trx-filename results.trx
         working-directory: src/HelloAgents
+        env:
+          AZURE_OPENAI_ENDPOINT: ${{ vars.AZURE_OPENAI_ENDPOINT }}
+          AZURE_OPENAI_DEPLOYMENT_NAME: gpt-41-mini
       - name: Publish test results
         if: always()
         uses: EnricoMi/publish-unit-test-result-action@v2
