@@ -63,7 +63,7 @@ resource certManagerIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2
 var dnsZoneContributorRoleId = 'befefa01-2a29-4197-83a8-272ff33ce314'
 
 resource certManagerDnsRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(certManagerIdentity.id, childDnsZone.id, dnsZoneContributorRoleId)
+  name: guid(childDnsZone.id, certManagerIdentity.id, dnsZoneContributorRoleId)
   scope: childDnsZone
   properties: {
     principalId: certManagerIdentity.properties.principalId
