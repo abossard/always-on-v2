@@ -131,7 +131,7 @@ jobs:
       - name: Run E2E tests via Aspire
         run: >
           dotnet run --project HelloAgents.Tests --no-build --
-          --treenode-filter "/**/PlaywrightTests/**"
+          --treenode-filter "/*/*/*/PlaywrightTests/**"
         working-directory: src/HelloAgents
         env:
           AZURE_OPENAI_ENDPOINT: ${{ steps.ai.outputs.endpoint }}
