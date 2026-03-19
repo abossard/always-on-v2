@@ -369,6 +369,7 @@ var sharedFluxVars = {
   AI_SERVICES_ENDPOINT: aiServicesEndpoint
   AI_MODEL_GPT41: length(aiModelDeployments) > 0 ? aiModelDeployments[0] : ''
   AI_MODEL_GPT41_MINI: length(aiModelDeployments) > 1 ? aiModelDeployments[1] : ''
+  AI_MODEL_GPT54: length(aiModelDeployments) > 2 ? aiModelDeployments[2] : ''
 }
 
 // Per-app vars — prefixed with uppercase app name
