@@ -1,9 +1,11 @@
 import { defineConfig } from '@playwright/test';
 
-const baseURL = process.env.services__web__http__0 ?? 'http://localhost:5000';
+// Aspire injects service URLs as env vars via WithReference()
+const baseURL = process.env.services__web__http__0;
 
 export default defineConfig({
   testDir: './tests',
+  globalSetup: './global-setup.ts',
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
