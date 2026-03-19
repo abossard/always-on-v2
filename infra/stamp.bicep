@@ -404,7 +404,18 @@ var darkuxFluxVars = length(appFluxVars) > 2 && appFluxVars[2].name == 'darkux' 
   DARKUX_GATEWAY_HOSTNAME: 'darkux-${stampName}.${dnsZoneName}'
 } : {}
 
-var fluxSubstitute = union(sharedFluxVars, level0FluxVars, helloOrleonsFluxVars, darkuxFluxVars)
+var helloAgentsFluxVars = length(appFluxVars) > 3 && appFluxVars[3].name == 'helloagents' ? {
+  HELLOAGENTS_NAMESPACE: appFluxVars[3].namespace
+  HELLOAGENTS_SA_NAME: appFluxVars[3].name
+  HELLOAGENTS_IDENTITY_CLIENT_ID: appFluxVars[3].identityClientId
+  HELLOAGENTS_IDENTITY_ID: appFluxVars[3].identityId
+  HELLOAGENTS_COSMOS_DATABASE: appFluxVars[3].cosmosDatabase
+  HELLOAGENTS_COSMOS_CONTAINER: appFluxVars[3].cosmosContainer
+  HELLOAGENTS_DNS_LABEL: 'helloagents-${stampName}'
+  HELLOAGENTS_GATEWAY_HOSTNAME: 'helloagents-${stampName}.${dnsZoneName}'
+} : {}
+
+var fluxSubstitute = union(sharedFluxVars, level0FluxVars, helloOrleonsFluxVars, darkuxFluxVars, helloAgentsFluxVars)
 
 resource fluxConfig 'Microsoft.KubernetesConfiguration/fluxConfigurations@2024-04-01-preview' = {
   scope: aksCluster

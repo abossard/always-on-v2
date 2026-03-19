@@ -1,0 +1,80 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - deployment.yaml
+  - routes.yaml
+  - image-automation.yaml
+components:
+  - ../gateway-component
+  - ../orleans-redis-component
+  - ../orleans-infra-component
+patches:
+  - target:
+      kind: Gateway
+      name: APPNAME-gateway
+    patch: |
+      - op: replace
+        path: /metadata/name
+        value: agents-gateway
+      - op: replace
+        path: /metadata/annotations/service.beta.kubernetes.io~1azure-dns-label-name
+        value: ${HELLOAGENTS_DNS_LABEL}
+      - op: replace
+        path: /spec/listeners/1/hostname
+        value: ${HELLOAGENTS_GATEWAY_HOSTNAME}
+      - op: replace
+        path: /spec/listeners/1/tls/certificateRefs/0/name
+        value: agents-gateway-tls
+  - target:
+      kind: Deployment
+      name: redis
+    patch: |
+      - op: replace
+        path: /metadata/namespace
+        value: ${HELLOAGENTS_NAMESPACE}
+  - target:
+      kind: Service
+      name: redis
+    patch: |
+      - op: replace
+        path: /metadata/namespace
+        value: ${HELLOAGENTS_NAMESPACE}
+  - target:
+      kind: Role
+      name: APPNAME-orleans-pod-reader
+    patch: |
+      - op: replace
+        path: /metadata/name
+        value: orleans-pod-reader
+      - op: replace
+        path: /metadata/namespace
+        value: ${HELLOAGENTS_NAMESPACE}
+  - target:
+      kind: RoleBinding
+      name: APPNAME-orleans-binding
+    patch: |
+      - op: replace
+        path: /metadata/name
+        value: orleans-pod-reader-binding
+      - op: replace
+        path: /metadata/namespace
+        value: ${HELLOAGENTS_NAMESPACE}
+      - op: replace
+        path: /subjects/0/name
+        value: ${HELLOAGENTS_SA_NAME}
+      - op: replace
+        path: /subjects/0/namespace
+        value: ${HELLOAGENTS_NAMESPACE}
+  - target:
+      kind: Service
+      name: APPNAME-silo
+    patch: |
+      - op: replace
+        path: /metadata/name
+        value: helloagents-silo
+      - op: replace
+        path: /metadata/namespace
+        value: ${HELLOAGENTS_NAMESPACE}
+      - op: replace
+        path: /spec/selector/app
+        value: helloagents

@@ -67,6 +67,12 @@ param apps array = [
     namespace: 'darkux'
     cacheDuration: ''
   }
+  {
+    name: 'helloagents'
+    subdomain: 'agents'
+    namespace: 'helloagents'
+    cacheDuration: ''
+  }
 ]
 
 @description('Region configurations with stamps. Each region has a key, location, and stamps array.')
@@ -223,6 +229,21 @@ module helloOrleons 'apps/helloorleons/infra.bicep' = {
 }
 
 // ============================================================================
+// Application: HelloAgents
+// ============================================================================
+
+module helloAgents 'apps/helloagents/infra.bicep' = {
+  name: 'deploy-app-helloagents'
+  scope: globalRg
+  params: {
+    baseName: baseName
+    location: globalLocation
+    cosmosAccountName: global.outputs.cosmosName
+    appInsightsId: global.outputs.appInsightsId
+  }
+}
+
+// ============================================================================
 // Regional Resources (shared per region)
 // ============================================================================
 
@@ -272,6 +293,15 @@ var appFluxVars = [
     identityId: darkUxChallenge.outputs.identityId
     cosmosDatabase: darkUxChallenge.outputs.databaseName
     cosmosContainer: darkUxChallenge.outputs.containerName
+    aiServicesEndpoint: ai.outputs.aiServicesEndpoint
+  }
+  {
+    name: apps[3].name
+    namespace: apps[3].namespace
+    identityClientId: helloAgents.outputs.identityClientId
+    identityId: helloAgents.outputs.identityId
+    cosmosDatabase: helloAgents.outputs.databaseName
+    cosmosContainer: helloAgents.outputs.containerName
     aiServicesEndpoint: ai.outputs.aiServicesEndpoint
   }
 ]
@@ -398,6 +428,24 @@ module helloOrleonsFederatedCreds 'apps/helloorleons/federated-creds.bicep' = [
 ]
 
 // ============================================================================
+// App Federated Credentials (HelloAgents workload identity per stamp)
+// ============================================================================
+
+module helloAgentsFederatedCreds 'apps/helloagents/federated-creds.bicep' = [
+  for (stamp, i) in allStamps: {
+    name: 'deploy-helloagents-fedcred-${stamp.regionKey}-${stamp.stampKey}'
+    scope: globalRg
+    params: {
+      identityName: 'id-helloagents-${baseName}'
+      stampName: stamps[i].outputs.stampName
+      oidcIssuerUrl: stamps[i].outputs.aksOidcIssuerUrl
+      serviceAccountNamespace: apps[3].namespace
+      serviceAccountName: apps[3].name
+    }
+  }
+]
+
+// ============================================================================
 // App Front Door Routing (generic module — reused per app)
 // ============================================================================
 
@@ -441,6 +489,21 @@ module darkUxRouting 'app-routing.bicep' = {
     subdomain: apps[2].subdomain
     stamps: allStamps
     cacheDuration: apps[2].cacheDuration
+  }
+}
+
+module helloAgentsRouting 'app-routing.bicep' = {
+  name: 'deploy-routing-helloagents'
+  scope: globalRg
+  dependsOn: [for (stamp, i) in allStamps: stamps[i]]
+  params: {
+    baseName: baseName
+    domainName: domainName
+    appName: 'helloagents'
+    subdomain: apps[3].subdomain
+    stamps: allStamps
+    cacheDuration: apps[3].cacheDuration
+    probePath: '/health'
   }
 }
 

@@ -24,6 +24,14 @@ build:
       context: src/DarkUxChallenge/DarkUxChallenge.SPA.Web
       docker:
         dockerfile: Dockerfile
+    - image: helloagents
+      context: src/HelloAgents
+      docker:
+        dockerfile: HelloAgents.Api/Dockerfile
+    - image: helloagents-web
+      context: src/HelloAgents/HelloAgents.Web
+      docker:
+        dockerfile: Dockerfile
 
 deploy:
   kustomize:
