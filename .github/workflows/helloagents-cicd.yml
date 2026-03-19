@@ -40,6 +40,17 @@ jobs:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Resolve AI Services endpoint from last deployment
+        id: ai
+        run: |
+          set -euo pipefail
+          DEPLOYMENT_NAME=$(az deployment sub list \
+            --query "[?properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
+            -o tsv)
+          ENDPOINT=$(az deployment sub show --name "$DEPLOYMENT_NAME" \
+            --query "properties.outputs.aiServicesEndpoint.value" -o tsv)
+          echo "endpoint=$ENDPOINT" >> "$GITHUB_OUTPUT"
+          echo "AI Services endpoint: $ENDPOINT"
       - name: Install Aspire workload
         run: dotnet workload install aspire
       - name: Restore
@@ -60,7 +71,7 @@ jobs:
           --report-trx --report-trx-filename results.trx
         working-directory: src/HelloAgents
         env:
-          AZURE_OPENAI_ENDPOINT: ${{ vars.AZURE_OPENAI_ENDPOINT }}
+          AZURE_OPENAI_ENDPOINT: ${{ steps.ai.outputs.endpoint }}
           AZURE_OPENAI_DEPLOYMENT_NAME: gpt-41-mini
       - name: Publish test results
         if: always()

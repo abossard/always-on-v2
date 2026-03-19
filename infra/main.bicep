@@ -47,6 +47,9 @@ param devIdentities array = [
   'c64dabd5-242b-481b-ac5d-92be5c683e9f' // anbossar
 ]
 
+@description('Service principal object ID for CI/CD (GitHub Actions OIDC). Gets Cognitive Services OpenAI User role.')
+param ciServicePrincipalId string = '48b36630-1f18-4c06-9dc2-62c4a26c894e' // msi-always-on-v2
+
 @description('Applications to deploy. Each entry creates per-app infrastructure, routing, and workload identity.')
 param apps array = [
   {
@@ -180,6 +183,8 @@ module ai 'ai.bicep' = {
       playerOnLevel0.outputs.identityPrincipalId
       helloOrleons.outputs.identityPrincipalId
       darkUxChallenge.outputs.identityPrincipalId
+      helloAgents.outputs.identityPrincipalId
+      ciServicePrincipalId
     ]
   }
 }
