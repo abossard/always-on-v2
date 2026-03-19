@@ -69,7 +69,7 @@ param apps array = [
   }
   {
     name: 'helloagents'
-    subdomain: 'agents'
+    subdomain: 'agent'
     namespace: 'helloagents'
     cacheDuration: ''
   }
