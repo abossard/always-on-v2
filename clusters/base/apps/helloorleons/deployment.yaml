@@ -49,6 +49,10 @@ spec:
               value: ${APPLICATIONINSIGHTS_CONNECTION_STRING}
             - name: DISTRIBUTED_TRACING_ENABLED
               value: ${DISTRIBUTED_TRACING_ENABLED}
+            - name: AI__Endpoint
+              value: ${AI_SERVICES_ENDPOINT}
+            - name: AI__ModelName
+              value: ${AI_MODEL_GPT41}
             - name: ORLEANS_CLUSTERING
               value: "Redis"
             - name: Redis__ConnectionString

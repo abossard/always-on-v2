@@ -160,6 +160,25 @@ module global 'global.bicep' = {
 }
 
 // ============================================================================
+// AI Foundry — Hub, Project, and Global Model Deployments
+// ============================================================================
+
+module ai 'ai.bicep' = {
+  name: 'deploy-ai'
+  scope: globalRg
+  params: {
+    baseName: baseName
+    location: globalLocation
+    appInsightsId: global.outputs.appInsightsId
+    appIdentityPrincipalIds: [
+      playerOnLevel0.outputs.identityPrincipalId
+      helloOrleons.outputs.identityPrincipalId
+      darkUxChallenge.outputs.identityPrincipalId
+    ]
+  }
+}
+
+// ============================================================================
 // Application: PlayersOnLevel0
 // ============================================================================
 
@@ -237,12 +256,14 @@ var appFluxVars = [
     identityId: playerOnLevel0.outputs.identityId
     cosmosDatabase: playerOnLevel0.outputs.databaseName
     cosmosContainer: playerOnLevel0.outputs.containerName
+    aiServicesEndpoint: ai.outputs.aiServicesEndpoint
   }
   {
     name: apps[1].name
     namespace: apps[1].namespace
     identityClientId: helloOrleons.outputs.identityClientId
     identityId: helloOrleons.outputs.identityId
+    aiServicesEndpoint: ai.outputs.aiServicesEndpoint
   }
   {
     name: apps[2].name
@@ -251,6 +272,7 @@ var appFluxVars = [
     identityId: darkUxChallenge.outputs.identityId
     cosmosDatabase: darkUxChallenge.outputs.databaseName
     cosmosContainer: darkUxChallenge.outputs.containerName
+    aiServicesEndpoint: ai.outputs.aiServicesEndpoint
   }
 ]
 
@@ -278,6 +300,8 @@ module stamps 'stamp.bicep' = [
       domainName: domainName
       defaultTracing: defaultTracing
       devIdentities: enableDevPermissions ? devIdentities : []
+      aiServicesEndpoint: ai.outputs.aiServicesEndpoint
+      aiModelDeployments: ai.outputs.modelDeploymentNames
     }
   }
 ]
@@ -432,6 +456,7 @@ module devPermissions 'dev-permissions.bicep' = [
       principalId: identity
       cosmosAccountName: global.outputs.cosmosName
       acrName: global.outputs.acrName
+      aiServicesAccountName: ai.outputs.aiServicesName
     }
   }
 ]
@@ -486,6 +511,10 @@ output playerOnLevel0IdentityClientId string = playerOnLevel0.outputs.identityCl
 output appInsightsConnectionString string = global.outputs.appInsightsConnectionString
 output helloOrleonsIdentityClientId string = helloOrleons.outputs.identityClientId
 output darkUxChallengeIdentityClientId string = darkUxChallenge.outputs.identityClientId
+output aiServicesEndpoint string = ai.outputs.aiServicesEndpoint
+output aiServicesName string = ai.outputs.aiServicesName
+output aiHubName string = ai.outputs.hubName
+output aiProjectName string = ai.outputs.projectName
 
 // Generic app endpoints — used by CI/CD to display all URLs
 output appEndpoints array = [

@@ -16,6 +16,9 @@ param cosmosAccountName string
 @description('ACR name.')
 param acrName string
 
+@description('AI Services account name (optional — empty string to skip AI RBAC).')
+param aiServicesAccountName string = ''
+
 // ============================================================================
 // Existing resources
 // ============================================================================
@@ -26,6 +29,10 @@ resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2025-04-15' existing = {
 
 resource acr 'Microsoft.ContainerRegistry/registries@2025-11-01' existing = {
   name: acrName
+}
+
+resource aiServices 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' existing = if (!empty(aiServicesAccountName)) {
+  name: aiServicesAccountName
 }
 
 // ============================================================================
@@ -74,6 +81,25 @@ resource acrPush 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
     roleDefinitionId: subscriptionResourceId(
       'Microsoft.Authorization/roleDefinitions',
       acrPushRoleId
+    )
+    principalType: 'User'
+  }
+}
+
+// ============================================================================
+// Cognitive Services OpenAI Contributor (dev access to playground & models)
+// ============================================================================
+
+var cognitiveServicesOpenAIContributorRoleId = 'a001fd3d-188f-4b5d-821b-7da978bf7442'
+
+resource aiOpenAIContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(aiServicesAccountName)) {
+  name: guid(aiServices.id, principalId, cognitiveServicesOpenAIContributorRoleId)
+  scope: aiServices
+  properties: {
+    principalId: principalId
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      cognitiveServicesOpenAIContributorRoleId
     )
     principalType: 'User'
   }
