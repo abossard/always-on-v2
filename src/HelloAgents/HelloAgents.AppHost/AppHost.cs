@@ -14,9 +14,15 @@ var cosmos = builder.AddAzureCosmosDB(ResourceNames.CosmosDb)
 var db = cosmos.AddCosmosDatabase(ResourceNames.Database);
 db.AddContainer(ResourceNames.Container, "/PartitionKey");
 
-var api = builder.AddProject<Projects.HelloAgents_Api>(ResourceNames.Api)
+var api = builder.AddProject<Projects.HelloAgents_Api>(
+        name: ResourceNames.Api,
+        configure: static project =>
+        {
+            project.ExcludeLaunchProfile = true;
+        })
     .WithReference(cosmos)
     .WaitFor(cosmos)
+    .WithHttpEndpoint()
     .WithExternalHttpEndpoints()
     .WithEnvironment("Storage__Provider", "CosmosDb")
     .WithEnvironment("CosmosDb__DatabaseName", ResourceNames.Database)
