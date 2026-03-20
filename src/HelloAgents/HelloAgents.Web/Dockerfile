@@ -5,6 +5,11 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci
 
+FROM base AS proddeps
+WORKDIR /app
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
 FROM base AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
@@ -23,8 +28,10 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# serverExternalPackages are not traced into standalone — copy them explicitly
-COPY --from=deps --chown=nextjs:nodejs /app/node_modules ./node_modules
+# Workaround: serverExternalPackages are not traced into the standalone output,
+# so they're missing at runtime in Docker. Copy production node_modules which
+# include these packages. See https://github.com/vercel/next.js/issues/88844
+COPY --from=proddeps --chown=nextjs:nodejs /app/node_modules ./node_modules
 
 USER nextjs
 EXPOSE 8080
