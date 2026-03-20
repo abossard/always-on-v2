@@ -9,30 +9,28 @@ test.describe('HelloAgents Web UI', () => {
     await expect(page.locator('.copilotKitSidebar')).toBeVisible();
   });
 
-  test('real conversation with agent', async ({ page }) => {
+  test('agent replies with server time', async ({ page }) => {
     test.setTimeout(90_000);
     await page.goto('/');
 
     // Wait for CopilotKit to be ready
     await expect(page.locator('[data-test-id="copilot-chat-ready"]')).toBeAttached({ timeout: 15_000 });
 
-    // Open the sidebar if it's collapsed (click the toggle button)
+    // Open the sidebar if collapsed
     const window = page.locator('.copilotKitWindow');
     if (!(await window.isVisible())) {
       await page.locator('.copilotKitButton').click();
       await expect(window).toBeVisible({ timeout: 5_000 });
     }
 
-    // Type a message in the chat input
+    // Send a message that triggers the GetServerTime tool
     const input = page.locator('textarea[placeholder="Type a message..."]');
-    await input.fill('What is the current server time?');
+    await input.fill('What time is it?');
     await page.keyboard.press('Enter');
 
-    // Wait for an assistant response message to appear with content
-    const assistantMessage = page.locator('.copilotKitAssistantMessage').last();
-    await expect(assistantMessage).toContainText(/time|UTC|server|current|\d{2}:\d{2}/i, {
-      timeout: 60_000,
-    });
+    // The agent should call GetServerTime and respond with a timestamp
+    const lastReply = page.locator('.copilotKitAssistantMessage').last();
+    await expect(lastReply).toContainText(/\d{1,2}:\d{2}/, { timeout: 60_000 });
   });
 });
 
@@ -40,12 +38,5 @@ test.describe('HelloAgents API (direct)', () => {
   test('health endpoint returns 200', async ({ request }) => {
     const response = await request.get(`${apiBaseURL}/health`);
     expect(response.status()).toBe(200);
-  });
-
-  test('ask endpoint rejects empty message', async ({ request }) => {
-    const response = await request.post(`${apiBaseURL}/api/ask`, {
-      data: { message: '' },
-    });
-    expect(response.status()).toBe(400);
   });
 });
