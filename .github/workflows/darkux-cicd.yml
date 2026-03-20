@@ -54,6 +54,7 @@ jobs:
           --report-trx --report-trx-filename results.trx
           --coverage --coverage-output-format cobertura
           --coverage-output ${{ github.workspace }}/coverage.cobertura.xml
+          --treenode-filter "/*/*/*/*[Category!=e2e]"
         working-directory: src/DarkUxChallenge
       - name: Publish test results
         if: always()
@@ -117,7 +118,7 @@ jobs:
       - name: Run E2E tests via Aspire
         run: >
           dotnet run --project DarkUxChallenge.Tests --
-          --treenode-filter "/*/*/*/PlaywrightTests/**"
+          --treenode-filter "/*/*/*/*[Category=e2e]"
         working-directory: src/DarkUxChallenge
       - name: Playwright report summary
         if: always()

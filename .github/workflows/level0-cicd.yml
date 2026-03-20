@@ -54,6 +54,7 @@ jobs:
           --report-trx --report-trx-filename results.trx
           --coverage --coverage-output-format cobertura
           --coverage-output ${{ github.workspace }}/coverage.cobertura.xml
+          --treenode-filter "/*/*/*/*[Category!=e2e]"
         working-directory: src/PlayersOnLevel0
       - name: Publish test results
         if: always()
@@ -115,7 +116,7 @@ jobs:
       - name: Run E2E tests via Aspire
         run: >
           dotnet run --project PlayersOnLevel0.Tests --
-          --treenode-filter "/*/*/*/PlaywrightTests/**"
+          --treenode-filter "/*/*/*/*[Category=e2e]"
         working-directory: src/PlayersOnLevel0
       - name: Playwright report summary
         if: always()
