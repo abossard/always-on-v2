@@ -1,17 +1,19 @@
 # syntax=docker/dockerfile:1
-FROM mcr.microsoft.com/dotnet/sdk:10.0-noble-aot AS build
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0-noble-aot AS build
+ARG TARGETARCH
 WORKDIR /src
 
 # Copy central package management + project files for layer caching
 COPY Directory.Packages.props .
 COPY PlayersOnLevel0.Api/PlayersOnLevel0.Api.csproj PlayersOnLevel0.Api/
 COPY PlayersOnLevel0.ServiceDefaults/PlayersOnLevel0.ServiceDefaults.csproj PlayersOnLevel0.ServiceDefaults/
-RUN dotnet restore PlayersOnLevel0.Api/PlayersOnLevel0.Api.csproj
+RUN dotnet restore PlayersOnLevel0.Api/PlayersOnLevel0.Api.csproj -a $TARGETARCH
 
 # Copy source and publish AOT
 COPY . .
 RUN dotnet publish PlayersOnLevel0.Api/PlayersOnLevel0.Api.csproj \
     -c Release \
+    -a $TARGETARCH \
     -o /app \
     --no-restore
 
