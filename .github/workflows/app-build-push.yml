@@ -1,7 +1,8 @@
 name: App Build & Push (Reusable)
 
-# Reusable workflow for building, pushing container images, and updating K8s manifests.
-# Called by per-app CI/CD workflows after their app-specific tests pass.
+# Reusable workflow for building, pushing multi-arch container images,
+# and updating K8s manifests. Builds amd64 and arm64 natively in parallel
+# on architecture-specific runners (no QEMU emulation).
 #
 # Usage:
 #   jobs:
@@ -44,13 +45,16 @@ permissions:
   id-token: write
 
 jobs:
-  build-push:
-    name: Build & Push ${{ inputs.app_name }}
+  # ── Step 1: Resolve ACR + generate tag (shared by build jobs) ──
+  prepare:
+    name: Prepare
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 5
+    outputs:
+      acr_name: ${{ steps.acr.outputs.name }}
+      acr_login_server: ${{ steps.acr.outputs.login_server }}
+      tag: ${{ steps.tag.outputs.ts }}
     steps:
-      - uses: actions/checkout@v4
-
       - name: Azure Login (OIDC)
         uses: azure/login@v2
         with:
@@ -79,17 +83,38 @@ jobs:
           ACR_NAME=$(echo "$ACR_LOGIN_SERVER" | cut -d. -f1)
           echo "name=$ACR_NAME" >> "$GITHUB_OUTPUT"
           echo "login_server=$ACR_LOGIN_SERVER" >> "$GITHUB_OUTPUT"
-          echo "✅ Resolved ACR: $ACR_LOGIN_SERVER" >> "$GITHUB_STEP_SUMMARY"
-
-      - name: ACR Login
-        run: az acr login -n ${{ steps.acr.outputs.name }}
 
       - name: Generate timestamp tag
         id: tag
         run: echo "ts=$(date +%s)-${GITHUB_SHA::8}" >> "$GITHUB_OUTPUT"
 
-      - name: Set up QEMU (for multi-arch builds)
-        uses: docker/setup-qemu-action@v3
+  # ── Step 2: Build each arch natively in parallel ──
+  build:
+    name: Build ${{ inputs.app_name }} (${{ matrix.arch }})
+    needs: prepare
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+            platform: linux/amd64
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+            platform: linux/arm64
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: ACR Login
+        run: az acr login -n ${{ needs.prepare.outputs.acr_name }}
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -100,13 +125,11 @@ jobs:
           context: ${{ inputs.docker_context }}
           file: ${{ inputs.dockerfile }}
           push: true
-          platforms: linux/amd64,linux/arm64
+          platforms: ${{ matrix.platform }}
           tags: |
-            ${{ steps.acr.outputs.login_server }}/${{ inputs.app_name }}:${{ steps.tag.outputs.ts }}
-            ${{ steps.acr.outputs.login_server }}/${{ inputs.app_name }}:${{ github.sha }}
-            ${{ steps.acr.outputs.login_server }}/${{ inputs.app_name }}:latest
-          cache-from: type=gha,scope=${{ inputs.app_name }}
-          cache-to: type=gha,mode=max,scope=${{ inputs.app_name }}
+            ${{ needs.prepare.outputs.acr_login_server }}/${{ inputs.app_name }}:${{ needs.prepare.outputs.tag }}-${{ matrix.arch }}
+          cache-from: type=gha,scope=${{ inputs.app_name }}-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ inputs.app_name }}-${{ matrix.arch }}
           provenance: false
 
       - name: Build and push extra images
@@ -117,34 +140,80 @@ jobs:
             NAME=$(echo "$img" | jq -r '.name')
             CTX=$(echo "$img" | jq -r '.context')
             DF=$(echo "$img" | jq -r '.dockerfile')
-            TAG="${{ steps.tag.outputs.ts }}"
-            SERVER="${{ steps.acr.outputs.login_server }}"
+            TAG="${{ needs.prepare.outputs.tag }}"
+            SERVER="${{ needs.prepare.outputs.acr_login_server }}"
+            ARCH="${{ matrix.arch }}"
 
-            echo "Building $NAME from $CTX ($DF)..."
+            echo "Building $NAME ($ARCH) from $CTX ($DF)..."
             docker buildx build \
               --file "$DF" \
-              --platform linux/amd64,linux/arm64 \
-              --tag "$SERVER/$NAME:$TAG" \
-              --tag "$SERVER/$NAME:${{ github.sha }}" \
-              --tag "$SERVER/$NAME:latest" \
-              --cache-from "type=gha,scope=$NAME" \
-              --cache-to "type=gha,mode=max,scope=$NAME" \
+              --platform "${{ matrix.platform }}" \
+              --tag "$SERVER/$NAME:$TAG-$ARCH" \
+              --cache-from "type=gha,scope=$NAME-$ARCH" \
+              --cache-to "type=gha,mode=max,scope=$NAME-$ARCH" \
               --push \
               "$CTX"
           done
 
+  # ── Step 3: Create multi-arch manifest lists + update K8s ──
+  manifest:
+    name: Create manifests & deploy
+    needs: [prepare, build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: ACR Login
+        run: az acr login -n ${{ needs.prepare.outputs.acr_name }}
+
+      - name: Create multi-arch manifests for primary image
+        env:
+          SERVER: ${{ needs.prepare.outputs.acr_login_server }}
+          APP: ${{ inputs.app_name }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          set -euo pipefail
+          for FINAL_TAG in "$TAG" "${{ github.sha }}" "latest"; do
+            docker manifest create "$SERVER/$APP:$FINAL_TAG" \
+              "$SERVER/$APP:$TAG-amd64" \
+              "$SERVER/$APP:$TAG-arm64"
+            docker manifest push "$SERVER/$APP:$FINAL_TAG"
+          done
+
+      - name: Create multi-arch manifests for extra images
+        if: inputs.extra_images != '[]'
+        env:
+          SERVER: ${{ needs.prepare.outputs.acr_login_server }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          set -euo pipefail
+          echo '${{ inputs.extra_images }}' | jq -c '.[]' | while read -r img; do
+            NAME=$(echo "$img" | jq -r '.name')
+            for FINAL_TAG in "$TAG" "${{ github.sha }}" "latest"; do
+              docker manifest create "$SERVER/$NAME:$FINAL_TAG" \
+                "$SERVER/$NAME:$TAG-amd64" \
+                "$SERVER/$NAME:$TAG-arm64"
+              docker manifest push "$SERVER/$NAME:$FINAL_TAG"
+            done
+          done
+
       - name: Update K8s manifests with new image tag
         env:
-          TAG: ${{ steps.tag.outputs.ts }}
+          TAG: ${{ needs.prepare.outputs.tag }}
           DEPLOY: ${{ inputs.deploy_manifest }}
           APP_NAME: ${{ inputs.app_name }}
         run: |
           set -euo pipefail
-
-          # Update image tags in all Deployments (YAML-safe, preserves Flux vars)
           yq -i "(select(.kind == \"Deployment\") | .spec.template.spec.containers[0].image) |= sub(\":[^:]*$\", \":${TAG}\")" "$DEPLOY"
 
-          # Commit and push (if changed)
           git config user.name 'github-actions[bot]'
           git config user.email 'github-actions[bot]@users.noreply.github.com'
           git add "$DEPLOY"
