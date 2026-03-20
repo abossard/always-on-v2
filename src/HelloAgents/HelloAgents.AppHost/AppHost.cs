@@ -33,7 +33,7 @@ var api = builder.AddProject<Projects.HelloAgents_Api>(
 
 var web = builder.AddNpmApp(ResourceNames.Web, "../HelloAgents.Web", "dev")
     .WithReference(api)
-    .WithHttpEndpoint(env: "PORT")
+    .WithHttpEndpoint(port: 4200, env: "PORT")
     .WithExternalHttpEndpoints();
 
 builder.AddNpmApp("e2e", "../HelloAgents.E2E", "test")

@@ -54,7 +54,6 @@ jobs:
           --report-trx --report-trx-filename results.trx
           --coverage --coverage-output-format cobertura
           --coverage-output ${{ github.workspace }}/coverage.cobertura.xml
-          --treenode-filter "/*/*/*/*[Category!=e2e]"
         working-directory: src/DarkUxChallenge
       - name: Publish test results
         if: always()
@@ -109,17 +108,29 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
         working-directory: src/DarkUxChallenge/DarkUxChallenge.E2E
-      - name: Expose GitHub Actions runtime
-        uses: actions/github-script@v7
-        with:
-          script: |
-            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env['ACTIONS_RUNTIME_TOKEN']);
-            core.exportVariable('ACTIONS_RESULTS_URL', process.env['ACTIONS_RESULTS_URL']);
-      - name: Run E2E tests via Aspire
-        run: >
-          dotnet run --project DarkUxChallenge.Tests --
-          --treenode-filter "/*/*/*/*[Category=e2e]"
+      - name: Build .NET projects
+        run: dotnet build
         working-directory: src/DarkUxChallenge
+      - name: Start Aspire AppHost
+        run: dotnet run --project DarkUxChallenge.AppHost --no-build &
+        working-directory: src/DarkUxChallenge
+      - name: Wait for API to be healthy
+        run: npx wait-on http://localhost:5199/health --timeout 120000
+      - name: Wait for SPA to be ready
+        run: |
+          for i in $(seq 1 60); do
+            if curl -sf http://localhost:4200 2>/dev/null; then
+              echo "SPA ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "SPA failed to start" && exit 1
+      - name: Run Playwright tests
+        run: npx playwright test
+        working-directory: src/DarkUxChallenge/DarkUxChallenge.E2E
+        env:
+          services__web__http__0: http://localhost:4200
       - name: Playwright report summary
         if: always()
         uses: daun/playwright-report-summary@v3

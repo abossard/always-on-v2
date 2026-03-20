@@ -25,7 +25,7 @@ var api = builder.AddProject<Projects.DarkUxChallenge_Api>(ResourceNames.Api)
 
 var web = builder.AddNpmApp(ResourceNames.Web, "../DarkUxChallenge.SPA.Web", "dev")
     .WithReference(api)
-    .WithHttpEndpoint(env: "PORT")
+    .WithHttpEndpoint(port: 4200, env: "PORT")
     .WithExternalHttpEndpoints();
 
 builder.AddNpmApp("e2e", "../DarkUxChallenge.E2E", "test")
