@@ -182,7 +182,7 @@ jobs:
         run: |
           set -euo pipefail
           for FINAL_TAG in "$TAG" "${{ github.sha }}" "latest"; do
-            docker manifest create "$SERVER/$APP:$FINAL_TAG" \
+            docker manifest create --amend "$SERVER/$APP:$FINAL_TAG" \
               "$SERVER/$APP:$TAG-amd64" \
               "$SERVER/$APP:$TAG-arm64"
             docker manifest push "$SERVER/$APP:$FINAL_TAG"
@@ -198,7 +198,7 @@ jobs:
           echo '${{ inputs.extra_images }}' | jq -c '.[]' | while read -r img; do
             NAME=$(echo "$img" | jq -r '.name')
             for FINAL_TAG in "$TAG" "${{ github.sha }}" "latest"; do
-              docker manifest create "$SERVER/$NAME:$FINAL_TAG" \
+              docker manifest create --amend "$SERVER/$NAME:$FINAL_TAG" \
                 "$SERVER/$NAME:$TAG-amd64" \
                 "$SERVER/$NAME:$TAG-arm64"
               docker manifest push "$SERVER/$NAME:$FINAL_TAG"
