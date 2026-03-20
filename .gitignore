@@ -47,3 +47,4 @@ local.settings.json
 coverage/
 *.coverage
 **/playwright-report/
+.env

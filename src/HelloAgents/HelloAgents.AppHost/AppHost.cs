@@ -1,5 +1,21 @@
 using HelloAgents.AppHost;
 
+// Load .env file if present (so you don't need export AZURE_OPENAI_ENDPOINT=... every time)
+var envFile = Path.Combine(Directory.GetCurrentDirectory(), ".env");
+if (File.Exists(envFile))
+{
+    foreach (var line in File.ReadAllLines(envFile))
+    {
+        var trimmed = line.Trim();
+        if (trimmed.Length == 0 || trimmed.StartsWith('#')) continue;
+        var sep = trimmed.IndexOf('=');
+        if (sep <= 0) continue;
+        var key = trimmed[..sep].Trim();
+        var value = trimmed[(sep + 1)..].Trim().Trim('"');
+        Environment.SetEnvironmentVariable(key, value);
+    }
+}
+
 var builder = DistributedApplication.CreateBuilder(args);
 
 #pragma warning disable ASPIRECOSMOSDB001
