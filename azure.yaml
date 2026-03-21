@@ -12,3 +12,7 @@ infra:
       resourceGroups: detach
     denySettings:
       mode: none
+hooks:
+  postprovision:
+    shell: sh
+    run: scripts/build-and-push.sh
