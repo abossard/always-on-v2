@@ -3,15 +3,24 @@
 # Replicates what the GitHub Actions CI does, for use when CI minutes are unavailable.
 #
 # Usage:
-#   ./scripts/build-and-push.sh              # build all, push, update manifests
-#   ./scripts/build-and-push.sh --no-push    # build only (local test)
+#   ./scripts/build-and-push.sh                          # build amd64, push, update manifests
+#   ./scripts/build-and-push.sh --platform linux/arm64   # build for arm64
+#   ./scripts/build-and-push.sh --no-push                # build only (local test)
 #
 # Prerequisites: az login, Docker running
 
 set -euo pipefail
 
 PUSH=true
-[ "${1:-}" = "--no-push" ] && PUSH=false
+PLATFORM="linux/amd64"
+
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --no-push) PUSH=false; shift ;;
+    --platform) PLATFORM="$2"; shift 2 ;;
+    *) echo "Unknown arg: $1"; exit 1 ;;
+  esac
+done
 
 # ── Resolve ACR ──
 echo "🔍 Resolving ACR..."
@@ -39,6 +48,7 @@ az acr login -n "$ACR_NAME"
 SHA=$(git rev-parse --short=8 HEAD)
 TAG="$(date +%s)-$SHA"
 echo "🏷️  Tag: $TAG"
+echo "🖥️  Platform: $PLATFORM"
 
 # ── Images to build (matches skaffold.yaml + CI workflows) ──
 IMAGES=(
@@ -60,6 +70,7 @@ for entry in "${IMAGES[@]}"; do
   echo "🔨 Building $NAME..."
   docker buildx build \
     --file "$DF" \
+    --platform "$PLATFORM" \
     --tag "$SERVER/$NAME:$TAG" \
     --tag "$SERVER/$NAME:latest" \
     --provenance=false \
