@@ -28,8 +28,8 @@ public class InMemoryFixture : WebApplicationFactory<HelloAgents.Api.Program>, I
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseSetting("Storage:Provider", "InMemory");
-        builder.UseSetting("AZURE_OPENAI_ENDPOINT", "https://placeholder.openai.azure.com");
-        builder.UseSetting("AZURE_OPENAI_DEPLOYMENT_NAME", "gpt-41-mini");
+        // Clear Azure OpenAI endpoint so NoOpChatClient is used
+        builder.UseSetting("AZURE_OPENAI_ENDPOINT", "");
     }
 }
 

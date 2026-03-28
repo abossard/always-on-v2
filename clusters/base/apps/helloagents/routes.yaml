@@ -29,21 +29,7 @@ spec:
     - matches:
         - path:
             type: PathPrefix
-            value: /api/copilotkit
-      backendRefs:
-        - name: helloagents-web
-          port: 8080
-    - matches:
-        - path:
-            type: PathPrefix
             value: /api
-      backendRefs:
-        - name: helloagents
-          port: 8080
-    - matches:
-        - path:
-            type: PathPrefix
-            value: /agui
       backendRefs:
         - name: helloagents
           port: 8080

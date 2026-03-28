@@ -1,14 +1,12 @@
+using Azure.AI.OpenAI;
+using Azure.Identity;
 using HelloAgents.Api;
-using Microsoft.Agents.AI;
-using Microsoft.Agents.AI.Hosting.AGUI.AspNetCore;
+using Microsoft.Extensions.AI;
 using Orleans.Dashboard;
 
 var builder = WebApplication.CreateSlimBuilder(args);
 builder.WebHost.UseKestrelHttpsConfiguration();
 builder.AddServiceDefaults();
-
-// AG-UI services for the DevUI chat interface
-builder.Services.AddAGUI();
 
 // Orleans silo with Cosmos persistence and Dashboard
 builder.Host.UseOrleans(silo =>
@@ -52,14 +50,46 @@ builder.Host.UseOrleans(silo =>
         silo.UseLocalhostClustering();
     }
 
-    // Orleans Dashboard (dev-only visibility, mapped in app pipeline)
     silo.AddDashboard();
+
+    // Orleans Streams for cross-silo SSE message delivery
+    silo.AddMemoryStreams("ChatMessages");
+    silo.AddMemoryGrainStorage("PubSubStore");
 });
 
-// Register AI Agent as singleton
-builder.Services.AddSingleton<AIAgent>(_ => AgentSetup.CreateAgent(builder.Configuration));
+// Azure OpenAI chat client for agent responses
+var endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"] ?? "";
+var deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"] ?? "gpt-41-mini";
+
+if (!string.IsNullOrWhiteSpace(endpoint))
+{
+    builder.Services.AddSingleton<IChatClient>(sp =>
+    {
+        var openAiClient = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential());
+        return openAiClient.GetChatClient(deployment).AsIChatClient();
+    });
+}
+else
+{
+    // Placeholder for tests — agents won't respond meaningfully
+    builder.Services.AddSingleton<IChatClient>(new NoOpChatClient());
+}
+
+// AI orchestrator for natural language commands
+builder.Services.AddScoped<OrchestratorService>();
+
+// CORS for static SPA on different origin (dev: localhost:4200 → localhost:5100)
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
+    });
+});
 
 var app = builder.Build();
+
+app.UseCors();
 
 if (app.Environment.IsDevelopment())
 {
@@ -68,15 +98,30 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapDefaultEndpoints();
-app.MapAgentEndpoints();
-
-// AG-UI endpoint — OpenAI-compatible chat API for DevUI
-var agent = app.Services.GetRequiredService<AIAgent>();
-app.MapAGUI("/agui", agent);
+app.MapAllEndpoints();
 
 app.Run();
 
 namespace HelloAgents.Api
 {
     public partial class Program;
+
+    /// <summary>Fallback chat client for tests when no Azure OpenAI endpoint is configured.</summary>
+    internal sealed class NoOpChatClient : IChatClient
+    {
+        public void Dispose() { }
+
+        public Task<ChatResponse> GetResponseAsync(
+            IEnumerable<Microsoft.Extensions.AI.ChatMessage> messages, ChatOptions? options = null,
+            CancellationToken cancellationToken = default)
+            => Task.FromResult(new ChatResponse(
+                new Microsoft.Extensions.AI.ChatMessage(ChatRole.Assistant, "(AI not configured)")));
+
+        public IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
+            IEnumerable<Microsoft.Extensions.AI.ChatMessage> messages, ChatOptions? options = null,
+            CancellationToken cancellationToken = default)
+            => AsyncEnumerable.Empty<ChatResponseUpdate>();
+
+        public object? GetService(Type serviceType, object? serviceKey = null) => null;
+    }
 }

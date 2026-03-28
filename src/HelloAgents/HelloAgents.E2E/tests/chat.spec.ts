@@ -2,41 +2,311 @@ import { test, expect } from '@playwright/test';
 
 const apiBaseURL = process.env.services__api__http__0 ?? 'http://localhost:5100';
 
-test.describe('HelloAgents Web UI', () => {
-  test('chat page loads with CopilotKit', async ({ page }) => {
-    await page.goto('/');
-    await expect(page.locator('[data-test-id="copilot-chat-ready"]')).toBeAttached({ timeout: 15_000 });
-    await expect(page.locator('.copilotKitSidebar')).toBeVisible();
+// ─── Helpers ───────────────────────────────────────────────
+
+let counter = 0;
+function uid(prefix: string) {
+  return `${prefix}-${Date.now()}-${++counter}`;
+}
+
+async function waitForApp(page: import('@playwright/test').Page) {
+  await page.goto('/');
+  await expect(page.locator('[data-test-id="chat-app-ready"]')).toBeAttached({ timeout: 15_000 });
+}
+
+async function createGroupViaAPI(request: import('@playwright/test').APIRequestContext, name: string, description = '') {
+  const res = await request.post(`${apiBaseURL}/api/groups`, {
+    data: { name, description },
+  });
+  expect(res.status()).toBe(201);
+  return (await res.json()) as { id: string; name: string };
+}
+
+async function createAgentViaAPI(request: import('@playwright/test').APIRequestContext, name: string, persona: string, emoji: string) {
+  const res = await request.post(`${apiBaseURL}/api/agents`, {
+    data: { name, personaDescription: persona, avatarEmoji: emoji },
+  });
+  expect(res.status()).toBe(201);
+  return (await res.json()) as { id: string; name: string };
+}
+
+async function addAgentToGroupViaAPI(request: import('@playwright/test').APIRequestContext, groupId: string, agentId: string) {
+  const res = await request.post(`${apiBaseURL}/api/groups/${groupId}/agents`, {
+    data: { agentId },
+  });
+  expect(res.ok()).toBeTruthy();
+}
+
+// ─── Layout & Navigation ──────────────────────────────────
+
+test.describe('Layout & Navigation', () => {
+  test('app loads with three-panel layout and welcome screen', async ({ page }) => {
+    await waitForApp(page);
+
+    await expect(page.getByText('Chat Groups')).toBeVisible();
+    await expect(page.getByRole('button', { name: '+ New' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'HelloAgents' })).toBeVisible();
+    await expect(page.getByText('Select or create a group')).toBeVisible();
   });
 
-  test('agent replies with server time', async ({ page }) => {
-    test.setTimeout(90_000);
-    await page.goto('/');
+  test('selecting a group shows chat and agent panels', async ({ page, request }) => {
+    const name = uid('NavTest');
+    await createGroupViaAPI(request, name);
+    await waitForApp(page);
 
-    // Wait for CopilotKit to be ready
-    await expect(page.locator('[data-test-id="copilot-chat-ready"]')).toBeAttached({ timeout: 15_000 });
-
-    // Open the sidebar if collapsed
-    const window = page.locator('.copilotKitWindow');
-    if (!(await window.isVisible())) {
-      await page.locator('.copilotKitButton').click();
-      await expect(window).toBeVisible({ timeout: 5_000 });
-    }
-
-    // Send a message that triggers the GetServerTime tool
-    const input = page.locator('textarea[placeholder="Type a message..."]');
-    await input.fill('What time is it?');
-    await page.keyboard.press('Enter');
-
-    // The agent should call GetServerTime and respond with a timestamp
-    const lastReply = page.locator('.copilotKitAssistantMessage').last();
-    await expect(lastReply).toContainText(/\d{1,2}:\d{2}/, { timeout: 60_000 });
+    await page.getByText(name).click();
+    await expect(page.getByRole('heading', { name })).toBeVisible();
+    await expect(page.getByText('Agents in Group')).toBeVisible();
+    await expect(page.getByPlaceholder('Type a message...')).toBeVisible();
+    await expect(page.getByRole('button', { name: /Start Discussion/ })).toBeVisible();
   });
 });
 
-test.describe('HelloAgents API (direct)', () => {
+// ─── Group Management ─────────────────────────────────────
+
+test.describe('Group Management', () => {
+  test('can create a group via UI', async ({ page }) => {
+    const name = uid('UIGroup');
+    await waitForApp(page);
+
+    await page.getByRole('button', { name: '+ New' }).click();
+    await page.getByPlaceholder('Group name').fill(name);
+    await page.getByPlaceholder('Description (optional)').fill('Created in E2E');
+    await page.getByRole('button', { name: 'Create' }).click();
+
+    // Group heading should be visible (auto-selected)
+    await expect(page.getByRole('heading', { name })).toBeVisible({ timeout: 5_000 });
+  });
+
+  test('can delete a group', async ({ page, request }) => {
+    const name = uid('DeleteMe');
+    const group = await createGroupViaAPI(request, name);
+    await waitForApp(page);
+
+    await expect(page.getByText(name).first()).toBeVisible();
+    // Use the data-testid on the group row to find the exact delete button
+    await page.getByTestId(`group-${group.id}`).getByTitle('Delete group').click();
+
+    await expect(page.getByText(name)).not.toBeVisible({ timeout: 5_000 });
+  });
+
+  test('empty group name is rejected', async ({ page }) => {
+    await waitForApp(page);
+
+    await page.getByRole('button', { name: '+ New' }).click();
+    await page.getByRole('button', { name: 'Create' }).click();
+
+    await expect(page.getByPlaceholder('Group name')).toBeVisible();
+  });
+});
+
+// ─── Agent Management ─────────────────────────────────────
+
+test.describe('Agent Management', () => {
+  test('can create an agent from the roster panel', async ({ page, request }) => {
+    const groupName = uid('AgentCreateGrp');
+    const agentName = uid('NewBot');
+    await createGroupViaAPI(request, groupName);
+    await waitForApp(page);
+
+    await page.getByText(groupName).click();
+    await expect(page.getByText('Agents in Group')).toBeVisible();
+
+    await page.getByRole('button', { name: '✨ Create New Agent' }).click();
+    await page.getByPlaceholder('Agent name').fill(agentName);
+    await page.getByPlaceholder('Describe the agent').fill('A helpful test bot');
+    await page.getByRole('button', { name: 'Create & Add' }).click();
+
+    await expect(page.getByText(agentName)).toBeVisible({ timeout: 10_000 });
+  });
+
+  test('can add an existing agent to a group', async ({ page, request }) => {
+    const groupName = uid('AddAgentGrp');
+    const agentName = uid('ExistBot');
+    await createGroupViaAPI(request, groupName);
+    const agent = await createAgentViaAPI(request, agentName, 'A pre-created bot', '🤖');
+
+    await waitForApp(page);
+    await page.getByText(groupName).click();
+    await expect(page.getByText('Agents in Group')).toBeVisible();
+
+    await page.locator('select').selectOption(agent.id);
+    await expect(page.getByText(agentName)).toBeVisible({ timeout: 5_000 });
+  });
+
+  test('can remove an agent from a group', async ({ page, request }) => {
+    const groupName = uid('RmAgentGrp');
+    const agentName = uid('RmBot');
+    const group = await createGroupViaAPI(request, groupName);
+    const agent = await createAgentViaAPI(request, agentName, 'Will be removed', '🗑️');
+    await addAgentToGroupViaAPI(request, group.id, agent.id);
+
+    await waitForApp(page);
+    await page.getByText(groupName).click();
+    await expect(page.getByText(agentName)).toBeVisible({ timeout: 5_000 });
+
+    await page.getByTitle('Remove from group').click();
+    await expect(page.getByText(agentName)).not.toBeVisible({ timeout: 5_000 });
+  });
+});
+
+// ─── Chat & Messaging ─────────────────────────────────────
+
+test.describe('Chat & Messaging', () => {
+  test('can send a message and see it appear', async ({ page, request }) => {
+    const groupName = uid('ChatTest');
+    await createGroupViaAPI(request, groupName);
+    await waitForApp(page);
+
+    await page.getByText(groupName).click();
+    await expect(page.getByPlaceholder('Type a message...')).toBeVisible();
+
+    const msg = uid('HelloE2E');
+    await page.getByPlaceholder('Type a message...').fill(msg);
+    await page.getByRole('button', { name: 'Send' }).click();
+
+    await expect(page.getByText(msg)).toBeVisible({ timeout: 5_000 });
+    await expect(page.getByText('You')).toBeVisible();
+  });
+
+  test('pressing Enter sends the message', async ({ page, request }) => {
+    const groupName = uid('EnterKeyGrp');
+    await createGroupViaAPI(request, groupName);
+    await waitForApp(page);
+
+    await page.getByText(groupName).click();
+    const msg = uid('EnterMsg');
+    const input = page.getByPlaceholder('Type a message...');
+    await input.fill(msg);
+    await input.press('Enter');
+
+    await expect(page.getByText(msg)).toBeVisible({ timeout: 5_000 });
+  });
+
+  test('empty message is not sent', async ({ page, request }) => {
+    const groupName = uid('EmptyMsgGrp');
+    await createGroupViaAPI(request, groupName);
+    await waitForApp(page);
+
+    await page.getByText(groupName).click();
+    await expect(page.getByText('No messages yet')).toBeVisible({ timeout: 5_000 });
+
+    await page.getByRole('button', { name: 'Send' }).click();
+    await expect(page.getByText('No messages yet')).toBeVisible();
+  });
+});
+
+// ─── Discussion ────────────────────────────────────────────
+
+test.describe('Discussion', () => {
+  test('start discussion shows busy indicator and agent responses', async ({ page, request }) => {
+    test.setTimeout(120_000);
+
+    const groupName = uid('DiscussGrp');
+    const agentName = uid('Debater');
+    const group = await createGroupViaAPI(request, groupName);
+    const agent = await createAgentViaAPI(request, agentName, 'Loves to debate any topic', '🎭');
+    await addAgentToGroupViaAPI(request, group.id, agent.id);
+
+    const seedMsg = uid('SeedQuestion');
+    await request.post(`${apiBaseURL}/api/groups/${group.id}/messages`, {
+      data: { senderName: 'Tester', content: seedMsg },
+    });
+
+    await waitForApp(page);
+    await page.getByText(groupName).click();
+    await expect(page.getByText(seedMsg)).toBeVisible({ timeout: 5_000 });
+
+    await page.getByRole('button', { name: /Start Discussion/ }).click();
+    await expect(page.getByRole('button', { name: /Discussing/ })).toBeDisabled({ timeout: 5_000 });
+
+    // Wait for agent response (up to 60s for LLM call)
+    await expect(page.getByText(agentName)).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole('button', { name: /Start Discussion/ })).toBeEnabled({ timeout: 5_000 });
+  });
+});
+
+// ─── API Direct Tests ──────────────────────────────────────
+
+test.describe('API (direct)', () => {
   test('health endpoint returns 200', async ({ request }) => {
-    const response = await request.get(`${apiBaseURL}/health`);
-    expect(response.status()).toBe(200);
+    const res = await request.get(`${apiBaseURL}/health`);
+    expect(res.status()).toBe(200);
+  });
+
+  test('group CRUD lifecycle', async ({ request }) => {
+    const name = uid('CRUDGroup');
+    const createRes = await request.post(`${apiBaseURL}/api/groups`, {
+      data: { name, description: 'API lifecycle test' },
+    });
+    expect(createRes.status()).toBe(201);
+    const group = await createRes.json();
+    expect(group.name).toBe(name);
+
+    expect((await request.get(`${apiBaseURL}/api/groups/${group.id}`)).status()).toBe(200);
+
+    const groups = await (await request.get(`${apiBaseURL}/api/groups`)).json();
+    expect(groups.some((g: { id: string }) => g.id === group.id)).toBeTruthy();
+
+    expect((await request.delete(`${apiBaseURL}/api/groups/${group.id}`)).status()).toBe(204);
+  });
+
+  test('agent CRUD lifecycle', async ({ request }) => {
+    const name = uid('CRUDAgent');
+    const createRes = await request.post(`${apiBaseURL}/api/agents`, {
+      data: { name, personaDescription: 'Lifecycle test', avatarEmoji: '🧪' },
+    });
+    expect(createRes.status()).toBe(201);
+    const agent = await createRes.json();
+    expect(agent.name).toBe(name);
+
+    expect((await request.get(`${apiBaseURL}/api/agents/${agent.id}`)).status()).toBe(200);
+    expect((await request.get(`${apiBaseURL}/api/agents`)).status()).toBe(200);
+    expect((await request.delete(`${apiBaseURL}/api/agents/${agent.id}`)).status()).toBe(204);
+  });
+
+  test('membership: add and remove agent from group', async ({ request }) => {
+    const group = await createGroupViaAPI(request, uid('MemberGrp'));
+    const agent = await createAgentViaAPI(request, uid('MemberBot'), 'test', '🤖');
+
+    await addAgentToGroupViaAPI(request, group.id, agent.id);
+
+    const detail = await (await request.get(`${apiBaseURL}/api/groups/${group.id}`)).json();
+    expect(detail.agentIds).toContain(agent.id);
+
+    expect((await request.delete(`${apiBaseURL}/api/groups/${group.id}/agents/${agent.id}`)).status()).toBe(204);
+
+    const detail2 = await (await request.get(`${apiBaseURL}/api/groups/${group.id}`)).json();
+    expect(detail2.agentIds).not.toContain(agent.id);
+  });
+
+  test('send message and verify in group state', async ({ request }) => {
+    const group = await createGroupViaAPI(request, uid('MsgGrp'));
+    const content = uid('HelloAPI');
+
+    const msgRes = await request.post(`${apiBaseURL}/api/groups/${group.id}/messages`, {
+      data: { senderName: 'API Tester', content },
+    });
+    expect(msgRes.status()).toBe(200);
+    const msg = await msgRes.json();
+    expect(msg.content).toBe(content);
+
+    const detail = await (await request.get(`${apiBaseURL}/api/groups/${group.id}`)).json();
+    expect(detail.messages.length).toBe(1);
+  });
+
+  test('send empty message returns 400', async ({ request }) => {
+    const group = await createGroupViaAPI(request, uid('BadMsgGrp'));
+    const res = await request.post(`${apiBaseURL}/api/groups/${group.id}/messages`, {
+      data: { senderName: 'Tester', content: '' },
+    });
+    expect(res.status()).toBe(400);
+  });
+
+  test('orchestrate with empty message returns 400', async ({ request }) => {
+    const res = await request.post(`${apiBaseURL}/api/orchestrate`, {
+      data: { message: '' },
+    });
+    expect(res.status()).toBe(400);
   });
 });

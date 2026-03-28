@@ -28,10 +28,14 @@ var api = builder.AddProject<Projects.HelloAgents_Api>(ResourceNames.Api)
     .WithEnvironment("AZURE_OPENAI_DEPLOYMENT_NAME", builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"] ?? "gpt-41-mini")
     .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development");
 
+// Pass the API URL to the frontend for direct API calls (static SPA)
+var apiUrl = api.GetEndpoint("http");
+
 var web = builder.AddNpmApp(ResourceNames.Web, "../HelloAgents.Web", "dev")
     .WithReference(api)
     .WithHttpEndpoint(port: 4200, env: "PORT")
-    .WithExternalHttpEndpoints();
+    .WithExternalHttpEndpoints()
+    .WithEnvironment("NEXT_PUBLIC_API_URL", apiUrl);
 
 builder.AddNpmApp("e2e", "../HelloAgents.E2E", "test")
     .WithReference(web)
