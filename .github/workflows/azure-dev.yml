@@ -202,9 +202,6 @@ jobs:
 
           echo "✅ Flux deploy keys registered" | tee -a $GITHUB_STEP_SUMMARY
 
-      - name: Deploy Application
-        run: azd deploy --no-prompt
-
       - name: Display application endpoints
         if: steps.provision.outcome == 'success'
         run: |
