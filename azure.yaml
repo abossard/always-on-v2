@@ -13,6 +13,6 @@ infra:
     denySettings:
       mode: none
 hooks:
-  postprovision:
+  predeploy:
     shell: sh
     run: scripts/build-and-push.sh
