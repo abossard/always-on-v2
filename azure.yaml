@@ -15,4 +15,9 @@ infra:
 hooks:
   postprovision:
     shell: sh
-    run: scripts/build-and-push.sh
+    run: |
+      if [ "$CI" = "true" ] || [ "$GITHUB_ACTIONS" = "true" ]; then
+        echo "Skipping build-and-push in CI — handled by app CI/CD workflows"
+        exit 0
+      fi
+      scripts/build-and-push.sh
