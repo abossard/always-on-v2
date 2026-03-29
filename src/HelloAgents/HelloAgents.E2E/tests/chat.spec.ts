@@ -226,7 +226,100 @@ test.describe('Discussion', () => {
   });
 });
 
-// ─── API Direct Tests ──────────────────────────────────────
+// ─── Multi-Tab Real-Time ───────────────────────────────────
+
+test.describe('Multi-Tab Real-Time', () => {
+  test('message sent in Tab A appears in Tab B via SSE', async ({ browser, request }) => {
+    test.setTimeout(60_000);
+
+    const groupName = uid('MultiTabGrp');
+    const group = await createGroupViaAPI(request, groupName);
+
+    // Open two separate browser tabs (pages)
+    const contextA = await browser.newContext();
+    const contextB = await browser.newContext();
+    const tabA = await contextA.newPage();
+    const tabB = await contextB.newPage();
+
+    // Both tabs navigate and select the same group
+    const webURL = process.env.services__web__http__0 ?? 'http://localhost:4200';
+    await tabA.goto(webURL);
+    await tabB.goto(webURL);
+
+    await expect(tabA.locator('[data-test-id="chat-app-ready"]')).toBeAttached({ timeout: 15_000 });
+    await expect(tabB.locator('[data-test-id="chat-app-ready"]')).toBeAttached({ timeout: 15_000 });
+
+    await tabA.getByText(groupName).click();
+    await tabB.getByText(groupName).click();
+
+    // Wait for both tabs to show the chat view
+    await expect(tabA.getByPlaceholder('Type a message...')).toBeVisible({ timeout: 5_000 });
+    await expect(tabB.getByPlaceholder('Type a message...')).toBeVisible({ timeout: 5_000 });
+
+    // Give SSE a moment to connect
+    await tabB.waitForTimeout(1_000);
+
+    // Tab A sends a message
+    const msg = uid('CrossTabMsg');
+    await tabA.getByPlaceholder('Type a message...').fill(msg);
+    await tabA.getByRole('button', { name: 'Send' }).click();
+
+    // Tab A should see it immediately (local state)
+    await expect(tabA.getByText(msg)).toBeVisible({ timeout: 5_000 });
+
+    // Tab B should receive it via SSE (cross-tab delivery, Azure Queue Streams have polling latency)
+    await expect(tabB.getByText(msg)).toBeVisible({ timeout: 30_000 });
+
+    await contextA.close();
+    await contextB.close();
+  });
+
+  test('discussion responses appear in both tabs', async ({ browser, request }) => {
+    test.setTimeout(120_000);
+
+    const groupName = uid('MultiTabDiscuss');
+    const agentName = uid('SharedBot');
+    const group = await createGroupViaAPI(request, groupName);
+    const agent = await createAgentViaAPI(request, agentName, 'Responds to questions', '🤖');
+    await addAgentToGroupViaAPI(request, group.id, agent.id);
+
+    // Seed a message
+    const seedMsg = uid('SharedSeed');
+    await request.post(`${apiBaseURL}/api/groups/${group.id}/messages`, {
+      data: { senderName: 'Setup', content: seedMsg },
+    });
+
+    // Open two tabs
+    const webURL = process.env.services__web__http__0 ?? 'http://localhost:4200';
+    const contextA = await browser.newContext();
+    const contextB = await browser.newContext();
+    const tabA = await contextA.newPage();
+    const tabB = await contextB.newPage();
+
+    await tabA.goto(webURL);
+    await tabB.goto(webURL);
+    await expect(tabA.locator('[data-test-id="chat-app-ready"]')).toBeAttached({ timeout: 15_000 });
+    await expect(tabB.locator('[data-test-id="chat-app-ready"]')).toBeAttached({ timeout: 15_000 });
+
+    await tabA.getByText(groupName).click();
+    await tabB.getByText(groupName).click();
+    await expect(tabA.getByText(seedMsg)).toBeVisible({ timeout: 5_000 });
+    await expect(tabB.getByText(seedMsg)).toBeVisible({ timeout: 5_000 });
+
+    // Give SSE time to connect
+    await tabB.waitForTimeout(1_000);
+
+    // Tab A triggers discussion
+    await tabA.getByRole('button', { name: /Start Discussion/ }).click();
+
+    // Both tabs should see the agent response
+    await expect(tabA.getByText(agentName)).toBeVisible({ timeout: 60_000 });
+    await expect(tabB.getByText(agentName)).toBeVisible({ timeout: 60_000 });
+
+    await contextA.close();
+    await contextB.close();
+  });
+});
 
 test.describe('API (direct)', () => {
   test('health endpoint returns 200', async ({ request }) => {

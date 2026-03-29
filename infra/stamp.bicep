@@ -412,6 +412,7 @@ var helloAgentsFluxVars = length(appFluxVars) > 3 && appFluxVars[3].name == 'hel
   HELLOAGENTS_IDENTITY_ID: appFluxVars[3].identityId
   HELLOAGENTS_COSMOS_DATABASE: appFluxVars[3].cosmosDatabase
   HELLOAGENTS_COSMOS_CONTAINER: appFluxVars[3].cosmosContainer
+  HELLOAGENTS_STORAGE_QUEUE_ENDPOINT: appFluxVars[3].storageQueueEndpoint
   HELLOAGENTS_DNS_LABEL: 'helloagents-${stampName}'
   HELLOAGENTS_GATEWAY_HOSTNAME: 'helloagents-${stampName}.${dnsZoneName}'
 } : {}

@@ -308,6 +308,7 @@ var appFluxVars = [
     cosmosDatabase: helloAgents.outputs.databaseName
     cosmosContainer: helloAgents.outputs.containerName
     aiServicesEndpoint: ai.outputs.aiServicesEndpoint
+    storageQueueEndpoint: helloAgents.outputs.storageQueueEndpoint
   }
 ]
 

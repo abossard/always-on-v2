@@ -257,9 +257,10 @@ public static class Endpoints
 
             try
             {
+                var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase };
                 await foreach (var message in channel.Reader.ReadAllAsync(ct))
                 {
-                    var json = JsonSerializer.Serialize(message);
+                    var json = JsonSerializer.Serialize(message, jsonOptions);
                     await context.Response.WriteAsync($"data: {json}\n\n", ct);
                     await context.Response.Body.FlushAsync(ct);
                 }

@@ -65,6 +65,8 @@ spec:
               value: "Redis"
             - name: Redis__ConnectionString
               value: "redis:6379"
+            - name: ConnectionStrings__queuestorage
+              value: ${HELLOAGENTS_STORAGE_QUEUE_ENDPOINT}
           resizePolicy:
             - resourceName: cpu
               restartPolicy: NotRequired

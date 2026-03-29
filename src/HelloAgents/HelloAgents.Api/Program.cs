@@ -53,8 +53,50 @@ builder.Host.UseOrleans(silo =>
     silo.AddDashboard();
 
     // Orleans Streams for cross-silo SSE message delivery
-    silo.AddMemoryStreams("ChatMessages");
-    silo.AddMemoryGrainStorage("PubSubStore");
+    var queueStorageConnection = builder.Configuration.GetConnectionString("queuestorage");
+    if (!string.IsNullOrWhiteSpace(queueStorageConnection))
+    {
+        // Production: Azure Queue Storage streams — works across all silos
+        silo.AddAzureQueueStreams("ChatMessages", optionsBuilder =>
+        {
+            optionsBuilder.Configure(options =>
+            {
+                // Aspire injects a full connection string (Azurite) or an endpoint URI (production)
+                if (queueStorageConnection!.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+                {
+                    options.QueueServiceClient = new Azure.Storage.Queues.QueueServiceClient(
+                        new Uri(queueStorageConnection), new DefaultAzureCredential());
+                }
+                else
+                {
+                    options.QueueServiceClient = new Azure.Storage.Queues.QueueServiceClient(queueStorageConnection);
+                }
+            });
+        });
+
+        // Persistent PubSub store so subscriptions survive silo restarts
+        if (string.Equals(storageProvider, "CosmosDb", StringComparison.OrdinalIgnoreCase))
+        {
+            var cosmosCs = builder.Configuration.GetConnectionString("cosmos");
+            silo.AddCosmosGrainStorage("PubSubStore", options =>
+            {
+                options.ConfigureCosmosClient(cosmosCs!);
+                options.DatabaseName = builder.Configuration["CosmosDb__DatabaseName"] ?? "helloagents";
+                options.ContainerName = builder.Configuration["CosmosDb__ContainerName"] ?? "OrleansStorage";
+                options.IsResourceCreationEnabled = true;
+            });
+        }
+        else
+        {
+            silo.AddMemoryGrainStorage("PubSubStore");
+        }
+    }
+    else
+    {
+        // Dev/test: in-memory streams (single silo only)
+        silo.AddMemoryStreams("ChatMessages");
+        silo.AddMemoryGrainStorage("PubSubStore");
+    }
 });
 
 // Azure OpenAI chat client for agent responses

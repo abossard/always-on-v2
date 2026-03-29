@@ -110,6 +110,41 @@ resource appInsightsRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = 
 }
 
 // ============================================================================
+// Azure Storage Account (Orleans Queue Streams for cross-silo SSE)
+// ============================================================================
+
+var storageAccountName = replace('stha${baseName}', '-', '')
+
+resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
+  name: length(storageAccountName) > 24 ? substring(storageAccountName, 0, 24) : storageAccountName
+  location: location
+  kind: 'StorageV2'
+  sku: { name: 'Standard_LRS' }
+  properties: {
+    accessTier: 'Hot'
+    allowBlobPublicAccess: false
+    minimumTlsVersion: 'TLS1_2'
+    supportsHttpsTrafficOnly: true
+  }
+}
+
+// RBAC — Storage Queue Data Contributor
+var storageQueueDataContributorRoleId = '974c5e8b-45b9-4653-ba55-5f855dd0fb88'
+
+resource storageQueueRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(storageAccount.id, appIdentity.id, storageQueueDataContributorRoleId)
+  scope: storageAccount
+  properties: {
+    principalId: appIdentity.properties.principalId
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      storageQueueDataContributorRoleId
+    )
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// ============================================================================
 // Outputs
 // ============================================================================
 
@@ -118,3 +153,5 @@ output identityClientId string = appIdentity.properties.clientId
 output identityPrincipalId string = appIdentity.properties.principalId
 output databaseName string = database.name
 output containerName string = container.name
+output storageAccountName string = storageAccount.name
+output storageQueueEndpoint string = storageAccount.properties.primaryEndpoints.queue
