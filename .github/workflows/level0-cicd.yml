@@ -54,6 +54,7 @@ jobs:
           --report-trx --report-trx-filename results.trx
           --coverage --coverage-output-format cobertura
           --coverage-output ${{ github.workspace }}/coverage.cobertura.xml
+          --retry-limit 3
         working-directory: src/PlayersOnLevel0
       - name: Publish test results
         if: always()

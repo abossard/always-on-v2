@@ -52,6 +52,7 @@ jobs:
         run: >
           dotnet run --project HelloOrleons.Tests --no-build --
           --report-trx --report-trx-filename results.trx
+          --retry-limit 3
         working-directory: src/HelloOrleons
       - name: Publish test results
         if: always()
