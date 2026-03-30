@@ -69,7 +69,7 @@ jobs:
         run: >
           dotnet run --project HelloAgents.Tests --no-build --
           --report-trx --report-trx-filename results.trx
-          --retry-limit 3
+          --retry-failed-tests 3
         working-directory: src/HelloAgents
         env:
           AZURE_OPENAI_ENDPOINT: ${{ steps.ai.outputs.endpoint }}

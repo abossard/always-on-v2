@@ -54,7 +54,7 @@ jobs:
           --report-trx --report-trx-filename results.trx
           --coverage --coverage-output-format cobertura
           --coverage-output ${{ github.workspace }}/coverage.cobertura.xml
-          --retry-limit 3
+          --retry-failed-tests 3
         working-directory: src/DarkUxChallenge
       - name: Publish test results
         if: always()
