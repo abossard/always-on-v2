@@ -1,3 +1,4 @@
+using Azure.Identity;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
@@ -80,10 +81,19 @@ public static class ServiceDefaultsExtensions
             builder.Services.AddOpenTelemetry().UseOtlpExporter();
         }
 
-        if (!string.IsNullOrEmpty(builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]))
+        var appInsightsConnStr = builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"];
+        if (!string.IsNullOrEmpty(appInsightsConnStr))
         {
+            Console.WriteLine($"[ServiceDefaults] Configuring Azure Monitor exporter (connection string length: {appInsightsConnStr.Length})");
             builder.Services.AddOpenTelemetry().UseAzureMonitor(o =>
-                o.ConnectionString = builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"]);
+            {
+                o.ConnectionString = appInsightsConnStr;
+                o.Credential = new DefaultAzureCredential();
+            });
+        }
+        else
+        {
+            Console.WriteLine("[ServiceDefaults] APPLICATIONINSIGHTS_CONNECTION_STRING not set — Azure Monitor exporter NOT configured");
         }
 
         return builder;

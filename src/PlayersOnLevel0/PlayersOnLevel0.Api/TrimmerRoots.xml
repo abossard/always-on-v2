@@ -17,4 +17,9 @@
   <assembly fullname="Microsoft.Azure.Cosmos.Serialization.HybridRow" preserve="all" />
 
   <assembly fullname="Newtonsoft.Json" preserve="all" />
+
+  <!-- Azure Monitor OpenTelemetry SDK — needed for App Insights telemetry with AOT. -->
+  <assembly fullname="Azure.Monitor.OpenTelemetry.Exporter" preserve="all" />
+  <assembly fullname="Azure.Monitor.OpenTelemetry.AspNetCore" preserve="all" />
+  <assembly fullname="Azure.Monitor.OpenTelemetry.LiveMetrics" preserve="all" />
 </linker>
