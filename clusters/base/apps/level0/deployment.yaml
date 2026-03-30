@@ -32,7 +32,7 @@ spec:
       serviceAccountName: ${LEVEL0_SA_NAME}
       containers:
         - name: level0
-          image: ${ACR_LOGIN_SERVER}/level0:1774113878-d181d336
+          image: ${ACR_LOGIN_SERVER}/level0:1774909449-69fd8510
           ports:
             - containerPort: 8080
           env:
@@ -103,7 +103,7 @@ spec:
     spec:
       containers:
         - name: level0-web
-          image: ${ACR_LOGIN_SERVER}/level0-web:1774113878-d181d336
+          image: ${ACR_LOGIN_SERVER}/level0-web:1774909449-69fd8510
           ports:
             - containerPort: 8080
           env:
