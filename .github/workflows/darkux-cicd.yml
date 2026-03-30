@@ -49,12 +49,16 @@ jobs:
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env['ACTIONS_RUNTIME_TOKEN']);
             core.exportVariable('ACTIONS_RESULTS_URL', process.env['ACTIONS_RESULTS_URL']);
       - name: Run tests with coverage
-        run: >
-          dotnet run --project DarkUxChallenge.Tests --no-build --
-          --report-trx --report-trx-filename results.trx
-          --coverage --coverage-output-format cobertura
-          --coverage-output ${{ github.workspace }}/coverage.cobertura.xml
-          --retry-failed-tests 3
+        run: |
+          for attempt in 1 2 3; do
+            echo "=== Test attempt $attempt ==="
+            dotnet run --project DarkUxChallenge.Tests --no-build -- \
+              --report-trx --report-trx-filename results.trx \
+              --coverage --coverage-output-format cobertura \
+              --coverage-output ${{ github.workspace }}/coverage.cobertura.xml \
+              && break
+            echo "Attempt $attempt failed, retrying..."
+          done
         working-directory: src/DarkUxChallenge
       - name: Publish test results
         if: always()
