@@ -365,7 +365,7 @@ var sharedFluxVars = {
   DNS_ZONE_RESOURCE_GROUP: dnsZoneResourceGroup
   AZURE_SUBSCRIPTION_ID: subscription().subscriptionId
   DOMAIN_NAME: domainName
-  DISTRIBUTED_TRACING_ENABLED: string(defaultTracing)
+  DISTRIBUTED_TRACING_ENABLED: '${string(defaultTracing)}'
   AI_SERVICES_ENDPOINT: aiServicesEndpoint
   AI_MODEL_GPT41: length(aiModelDeployments) > 0 ? aiModelDeployments[0] : ''
   AI_MODEL_GPT41_MINI: length(aiModelDeployments) > 1 ? aiModelDeployments[1] : ''
