@@ -48,8 +48,6 @@ spec:
               value: ${DARKUX_IDENTITY_CLIENT_ID}
             - name: APPLICATIONINSIGHTS_CONNECTION_STRING
               value: ${APPLICATIONINSIGHTS_CONNECTION_STRING}
-            - name: DISTRIBUTED_TRACING_ENABLED
-              value: "${DISTRIBUTED_TRACING_ENABLED}"
             - name: AI__Endpoint
               value: ${AI_SERVICES_ENDPOINT}
             - name: AI__ModelName
@@ -115,8 +113,6 @@ spec:
               value: /public/index.html
             - name: SERVER_LOG_LEVEL
               value: info
-            - name: SERVER_HEALTH
-              value: "${DISTRIBUTED_TRACING_ENABLED}"
             - name: SERVER_CACHE_CONTROL_HEADERS
               value: "false"
           resources:

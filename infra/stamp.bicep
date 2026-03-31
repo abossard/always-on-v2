@@ -54,8 +54,6 @@ param dnsZoneResourceGroup string
 @description('Parent domain name (e.g. alwayson.actor).')
 param domainName string
 
-@description('Enable OpenTelemetry distributed tracing for application workloads.')
-param defaultTracing bool = true
 
 @description('Azure AI Services endpoint URL for Flux substitution.')
 param aiServicesEndpoint string = ''
@@ -399,7 +397,6 @@ var sharedFluxVars = {
   DNS_ZONE_RESOURCE_GROUP: dnsZoneResourceGroup
   AZURE_SUBSCRIPTION_ID: subscription().subscriptionId
   DOMAIN_NAME: domainName
-  DISTRIBUTED_TRACING_ENABLED: '${string(defaultTracing)}'
   AI_SERVICES_ENDPOINT: aiServicesEndpoint
   AI_MODEL_GPT41: length(aiModelDeployments) > 0 ? aiModelDeployments[0] : ''
   AI_MODEL_GPT41_MINI: length(aiModelDeployments) > 1 ? aiModelDeployments[1] : ''

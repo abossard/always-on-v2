@@ -32,9 +32,6 @@ param domainName string = 'alwayson.actor'
 @description('Git repository SSH URL for Flux GitOps.')
 param fluxGitRepoUrl string = 'ssh://git@github.com/abossard/always-on-v2'
 
-@description('Enable OpenTelemetry distributed tracing for application workloads.')
-param defaultTracing bool = true
-
 @description('Location for the health model resource. Limited to regions where Microsoft.CloudHealth/healthmodels is available.')
 @allowed(['uksouth', 'canadacentral'])
 param healthModelLocation string = 'uksouth'
@@ -334,7 +331,6 @@ module stamps 'stamp.bicep' = [
       dnsZoneName: regional[stampRegionIndex[i]].outputs.childDnsZoneName
       dnsZoneResourceGroup: regionalRgs[stampRegionIndex[i]].name
       domainName: domainName
-      defaultTracing: defaultTracing
       devIdentities: enableDevPermissions ? devIdentities : []
       aiServicesEndpoint: ai.outputs.aiServicesEndpoint
       aiModelDeployments: ai.outputs.modelDeploymentNames

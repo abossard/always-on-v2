@@ -1,0 +1,131 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.39.26.7824",
+      "templateHash": "11221368689326264577"
+    }
+  },
+  "parameters": {
+    "baseName": {
+      "type": "string",
+      "metadata": {
+        "description": "Base name for all resources."
+      }
+    },
+    "location": {
+      "type": "string",
+      "metadata": {
+        "description": "Location for resources."
+      }
+    },
+    "cosmosAccountName": {
+      "type": "string",
+      "metadata": {
+        "description": "Cosmos DB account name (must exist)."
+      }
+    },
+    "appInsightsId": {
+      "type": "string",
+      "metadata": {
+        "description": "Application Insights resource ID (for RBAC)."
+      }
+    }
+  },
+  "variables": {
+    "cosmosDataContributorRoleId": "00000000-0000-0000-0000-000000000002",
+    "monitoringMetricsPublisherRoleId": "3913510d-42f4-4e42-8a64-420c390055eb"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+      "apiVersion": "2023-01-31",
+      "name": "[format('id-helloagents-{0}', parameters('baseName'))]",
+      "location": "[parameters('location')]"
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases",
+      "apiVersion": "2025-04-15",
+      "name": "[format('{0}/{1}', parameters('cosmosAccountName'), 'helloagents')]",
+      "properties": {
+        "resource": {
+          "id": "helloagents"
+        }
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers",
+      "apiVersion": "2025-04-15",
+      "name": "[format('{0}/{1}/{2}', parameters('cosmosAccountName'), 'helloagents', 'OrleansStorage')]",
+      "properties": {
+        "resource": {
+          "id": "OrleansStorage",
+          "partitionKey": {
+            "paths": [
+              "/PartitionKey"
+            ],
+            "kind": "Hash",
+            "version": 2
+          },
+          "indexingPolicy": {
+            "automatic": true,
+            "indexingMode": "consistent"
+          }
+        }
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts/sqlDatabases', parameters('cosmosAccountName'), 'helloagents')]"
+      ]
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments",
+      "apiVersion": "2025-04-15",
+      "name": "[format('{0}/{1}', parameters('cosmosAccountName'), guid(resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName')), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-helloagents-{0}', parameters('baseName'))), variables('cosmosDataContributorRoleId')))]",
+      "properties": {
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-helloagents-{0}', parameters('baseName'))), '2023-01-31').principalId]",
+        "roleDefinitionId": "[format('{0}/sqlRoleDefinitions/{1}', resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName')), variables('cosmosDataContributorRoleId'))]",
+        "scope": "[format('{0}/dbs/helloagents', resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName')))]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-helloagents-{0}', parameters('baseName')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "name": "[guid(parameters('appInsightsId'), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-helloagents-{0}', parameters('baseName'))), variables('monitoringMetricsPublisherRoleId'))]",
+      "properties": {
+        "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-helloagents-{0}', parameters('baseName'))), '2023-01-31').principalId]",
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('monitoringMetricsPublisherRoleId'))]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-helloagents-{0}', parameters('baseName')))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "identityId": {
+      "type": "string",
+      "value": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-helloagents-{0}', parameters('baseName')))]"
+    },
+    "identityClientId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-helloagents-{0}', parameters('baseName'))), '2023-01-31').clientId]"
+    },
+    "identityPrincipalId": {
+      "type": "string",
+      "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-helloagents-{0}', parameters('baseName'))), '2023-01-31').principalId]"
+    },
+    "databaseName": {
+      "type": "string",
+      "value": "helloagents"
+    },
+    "containerName": {
+      "type": "string",
+      "value": "OrleansStorage"
+    }
+  }
+}
