@@ -344,7 +344,41 @@ resource fluxExtension 'Microsoft.KubernetesConfiguration/extensions@2023-05-01'
   }
 }
 
-// github.com ecdsa-sha2-nistp256 public key, base64-encoded
+// ============================================================================
+// HelloAgents Storage Account (Orleans Queue Streams — per-stamp)
+// ============================================================================
+
+var haStorageName = replace('stha${take(baseName, 10)}${take(stampName, 6)}', '-', '')
+
+resource helloAgentsStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
+  name: length(haStorageName) > 24 ? substring(haStorageName, 0, 24) : haStorageName
+  location: location
+  kind: 'StorageV2'
+  sku: { name: 'Standard_LRS' }
+  properties: {
+    accessTier: 'Hot'
+    allowBlobPublicAccess: false
+    minimumTlsVersion: 'TLS1_2'
+    supportsHttpsTrafficOnly: true
+  }
+}
+
+// RBAC — Storage Queue Data Contributor for HelloAgents identity
+var storageQueueDataContributorRoleId = '974c5e8b-45b9-4653-ba55-5f855dd0fb88'
+var helloAgentsIdentityId = length(appFluxVars) > 3 && appFluxVars[3].name == 'helloagents' ? appFluxVars[3].identityId : ''
+
+resource helloAgentsStorageQueueRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(helloAgentsIdentityId)) {
+  name: guid(helloAgentsStorage.id, helloAgentsIdentityId, storageQueueDataContributorRoleId)
+  scope: helloAgentsStorage
+  properties: {
+    principalId: length(appFluxVars) > 3 ? appFluxVars[3].identityPrincipalId : ''
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      storageQueueDataContributorRoleId
+    )
+    principalType: 'ServicePrincipal'
+  }
+}
 var githubSshKnownHosts = 'Z2l0aHViLmNvbSBlY2RzYS1zaGEyLW5pc3RwMjU2IEFBQUFFMlZqWkhOaExYTm9ZVEl0Ym1semRIQXlOVFlBQUFBSWJtbHpkSEF5TlRZQUFBQkJCRW1LU0VOalFFZXpPbXhrWk15N29wS2d3RkI5bmt0NVlScllNak51RzVOODd1UmdnNkNMcmJvNXdBZFQveTZ2MG1LVjBVMncwV1oyWUIvKytUcG9ja2c9'
 
 // Shared vars (available to all apps)
@@ -412,7 +446,7 @@ var helloAgentsFluxVars = length(appFluxVars) > 3 && appFluxVars[3].name == 'hel
   HELLOAGENTS_IDENTITY_ID: appFluxVars[3].identityId
   HELLOAGENTS_COSMOS_DATABASE: appFluxVars[3].cosmosDatabase
   HELLOAGENTS_COSMOS_CONTAINER: appFluxVars[3].cosmosContainer
-  HELLOAGENTS_STORAGE_QUEUE_ENDPOINT: appFluxVars[3].storageQueueEndpoint
+  HELLOAGENTS_STORAGE_QUEUE_ENDPOINT: helloAgentsStorage.properties.primaryEndpoints.queue
   HELLOAGENTS_DNS_LABEL: 'helloagents-${stampName}'
   HELLOAGENTS_GATEWAY_HOSTNAME: 'helloagents-${stampName}.${dnsZoneName}'
 } : {}

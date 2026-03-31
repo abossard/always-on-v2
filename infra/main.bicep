@@ -305,10 +305,10 @@ var appFluxVars = [
     namespace: apps[3].namespace
     identityClientId: helloAgents.outputs.identityClientId
     identityId: helloAgents.outputs.identityId
+    identityPrincipalId: helloAgents.outputs.identityPrincipalId
     cosmosDatabase: helloAgents.outputs.databaseName
     cosmosContainer: helloAgents.outputs.containerName
     aiServicesEndpoint: ai.outputs.aiServicesEndpoint
-    storageQueueEndpoint: helloAgents.outputs.storageQueueEndpoint
   }
 ]
 
