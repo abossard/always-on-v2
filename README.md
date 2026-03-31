@@ -201,6 +201,12 @@ azd provision
 
 All architecture decisions are documented as ADRs in [`docs/adr/`](docs/adr/README.md).
 
+## Observability — OpenTelemetry & Application Insights
+
+All applications use [OpenTelemetry](https://opentelemetry.io/docs/languages/dotnet/) with the Azure Monitor exporter to send traces, metrics, and logs to Application Insights. The shared `ServiceDefaults` project in each app configures the pipeline.
+
+> **Version compatibility:** `Azure.Monitor.OpenTelemetry.AspNetCore` 1.4.0 transitively pulls in `Azure.Monitor.OpenTelemetry.Exporter` 1.5.0, which only supports OpenTelemetry SDK ≤1.14.x. Since we use OpenTelemetry 1.15.x, we pin `Azure.Monitor.OpenTelemetry.Exporter` to **1.7.0** explicitly in each `Directory.Packages.props`. Without this override, the exporter **silently fails** and zero telemetry reaches App Insights. See the [exporter changelog](https://github.com/Azure/azure-sdk-for-net/blob/main/sdk/monitor/Azure.Monitor.OpenTelemetry.Exporter/CHANGELOG.md) for version compatibility details.
+
 ## References
 
 - [Azure Architecture Center](https://learn.microsoft.com/azure/architecture/)
