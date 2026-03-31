@@ -48,7 +48,7 @@ spec:
             - name: APPLICATIONINSIGHTS_CONNECTION_STRING
               value: ${APPLICATIONINSIGHTS_CONNECTION_STRING}
             - name: DISTRIBUTED_TRACING_ENABLED
-              value: ${DISTRIBUTED_TRACING_ENABLED}
+              value: "true"
             - name: AI__Endpoint
               value: ${AI_SERVICES_ENDPOINT}
             - name: AI__ModelName
