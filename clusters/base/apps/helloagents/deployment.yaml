@@ -48,7 +48,7 @@ spec:
             - name: APPLICATIONINSIGHTS_CONNECTION_STRING
               value: ${APPLICATIONINSIGHTS_CONNECTION_STRING}
             - name: DISTRIBUTED_TRACING_ENABLED
-              value: "true"
+              value: "${DISTRIBUTED_TRACING_ENABLED}"
             - name: AZURE_OPENAI_ENDPOINT
               value: ${AI_SERVICES_ENDPOINT}
             - name: AZURE_OPENAI_DEPLOYMENT_NAME
