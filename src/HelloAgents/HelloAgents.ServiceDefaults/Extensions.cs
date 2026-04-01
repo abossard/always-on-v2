@@ -57,6 +57,7 @@ public static class ServiceDefaultsExtensions
     {
         var connStr = builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"];
         var useAzureMonitor = !string.IsNullOrEmpty(connStr);
+        Console.WriteLine($"[OTEL] Azure Monitor: {(useAzureMonitor ? $"enabled (conn str len={connStr!.Length})" : "DISABLED — no connection string")}");
 
         builder.Logging.AddOpenTelemetry(logging =>
         {
