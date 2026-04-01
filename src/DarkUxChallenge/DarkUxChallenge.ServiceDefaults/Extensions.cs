@@ -103,6 +103,7 @@ public static class ServiceDefaultsExtensions
 
     static void ConfigureExporter(AzureMonitorExporterOptions options, string connectionString)
     {
+        Console.WriteLine($"[OTEL] ConfigureExporter called — setting connection string and credential");
         options.ConnectionString = connectionString;
         options.Credential = new DefaultAzureCredential();
         options.DisableOfflineStorage = true;
