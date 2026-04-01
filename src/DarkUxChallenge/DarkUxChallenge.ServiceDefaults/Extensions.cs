@@ -1,7 +1,12 @@
 // Extensions.cs — ServiceDefaults: OpenTelemetry, health checks, resilience.
 // Aspire convention: AddServiceDefaults() + MapDefaultEndpoints().
+//
+// Uses direct Azure Monitor exporter APIs (not UseAzureMonitor wrapper) because
+// OTEL SDK 1.15+ no longer allows TracerProvider.AddProcessor() after build.
+// See ADR-0051 for details.
 
-using Azure.Monitor.OpenTelemetry.AspNetCore;
+using Azure.Identity;
+using Azure.Monitor.OpenTelemetry.Exporter;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,6 +14,7 @@ using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using OpenTelemetry;
+using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using Scalar.AspNetCore;
@@ -49,10 +55,17 @@ public static class ServiceDefaultsExtensions
 
     static IHostApplicationBuilder ConfigureOpenTelemetry(this IHostApplicationBuilder builder)
     {
+        var connStr = builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"];
+        var useAzureMonitor = !string.IsNullOrEmpty(connStr);
+
         builder.Logging.AddOpenTelemetry(logging =>
         {
             logging.IncludeFormattedMessage = true;
             logging.IncludeScopes = true;
+            if (useAzureMonitor)
+            {
+                logging.AddAzureMonitorLogExporter(o => ConfigureExporter(o, connStr!));
+            }
         });
 
         builder.Services.AddOpenTelemetry()
@@ -62,43 +75,36 @@ public static class ServiceDefaultsExtensions
                     .AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
                     .AddRuntimeInstrumentation();
+                if (useAzureMonitor)
+                {
+                    metrics.AddAzureMonitorMetricExporter(o => ConfigureExporter(o, connStr!));
+                }
             })
             .WithTracing(tracing =>
             {
                 tracing
                     .AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation();
+                if (useAzureMonitor)
+                {
+                    tracing.AddAzureMonitorTraceExporter(o => ConfigureExporter(o, connStr!));
+                }
             });
 
-        builder.AddOpenTelemetryExporters();
-
-        return builder;
-    }
-
-    static IHostApplicationBuilder AddOpenTelemetryExporters(this IHostApplicationBuilder builder)
-    {
         var useOtlpExporter = !string.IsNullOrWhiteSpace(builder.Configuration["OTEL_EXPORTER_OTLP_ENDPOINT"]);
         if (useOtlpExporter)
         {
             builder.Services.AddOpenTelemetry().UseOtlpExporter();
         }
 
-        var appInsightsConnStr = builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"];
-        if (!string.IsNullOrEmpty(appInsightsConnStr))
-        {
-            Console.WriteLine($"[ServiceDefaults] Configuring Azure Monitor exporter (connection string length: {appInsightsConnStr.Length})");
-            builder.Services.AddOpenTelemetry().UseAzureMonitor(o =>
-            {
-                o.ConnectionString = appInsightsConnStr;
-                o.Credential = new Azure.Identity.DefaultAzureCredential();
-            });
-        }
-        else
-        {
-            Console.WriteLine("[ServiceDefaults] APPLICATIONINSIGHTS_CONNECTION_STRING not set — Azure Monitor exporter NOT configured");
-        }
-
         return builder;
+    }
+
+    static void ConfigureExporter(AzureMonitorExporterOptions options, string connectionString)
+    {
+        options.ConnectionString = connectionString;
+        options.Credential = new DefaultAzureCredential();
+        options.DisableOfflineStorage = true;
     }
 
     static IHostApplicationBuilder AddDefaultHealthChecks(this IHostApplicationBuilder builder)
