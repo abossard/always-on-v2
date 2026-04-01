@@ -1,45 +1,84 @@
-# AlwaysOn v2 – Player Progression API
+# AlwaysOn v2 — Mission-Critical Applications on Azure
 
-A hands-on learning framework for senior software engineers: design, build, and operate a **globally distributed, mission-critical** application on Microsoft Azure.
+A hands-on learning framework for senior software engineers: design, build, and operate **globally distributed, mission-critical** applications on Microsoft Azure.
 
-## Architecture Overview
+## Platform Overview
 
-| Layer              | Technology                                     |
-|--------------------|------------------------------------------------|
-| **Compute**        | Azure Kubernetes Service (AKS)                 |
-| **Framework**      | .NET + Orleans (virtual actor model)           |
-| **Architecture**   | Event-driven (Azure Service Bus / Event Hubs)  |
-| **Database**       | Azure Cosmos DB (NoSQL, multi-region writes)   |
-| **Caching**        | Azure Cache for Redis                          |
-| **Observability**  | Application Insights + Prometheus + Grafana    |
-| **Load Balancing** | Azure Front Door                               |
-| **Secrets**        | Azure Key Vault                                |
-| **IaC**            | Bicep (via Azure Developer CLI)                |
-| **CI/CD**          | GitHub Actions                                 |
+| Layer              | Technology                                                        |
+|--------------------|-------------------------------------------------------------------|
+| **Compute**        | Azure Kubernetes Service (AKS) — multi-stamp, Karpenter autoscale |
+| **Service Mesh**   | Istio (Gateway API, mTLS, traffic management)                     |
+| **GitOps**         | Flux v2 (image automation, postBuild substitution)                |
+| **Framework**      | .NET 10, Orleans (virtual actors), Aspire (local dev)             |
+| **Database**       | Azure Cosmos DB (NoSQL, multi-region writes, autoscale)           |
+| **Caching**        | Redis (Orleans clustering)                                        |
+| **AI**             | Azure OpenAI (GPT-4.1, GPT-4.1-mini, GPT-5.4)                   |
+| **Observability**  | Application Insights + OpenTelemetry + Prometheus                 |
+| **Ingress**        | Azure Front Door (Premium/Standard, WAF, custom domains)          |
+| **DNS & TLS**      | Azure DNS + cert-manager (Let's Encrypt) + external-dns           |
+| **IaC**            | Bicep (via Azure Developer CLI)                                   |
+| **CI/CD**          | GitHub Actions (OIDC auth, multi-arch Docker builds)              |
+| **Health**         | Microsoft.CloudHealth health models (preview)                     |
 
-## Project Structure
+## Example Applications
 
-```
-├── azure.yaml              # Azure Developer CLI project definition
-├── TESTS.md                # Functional & non-functional test requirements
-├── docs/adr/               # Architecture Decision Records
-├── infra/                  # Bicep infrastructure-as-code
-│   ├── main.bicep
-│   └── modules/
-├── src/                    # Application source code
-│   └── AlwaysOn.PlayerProgression/
-│       ├── src/
-│       │   ├── AlwaysOn.Api/           # ASP.NET Core host + Orleans silo
-│       │   ├── AlwaysOn.Domain/        # Domain models
-│       │   ├── AlwaysOn.GrainInterfaces/  # Orleans grain interfaces
-│       │   ├── AlwaysOn.Grains/        # Orleans grain implementations
-│       │   └── AlwaysOn.Infrastructure/   # Persistence & messaging
-│       └── tests/
-├── k8s/                    # Kubernetes manifests
-└── .github/workflows/      # CI/CD pipelines
-```
+| App | Description | Tech Stack | SPA | Tests | E2E | AOT | Maturity |
+|-----|-------------|------------|:---:|:-----:|:---:|:---:|----------|
+| **[PlayersOnLevel0](src/PlayersOnLevel0/)** | Lightweight REST API for player progression | .NET 10, Cosmos DB, Aspire | ✅ React+Vite | ✅ TUnit | ✅ Playwright | ✅ | ⭐⭐⭐⭐⭐ Production |
+| **[DarkUxChallenge](src/DarkUxChallenge/)** | Accessibility testing challenge — hostile-but-truthful UX | .NET 10, Cosmos DB, Aspire | ✅ React+Vite | ✅ TUnit | ✅ Playwright | ✅ | ⭐⭐⭐⭐⭐ Production |
+| **[HelloAgents](src/HelloAgents/)** | AI multi-agent conversations with Orleans streaming | .NET 10, Orleans, Redis, OpenAI, Cosmos DB | ✅ React | ✅ TUnit | ✅ Playwright | — | ⭐⭐⭐⭐ Production (429 rate limits) |
+| **[HelloOrleons](src/HelloOrleons/)** | Orleans clustering demo with Redis | .NET 10, Orleans, Redis | — | ✅ TUnit | — | — | ⭐⭐⭐⭐ Production |
+| **[PlayersOn](src/PlayersOn/)** | Orleans grain architecture reference | .NET 10, Orleans | — | ✅ | — | — | ⭐⭐ Reference only |
+| **[PlayersOnOrleans](src/PlayersOnOrleons/)** | Minimal Orleans alternative demo | .NET 10, Orleans | — | ✅ | — | — | ⭐⭐ Reference only |
+| **[Orthereum](src/Orthereum/)** | Ethereum-like state machine with AOT | .NET 10, Orleans, AOT | — | ✅ | — | ✅ | ⭐⭐ Reference only |
 
-## Quick Start
+### Deployment Status
+
+| App | Deployed | Namespace | CI/CD | Infra (Bicep) | Gateway Route | Regions |
+|-----|:--------:|-----------|:-----:|:-------------:|---------------|---------|
+| PlayersOnLevel0 | ✅ | `level0` | ✅ `level0-cicd.yml` | ✅ | `level0.alwayson.actor` | swedencentral, germanywestcentral |
+| DarkUxChallenge | ✅ | `darkux` | ✅ `darkux-cicd.yml` | ✅ | `darkux.alwayson.actor` | swedencentral, germanywestcentral |
+| HelloAgents | ✅ | `helloagents` | ✅ `helloagents-cicd.yml` | ✅ | `agents.alwayson.actor` | swedencentral, germanywestcentral |
+| HelloOrleons | ✅ | `helloorleons` | ✅ `helloorleons-cicd.yml` | ✅ | `hello.alwayson.actor` | swedencentral, germanywestcentral |
+| PlayersOn | ❌ | — | — | — | — | — |
+| PlayersOnOrleans | ❌ | — | — | — | — | — |
+| Orthereum | ❌ | — | — | — | — | — |
+
+## Infrastructure Features
+
+| Feature | Status | Details |
+|---------|:------:|---------|
+| Multi-region AKS stamps | ✅ | 2 regions (swedencentral, germanywestcentral), extensible |
+| Cosmos DB multi-write | ✅ | Session consistency, continuous backup, autoscale |
+| Azure Front Door | ✅ | Premium SKU (prod), health probes, custom domains |
+| Flux GitOps | ✅ | Per-cluster config, image automation, postBuild substitution |
+| Istio Gateway API | ✅ | mTLS, HTTPRoute per app, cert-manager integration |
+| Image automation | ✅ | ACR polling (1 min), timestamp-based tag ordering, auto-commit |
+| OpenTelemetry → App Insights | ✅ | Direct exporter APIs (ADR-0051), `DisableLocalAuth=true` |
+| Prometheus metrics | ✅ | AMA scraping, Istio Envoy sidecar metrics |
+| Health model | ✅ | `Microsoft.CloudHealth` (preview), subscription-scoped discovery |
+| Workload Identity | ✅ | Per-app managed identity, federated credentials, RBAC |
+| cert-manager + external-dns | ✅ | Let's Encrypt TLS, auto DNS records in Azure DNS |
+| Native AOT | ✅ | PlayersOnLevel0, DarkUxChallenge (chiseled containers) |
+| Azure AI Services | ✅ | GPT-4.1, GPT-4.1-mini, GPT-5.4 deployments |
+
+## CI/CD Pipeline
+
+| Workflow | Trigger | What it does |
+|----------|---------|-------------|
+| `level0-cicd.yml` | Push to `src/PlayersOnLevel0/**` | Build → TUnit tests (3x retry) → E2E → Docker build+push → Flux deploys |
+| `darkux-cicd.yml` | Push to `src/DarkUxChallenge/**` | Build → TUnit tests (3x retry) → E2E → Docker build+push → Flux deploys |
+| `helloagents-cicd.yml` | Push to `src/HelloAgents/**` | Build → TUnit tests (3x retry) → E2E → Docker build+push → Flux deploys |
+| `helloorleons-cicd.yml` | Push to `src/HelloOrleons/**` | Build → TUnit tests (3x retry) → Docker build+push → Flux deploys |
+| `app-build-push.yml` | Reusable (called by above) | Multi-arch Docker build (amd64/arm64 native), ACR push, manifest update |
+| `azure-dev.yml` | Manual dispatch | `azd provision` + `azd deploy` for infrastructure |
+
+Key features: OIDC authentication (no secrets), multi-arch native builds (no QEMU), test retry for flaky Cosmos emulator, Flux image automation for GitOps delivery.
+
+## Documentation
+
+- **51 ADRs** in [`docs/adr/`](docs/adr/README.md) — covering architecture, testing, deployment, security, and operational patterns
+- **[TESTS.md](TESTS.md)** — functional requirements, NFRs (≥10k TPS, P99 <200ms, 99.99% availability), chaos engineering, security tests
 
 ### Prerequisites
 
@@ -66,27 +105,7 @@ azd auth login
 azd up
 ```
 
-## API Endpoints
-
-| Method   | Endpoint                        | Description                    |
-|----------|---------------------------------|--------------------------------|
-| `GET`    | `/api/players/{playerId}`       | Retrieve player progression    |
-| `POST`   | `/api/players/{playerId}`       | Create player progression      |
-| `PUT`    | `/api/players/{playerId}`       | Update player progression      |
-| `GET`    | `/health`                       | Health check                   |
-| `GET`    | `/health/ready`                 | Readiness probe                |
-
-## Learning Path
-
-| Level | Focus                          | Target TPS |
-|-------|--------------------------------|------------|
-| 1     | Single Region Foundation       | 1,000+     |
-| 2     | Production Operationalization  | 5,000+     |
-| 3     | Multi-Region Global Scale      | 10,000+    |
-| 4     | Validation & Presentation      | All NFRs   |
-| 5     | Advanced Topics (Optional)     | —          |
-
-## Deploying Infrastructure
+## Quick Start
 
 Infrastructure is deployed via the `Deploy Infrastructure` GitHub Actions workflow using Azure Developer CLI (`azd`) with OIDC federated credentials — no secrets stored in GitHub.
 
@@ -197,15 +216,44 @@ cp infra/main.prod.bicepparam infra/main.bicepparam
 azd provision
 ```
 
-## Architecture Decisions
-
-All architecture decisions are documented as ADRs in [`docs/adr/`](docs/adr/README.md).
-
 ## Observability — OpenTelemetry & Application Insights
 
-All applications use [OpenTelemetry](https://opentelemetry.io/docs/languages/dotnet/) with the Azure Monitor exporter to send traces, metrics, and logs to Application Insights. The shared `ServiceDefaults` project in each app configures the pipeline.
+All applications use [OpenTelemetry](https://opentelemetry.io/docs/languages/dotnet/) with `Azure.Monitor.OpenTelemetry.Exporter` 1.7.0 to send traces, metrics, and logs to Application Insights. The shared `ServiceDefaults` project in each app configures the pipeline using direct exporter APIs (`AddAzureMonitorTraceExporter`, `AddAzureMonitorMetricExporter`, `AddAzureMonitorLogExporter`).
 
-> **Version compatibility:** `Azure.Monitor.OpenTelemetry.AspNetCore` 1.4.0 transitively pulls in `Azure.Monitor.OpenTelemetry.Exporter` 1.5.0, which only supports OpenTelemetry SDK ≤1.14.x. Since we use OpenTelemetry 1.15.x, we pin `Azure.Monitor.OpenTelemetry.Exporter` to **1.7.0** explicitly in each `Directory.Packages.props`. Without this override, the exporter **silently fails** and zero telemetry reaches App Insights. See the [exporter changelog](https://github.com/Azure/azure-sdk-for-net/blob/main/sdk/monitor/Azure.Monitor.OpenTelemetry.Exporter/CHANGELOG.md) for version compatibility details.
+> **Why not `UseAzureMonitor()`?** The `Azure.Monitor.OpenTelemetry.AspNetCore` wrapper registers trace exporters post-build via a hosted service. OpenTelemetry SDK 1.15+ made `TracerProvider.AddProcessor()` after build a silent no-op — traces never reach App Insights. Direct exporter APIs register at builder time and work correctly. See [ADR-0051](docs/adr/0051-direct-azure-monitor-otel-exporters.md) for the full investigation.
+
+## Roadmap — Steps to Production Readiness
+
+### Phase 1: Operational Foundation
+| # | Task | Apps Affected | Priority |
+|---|------|---------------|----------|
+| 1 | Verify App Insights traces, metrics, and logs flowing after ADR-0051 fix | All 4 deployed | 🔴 Critical |
+| 2 | Fix HelloAgents 403 on Storage Queue (per-stamp storage RBAC) | HelloAgents | 🔴 Critical |
+| 3 | Fix HelloAgents OpenAI 429 rate limits — increase `skuCapacity` or add retry/backoff | HelloAgents | 🟡 High |
+| 4 | Fix Level0 CrashLoopBackOff (one replica consistently failing) | PlayersOnLevel0 | 🟡 High |
+| 5 | Update AMA Prometheus namespace regex to include all app namespaces | All | 🟡 High |
+
+### Phase 2: Hardening
+| # | Task | Details | Priority |
+|---|------|---------|----------|
+| 6 | Add E2E tests to HelloOrleons | Only deployed app without Playwright E2E | 🟡 High |
+| 7 | Implement chaos engineering tests from TESTS.md | Pod failure, node failure, region failover | 🟡 High |
+| 8 | Set up Azure Load Testing for NFR validation | Target: ≥10k TPS, P99 <200ms | 🟡 High |
+| 9 | Add network policies per namespace | Zero-trust pod communication | 🟢 Medium |
+| 10 | Configure App Insights alerts and dashboards | Error rate, latency P99, availability SLO | 🟢 Medium |
+
+### Phase 3: Scale & Polish
+| # | Task | Details | Priority |
+|---|------|---------|----------|
+| 11 | Deploy to 3+ regions (meet NFR geographic requirement) | Add westeurope or eastus stamp | 🟢 Medium |
+| 12 | Onboard PlayersOnOrleans or Orthereum to K8s | Expand the deployed app portfolio | 🟢 Medium |
+| 13 | Add Front Door health probes and failover testing | Validate multi-region routing works under failure | 🟢 Medium |
+| 14 | Security hardening — trivy scanning, gitleaks in CI, container signing | SEC-03/SEC-04 from TESTS.md | 🟢 Medium |
+| 15 | Performance soak test — 48h sustained 10k TPS | NFR from TESTS.md, memory leak detection | 🔵 Low |
+
+## Architecture Decisions
+
+All architecture decisions are documented as ADRs in [`docs/adr/`](docs/adr/README.md) (51 ADRs).
 
 ## References
 
