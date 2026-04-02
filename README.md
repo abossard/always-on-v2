@@ -220,7 +220,7 @@ azd provision
 
 All applications use [OpenTelemetry](https://opentelemetry.io/docs/languages/dotnet/) with `Azure.Monitor.OpenTelemetry.Exporter` 1.7.0 to send traces, metrics, and logs to Application Insights. The shared `ServiceDefaults` project in each app configures the pipeline using direct exporter APIs (`AddAzureMonitorTraceExporter`, `AddAzureMonitorMetricExporter`, `AddAzureMonitorLogExporter`).
 
-> **Why not `UseAzureMonitor()`?** The `Azure.Monitor.OpenTelemetry.AspNetCore` wrapper registers trace exporters post-build via a hosted service. OpenTelemetry SDK 1.15+ made `TracerProvider.AddProcessor()` after build a silent no-op — traces never reach App Insights. Direct exporter APIs register at builder time and work correctly. See [ADR-0051](docs/adr/0051-direct-azure-monitor-otel-exporters.md) for the full investigation.
+> **Why not `UseAzureMonitor()`?** The `Azure.Monitor.OpenTelemetry.AspNetCore` wrapper registers trace exporters post-build via a hosted service. OpenTelemetry SDK 1.15+ made `TracerProvider.AddProcessor()` after build a silent no-op — traces never reach App Insights. Direct exporter APIs register at builder time and work correctly. See [ADR-0051](docs/adr/0051-direct-azure-monitor-otel-exporters-DI.md) for the full investigation.
 
 ## Roadmap — Steps to Production Readiness
 
