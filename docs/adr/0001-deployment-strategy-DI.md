@@ -2,31 +2,67 @@
 
 - **Status**: ACCEPTED
 - **Date**: 2026-03-15
-- **Decision Makers**: TBD
 
 ## Context
 
 We have a multi-region AKS infrastructure with:
 - A **Fleet hub cluster** managed by Azure, but guard-rail restricted and therefore not suitable as the place where workload controllers live
 - **Regional AKS member clusters** that run the actual platform and application workloads
-- A Git repository containing infrastructure and application manifests
+- A Git repository containing infrastructure and application manifests or helm charts
 - A requirement for **continuous reconciliation**, but also for a **distributed and extremely robust** deployment path
-
-The implemented direction in this repo is not a central Fleet-driven deployment plane. The actual installation path is in [infra/stamp.bicep](/Users/abossard/Desktop/projects/always_on_v2/infra/stamp.bicep), where each regional AKS cluster gets:
-- The Azure-managed Flux extension: `Microsoft.KubernetesConfiguration/extensions` with `extensionType: 'microsoft.flux'`
-- A `Microsoft.KubernetesConfiguration/fluxConfigurations` resource that points directly at the Git repository and reconciles `clusters/<region>/infra` and `clusters/<region>/apps`
-
-There is also a [bootstrap.sh](/Users/abossard/Desktop/projects/always_on_v2/bootstrap.sh) script using `flux bootstrap github`, but that is best understood as an earlier/manual bootstrap helper and fallback path. It is not the strongest version of the architecture anymore.
+- the desire to support blue-green and canary deployment patterns
+- we want to be able to deploy beta versions, blue-green and canary
 
 ## Constraints Discovered
 
 1. **Fleet hub cannot run workload controllers**. Guard-rail webhooks block normal workload resources outside system namespaces.
 2. **The deployment path itself must be distributed**. Losing one cluster, one pipeline run, or the Fleet hub must not stop every region from reconciling.
 3. **A GitHub outage must not become an application outage**. It may block new changes, but it should not take down already-running regions.
-4. **Private Git repositories still require repository authentication** for Flux unless the repo is public over HTTPS.
-5. **Production robustness matters more than central orchestration elegance**. A simpler per-cluster pull model is preferable to a more fragile central push model.
+4. **Production robustness matters more than central orchestration elegance**. A simpler per-cluster pull model is preferable to a more fragile central push model.
 
 ## Options
+
+### Diagram of Options
+
+```mermaid
+flowchart TB
+    subgraph OptionA[Option A - Managed Flux on each member]
+        A1[Distributed / isolated]
+        A2[Continuous reconciliation]
+        A3[Simple operations]
+        A4[Limited cross-region rollout ordering, can remediate with Gateway API routing]
+    end
+
+    subgraph OptionB[Option B - Fleet hub + GitHub Actions]
+        B1[Centralized deployment path]
+        B2[Weaker failure isolation]
+        B3[Strong Fleet integration]
+        B4[Push-based, not true GitOps]
+        B5[More orchestration complexity]
+    end
+
+    subgraph OptionC[Option C - Flux + Fleet orchestration]
+        C1[Distributed baseline]
+        C2[Better staged rollouts]
+        C3[More moving parts]
+        C4[Useful when coordination is needed]
+    end
+
+    subgraph OptionD[Option D - Fleet Automated Deployments]
+        D1[Azure-native experience]
+        D2[Preview feature risk]
+        D3[Weaker reconciliation model]
+    end
+
+    classDef good fill:#d1fae5,stroke:#16a34a,color:#166534;
+    classDef bad fill:#fee2e2,stroke:#dc2626,color:#991b1b;
+    classDef mixed fill:#fef3c7,stroke:#d97706,color:#92400e;
+
+    class A1,A2,A3,B3,C1,C2,C4,D1 good;
+    class A4,A5,B5,C3,D2 mixed;
+    class B1,B2,B4,D3 bad;
+```
+
 
 ### Option A: Azure-managed Flux on each member cluster (current implementation)
 
@@ -52,8 +88,7 @@ Git repo ──pull──▶ Managed Flux (swedencentral)
 | GitHub outage behavior | ✅ Good failure mode. Existing workloads keep running on last applied state; only new convergence is blocked until GitHub returns. |
 | Fleet dependency | ✅ None for baseline operation. This is a feature, not a gap. |
 | Scaling (add region) | ✅ Good. A new stamp gets Flux automatically when the stamp is provisioned. |
-| Coordinated cross-region rollouts | ⚠️ Limited. Ordering across regions is not built in unless Fleet is added later. |
-| Private repo auth | ⚠️ Still a concern if the repo stays private. Public HTTPS is the cleanest path. |
+| Coordinated cross-region rollouts | ⚠️ Limited. Ordering across regions is not built in. But can be remediated with Gateway API routing. |
 
 ### Option B: Fleet hub envelopes + GitHub Actions CI
 
@@ -126,34 +161,16 @@ This is the strongest argument for the current design:
 3. **It removes unnecessary bootstrap toil.** Flux is installed and configured by Azure resources in Bicep, not by imperative per-cluster setup steps in the normal path.
 4. **It uses the managed Azure experience where it helps most.** Azure handles extension lifecycle, which reduces controller drift and day-2 maintenance burden.
 5. **It keeps Fleet optional.** Fleet is useful for orchestration, not necessary for correctness. That is the right separation of concerns.
+6. **Blue/Green** and **Canary** deployments are still possible with this approach by using e.g. Gateway API.
 
 ## GitHub Outage Analysis
 
 If GitHub is down:
 - Existing workloads, Services, Ingress, and already-applied Kubernetes objects keep running.
-- Kubernetes still performs normal local self-healing from the state already persisted in the cluster.
-- Other regions are unaffected by a single-region failure because reconciliation is per cluster.
 
 What does stop during a GitHub outage:
 - New deployments and manifest changes cannot be pulled.
-- Drift correction that requires re-reading Git cannot make forward progress.
-- Brand new cluster bootstrap or disaster rebuild from Git is delayed until GitHub becomes reachable again.
+- we would need to fallback to another git source.
 
-This is an acceptable failure mode for the baseline because it is a **graceful degradation of change velocity**, not a **loss of live service**.
-
-## Hardening Follow-Ups
-
-To make the strategy even more robust, add operational mitigations around Git as the source of truth rather than replacing the per-cluster Flux model:
-
-- Keep container images in Azure Container Registry so image pulls are independent of GitHub.
-- Prefer public HTTPS for the manifest repo if organizationally acceptable; it removes Git authentication complexity completely.
-- If GitHub dependency is still considered too strong, add a documented break-glass mirror in an Azure-native location such as Azure Repos or an OCI-based manifest source.
-- Keep the per-region Flux layout small and deterministic so recovery from the last known state is straightforward.
-
-## Consequences
-
-- The architecture is more resilient to central control-plane failure than a hub-and-spoke push model.
-- The baseline path is simpler to reason about and easier to operate.
-- We give up built-in global rollout ordering unless we later add Fleet deliberately.
-- GitHub remains a dependency for new convergence, so a mirror or break-glass plan is still worth documenting.
+Maybe this is acceptable?
 

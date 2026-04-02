@@ -6,12 +6,12 @@
 
 ## Context
 
-The current architecture deploys one AKS cluster per region. This limits our ability to:
+We want to be able to evolve the infrastructure in terms of scale, but also architecture. So we support the concept of stamps in a region.
 
-1. **Blue/Green deployments** — rolling out a new cluster version alongside the old one in the same region, shifting traffic gradually via Front Door weights
+1. **Blue/Green/Canary infra** — rolling out a new cluster version alongside the old one in the same region, shifting traffic gradually via Front Door weights
 2. **Horizontal scaling** — adding capacity in a region by spinning up additional stamps rather than scaling a single cluster
-3. **Canary testing** — deploying a new app version to a dedicated stamp before promoting region-wide
-4. **Isolation** — separating workloads, teams, or tenants into different stamps within the same region
+3. **Isolation** — separating workloads, teams, or tenants into different stamps within the same region
+4. **Preparing migrations** — e.g. moving to a different data storage overtime and switch when it's ready.
 
 ## Decision
 

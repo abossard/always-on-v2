@@ -2,7 +2,7 @@
 
 ## Summary
 
-The PlayersOnLevel0 system implements an idempotent state machine pattern (per ADR-0037) for player progression management. The architecture is minimal hexagonal (5 files for the API project), with pure domain logic, result types over exceptions, and optimistic concurrency via ETags.
+The PlayersOnLevel0 system implements an idempotent state machine pattern (per ADR-0038) for player progression management. The architecture is minimal hexagonal (5 files for the API project), with pure domain logic, result types over exceptions, and optimistic concurrency via ETags.
 
 **Overall assessment: Well-designed, clean, production-ready.**
 
@@ -14,7 +14,7 @@ The PlayersOnLevel0 system implements an idempotent state machine pattern (per A
 `Domain.cs` has zero infrastructure dependencies. `WithScore()` and `WithAchievement()` are pure functions returning new immutable records. State transitions are explicit and testable.
 
 ### 2. Idempotency
-`WithAchievement` correctly returns `this` for duplicate unlocks — applying the same event twice produces the same result, matching ADR-0037.
+`WithAchievement` correctly returns `this` for duplicate unlocks — applying the same event twice produces the same result, matching ADR-0038.
 
 ### 3. Result Types Over Exceptions
 `SaveResult`/`SaveOutcome` pattern cleanly models business outcomes (Success, Conflict, NotFound) as data. The endpoint's `switch` expression handles all cases exhaustively.
@@ -77,6 +77,6 @@ The existing architecture is well-positioned for the planned clicker feature:
 
 | ADR | Status | Notes |
 |-----|--------|-------|
-| ADR-0026: Lightweight API | Compliant | 5 files, no over-engineering |
-| ADR-0034: Simplified Hexagonal | Compliant | Domain, Endpoints (driving), Storage (driven) |
-| ADR-0037: Idempotent FSMs | Compliant | Guards, idempotent transitions, result types, ETag concurrency |
+| ADR-0027: Lightweight API | Compliant | 5 files, no over-engineering |
+| ADR-0035: Simplified Hexagonal | Compliant | Domain, Endpoints (driving), Storage (driven) |
+| ADR-0038: Idempotent FSMs | Compliant | Guards, idempotent transitions, result types, ETag concurrency |

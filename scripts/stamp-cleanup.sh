@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# stamp-cleanup.sh — Decommission an AKS stamp per ADR-0050
+# stamp-cleanup.sh — Decommission an AKS stamp per ADR-0052
 #
 # Usage:
 #   ./scripts/stamp-cleanup.sh <region> <stamp-key> [--dry-run]

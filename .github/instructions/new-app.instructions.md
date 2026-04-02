@@ -105,7 +105,7 @@ kubectl -n {appname} get svc -o jsonpath='{.items[*].metadata.annotations}'
 curl https://{subdomain}.alwayson.actor/health
 ```
 
-## Common Gotchas (from ADR-0049)
+## Common Gotchas (from ADR-0051)
 
 1. **Forgot stamp.bicep Flux vars** → K8s manifests have literal `${APPNAME_*}` → DNS never created → 503
 2. **Wrong port in CI wait-on** → E2E times out → CI fails

@@ -4,6 +4,19 @@
 
 Accepted (Pre-defined)
 
+## Diagram
+
+```mermaid
+graph TD
+    A[Compute Platform Decision] --> B[Azure Kubernetes Service AKS]
+    A --> C[Azure Container Apps]
+    B --> D[Full Kubernetes Control Plane]
+    B --> E[Rich Ecosystem of Tools]
+    B --> F[Proven Multi-Region Patterns]
+    C --> G[Simpler to Operate]
+    C --> H[Less Control Over Networking and Scaling]
+```
+
 ## Context
 
 The Player Progression API requires a compute platform that supports containerized workloads, horizontal scaling, multi-region deployment, and fine-grained orchestration. The platform must handle 10,000+ TPS and support 99.99% availability across 3+ Azure regions.

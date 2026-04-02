@@ -48,5 +48,5 @@ spec:
     numerical:
       order: asc
 # ImageUpdateAutomation removed — CI pipeline commits image tag updates instead.
-# See ADR-0046 for rationale (multi-cluster safety, no Git write access needed).
+# See ADR-0048 for rationale (multi-cluster safety, no Git write access needed).
 # ImageRepository + ImagePolicy kept for visibility into available tags.

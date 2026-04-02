@@ -3,7 +3,7 @@
 //
 // Uses direct Azure Monitor exporter APIs (not UseAzureMonitor wrapper) because
 // OTEL SDK 1.15+ no longer allows TracerProvider.AddProcessor() after build.
-// See ADR-0051 for details.
+// See ADR-0053 for details.
 
 using Azure.Identity;
 using Azure.Monitor.OpenTelemetry.Exporter;

@@ -2,7 +2,7 @@
 // Generic App Front Door Routing
 // Wires {subdomain}.{domainName} → Front Door → one origin per AKS stamp.
 //
-// Origin hostnames use a per-app DNS label per stamp (see ADR-0048):
+// Origin hostnames use a per-app DNS label per stamp (see ADR-0050):
 //   {appName}-swedencentral-001.swedencentral.cloudapp.azure.com
 //
 // Each app deploys its own Istio Gateway with a unique DNS label set via:

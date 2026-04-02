@@ -12,6 +12,8 @@ We need a consistent format for recording architecture decisions so that the tea
 
 Use the MADR (Markdown Architectural Decision Records) format with the following sections: Status, Context, Decision, Alternatives Considered, Consequences, and References.
 
+Every ADR also needs to have a small visualization that depicts the decisions impact and alernatives.
+
 ## Alternatives Considered
 
 - **Nygard format** – Simpler but lacks explicit alternatives section.

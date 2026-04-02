@@ -36,10 +36,10 @@ A hands-on learning framework for senior software engineers: design, build, and 
 
 | App | Deployed | Namespace | CI/CD | Infra (Bicep) | Gateway Route | Regions |
 |-----|:--------:|-----------|:-----:|:-------------:|---------------|---------|
-| PlayersOnLevel0 | ✅ | `level0` | ✅ `level0-cicd.yml` | ✅ | `level0.alwayson.actor` | swedencentral, germanywestcentral |
-| DarkUxChallenge | ✅ | `darkux` | ✅ `darkux-cicd.yml` | ✅ | `darkux.alwayson.actor` | swedencentral, germanywestcentral |
-| HelloAgents | ✅ | `helloagents` | ✅ `helloagents-cicd.yml` | ✅ | `agents.alwayson.actor` | swedencentral, germanywestcentral |
-| HelloOrleons | ✅ | `helloorleons` | ✅ `helloorleons-cicd.yml` | ✅ | `hello.alwayson.actor` | swedencentral, germanywestcentral |
+| PlayersOnLevel0 | ✅ | `level0` | ✅ `level0-cicd.yml` | ✅ | [level0.alwayson.actor](https://level0.alwayson.actor) | swedencentral, germanywestcentral |
+| DarkUxChallenge | ✅ | `darkux` | ✅ `darkux-cicd.yml` | ✅ | [darkux.alwayson.actor](https://darkux.alwayson.actor) | swedencentral, germanywestcentral |
+| HelloAgents | ✅ | `helloagents` | ✅ `helloagents-cicd.yml` | ✅ | [agents.alwayson.actor](https://agents.alwayson.actor) | swedencentral, germanywestcentral |
+| HelloOrleons | ✅ | `helloorleons` | ✅ `helloorleons-cicd.yml` | ✅ | [hello.alwayson.actor](https://hello.alwayson.actor) | swedencentral, germanywestcentral |
 | PlayersOn | ❌ | — | — | — | — | — |
 | PlayersOnOrleans | ❌ | — | — | — | — | — |
 | Orthereum | ❌ | — | — | — | — | — |
@@ -54,7 +54,7 @@ A hands-on learning framework for senior software engineers: design, build, and 
 | Flux GitOps | ✅ | Per-cluster config, image automation, postBuild substitution |
 | Istio Gateway API | ✅ | mTLS, HTTPRoute per app, cert-manager integration |
 | Image automation | ✅ | ACR polling (1 min), timestamp-based tag ordering, auto-commit |
-| OpenTelemetry → App Insights | ✅ | Direct exporter APIs (ADR-0051), `DisableLocalAuth=true` |
+| OpenTelemetry → App Insights | ✅ | Direct exporter APIs (ADR-0053), `DisableLocalAuth=true` |
 | Prometheus metrics | ✅ | AMA scraping, Istio Envoy sidecar metrics |
 | Health model | ✅ | `Microsoft.CloudHealth` (preview), subscription-scoped discovery |
 | Workload Identity | ✅ | Per-app managed identity, federated credentials, RBAC |
@@ -220,14 +220,14 @@ azd provision
 
 All applications use [OpenTelemetry](https://opentelemetry.io/docs/languages/dotnet/) with `Azure.Monitor.OpenTelemetry.Exporter` 1.7.0 to send traces, metrics, and logs to Application Insights. The shared `ServiceDefaults` project in each app configures the pipeline using direct exporter APIs (`AddAzureMonitorTraceExporter`, `AddAzureMonitorMetricExporter`, `AddAzureMonitorLogExporter`).
 
-> **Why not `UseAzureMonitor()`?** The `Azure.Monitor.OpenTelemetry.AspNetCore` wrapper registers trace exporters post-build via a hosted service. OpenTelemetry SDK 1.15+ made `TracerProvider.AddProcessor()` after build a silent no-op — traces never reach App Insights. Direct exporter APIs register at builder time and work correctly. See [ADR-0051](docs/adr/0051-direct-azure-monitor-otel-exporters-DI.md) for the full investigation.
+> **Why not `UseAzureMonitor()`?** The `Azure.Monitor.OpenTelemetry.AspNetCore` wrapper registers trace exporters post-build via a hosted service. OpenTelemetry SDK 1.15+ made `TracerProvider.AddProcessor()` after build a silent no-op — traces never reach App Insights. Direct exporter APIs register at builder time and work correctly. See [ADR-0053](docs/adr/0053-direct-azure-monitor-otel-exporters-DI.md) for the full investigation.
 
 ## Roadmap — Steps to Production Readiness
 
 ### Phase 1: Operational Foundation
 | # | Task | Apps Affected | Priority |
 |---|------|---------------|----------|
-| 1 | Verify App Insights traces, metrics, and logs flowing after ADR-0051 fix | All 4 deployed | 🔴 Critical |
+| 1 | Verify App Insights traces, metrics, and logs flowing after ADR-0053 fix | All 4 deployed | 🔴 Critical |
 | 2 | Fix HelloAgents 403 on Storage Queue (per-stamp storage RBAC) | HelloAgents | 🔴 Critical |
 | 3 | Fix HelloAgents OpenAI 429 rate limits — increase `skuCapacity` or add retry/backoff | HelloAgents | 🟡 High |
 | 4 | Fix Level0 CrashLoopBackOff (one replica consistently failing) | PlayersOnLevel0 | 🟡 High |
