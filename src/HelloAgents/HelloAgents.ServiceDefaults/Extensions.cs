@@ -18,6 +18,7 @@ using OpenTelemetry.Logs;
 using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using Scalar.AspNetCore;
+using System.Diagnostics.Tracing;
 
 namespace Microsoft.Extensions.Hosting;
 
@@ -25,6 +26,7 @@ public static class ServiceDefaultsExtensions
 {
     public static IHostApplicationBuilder AddServiceDefaults(this IHostApplicationBuilder builder)
     {
+        OtelDiagnosticsListener.Instance.ToString(); // ensure EventListener is active
         builder.ConfigureOpenTelemetry();
         builder.AddDefaultHealthChecks();
         builder.Services.AddServiceDiscovery();
@@ -119,5 +121,32 @@ public static class ServiceDefaultsExtensions
             .AddCheck("self", () => HealthCheckResult.Healthy(), ["live"]);
 
         return builder;
+    }
+}
+
+/// <summary>
+/// Captures OpenTelemetry and Azure Monitor exporter EventSource diagnostics to stdout.
+/// </summary>
+sealed class OtelDiagnosticsListener : EventListener
+{
+    public static readonly OtelDiagnosticsListener Instance = new();
+
+    protected override void OnEventSourceCreated(EventSource eventSource)
+    {
+        if (eventSource.Name is "OpenTelemetry-AzureMonitor-Exporter"
+                             or "OpenTelemetry-Sdk"
+                             or "Azure-Identity")
+        {
+            EnableEvents(eventSource, EventLevel.Informational, EventKeywords.All);
+            Console.WriteLine($"[OTEL-Diag] Listening to EventSource: {eventSource.Name}");
+        }
+    }
+
+    protected override void OnEventWritten(EventWrittenEventArgs e)
+    {
+        var msg = e.Message is not null && e.Payload?.Count > 0
+            ? string.Format(e.Message, e.Payload.ToArray()!)
+            : e.Message ?? e.EventName ?? "unknown";
+        Console.WriteLine($"[OTEL-Diag] [{e.Level}] {e.EventSource.Name}: {msg}");
     }
 }
