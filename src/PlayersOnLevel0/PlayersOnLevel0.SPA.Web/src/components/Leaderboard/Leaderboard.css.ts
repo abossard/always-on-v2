@@ -39,7 +39,7 @@ export const tab = style({
 export const tabActive = style({
   backgroundColor: vars.color.primary,
   borderColor: vars.color.primary,
-  color: vars.color.text,
+  color: '#ffffff',
 });
 
 export const list = style({

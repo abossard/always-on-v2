@@ -38,7 +38,7 @@ var discoveryRuleGuid = guid(discoverySubscriptionId)
 
 // ─── Health Model ───────────────────────────────────────────────
 
-resource healthmodel 'Microsoft.CloudHealth/healthmodels@2025-05-01-preview' = {
+resource healthmodel 'Microsoft.CloudHealth/healthmodels@2026-01-01-preview' = {
   name: name
   location: location
   identity: {
@@ -52,7 +52,7 @@ resource healthmodel 'Microsoft.CloudHealth/healthmodels@2025-05-01-preview' = {
 
 // ─── Authentication Setting (for the managed identity) ──────────
 
-resource authsetting 'Microsoft.CloudHealth/healthmodels/authenticationsettings@2025-05-01-preview' = {
+resource authsetting 'Microsoft.CloudHealth/healthmodels/authenticationsettings@2026-01-01-preview' = {
   name: toLower(identityName)
   parent: healthmodel
   properties: {
@@ -64,7 +64,7 @@ resource authsetting 'Microsoft.CloudHealth/healthmodels/authenticationsettings@
 
 // ─── Discovery Rule (subscription scope) ────────────────────────
 
-resource discoveryRule 'Microsoft.CloudHealth/healthmodels/discoveryrules@2025-05-01-preview' = if (enableDiscovery) {
+resource discoveryRule 'Microsoft.CloudHealth/healthmodels/discoveryrules@2026-01-01-preview' = if (enableDiscovery) {
   name: discoveryRuleGuid
   parent: healthmodel
   properties: {
@@ -78,7 +78,7 @@ resource discoveryRule 'Microsoft.CloudHealth/healthmodels/discoveryrules@2025-0
 
 // ─── Root ↔ Discovery Rule Relationship ─────────────────────────
 
-resource rootDiscoveryRelationship 'Microsoft.CloudHealth/healthmodels/relationships@2025-05-01-preview' = if (enableDiscovery) {
+resource rootDiscoveryRelationship 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = if (enableDiscovery) {
   name: guid('root-${discoveryRuleGuid}-discovery-relationship')
   parent: healthmodel
   properties: {
