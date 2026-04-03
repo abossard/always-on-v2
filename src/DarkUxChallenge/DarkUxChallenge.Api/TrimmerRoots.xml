@@ -11,7 +11,7 @@
   <assembly fullname="Newtonsoft.Json">
     <type fullname="*" />
   </assembly>
-  <assembly fullname="Azure.Monitor.OpenTelemetry.Exporter" preserve="all" />
+  <assembly fullname="Azure.Monitor.OpenTelemetry.AspNetCore" preserve="all" />
   <assembly fullname="Azure.Monitor.OpenTelemetry.AspNetCore" preserve="all" />
   <assembly fullname="Azure.Monitor.OpenTelemetry.LiveMetrics" preserve="all" />
 </linker>

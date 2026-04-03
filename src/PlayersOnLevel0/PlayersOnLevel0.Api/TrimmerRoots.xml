@@ -24,7 +24,7 @@
   <assembly fullname="System.Collections" preserve="all" />
 
   <!-- Azure Monitor OpenTelemetry SDK — needed for App Insights telemetry with AOT. -->
-  <assembly fullname="Azure.Monitor.OpenTelemetry.Exporter" preserve="all" />
+  <assembly fullname="Azure.Monitor.OpenTelemetry.AspNetCore" preserve="all" />
   <assembly fullname="Azure.Monitor.OpenTelemetry.AspNetCore" preserve="all" />
   <assembly fullname="Azure.Monitor.OpenTelemetry.LiveMetrics" preserve="all" />
 </linker>

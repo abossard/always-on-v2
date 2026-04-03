@@ -47,6 +47,10 @@ spec:
               value: ${HELLOAGENTS_IDENTITY_CLIENT_ID}
             - name: APPLICATIONINSIGHTS_CONNECTION_STRING
               value: ${APPLICATIONINSIGHTS_CONNECTION_STRING}
+            - name: OTEL_SERVICE_NAME
+              value: helloagents
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: deployment.environment=${STAMP_NAME},cloud.region=${REGION},stamp=${STAMP_KEY}
             - name: AZURE_OPENAI_ENDPOINT
               value: ${AI_SERVICES_ENDPOINT}
             - name: AZURE_OPENAI_DEPLOYMENT_NAME

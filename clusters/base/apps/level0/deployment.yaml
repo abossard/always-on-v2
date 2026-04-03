@@ -50,6 +50,10 @@ spec:
               value: ${LEVEL0_IDENTITY_CLIENT_ID}
             - name: APPLICATIONINSIGHTS_CONNECTION_STRING
               value: ${APPLICATIONINSIGHTS_CONNECTION_STRING}
+            - name: OTEL_SERVICE_NAME
+              value: level0
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: deployment.environment=${STAMP_NAME},cloud.region=${REGION},stamp=${STAMP_KEY}
             - name: AI__Endpoint
               value: ${AI_SERVICES_ENDPOINT}
             - name: AI__ModelName
