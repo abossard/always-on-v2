@@ -134,6 +134,7 @@ jobs:
         run: dotnet run --project HelloAgents.AppHost --no-build &
         working-directory: src/HelloAgents
         env:
+          DcpPublisher__RandomizePorts: "false"
           AZURE_OPENAI_ENDPOINT: ${{ steps.ai.outputs.endpoint }}
           AZURE_OPENAI_DEPLOYMENT_NAME: gpt-41-mini
       - name: Wait for API to be healthy

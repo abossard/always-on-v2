@@ -119,6 +119,8 @@ jobs:
       - name: Start Aspire AppHost
         run: dotnet run --project DarkUxChallenge.AppHost --no-build &
         working-directory: src/DarkUxChallenge
+        env:
+          DcpPublisher__RandomizePorts: "false"
       - name: Wait for API to be healthy
         run: npx wait-on http://localhost:5199/health --timeout 120000
       - name: Wait for SPA to be ready

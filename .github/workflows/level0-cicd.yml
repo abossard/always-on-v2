@@ -117,6 +117,8 @@ jobs:
       - name: Start Aspire AppHost
         run: dotnet run --project PlayersOnLevel0.AppHost --no-build &
         working-directory: src/PlayersOnLevel0
+        env:
+          DcpPublisher__RandomizePorts: "false"
       - name: Wait for API to be healthy
         run: npx wait-on http://localhost:5036/health --timeout 120000
       - name: Wait for SPA to be ready
