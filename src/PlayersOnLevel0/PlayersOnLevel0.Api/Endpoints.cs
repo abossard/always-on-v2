@@ -8,6 +8,7 @@ namespace PlayersOnLevel0.Api;
 public static class Endpoints
 {
     public const string BasePath = "/api/players";
+    public const string LeaderboardPath = "/api/leaderboard";
     public static string PlayerPath(Guid id) => $"{BasePath}/{id}";
     public static string PlayerPath(string id) => $"{BasePath}/{id}";
     public static string ClickPath(Guid id) => $"{BasePath}/{id}/click";
@@ -24,6 +25,8 @@ public static class Endpoints
         api.MapPut("/{playerId}", UpdatePlayer);
         api.MapPost("/{playerId}/click", Click);
         api.MapGet("/{playerId}/events", Events);
+
+        app.MapGet(LeaderboardPath, GetLeaderboard);
 
         return app;
     }
@@ -106,6 +109,9 @@ public static class Endpoints
         IPlayerProgressionStore store,
         IPlayerEventSink eventSink,
         IClickRateTracker rateTracker,
+        ILeaderboardService leaderboard,
+        InMemoryPlayerEventBus eventBus,
+        ILogger<Program> logger,
         CancellationToken ct)
     {
         if (!PlayerId.TryParse(playerId, out var id))
@@ -120,6 +126,22 @@ public static class Endpoints
         {
             foreach (var evt in result.Events)
                 await eventSink.PublishAsync(evt, ct);
+
+            // Best-effort leaderboard update + broadcast to all SSE clients
+            if (result.State is { } state)
+            {
+                try
+                {
+                    await leaderboard.RecordPlayerScoreAsync(id.Value, state.Score, state.TotalClicks, now, ct);
+                    var snapshot = await BuildLeaderboardSnapshotAsync(leaderboard, ct);
+                    await eventBus.BroadcastAsync(new LeaderboardUpdated(default, snapshot, now), ct);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogWarning(ex, "Leaderboard update failed for player {PlayerId}", playerId);
+                }
+            }
+
             return Results.Accepted();
         }
 
@@ -131,11 +153,13 @@ public static class Endpoints
     /// <summary>
     /// GET /api/players/{playerId}/events → Server-Sent Events stream.
     /// Long-lived connection. Events pushed as they occur.
+    /// Immediately pushes a leaderboardUpdated snapshot on connect.
     /// Client uses EventSource API to consume.
     /// </summary>
     static async Task Events(
         string playerId,
         InMemoryPlayerEventBus eventBus,
+        ILeaderboardService leaderboard,
         HttpContext httpContext,
         CancellationToken ct)
     {
@@ -154,6 +178,20 @@ public static class Endpoints
 
         await using var subscription = eventBus.Subscribe(id.Value);
 
+        // Push initial leaderboard snapshot immediately so client has data without polling
+        try
+        {
+            var snapshot = await BuildLeaderboardSnapshotAsync(leaderboard, ct);
+            var initialEvt = new LeaderboardUpdated(default, snapshot, DateTimeOffset.UtcNow);
+            var initialJson = JsonSerializer.Serialize((PlayerEvent)initialEvt, AppJsonContext.Default.PlayerEvent);
+            await httpContext.Response.WriteAsync($"event: leaderboardUpdated\ndata: {initialJson}\n\n", ct);
+            await httpContext.Response.Body.FlushAsync(ct);
+        }
+        catch
+        {
+            // Non-critical — client will get leaderboard on next click
+        }
+
         await foreach (var evt in subscription.ReadAllAsync(ct))
         {
             var eventType = evt switch
@@ -162,6 +200,7 @@ public static class Endpoints
                 ClickAchievementEarned => "clickAchievementEarned",
                 ScoreUpdated => "scoreUpdated",
                 AchievementUnlocked => "achievementUnlocked",
+                LeaderboardUpdated => "leaderboardUpdated",
                 _ => "unknown"
             };
 
@@ -169,5 +208,39 @@ public static class Endpoints
             await httpContext.Response.WriteAsync($"event: {eventType}\ndata: {json}\n\n", ct);
             await httpContext.Response.Body.FlushAsync(ct);
         }
+    }
+
+    /// <summary>
+    /// GET /api/leaderboard?window={all-time|daily|weekly}&amp;limit={1-100}
+    /// </summary>
+    static async Task<IResult> GetLeaderboard(
+        ILeaderboardService leaderboard,
+        string? window,
+        int? limit,
+        CancellationToken ct)
+    {
+        var parsedWindow = (window?.ToLowerInvariant()) switch
+        {
+            "daily" => LeaderboardWindow.Daily,
+            "weekly" => LeaderboardWindow.Weekly,
+            _ => LeaderboardWindow.AllTime
+        };
+
+        var clampedLimit = Math.Clamp(limit ?? 10, 1, 100);
+        var page = await leaderboard.GetTopPlayersAsync(parsedWindow, clampedLimit, ct);
+        return Results.Json(LeaderboardResponse.From(page), AppJsonContext.Default.LeaderboardResponse);
+    }
+
+    static async Task<LeaderboardSnapshot> BuildLeaderboardSnapshotAsync(
+        ILeaderboardService leaderboard, CancellationToken ct)
+    {
+        var allTime = await leaderboard.GetTopPlayersAsync(LeaderboardWindow.AllTime, 10, ct);
+        var daily = await leaderboard.GetTopPlayersAsync(LeaderboardWindow.Daily, 10, ct);
+        var weekly = await leaderboard.GetTopPlayersAsync(LeaderboardWindow.Weekly, 10, ct);
+
+        return new LeaderboardSnapshot(
+            LeaderboardResponse.From(allTime).Entries,
+            LeaderboardResponse.From(daily).Entries,
+            LeaderboardResponse.From(weekly).Entries);
     }
 }

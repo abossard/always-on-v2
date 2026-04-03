@@ -9,6 +9,7 @@ public static class ResourceNames
     public const string CosmosDb = "cosmos";
     public const string Database = "playersonlevel0";
     public const string Container = "players";
+    public const string LeaderboardContainer = "leaderboard";
     public const string PartitionKey = "/playerId";
 
     public const string Api = "api";

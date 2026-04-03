@@ -26,6 +26,7 @@ export function usePlayerEvents(
     source.addEventListener('clickAchievementEarned', handle('clickAchievementEarned'));
     source.addEventListener('scoreUpdated', handle('scoreUpdated'));
     source.addEventListener('achievementUnlocked', handle('achievementUnlocked'));
+    source.addEventListener('leaderboardUpdated', handle('leaderboardUpdated'));
 
     return () => source.close();
   }, [playerId]);

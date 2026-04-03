@@ -44,6 +44,13 @@ static class Api
 
     public static async Task<HttpStatusCode> PostStatus(HttpClient c, string path, object body)
         => (await c.PostAsJsonAsync(path, body)).StatusCode;
+
+    public static async Task<LeaderboardResponse?> GetLeaderboard(HttpClient c, string window = "all-time", int limit = 10)
+    {
+        var r = await c.GetAsync($"{Endpoints.LeaderboardPath}?window={window}&limit={limit}");
+        r.EnsureSuccessStatusCode();
+        return await r.Content.ReadFromJsonAsync<LeaderboardResponse>(Json);
+    }
 }
 
 // ──────────────────────────────────────────────

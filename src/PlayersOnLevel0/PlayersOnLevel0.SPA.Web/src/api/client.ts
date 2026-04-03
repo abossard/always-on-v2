@@ -1,7 +1,7 @@
 // ACTIONS: All external communication with the API.
 // These are the only functions that perform side effects.
 
-import type { PlayerResponse } from './types';
+import type { PlayerResponse, LeaderboardResponse } from './types';
 
 const BASE = '/api/players';
 
@@ -24,5 +24,14 @@ export async function addScore(playerId: string, score: number): Promise<PlayerR
     body: JSON.stringify({ addScore: score }),
   });
   if (!res.ok) throw new Error(`Add score failed: ${res.status}`);
+  return res.json();
+}
+
+export async function getLeaderboard(
+  window: 'all-time' | 'daily' | 'weekly' = 'all-time',
+  limit = 10,
+): Promise<LeaderboardResponse> {
+  const res = await fetch(`/api/leaderboard?window=${window}&limit=${limit}`);
+  if (!res.ok) throw new Error(`Leaderboard failed: ${res.status}`);
   return res.json();
 }

@@ -34,7 +34,8 @@ export type PlayerEvent =
   | ClickRecordedEvent
   | ClickAchievementEarnedEvent
   | ScoreUpdatedEvent
-  | AchievementUnlockedEvent;
+  | AchievementUnlockedEvent
+  | LeaderboardUpdatedEvent;
 
 export interface ClickRecordedEvent {
   type: 'clickRecorded';
@@ -65,4 +66,32 @@ export interface AchievementUnlockedEvent {
   achievementId: string;
   name: string;
   occurredAt: string;
+}
+
+// Leaderboard types
+export interface LeaderboardResponse {
+  window: string;
+  entries: LeaderboardEntryResponse[];
+  asOf: string;
+}
+
+export interface LeaderboardEntryResponse {
+  rank: number;
+  playerId: string;
+  score: number;
+  totalClicks: number;
+  updatedAt: string;
+}
+
+export interface LeaderboardUpdatedEvent {
+  type: 'leaderboardUpdated';
+  playerId: string;
+  snapshot: LeaderboardSnapshot;
+  occurredAt: string;
+}
+
+export interface LeaderboardSnapshot {
+  allTime: LeaderboardEntryResponse[];
+  daily: LeaderboardEntryResponse[];
+  weekly: LeaderboardEntryResponse[];
 }

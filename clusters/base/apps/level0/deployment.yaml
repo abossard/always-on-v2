@@ -44,6 +44,8 @@ spec:
               value: ${LEVEL0_COSMOS_DATABASE}
             - name: CosmosDb__ContainerName
               value: ${LEVEL0_COSMOS_CONTAINER}
+            - name: CosmosDb__LeaderboardContainerName
+              value: ${LEVEL0_COSMOS_LEADERBOARD_CONTAINER}
             - name: AZURE_CLIENT_ID
               value: ${LEVEL0_IDENTITY_CLIENT_ID}
             - name: APPLICATIONINSIGHTS_CONNECTION_STRING

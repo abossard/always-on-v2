@@ -2,11 +2,12 @@ import { useCallback, useEffect, useReducer, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { getPlayer, postClick } from '../api/client';
 import { usePlayerEvents } from '../api/usePlayerEvents';
-import type { PlayerResponse, PlayerEvent } from '../api/types';
+import type { PlayerResponse, PlayerEvent, LeaderboardSnapshot } from '../api/types';
 import { Layout } from '../components/Layout/Layout';
 import { ClickButton } from '../components/ClickButton/ClickButton';
 import { PlayerStats } from '../components/PlayerStats/PlayerStats';
 import { AchievementList } from '../components/AchievementList/AchievementList';
+import { Leaderboard } from '../components/Leaderboard/Leaderboard';
 import { vars } from '../theme/theme.css';
 
 const TOTAL_CLICK_MILESTONES = [100, 1_000, 10_000, 100_000, 1_000_000];
@@ -90,6 +91,7 @@ export function PlayerPage() {
   const [sseTotal, setSseTotal] = useState(0);
   const [clickCount, setClickCount] = useState(0);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [leaderboardSnapshot, setLeaderboardSnapshot] = useState<LeaderboardSnapshot | null>(null);
   const renderCount = useRef(0);
   renderCount.current++;
 
@@ -102,7 +104,11 @@ export function PlayerPage() {
 
   const onEvent = useCallback(
     (event: PlayerEvent) => {
-      dispatch({ type: 'event', event });
+      if (event.type === 'leaderboardUpdated') {
+        setLeaderboardSnapshot(event.snapshot);
+      } else {
+        dispatch({ type: 'event', event });
+      }
       setSseTotal((t) => t + 1);
       setSseEvents((prev) => [...prev.slice(-19), event]);
     },
@@ -202,6 +208,8 @@ export function PlayerPage() {
         achievements={player.achievements}
         clickAchievements={player.clickAchievements}
       />
+
+      <Leaderboard currentPlayerId={player.playerId} snapshot={leaderboardSnapshot} />
 
       {/* Diagnostics panel */}
       <details style={{ width: '100%', marginTop: '2rem' }}>

@@ -23,6 +23,11 @@ public class InMemoryClickTests(InMemoryFixture f)
 public class InMemorySseTests(InMemoryFixture f)
     : SseStreamingTests(f.Client);
 
+[InheritsTests]
+[ClassDataSource<InMemoryFixture>(Shared = SharedType.PerTestSession)]
+public class InMemoryLeaderboardTests(InMemoryFixture f)
+    : LeaderboardTests(f.Client);
+
 // ──────────────────────────────────────────────
 // Cosmos DB via Aspire (emulator)
 // ──────────────────────────────────────────────
@@ -44,3 +49,9 @@ public class CosmosClickTests(AspireFixture f)
 [ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
 public class CosmosSseTests(AspireFixture f)
     : SseStreamingTests(f.Client);
+
+[InheritsTests]
+[Category("cosmos")]
+[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
+public class CosmosLeaderboardTests(AspireFixture f)
+    : LeaderboardTests(f.Client);

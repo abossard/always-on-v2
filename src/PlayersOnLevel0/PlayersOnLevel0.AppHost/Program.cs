@@ -15,6 +15,7 @@ var cosmos = builder.AddAzureCosmosDB(ResourceNames.CosmosDb)
 
 var db = cosmos.AddCosmosDatabase(ResourceNames.Database);
 db.AddContainer(ResourceNames.Container, ResourceNames.PartitionKey);
+db.AddContainer(ResourceNames.LeaderboardContainer, "/timeWindow");
 
 var api = builder.AddProject<Projects.PlayersOnLevel0_Api>(ResourceNames.Api)
     .WithReference(cosmos)

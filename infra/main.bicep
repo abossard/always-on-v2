@@ -279,6 +279,7 @@ var appFluxVars = [
     identityId: playerOnLevel0.outputs.identityId
     cosmosDatabase: playerOnLevel0.outputs.databaseName
     cosmosContainer: playerOnLevel0.outputs.containerName
+    cosmosLeaderboardContainer: playerOnLevel0.outputs.leaderboardContainerName
     aiServicesEndpoint: ai.outputs.aiServicesEndpoint
   }
   {

@@ -50,6 +50,7 @@ public readonly record struct ClickAchievement(string AchievementId, int Tier, D
 [JsonDerivedType(typeof(ClickAchievementEarned), "clickAchievementEarned")]
 [JsonDerivedType(typeof(ScoreUpdated), "scoreUpdated")]
 [JsonDerivedType(typeof(AchievementUnlocked), "achievementUnlocked")]
+[JsonDerivedType(typeof(LeaderboardUpdated), "leaderboardUpdated")]
 public abstract record PlayerEvent(PlayerId PlayerId, DateTimeOffset OccurredAt);
 
 public sealed record ClickRecorded(PlayerId PlayerId, long TotalClicks, DateTimeOffset OccurredAt)
@@ -63,6 +64,21 @@ public sealed record ScoreUpdated(PlayerId PlayerId, long NewScore, int NewLevel
 
 public sealed record AchievementUnlocked(PlayerId PlayerId, string AchievementId, string Name, DateTimeOffset OccurredAt)
     : PlayerEvent(PlayerId, OccurredAt);
+
+/// <summary>
+/// Broadcast event: leaderboard snapshot for all time windows.
+/// PlayerId is default (Guid.Empty) — this is a global event, not per-player.
+/// </summary>
+public sealed record LeaderboardUpdated(
+    PlayerId PlayerId,
+    LeaderboardSnapshot Snapshot,
+    DateTimeOffset OccurredAt)
+    : PlayerEvent(PlayerId, OccurredAt);
+
+public sealed record LeaderboardSnapshot(
+    IReadOnlyList<LeaderboardEntryResponse> AllTime,
+    IReadOnlyList<LeaderboardEntryResponse> Daily,
+    IReadOnlyList<LeaderboardEntryResponse> Weekly);
 
 // ──────────────────────────────────────────────
 // Port — event sink. Any host implements this differently.
@@ -276,6 +292,53 @@ public sealed record AchievementResponse(string Id, string Name, DateTimeOffset 
 public sealed record ClickAchievementResponse(string AchievementId, int Tier, DateTimeOffset EarnedAt);
 
 // ──────────────────────────────────────────────
+// Leaderboard — domain types
+// ──────────────────────────────────────────────
+
+public enum LeaderboardWindow { AllTime, Daily, Weekly }
+
+public sealed record LeaderboardEntry(
+    string PlayerId,
+    long Score,
+    long TotalClicks,
+    DateTimeOffset UpdatedAt);
+
+public sealed record LeaderboardPage(
+    LeaderboardWindow Window,
+    IReadOnlyList<LeaderboardEntry> Entries,
+    DateTimeOffset AsOf);
+
+// ──────────────────────────────────────────────
+// Leaderboard API contracts
+// ──────────────────────────────────────────────
+
+public sealed record LeaderboardResponse(
+    string Window,
+    IReadOnlyList<LeaderboardEntryResponse> Entries,
+    DateTimeOffset AsOf)
+{
+    public static LeaderboardResponse From(LeaderboardPage page) => new(
+        page.Window.ToString().ToLowerInvariant(),
+        page.Entries.Select((e, i) => LeaderboardEntryResponse.From(e, i + 1)).ToList(),
+        page.AsOf);
+}
+
+public sealed record LeaderboardEntryResponse(
+    int Rank,
+    string PlayerId,
+    long Score,
+    long TotalClicks,
+    DateTimeOffset UpdatedAt)
+{
+    public static LeaderboardEntryResponse From(LeaderboardEntry e, int rank) => new(
+        rank,
+        e.PlayerId.Length > 8 ? e.PlayerId[..8] : e.PlayerId,
+        e.Score,
+        e.TotalClicks,
+        e.UpdatedAt);
+}
+
+// ──────────────────────────────────────────────
 // Validation — pure calculations, no side effects
 // ──────────────────────────────────────────────
 
@@ -327,6 +390,11 @@ public sealed record SaveResult(SaveOutcome Outcome, PlayerProgression? Progress
 [JsonSerializable(typeof(AchievementUnlocked))]
 [JsonSerializable(typeof(ClickAchievementResponse))]
 [JsonSerializable(typeof(IReadOnlyList<ClickAchievementResponse>))]
+[JsonSerializable(typeof(LeaderboardResponse))]
+[JsonSerializable(typeof(LeaderboardEntryResponse))]
+[JsonSerializable(typeof(IReadOnlyList<LeaderboardEntryResponse>))]
+[JsonSerializable(typeof(LeaderboardUpdated))]
+[JsonSerializable(typeof(LeaderboardSnapshot))]
 internal partial class AppJsonContext : JsonSerializerContext;
 
 public sealed record ProblemResult(string Error, int Status);

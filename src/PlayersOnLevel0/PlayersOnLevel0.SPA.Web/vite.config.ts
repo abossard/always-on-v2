@@ -23,6 +23,10 @@ export default defineConfig({
           });
         },
       },
+      '/api/leaderboard': {
+        target: process.env.services__api__http__0 || 'http://localhost:5036',
+        changeOrigin: true,
+      },
     },
   },
 })

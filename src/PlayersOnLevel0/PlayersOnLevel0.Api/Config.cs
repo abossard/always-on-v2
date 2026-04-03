@@ -28,6 +28,7 @@ public sealed class CosmosOptions
     public string Endpoint { get; set; } = "";
     public string DatabaseName { get; set; } = "playersonlevel0";
     public string ContainerName { get; set; } = "players";
+    public string LeaderboardContainerName { get; set; } = "leaderboard";
     public string PartitionKeyPath { get; set; } = "/playerId";
     public bool InitializeOnStartup { get; set; }
 }

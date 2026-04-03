@@ -1,5 +1,6 @@
 // EventBus.cs — In-memory event bus using System.Threading.Channels.
 // Per-player fanout: multiple SSE subscribers each get their own channel.
+// Broadcast: leaderboard events push to ALL active subscribers.
 // This is the ASP.NET hosting adapter for IPlayerEventSink.
 // Orleans would replace this with Orleans Streams.
 
@@ -19,6 +20,7 @@ public interface IPlayerEventSubscription : IAsyncDisposable
 
 /// <summary>
 /// In-memory event bus. Publishes to all active subscribers for a given player.
+/// BroadcastAsync publishes to ALL active subscribers across all players (for global events like leaderboard).
 /// Not persisted — if a subscriber connects after an event, they miss it.
 /// Use GET /players/{id} for current state; events are for live updates only.
 /// </summary>
@@ -33,6 +35,19 @@ public sealed class InMemoryPlayerEventBus : IPlayerEventSink
 
         foreach (var (_, channel) in channels)
             channel.Writer.TryWrite(evt); // non-blocking; drops if subscriber is slow
+
+        return ValueTask.CompletedTask;
+    }
+
+    /// <summary>
+    /// Broadcast an event to ALL active SSE connections, regardless of player.
+    /// Used for global events like leaderboard updates.
+    /// </summary>
+    public ValueTask BroadcastAsync(PlayerEvent evt, CancellationToken ct = default)
+    {
+        foreach (var (_, playerChannels) in _subscriptions)
+            foreach (var (_, channel) in playerChannels)
+                channel.Writer.TryWrite(evt);
 
         return ValueTask.CompletedTask;
     }

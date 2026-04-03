@@ -32,7 +32,26 @@ public interface IPlayerProgressionStore
 public sealed record ClickApplyResult(
     bool Success,
     IReadOnlyList<PlayerEvent> Events,
+    PlayerProgression? State = null,
     string? Error = null);
+
+// ──────────────────────────────────────────────
+// Port — leaderboard use cases (storage-agnostic)
+// ──────────────────────────────────────────────
+
+public interface ILeaderboardService
+{
+    /// <summary>
+    /// Record that a player's score changed.
+    /// The service decides which time windows to update internally.
+    /// </summary>
+    Task RecordPlayerScoreAsync(PlayerId playerId, Score score, long totalClicks, DateTimeOffset occurredAt, CancellationToken ct = default);
+
+    /// <summary>
+    /// Get the top players for a specific leaderboard window.
+    /// </summary>
+    Task<LeaderboardPage> GetTopPlayersAsync(LeaderboardWindow window, int limit = 10, CancellationToken ct = default);
+}
 
 // ──────────────────────────────────────────────
 // InMemory adapter — for dev/test
@@ -96,12 +115,68 @@ public sealed class InMemoryPlayerProgressionStore : IPlayerProgressionStore
             var saveResult = SaveProgression(clickResult.State, ct).Result;
 
             if (saveResult.Outcome == SaveOutcome.Success)
-                return Task.FromResult(new ClickApplyResult(true, clickResult.Events));
+                return Task.FromResult(new ClickApplyResult(true, clickResult.Events, clickResult.State));
 
             if (saveResult.Outcome != SaveOutcome.Conflict)
-                return Task.FromResult(new ClickApplyResult(false, [], saveResult.Error));
+                return Task.FromResult(new ClickApplyResult(false, [], Error: saveResult.Error));
         }
-        return Task.FromResult(new ClickApplyResult(false, [], "Too many concurrent updates."));
+        return Task.FromResult(new ClickApplyResult(false, [], Error: "Too many concurrent updates."));
+    }
+}
+
+// ──────────────────────────────────────────────
+// InMemory leaderboard adapter
+// ──────────────────────────────────────────────
+
+public sealed class InMemoryLeaderboardService : ILeaderboardService
+{
+    readonly ConcurrentDictionary<string, ConcurrentDictionary<string, LeaderboardEntry>> _windows = new();
+
+    public Task RecordPlayerScoreAsync(PlayerId playerId, Score score, long totalClicks, DateTimeOffset occurredAt, CancellationToken ct = default)
+    {
+        var id = playerId.Value.ToString();
+        var now = occurredAt;
+
+        foreach (var windowKey in GetWindowKeys(occurredAt))
+        {
+            var entries = _windows.GetOrAdd(windowKey, _ => new ConcurrentDictionary<string, LeaderboardEntry>());
+            entries.AddOrUpdate(id,
+                _ => new LeaderboardEntry(id, score.Value, totalClicks, now),
+                (_, existing) => score.Value >= existing.Score
+                    ? new LeaderboardEntry(id, score.Value, totalClicks, now)
+                    : existing);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task<LeaderboardPage> GetTopPlayersAsync(LeaderboardWindow window, int limit = 10, CancellationToken ct = default)
+    {
+        var windowKey = GetCurrentWindowKey(window);
+        var entries = _windows.TryGetValue(windowKey, out var dict)
+            ? dict.Values.OrderByDescending(e => e.Score).ThenByDescending(e => e.UpdatedAt).Take(limit).ToList()
+            : new List<LeaderboardEntry>();
+
+        return Task.FromResult(new LeaderboardPage(window, entries, DateTimeOffset.UtcNow));
+    }
+
+    static string[] GetWindowKeys(DateTimeOffset now) =>
+    [
+        "all-time",
+        $"daily-{now.UtcDateTime:yyyy-MM-dd}",
+        $"weekly-{now.UtcDateTime:yyyy}-W{System.Globalization.ISOWeek.GetWeekOfYear(now.UtcDateTime):D2}"
+    ];
+
+    static string GetCurrentWindowKey(LeaderboardWindow window)
+    {
+        var now = DateTimeOffset.UtcNow;
+        return window switch
+        {
+            LeaderboardWindow.AllTime => "all-time",
+            LeaderboardWindow.Daily => $"daily-{now.UtcDateTime:yyyy-MM-dd}",
+            LeaderboardWindow.Weekly => $"weekly-{now.UtcDateTime:yyyy}-W{System.Globalization.ISOWeek.GetWeekOfYear(now.UtcDateTime):D2}",
+            _ => "all-time"
+        };
     }
 }
 
@@ -182,12 +257,90 @@ public sealed class CosmosPlayerProgressionStore : IPlayerProgressionStore
             var saveResult = await SaveProgression(clickResult.State, ct);
 
             if (saveResult.Outcome == SaveOutcome.Success)
-                return new ClickApplyResult(true, clickResult.Events);
+                return new ClickApplyResult(true, clickResult.Events, clickResult.State);
 
             if (saveResult.Outcome != SaveOutcome.Conflict)
-                return new ClickApplyResult(false, [], saveResult.Error);
+                return new ClickApplyResult(false, [], Error: saveResult.Error);
         }
-        return new ClickApplyResult(false, [], "Too many concurrent updates.");
+        return new ClickApplyResult(false, [], Error: "Too many concurrent updates.");
+    }
+}
+
+// ──────────────────────────────────────────────
+// Cosmos DB leaderboard adapter
+// ──────────────────────────────────────────────
+
+public sealed class CosmosLeaderboardService : ILeaderboardService
+{
+    readonly Container _container;
+
+    public CosmosLeaderboardService(CosmosClient cosmosClient, IOptions<CosmosOptions> options)
+    {
+        var opts = options.Value;
+        _container = cosmosClient.GetContainer(opts.DatabaseName, opts.LeaderboardContainerName);
+    }
+
+    public async Task RecordPlayerScoreAsync(PlayerId playerId, Score score, long totalClicks, DateTimeOffset occurredAt, CancellationToken ct = default)
+    {
+        var id = playerId.Value.ToString();
+
+        foreach (var windowKey in GetWindowKeys(occurredAt))
+        {
+            var doc = new CosmosLeaderboardDocument
+            {
+                id = id,
+                timeWindow = windowKey,
+                playerId = id,
+                score = score.Value,
+                totalClicks = totalClicks,
+                updatedAt = occurredAt
+            };
+
+            var pk = new PartitionKey(windowKey);
+            await _container.UpsertItemAsync(doc, pk, cancellationToken: ct);
+        }
+    }
+
+    public async Task<LeaderboardPage> GetTopPlayersAsync(LeaderboardWindow window, int limit = 10, CancellationToken ct = default)
+    {
+        var windowKey = GetCurrentWindowKey(window);
+        var query = new QueryDefinition(
+            "SELECT TOP @limit c.playerId, c.score, c.totalClicks, c.updatedAt FROM c WHERE c.timeWindow = @window ORDER BY c.score DESC, c.updatedAt DESC")
+            .WithParameter("@limit", limit)
+            .WithParameter("@window", windowKey);
+
+        var entries = new List<LeaderboardEntry>();
+        using var iterator = _container.GetItemQueryIterator<CosmosLeaderboardDocument>(query, requestOptions: new QueryRequestOptions
+        {
+            PartitionKey = new PartitionKey(windowKey)
+        });
+
+        while (iterator.HasMoreResults)
+        {
+            var batch = await iterator.ReadNextAsync(ct);
+            entries.AddRange(batch.Select(d => new LeaderboardEntry(d.playerId, d.score, d.totalClicks, d.updatedAt)));
+        }
+
+        return new LeaderboardPage(window, entries, DateTimeOffset.UtcNow);
+    }
+
+    static string[] GetWindowKeys(DateTimeOffset now) =>
+    [
+        "all-time",
+        $"daily-{now.UtcDateTime:yyyy-MM-dd}",
+        $"weekly-{now.UtcDateTime:yyyy}-W{System.Globalization.ISOWeek.GetWeekOfYear(now.UtcDateTime):D2}"
+    ];
+
+    static string GetCurrentWindowKey(LeaderboardWindow window)
+    {
+        var now = DateTimeOffset.UtcNow;
+        return window switch
+        {
+            LeaderboardWindow.AllTime => "all-time",
+            LeaderboardWindow.Daily => $"daily-{now.UtcDateTime:yyyy-MM-dd}",
+            LeaderboardWindow.Weekly => $"weekly-{now.UtcDateTime:yyyy}-W{System.Globalization.ISOWeek.GetWeekOfYear(now.UtcDateTime):D2}",
+            _ => "all-time"
+        };
     }
 }
 
@@ -258,6 +411,16 @@ internal sealed class CosmosClickAchievementEntry
     public DateTimeOffset earnedAt { get; set; }
 }
 
+internal sealed class CosmosLeaderboardDocument
+{
+    public string id { get; set; } = "";
+    public string timeWindow { get; set; } = "";
+    public string playerId { get; set; } = "";
+    public long score { get; set; }
+    public long totalClicks { get; set; }
+    public DateTimeOffset updatedAt { get; set; }
+}
+
 // ──────────────────────────────────────────────
 // Source-generated JSON context for Cosmos document types (AOT-safe)
 // ──────────────────────────────────────────────
@@ -265,6 +428,7 @@ internal sealed class CosmosClickAchievementEntry
 [JsonSerializable(typeof(CosmosPlayerDocument))]
 [JsonSerializable(typeof(CosmosAchievementEntry))]
 [JsonSerializable(typeof(CosmosClickAchievementEntry))]
+[JsonSerializable(typeof(CosmosLeaderboardDocument))]
 [JsonSerializable(typeof(List<CosmosAchievementEntry>))]
 [JsonSerializable(typeof(List<CosmosClickAchievementEntry>))]
 [JsonSourceGenerationOptions(
@@ -287,6 +451,7 @@ public static class StorageExtensions
         {
             case StorageProvider.InMemory:
                 services.AddSingleton<IPlayerProgressionStore, InMemoryPlayerProgressionStore>();
+                services.AddSingleton<ILeaderboardService, InMemoryLeaderboardService>();
                 break;
 
             case StorageProvider.CosmosDb:
@@ -316,6 +481,7 @@ public static class StorageExtensions
                         }));
                 }
                 services.AddSingleton<IPlayerProgressionStore, CosmosPlayerProgressionStore>();
+                services.AddSingleton<ILeaderboardService, CosmosLeaderboardService>();
                 break;
 
             default:
@@ -342,7 +508,25 @@ public static class StorageExtensions
         await db.Database.CreateContainerIfNotExistsAsync(
             cosmosOpts.ContainerName,
             cosmosOpts.PartitionKeyPath);
+        await db.Database.CreateContainerIfNotExistsAsync(
+            new ContainerProperties(cosmosOpts.LeaderboardContainerName, "/timeWindow")
+            {
+                IndexingPolicy = new IndexingPolicy
+                {
+                    Automatic = true,
+                    IndexingMode = IndexingMode.Consistent,
+                    CompositeIndexes =
+                    {
+                        new System.Collections.ObjectModel.Collection<CompositePath>
+                        {
+                            new() { Path = "/score", Order = CompositePathSortOrder.Descending },
+                            new() { Path = "/updatedAt", Order = CompositePathSortOrder.Descending }
+                        }
+                    }
+                }
+            });
 
-        app.Logger.LogInformation("Cosmos DB initialized: {Database}/{Container}", cosmosOpts.DatabaseName, cosmosOpts.ContainerName);
+        app.Logger.LogInformation("Cosmos DB initialized: {Database}/{Container} + {LeaderboardContainer}",
+            cosmosOpts.DatabaseName, cosmosOpts.ContainerName, cosmosOpts.LeaderboardContainerName);
     }
 }

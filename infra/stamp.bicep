@@ -412,6 +412,7 @@ var level0FluxVars = length(appFluxVars) > 0 && appFluxVars[0].name == 'level0' 
   LEVEL0_IDENTITY_ID: appFluxVars[0].identityId
   LEVEL0_COSMOS_DATABASE: appFluxVars[0].cosmosDatabase
   LEVEL0_COSMOS_CONTAINER: appFluxVars[0].cosmosContainer
+  LEVEL0_COSMOS_LEADERBOARD_CONTAINER: appFluxVars[0].cosmosLeaderboardContainer
   LEVEL0_DNS_LABEL: 'level0-${stampName}'
   LEVEL0_GATEWAY_HOSTNAME: 'level0-${stampName}.${dnsZoneName}'
 } : {}

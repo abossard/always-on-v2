@@ -72,6 +72,31 @@ resource container 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/container
   }
 }
 
+resource leaderboardContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2025-04-15' = {
+  parent: database
+  name: 'leaderboard'
+  properties: {
+    resource: {
+      id: 'leaderboard'
+      partitionKey: {
+        paths: ['/timeWindow']
+        kind: 'Hash'
+        version: 2
+      }
+      indexingPolicy: {
+        automatic: true
+        indexingMode: 'consistent'
+        compositeIndexes: [
+          [
+            { path: '/score', order: 'descending' }
+            { path: '/updatedAt', order: 'descending' }
+          ]
+        ]
+      }
+    }
+  }
+}
+
 // ============================================================================
 // Cosmos DB RBAC — Data Contributor on the database
 // ============================================================================
@@ -116,3 +141,4 @@ output identityClientId string = appIdentity.properties.clientId
 output identityPrincipalId string = appIdentity.properties.principalId
 output databaseName string = database.name
 output containerName string = container.name
+output leaderboardContainerName string = leaderboardContainer.name
