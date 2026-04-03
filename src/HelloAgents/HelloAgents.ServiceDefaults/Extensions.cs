@@ -88,7 +88,8 @@ public static class ServiceDefaultsExtensions
                     .AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
                     .AddSource("Microsoft.Orleans.Runtime")
-                    .AddSource("Microsoft.Orleans.Application");
+                    .AddSource("Microsoft.Orleans.Application")
+                    .AddSource("Azure.*");
                 if (useAzureMonitor)
                 {
                     tracing.AddAzureMonitorTraceExporter(o => ConfigureExporter(o, connStr!));

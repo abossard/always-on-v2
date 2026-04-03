@@ -18,6 +18,11 @@
 
   <assembly fullname="Newtonsoft.Json" preserve="all" />
 
+  <!-- Cosmos SDK query pipeline uses generic types (e.g. List<AggregateOperator>)
+       created via Newtonsoft.Json reflection. Preserve System.Collections to ensure
+       NativeAOT generates constructors for collection generic instantiations. -->
+  <assembly fullname="System.Collections" preserve="all" />
+
   <!-- Azure Monitor OpenTelemetry SDK — needed for App Insights telemetry with AOT. -->
   <assembly fullname="Azure.Monitor.OpenTelemetry.Exporter" preserve="all" />
   <assembly fullname="Azure.Monitor.OpenTelemetry.AspNetCore" preserve="all" />

@@ -1,0 +1,11 @@
+<Directives xmlns="http://schemas.microsoft.com/netfx/2013/01/metadata">
+  <Application>
+    <!-- Cosmos SDK query plan deserialization creates List<AggregateOperator> via
+         Newtonsoft.Json reflection. NativeAOT needs explicit directives to generate
+         native code for these internal generic instantiations. -->
+    <Assembly Name="Microsoft.Azure.Cosmos.Client" Dynamic="Required All">
+      <Namespace Name="Microsoft.Azure.Cosmos.Query.Core.Pipeline.Aggregate" Dynamic="Required All" />
+      <Namespace Name="Microsoft.Azure.Cosmos.Query.Core.Pipeline" Dynamic="Required All" />
+    </Assembly>
+  </Application>
+</Directives>

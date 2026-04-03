@@ -85,7 +85,8 @@ public static class ServiceDefaultsExtensions
             {
                 tracing
                     .AddAspNetCoreInstrumentation()
-                    .AddHttpClientInstrumentation();
+                    .AddHttpClientInstrumentation()
+                    .AddSource("Azure.*");
                 if (useAzureMonitor)
                 {
                     tracing.AddAzureMonitorTraceExporter(o => ConfigureExporter(o, connStr!));

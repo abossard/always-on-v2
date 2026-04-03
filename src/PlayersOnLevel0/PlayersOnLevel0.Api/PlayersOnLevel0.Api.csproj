@@ -33,6 +33,7 @@
 
   <ItemGroup>
     <TrimmerRootDescriptor Include="TrimmerRoots.xml" />
+    <RdXmlFile Include="rd.xml" />
   </ItemGroup>
 
 </Project>
