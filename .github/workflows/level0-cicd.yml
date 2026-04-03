@@ -120,7 +120,22 @@ jobs:
         env:
           DcpPublisher__RandomizePorts: "false"
       - name: Wait for API to be healthy
-        run: npx wait-on http://localhost:5036/health --timeout 120000
+        run: |
+          echo "Waiting for API on port 5036 (timeout 300s)..."
+          for i in $(seq 1 150); do
+            if curl -sf http://localhost:5036/health 2>/dev/null; then
+              echo "API healthy after ~$((i*2))s"
+              exit 0
+            fi
+            if [ $((i % 15)) -eq 0 ]; then
+              echo "Still waiting (${i}/150)... checking ports:"
+              ss -tlnp 2>/dev/null | grep -E '503[0-9]|808[0-9]' || true
+            fi
+            sleep 2
+          done
+          echo "API failed to start. Listening ports:"
+          ss -tlnp 2>/dev/null || true
+          exit 1
       - name: Wait for SPA to be ready
         run: |
           for i in $(seq 1 60); do
