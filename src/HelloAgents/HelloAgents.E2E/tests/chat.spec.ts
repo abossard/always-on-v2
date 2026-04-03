@@ -218,10 +218,11 @@ test.describe('Discussion', () => {
     await expect(page.getByText(seedMsg)).toBeVisible({ timeout: 5_000 });
 
     await page.getByRole('button', { name: /Start Discussion/ }).click();
-    await expect(page.getByRole('button', { name: /Discussing/ })).toBeDisabled({ timeout: 5_000 });
 
-    // Wait for agent response (up to 60s for LLM call)
-    await expect(page.getByText(agentName)).toBeVisible({ timeout: 60_000 });
+    // The button may briefly show "Discussing..." or the LLM may respond before we can observe it
+    // Just wait for the agent response in the chat messages area (up to 60s for LLM call)
+    const chatMessages = page.getByTestId('chat-messages');
+    await expect(chatMessages.getByText(agentName)).toBeVisible({ timeout: 60_000 });
     await expect(page.getByRole('button', { name: /Start Discussion/ })).toBeEnabled({ timeout: 5_000 });
   });
 });
@@ -312,9 +313,9 @@ test.describe('Multi-Tab Real-Time', () => {
     // Tab A triggers discussion
     await tabA.getByRole('button', { name: /Start Discussion/ }).click();
 
-    // Both tabs should see the agent response
-    await expect(tabA.getByText(agentName)).toBeVisible({ timeout: 60_000 });
-    await expect(tabB.getByText(agentName)).toBeVisible({ timeout: 60_000 });
+    // Both tabs should see the agent response in the chat messages area
+    await expect(tabA.getByTestId('chat-messages').getByText(agentName)).toBeVisible({ timeout: 60_000 });
+    await expect(tabB.getByTestId('chat-messages').getByText(agentName)).toBeVisible({ timeout: 60_000 });
 
     await contextA.close();
     await contextB.close();

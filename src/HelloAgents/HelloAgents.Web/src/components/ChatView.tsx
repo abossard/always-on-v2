@@ -59,7 +59,7 @@ export function ChatView({ messages, onSendMessage, onStartDiscussion, isDiscuss
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="flex-1 overflow-y-auto p-4 space-y-3" data-testid="chat-messages">
         {messages.length === 0 && (
           <p className="text-white/30 text-sm text-center mt-8">
             No messages yet. Send a message or start a discussion!
