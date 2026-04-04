@@ -141,7 +141,7 @@ jobs:
         run: |
           echo "Waiting for API on port 5100 (timeout 300s)..."
           for i in $(seq 1 150); do
-            if curl -sf http://localhost:5100/health 2>/dev/null; then
+            if curl -sf --connect-timeout 2 --max-time 5 http://localhost:5100/health 2>/dev/null; then
               echo "API healthy after ~$((i*2))s"
               exit 0
             fi
@@ -157,7 +157,7 @@ jobs:
       - name: Wait for SPA to be ready
         run: |
           for i in $(seq 1 60); do
-            if curl -sf http://localhost:4200 2>/dev/null; then
+            if curl -sf --connect-timeout 2 --max-time 5 http://localhost:4200 2>/dev/null; then
               echo "SPA ready"
               exit 0
             fi
