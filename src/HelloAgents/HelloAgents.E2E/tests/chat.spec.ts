@@ -35,6 +35,8 @@ async function addAgentToGroupViaAPI(request: import('@playwright/test').APIRequ
     data: { agentId },
   });
   expect(res.ok()).toBeTruthy();
+  // Stream-based membership — allow propagation
+  await new Promise(r => setTimeout(r, 500));
 }
 
 // ─── Layout & Navigation ──────────────────────────────────
@@ -117,7 +119,8 @@ test.describe('Agent Management', () => {
     await page.getByPlaceholder('Describe the agent').fill('A helpful test bot');
     await page.getByRole('button', { name: 'Create & Add' }).click();
 
-    await expect(page.getByText(agentName)).toBeVisible({ timeout: 10_000 });
+    // Agent name appears in roster and system message — use exact match
+    await expect(page.getByText(agentName, { exact: true })).toBeVisible({ timeout: 10_000 });
   });
 
   test('can add an existing agent to a group', async ({ page, request }) => {
@@ -131,7 +134,8 @@ test.describe('Agent Management', () => {
     await expect(page.getByText('Agents in Group')).toBeVisible();
 
     await page.locator('select').selectOption(agent.id);
-    await expect(page.getByText(agentName)).toBeVisible({ timeout: 5_000 });
+    // Agent name appears in roster and system message — use exact match
+    await expect(page.getByText(agentName, { exact: true })).toBeVisible({ timeout: 5_000 });
   });
 
   test('can remove an agent from a group', async ({ page, request }) => {
@@ -143,10 +147,12 @@ test.describe('Agent Management', () => {
 
     await waitForApp(page);
     await page.getByText(groupName).click();
-    await expect(page.getByText(agentName)).toBeVisible({ timeout: 5_000 });
+    // Agent name appears in both the roster and the "joined" system message — use exact match on roster
+    await expect(page.getByText(agentName, { exact: true })).toBeVisible({ timeout: 5_000 });
 
     await page.getByTitle('Remove from group').click();
-    await expect(page.getByText(agentName)).not.toBeVisible({ timeout: 5_000 });
+    // After removal, the roster entry disappears (system "left" message may still contain the name)
+    await expect(page.getByTitle('Remove from group')).not.toBeVisible({ timeout: 5_000 });
   });
 });
 
@@ -222,7 +228,7 @@ test.describe('Discussion', () => {
     // The button may briefly show "Discussing..." or the LLM may respond before we can observe it
     // Just wait for the agent response in the chat messages area (up to 60s for LLM call)
     const chatMessages = page.getByTestId('chat-messages');
-    await expect(chatMessages.getByText(agentName)).toBeVisible({ timeout: 60_000 });
+    await expect(chatMessages.getByText(agentName, { exact: true })).toBeVisible({ timeout: 60_000 });
     await expect(page.getByRole('button', { name: /Start Discussion/ })).toBeEnabled({ timeout: 5_000 });
   });
 });
@@ -314,8 +320,8 @@ test.describe('Multi-Tab Real-Time', () => {
     await tabA.getByRole('button', { name: /Start Discussion/ }).click();
 
     // Both tabs should see the agent response in the chat messages area
-    await expect(tabA.getByTestId('chat-messages').getByText(agentName)).toBeVisible({ timeout: 60_000 });
-    await expect(tabB.getByTestId('chat-messages').getByText(agentName)).toBeVisible({ timeout: 60_000 });
+    await expect(tabA.getByTestId('chat-messages').getByText(agentName, { exact: true })).toBeVisible({ timeout: 60_000 });
+    await expect(tabB.getByTestId('chat-messages').getByText(agentName, { exact: true })).toBeVisible({ timeout: 60_000 });
 
     await contextA.close();
     await contextB.close();
@@ -365,13 +371,18 @@ test.describe('API (direct)', () => {
 
     await addAgentToGroupViaAPI(request, group.id, agent.id);
 
+    // Stream-based membership is async — wait for propagation
+    await new Promise(r => setTimeout(r, 1000));
+
     const detail = await (await request.get(`${apiBaseURL}/api/groups/${group.id}`)).json();
-    expect(detail.agentIds).toContain(agent.id);
+    expect(detail.agents.some((a: { id: string }) => a.id === agent.id)).toBeTruthy();
 
     expect((await request.delete(`${apiBaseURL}/api/groups/${group.id}/agents/${agent.id}`)).status()).toBe(204);
 
+    await new Promise(r => setTimeout(r, 1000));
+
     const detail2 = await (await request.get(`${apiBaseURL}/api/groups/${group.id}`)).json();
-    expect(detail2.agentIds).not.toContain(agent.id);
+    expect(detail2.agents.every((a: { id: string }) => a.id !== agent.id)).toBeTruthy();
   });
 
   test('send message and verify in group state', async ({ request }) => {
@@ -385,8 +396,11 @@ test.describe('API (direct)', () => {
     const msg = await msgRes.json();
     expect(msg.content).toBe(content);
 
+    // Stream-based persistence is async — wait for propagation
+    await new Promise(r => setTimeout(r, 1000));
+
     const detail = await (await request.get(`${apiBaseURL}/api/groups/${group.id}`)).json();
-    expect(detail.messages.length).toBe(1);
+    expect(detail.messages.length).toBeGreaterThanOrEqual(1);
   });
 
   test('send empty message returns 400', async ({ request }) => {

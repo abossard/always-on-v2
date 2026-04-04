@@ -93,21 +93,27 @@ public abstract class AgentApiTests(HttpClient client)
         var agent = await agentResponse.Content.ReadFromJsonAsync<AgentInfo>();
         await Assert.That(agent).IsNotNull();
 
-        // Add agent to group
+        // Add agent to group (stream-driven: agent publishes AgentJoined)
         var addResponse = await client.PostAsJsonAsync($"/api/groups/{group!.Id}/agents",
             new AddAgentToGroupRequest(agent!.Id));
         await Assert.That(addResponse.StatusCode).IsEqualTo(HttpStatusCode.OK);
 
-        // Send a message
+        // Give the stream event time to propagate to the group grain
+        await Task.Delay(500);
+
+        // Send a message (published directly to stream)
         var msgResponse = await client.PostAsJsonAsync($"/api/groups/{group.Id}/messages",
             new SendMessageRequest("TestUser", "Hello agents!"));
         await Assert.That(msgResponse.StatusCode).IsEqualTo(HttpStatusCode.OK);
 
-        // Verify group state
+        // Give the stream event time to propagate
+        await Task.Delay(500);
+
+        // Verify group state — agent is in Agents array and messages include join + user message
         var stateResponse = await client.GetAsync($"/api/groups/{group.Id}");
         var state = await stateResponse.Content.ReadFromJsonAsync<ChatGroupDetail>();
         await Assert.That(state).IsNotNull();
-        await Assert.That(state!.AgentIds).Contains(agent.Id);
+        await Assert.That(state!.Agents.Any(a => a.Id == agent.Id)).IsTrue();
         await Assert.That(state.Messages.Length).IsGreaterThanOrEqualTo(1);
     }
 

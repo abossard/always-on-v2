@@ -5,6 +5,7 @@ import { GroupList } from "@/components/GroupList";
 import { ChatView } from "@/components/ChatView";
 import { AgentRoster } from "@/components/AgentRoster";
 import { OrchestratorSidebar } from "@/components/OrchestratorSidebar";
+import { StreamDiagnostics } from "@/components/StreamDiagnostics";
 import { useEventSource } from "@/hooks/useEventSource";
 import * as api from "@/lib/api";
 import type { ChatGroupSummary, ChatGroupDetail, AgentInfo, ChatMessage } from "@/lib/types";
@@ -21,6 +22,7 @@ export default function HomePage() {
   const [isLoadingGroup, setIsLoadingGroup] = useState(false);
   const [isAddingAgent, setIsAddingAgent] = useState(false);
   const [isCreatingAgent, setIsCreatingAgent] = useState(false);
+  const [streamEvents, setStreamEvents] = useState<ChatMessage[]>([]);
 
   // Fetch groups and agents on mount
   const refreshGroups = useCallback(async () => {
@@ -44,45 +46,60 @@ export default function HomePage() {
       setGroupDetail(null);
       setMessages([]);
       setGroupAgents([]);
+      setStreamEvents([]);
       return;
     }
 
     setIsLoadingGroup(true);
-    api.getGroup(selectedGroupId).then((detail) => {
+    api.getGroup(selectedGroupId).then(async (detail) => {
       setGroupDetail(detail);
       setMessages(detail.messages);
-
-      Promise.all(
-        detail.agentIds.map((id) =>
-          api.getAgent(id).catch(() => null)
-        )
-      ).then((agents) => {
-        setGroupAgents(agents.filter(Boolean) as AgentInfo[]);
-        setIsLoadingGroup(false);
-      });
+      // Fetch full agent info (includes groupIds) for each member
+      const agents = await Promise.all(
+        detail.agents.map(a => api.getAgent(a.id).catch(() => null))
+      );
+      setGroupAgents(agents.filter(Boolean) as AgentInfo[]);
+      setIsLoadingGroup(false);
     }).catch(() => setIsLoadingGroup(false));
   }, [selectedGroupId]);
 
   // SSE for real-time messages
   useEventSource(selectedGroupId, (msg) => {
+    // Track stream events for diagnostics
+    setStreamEvents((prev) => [...prev.slice(-49), msg]);
+
     setMessages((prev) => {
       if (prev.some((m) => m.id === msg.id)) return prev;
       return [...prev, msg];
     });
+
+    // Auto-refresh agent roster on join/leave events
+    if (msg.eventType === "AgentJoined" || msg.eventType === "AgentLeft") {
+      if (selectedGroupId) {
+        api.getGroup(selectedGroupId).then(async (detail) => {
+          setGroupDetail(detail);
+          const agents = await Promise.all(
+            detail.agents.map(a => api.getAgent(a.id).catch(() => null))
+          );
+          setGroupAgents(agents.filter(Boolean) as AgentInfo[]);
+        }).catch(() => {});
+        refreshGroups();
+        refreshAgents();
+      }
+    }
   });
 
   // Refresh all data (called by orchestrator after actions)
   const refreshAll = useCallback(async () => {
     await refreshGroups();
     await refreshAgents();
-    // Re-fetch current group detail if one is selected
     if (selectedGroupId) {
       try {
         const detail = await api.getGroup(selectedGroupId);
         setGroupDetail(detail);
         setMessages(detail.messages);
         const agents = await Promise.all(
-          detail.agentIds.map((id) => api.getAgent(id).catch(() => null))
+          detail.agents.map(a => api.getAgent(a.id).catch(() => null))
         );
         setGroupAgents(agents.filter(Boolean) as AgentInfo[]);
       } catch { /* group may have been deleted */ }
@@ -118,16 +135,12 @@ export default function HomePage() {
     }
   };
 
-  const handleStartDiscussion = async (rounds: number) => {
+  const handleStartDiscussion = async (topic?: string) => {
     if (!selectedGroupId) return;
     setIsDiscussing(true);
     try {
-      const newMessages = await api.startDiscussion(selectedGroupId, rounds);
-      setMessages((prev) => {
-        const existing = new Set(prev.map((m) => m.id));
-        const unique = newMessages.filter((m) => !existing.has(m.id));
-        return [...prev, ...unique];
-      });
+      await api.startDiscussion(selectedGroupId, topic);
+      // Responses arrive via SSE — no need to merge manually
     } finally {
       setIsDiscussing(false);
       await refreshGroups();
@@ -139,12 +152,7 @@ export default function HomePage() {
     setIsAddingAgent(true);
     try {
       await api.addAgentToGroup(selectedGroupId, agentId);
-      const detail = await api.getGroup(selectedGroupId);
-      setGroupDetail(detail);
-      const agents = await Promise.all(
-        detail.agentIds.map((id) => api.getAgent(id).catch(() => null))
-      );
-      setGroupAgents(agents.filter(Boolean) as AgentInfo[]);
+      // Agent roster updates reactively via SSE AgentJoined event
       await refreshGroups();
       await refreshAgents();
     } finally {
@@ -155,7 +163,7 @@ export default function HomePage() {
   const handleRemoveAgent = async (agentId: string) => {
     if (!selectedGroupId) return;
     await api.removeAgentFromGroup(selectedGroupId, agentId);
-    setGroupAgents((prev) => prev.filter((a) => a.id !== agentId));
+    // Agent roster updates reactively via SSE AgentLeft event
     await refreshGroups();
     await refreshAgents();
   };
@@ -236,8 +244,9 @@ export default function HomePage() {
         )}
       </div>
 
-      {/* Floating AI Orchestrator */}
+      {/* Floating panels */}
       <OrchestratorSidebar onActionComplete={refreshAll} />
+      <StreamDiagnostics events={streamEvents} />
     </>
   );
 }

@@ -23,8 +23,8 @@ export function useEventSource(
     es.onmessage = (event) => {
       try {
         const msg: ChatMessage = JSON.parse(event.data);
-        // Validate required fields
-        if (msg.id && msg.content && msg.senderName) {
+        // Validate required fields — join/leave events may have content as agentId
+        if (msg.id && msg.senderName) {
           onMessageRef.current(msg);
         }
       } catch {

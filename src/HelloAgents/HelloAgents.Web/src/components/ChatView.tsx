@@ -6,7 +6,7 @@ import type { ChatMessage } from "@/lib/types";
 interface Props {
   messages: ChatMessage[];
   onSendMessage: (content: string) => void;
-  onStartDiscussion: (rounds: number) => void;
+  onStartDiscussion: (topic?: string) => void;
   isDiscussing: boolean;
   isSending: boolean;
   groupName: string;
@@ -14,7 +14,7 @@ interface Props {
 
 export function ChatView({ messages, onSendMessage, onStartDiscussion, isDiscussing, isSending, groupName }: Props) {
   const [input, setInput] = useState("");
-  const [rounds, setRounds] = useState(1);
+  const [topic, setTopic] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -27,23 +27,24 @@ export function ChatView({ messages, onSendMessage, onStartDiscussion, isDiscuss
     setInput("");
   };
 
+  const isSystemEvent = (msg: ChatMessage) =>
+    msg.eventType === "AgentJoined" || msg.eventType === "AgentLeft";
+
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="p-3 border-b border-white/10 flex items-center justify-between">
         <h2 className="font-semibold text-white">{groupName}</h2>
         <div className="flex items-center gap-2">
-          <label className="text-xs text-white/50">Rounds:</label>
           <input
-            type="number"
-            min={1}
-            max={5}
-            value={rounds}
-            onChange={(e) => setRounds(Math.max(1, parseInt(e.target.value) || 1))}
-            className="w-12 bg-white/10 text-white text-xs rounded px-1.5 py-1 outline-none text-center"
+            type="text"
+            placeholder="Discussion topic..."
+            value={topic}
+            onChange={(e) => setTopic(e.target.value)}
+            className="w-40 bg-white/10 text-white text-xs rounded px-2 py-1.5 outline-none placeholder-white/30"
           />
           <button
-            onClick={() => onStartDiscussion(rounds)}
+            onClick={() => { onStartDiscussion(topic || undefined); setTopic(""); }}
             disabled={isDiscussing}
             className="text-xs bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-800 disabled:text-white/50 text-white px-3 py-1.5 rounded transition-colors flex items-center gap-1"
           >
@@ -65,36 +66,64 @@ export function ChatView({ messages, onSendMessage, onStartDiscussion, isDiscuss
             No messages yet. Send a message or start a discussion!
           </p>
         )}
-        {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={`flex gap-3 ${msg.senderType === "User" ? "justify-end" : ""}`}
-          >
-            {msg.senderType === "Agent" && (
-              <div className="text-2xl flex-shrink-0 mt-1">{msg.senderEmoji}</div>
-            )}
-            <div
-              className={`max-w-[75%] rounded-lg px-3 py-2 ${
-                msg.senderType === "User"
-                  ? "bg-indigo-500/30 text-white"
-                  : "bg-white/10 text-white"
-              }`}
-            >
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-xs font-semibold text-white/80">
-                  {msg.senderName}
-                </span>
-                <span className="text-xs text-white/30">
-                  {new Date(msg.timestamp).toLocaleTimeString()}
+        {messages.map((msg) => {
+          // System events (join/leave) — centered, muted
+          if (isSystemEvent(msg)) {
+            const action = msg.eventType === "AgentJoined" ? "joined the group" : "left the group";
+            // SSE delivers raw events with content=agentId; persisted messages have formatted content.
+            // Use senderName + senderEmoji for a consistent display.
+            const label = `${msg.senderEmoji} ${msg.senderName} ${action}`;
+            return (
+              <div key={msg.id} className="flex justify-center">
+                <span className="text-xs text-white/40 bg-white/5 rounded-full px-3 py-1">
+                  {label}
                 </span>
               </div>
-              <p className="text-sm leading-relaxed">{msg.content}</p>
+            );
+          }
+
+          // System messages (e.g., discuss trigger) — centered
+          if (msg.senderType === "System") {
+            return (
+              <div key={msg.id} className="flex justify-center">
+                <span className="text-xs text-amber-400/60 bg-amber-400/5 rounded-full px-3 py-1">
+                  🔔 {msg.content}
+                </span>
+              </div>
+            );
+          }
+
+          return (
+            <div
+              key={msg.id}
+              className={`flex gap-3 ${msg.senderType === "User" ? "justify-end" : ""}`}
+            >
+              {msg.senderType === "Agent" && (
+                <div className="text-2xl flex-shrink-0 mt-1">{msg.senderEmoji}</div>
+              )}
+              <div
+                className={`max-w-[75%] rounded-lg px-3 py-2 ${
+                  msg.senderType === "User"
+                    ? "bg-indigo-500/30 text-white"
+                    : "bg-white/10 text-white"
+                }`}
+              >
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs font-semibold text-white/80">
+                    {msg.senderName}
+                  </span>
+                  <span className="text-xs text-white/30">
+                    {new Date(msg.timestamp).toLocaleTimeString()}
+                  </span>
+                </div>
+                <p className="text-sm leading-relaxed">{msg.content}</p>
+              </div>
+              {msg.senderType === "User" && (
+                <div className="text-2xl flex-shrink-0 mt-1">👤</div>
+              )}
             </div>
-            {msg.senderType === "User" && (
-              <div className="text-2xl flex-shrink-0 mt-1">👤</div>
-            )}
-          </div>
-        ))}
+          );
+        })}
         {(isSending || isDiscussing) && (
           <div className="flex gap-3 items-center">
             <div className="text-2xl">🤖</div>

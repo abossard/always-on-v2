@@ -1,5 +1,6 @@
 using System.ComponentModel;
 using Microsoft.Extensions.AI;
+using Orleans.Streams;
 using AIChatMessage = Microsoft.Extensions.AI.ChatMessage;
 
 namespace HelloAgents.Api;
@@ -12,13 +13,13 @@ namespace HelloAgents.Api;
 public sealed class OrchestratorService(
     IChatClient chatClient,
     IGrainFactory grainFactory,
+    IClusterClient clusterClient,
     ILogger<OrchestratorService> logger)
 {
     public async Task<string> ExecuteAsync(string userMessage)
     {
         var tools = CreateTools();
 
-        // Wrap the chat client with automatic function invocation
         var functionClient = new ChatClientBuilder(chatClient)
             .UseFunctionInvocation()
             .Build();
@@ -104,11 +105,16 @@ public sealed class OrchestratorService(
 
     private async Task AddAgentToGroupCoreAsync(string agentId, string groupId)
     {
-        var groupGrain = grainFactory.GetGrain<IChatGroupGrain>(groupId);
-        await groupGrain.AddAgentAsync(agentId);
-
         var agentGrain = grainFactory.GetGrain<IAgentGrain>(agentId);
         await agentGrain.JoinGroupAsync(groupId);
+    }
+
+    private void PublishToGroupStream(string groupId, ChatMessage message)
+    {
+        var streamProvider = clusterClient.GetStreamProvider("ChatMessages");
+        var stream = streamProvider.GetStream<ChatMessage>(
+            StreamId.Create("group", groupId));
+        stream.OnNextAsync(message).Ignore();
     }
 
     // ─── Tools ──────────────────────────────────────────────
@@ -189,9 +195,6 @@ public sealed class OrchestratorService(
         if (groupId is null)
             return $"Error: group '{groupName}' not found.";
 
-        var groupGrain = grainFactory.GetGrain<IChatGroupGrain>(groupId);
-        await groupGrain.RemoveAgentAsync(agentId);
-
         var agentGrain = grainFactory.GetGrain<IAgentGrain>(agentId);
         await agentGrain.LeaveGroupAsync(groupId);
 
@@ -236,7 +239,7 @@ public sealed class OrchestratorService(
         return "Agents:\n" + string.Join("\n", lines);
     }
 
-    [Description("Send a user message to a chat group.")]
+    [Description("Send a user message to a chat group. Agents will respond autonomously.")]
     private async Task<string> SendMessage(
         [Description("Name of the group")] string groupName,
         [Description("The message content")] string message)
@@ -245,23 +248,46 @@ public sealed class OrchestratorService(
         if (groupId is null)
             return $"Error: group '{groupName}' not found.";
 
-        var grain = grainFactory.GetGrain<IChatGroupGrain>(groupId);
-        await grain.SendMessageAsync("User", message);
-        return $"Sent message to group '{groupName}'.";
+        var streamProvider = clusterClient.GetStreamProvider("ChatMessages");
+        var stream = streamProvider.GetStream<ChatMessage>(
+            StreamId.Create("group", groupId));
+
+        await stream.OnNextAsync(new ChatMessage(
+            Guid.NewGuid().ToString("N"),
+            groupId,
+            "User",
+            "👤",
+            SenderType.User,
+            message,
+            DateTimeOffset.UtcNow));
+
+        return $"Sent message to group '{groupName}'. Agents will respond autonomously.";
     }
 
-    [Description("Start a discussion round where all agents in the group take turns responding.")]
+    [Description("Start a discussion by posting a system message. Agents respond autonomously.")]
     private async Task<string> StartDiscussion(
         [Description("Name of the group")] string groupName,
-        [Description("Number of discussion rounds (each agent speaks once per round)")] int rounds = 1)
+        [Description("Optional topic to discuss")] string? topic = null)
     {
         var groupId = await ResolveGroupIdAsync(groupName);
         if (groupId is null)
             return $"Error: group '{groupName}' not found.";
 
-        var grain = grainFactory.GetGrain<IChatGroupGrain>(groupId);
-        var messages = await grain.DiscussAsync(rounds);
-        return $"Discussion complete. {messages.Count} messages from agents in {rounds} round(s).";
+        var streamProvider = clusterClient.GetStreamProvider("ChatMessages");
+        var stream = streamProvider.GetStream<ChatMessage>(
+            StreamId.Create("group", groupId));
+
+        var content = topic ?? "Please discuss amongst yourselves.";
+        await stream.OnNextAsync(new ChatMessage(
+            Guid.NewGuid().ToString("N"),
+            groupId,
+            "System",
+            "🔔",
+            SenderType.System,
+            content,
+            DateTimeOffset.UtcNow));
+
+        return $"Discussion triggered in group '{groupName}'. Agents will respond autonomously via SSE.";
     }
 }
 

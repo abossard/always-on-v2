@@ -75,7 +75,7 @@ public static class Endpoints
                     var state = await grain.GetStateAsync();
                     summaries.Add(new ChatGroupSummary(
                         state.Id, state.Name, state.Description,
-                        state.AgentIds.Length, state.Messages.Length, state.CreatedAt));
+                        state.Agents.Length, state.Messages.Length, state.CreatedAt));
                 }
                 catch { /* skip stale entries */ }
             }
@@ -178,16 +178,15 @@ public static class Endpoints
             return Results.NoContent();
         });
 
-        // ─── Membership ────────────────────────────────────
+        // ─── Membership (stream-driven) ───────────────────
 
         app.MapPost("/api/groups/{groupId}/agents", async (string groupId, AddAgentToGroupRequest request, IGrainFactory grains) =>
         {
             if (string.IsNullOrWhiteSpace(request.AgentId))
                 return Results.BadRequest("AgentId is required.");
 
-            var groupGrain = grains.GetGrain<IChatGroupGrain>(groupId);
-            await groupGrain.AddAgentAsync(request.AgentId);
-
+            // Only call AgentGrain — it publishes AgentJoined to the group stream,
+            // and the ChatGroupGrain learns about the new member reactively.
             var agentGrain = grains.GetGrain<IAgentGrain>(request.AgentId);
             await agentGrain.JoinGroupAsync(groupId);
 
@@ -196,9 +195,6 @@ public static class Endpoints
 
         app.MapDelete("/api/groups/{groupId}/agents/{agentId}", async (string groupId, string agentId, IGrainFactory grains) =>
         {
-            var groupGrain = grains.GetGrain<IChatGroupGrain>(groupId);
-            await groupGrain.RemoveAgentAsync(agentId);
-
             var agentGrain = grains.GetGrain<IAgentGrain>(agentId);
             await agentGrain.LeaveGroupAsync(groupId);
 
@@ -210,26 +206,51 @@ public static class Endpoints
 
     private static void MapChatEndpoints(this WebApplication app)
     {
-        app.MapPost("/api/groups/{id}/messages", async (string id, SendMessageRequest request, IGrainFactory grains) =>
+        // Publish user message directly to the group stream
+        app.MapPost("/api/groups/{id}/messages", async (string id, SendMessageRequest request, IClusterClient clusterClient) =>
         {
             if (string.IsNullOrWhiteSpace(request.Content))
                 return Results.BadRequest("Content is required.");
 
-            var grain = grains.GetGrain<IChatGroupGrain>(id);
-            var message = await grain.SendMessageAsync(
+            var streamProvider = clusterClient.GetStreamProvider("ChatMessages");
+            var stream = streamProvider.GetStream<ChatMessage>(
+                StreamId.Create("group", id));
+
+            var message = new ChatMessage(
+                Guid.NewGuid().ToString("N"),
+                id,
                 request.SenderName ?? "Anonymous",
-                request.Content);
+                "👤",
+                SenderType.User,
+                request.Content,
+                DateTimeOffset.UtcNow);
+
+            await stream.OnNextAsync(message);
             return Results.Ok(message);
         });
 
-        app.MapPost("/api/groups/{id}/discuss", async (string id, DiscussRequest? request, IGrainFactory grains) =>
+        // Publish a system message that triggers autonomous agent discussion
+        app.MapPost("/api/groups/{id}/discuss", async (string id, DiscussRequest? request, IClusterClient clusterClient) =>
         {
-            var rounds = request?.Rounds ?? 1;
-            var grain = grains.GetGrain<IChatGroupGrain>(id);
-            var messages = await grain.DiscussAsync(rounds);
-            return Results.Ok(messages);
+            var streamProvider = clusterClient.GetStreamProvider("ChatMessages");
+            var stream = streamProvider.GetStream<ChatMessage>(
+                StreamId.Create("group", id));
+
+            var topic = request?.Topic ?? "Please discuss amongst yourselves.";
+            var message = new ChatMessage(
+                Guid.NewGuid().ToString("N"),
+                id,
+                "System",
+                "🔔",
+                SenderType.System,
+                topic,
+                DateTimeOffset.UtcNow);
+
+            await stream.OnNextAsync(message);
+            return Results.Accepted(value: new { status = "Discussion triggered. Agents will respond autonomously via SSE." });
         });
 
+        // SSE endpoint — subscribes to the group stream
         app.MapGet("/api/groups/{id}/stream", async (string id, HttpContext context, IClusterClient clusterClient) =>
         {
             context.Response.ContentType = "text/event-stream";
@@ -238,7 +259,7 @@ public static class Endpoints
 
             var streamProvider = clusterClient.GetStreamProvider("ChatMessages");
             var stream = streamProvider.GetStream<ChatMessage>(
-                StreamId.Create("ChatMessages", id));
+                StreamId.Create("group", id));
 
             var ct = context.RequestAborted;
             var channel = Channel.CreateBounded<ChatMessage>(new BoundedChannelOptions(100)
@@ -248,7 +269,6 @@ public static class Endpoints
                 SingleWriter = false
             });
 
-            // Subscribe to Orleans stream and forward to channel
             var handle = await stream.SubscribeAsync(
                 async (msg, _) =>
                 {

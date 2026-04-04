@@ -77,10 +77,10 @@ export const sendMessage = (groupId: string, req: SendMessageRequest) =>
     body: JSON.stringify(req),
   });
 
-export const startDiscussion = (groupId: string, rounds: number) =>
-  api<ChatMessage[]>(`/api/groups/${groupId}/discuss`, {
+export const startDiscussion = (groupId: string, topic?: string) =>
+  api<{ status: string }>(`/api/groups/${groupId}/discuss`, {
     method: "POST",
-    body: JSON.stringify({ rounds }),
+    body: JSON.stringify({ topic }),
   });
 
 // ─── Orchestrator ───────────────────────────────────────────

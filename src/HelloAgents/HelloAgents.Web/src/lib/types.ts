@@ -1,7 +1,8 @@
 // State of the agent, make sure this aligns with your agent's state.
 // ─── API Types ──────────────────────────────────────────────
 
-export type SenderType = "User" | "Agent";
+export type SenderType = "User" | "Agent" | "System";
+export type EventType = "Message" | "AgentJoined" | "AgentLeft";
 
 export interface ChatMessage {
   id: string;
@@ -11,6 +12,13 @@ export interface ChatMessage {
   senderType: SenderType;
   content: string;
   timestamp: string;
+  eventType?: EventType;
+}
+
+export interface AgentMemberInfo {
+  id: string;
+  name: string;
+  avatarEmoji: string;
 }
 
 export interface ChatGroupSummary {
@@ -26,7 +34,7 @@ export interface ChatGroupDetail {
   id: string;
   name: string;
   description: string;
-  agentIds: string[];
+  agents: AgentMemberInfo[];
   messages: ChatMessage[];
   createdAt: string;
 }
@@ -56,5 +64,5 @@ export interface SendMessageRequest {
 }
 
 export interface DiscussRequest {
-  rounds: number;
+  topic?: string;
 }

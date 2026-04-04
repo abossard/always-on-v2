@@ -49,7 +49,7 @@ export function AgentRoster({ agents, allAgents, onAddAgent, onRemoveAgent, onCr
               <span className="text-xl">{agent.avatarEmoji}</span>
               <div>
                 <div className="text-sm font-medium text-white">{agent.name}</div>
-                <div className="text-xs text-white/30">{agent.groupIds.length} groups</div>
+                <div className="text-xs text-white/30">{agent.groupIds.length} {agent.groupIds.length === 1 ? "group" : "groups"}</div>
               </div>
             </div>
             <button
