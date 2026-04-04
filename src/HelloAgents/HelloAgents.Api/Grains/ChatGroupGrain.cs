@@ -75,9 +75,6 @@ public sealed class ChatGroupGrain(
                 break;
 
             case EventType.Message:
-                if (state.State.Messages.Any(m => m.Id == msg.Id))
-                    return; // Dedup
-
                 AppendMessage(new ChatMessageState
                 {
                     Id = msg.Id,
