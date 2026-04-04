@@ -460,9 +460,7 @@ public static class StorageExtensions
                 if (services.All(s => s.ServiceType != typeof(CosmosClient)))
                 {
                     var cosmosOpts = configuration.GetSection(CosmosOptions.Section).Get<CosmosOptions>()!;
-                    var tracingEnabled = string.Equals(
-                        configuration["DISTRIBUTED_TRACING_ENABLED"], "true",
-                        StringComparison.OrdinalIgnoreCase);
+                    var tracingEnabled = configuration.GetValue<bool>("DISTRIBUTED_TRACING_ENABLED");
                     services.AddSingleton(_ => new CosmosClient(cosmosOpts.Endpoint,
                         new Azure.Identity.DefaultAzureCredential(),
                         new CosmosClientOptions

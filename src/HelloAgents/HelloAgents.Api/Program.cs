@@ -1,7 +1,9 @@
+using System.ClientModel;
 using Azure.AI.OpenAI;
 using Azure.Identity;
 using HelloAgents.Api;
 using Microsoft.Extensions.AI;
+using OpenAI;
 using Orleans.Dashboard;
 
 var builder = WebApplication.CreateSlimBuilder(args);
@@ -11,24 +13,26 @@ builder.AddServiceDefaults();
 // Orleans silo with Cosmos persistence and Dashboard
 builder.Host.UseOrleans(silo =>
 {
-    var tracingEnabled = string.Equals(
-        builder.Configuration["DISTRIBUTED_TRACING_ENABLED"], "true",
-        StringComparison.OrdinalIgnoreCase);
+    var storage = builder.Configuration.GetSection(StorageConfig.Section).Get<StorageConfig>() ?? new();
+    var cosmosDb = builder.Configuration.GetSection(CosmosDbConfig.Section).Get<CosmosDbConfig>() ?? new();
+    var redis = builder.Configuration.GetSection(RedisConfig.Section).Get<RedisConfig>() ?? new();
+    var clustering = Enum.TryParse<ClusteringProvider>(builder.Configuration[ConfigKeys.OrleansClustering], ignoreCase: true, out var cp) ? cp : ClusteringProvider.Localhost;
+
+    var tracingEnabled = builder.Configuration.GetValue<bool>(ConfigKeys.DistributedTracing);
     if (tracingEnabled)
     {
         silo.AddActivityPropagation();
     }
 
     // Grain storage: Cosmos DB or in-memory
-    var storageProvider = builder.Configuration["Storage__Provider"];
-    if (string.Equals(storageProvider, "CosmosDb", StringComparison.OrdinalIgnoreCase))
+    if (storage.Provider == StorageProvider.CosmosDb)
     {
         var cosmosConnectionString = builder.Configuration.GetConnectionString("cosmos");
         silo.AddCosmosGrainStorage("Default", options =>
         {
             options.ConfigureCosmosClient(cosmosConnectionString!);
-            options.DatabaseName = builder.Configuration["CosmosDb__DatabaseName"] ?? "helloagents";
-            options.ContainerName = builder.Configuration["CosmosDb__ContainerName"] ?? "OrleansStorage";
+            options.DatabaseName = cosmosDb.DatabaseName;
+            options.ContainerName = cosmosDb.ContainerName;
             options.IsResourceCreationEnabled = true;
         });
     }
@@ -38,12 +42,10 @@ builder.Host.UseOrleans(silo =>
     }
 
     // Clustering: Redis for Kubernetes or localhost for local dev
-    var clustering = builder.Configuration["ORLEANS_CLUSTERING"];
-    if (clustering == "Redis")
+    if (clustering == ClusteringProvider.Redis)
     {
         silo.UseKubernetesHosting();
-        silo.UseRedisClustering(
-            builder.Configuration["Redis__ConnectionString"] ?? "redis:6379");
+        silo.UseRedisClustering(redis.ConnectionString);
     }
     else
     {
@@ -75,14 +77,14 @@ builder.Host.UseOrleans(silo =>
         });
 
         // Persistent PubSub store so subscriptions survive silo restarts
-        if (string.Equals(storageProvider, "CosmosDb", StringComparison.OrdinalIgnoreCase))
+        if (storage.Provider == StorageProvider.CosmosDb)
         {
             var cosmosCs = builder.Configuration.GetConnectionString("cosmos");
             silo.AddCosmosGrainStorage("PubSubStore", options =>
             {
                 options.ConfigureCosmosClient(cosmosCs!);
-                options.DatabaseName = builder.Configuration["CosmosDb__DatabaseName"] ?? "helloagents";
-                options.ContainerName = builder.Configuration["CosmosDb__ContainerName"] ?? "OrleansStorage";
+                options.DatabaseName = cosmosDb.DatabaseName;
+                options.ContainerName = cosmosDb.ContainerName;
                 options.IsResourceCreationEnabled = true;
             });
         }
@@ -100,15 +102,28 @@ builder.Host.UseOrleans(silo =>
 });
 
 // Azure OpenAI chat client for agent responses
-var endpoint = builder.Configuration["AZURE_OPENAI_ENDPOINT"] ?? "";
-var deployment = builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"] ?? "gpt-41-mini";
+var azureEndpoint = builder.Configuration[ConfigKeys.AzureOpenAiEndpoint] ?? "";
+var deployment = builder.Configuration[ConfigKeys.AzureOpenAiDeployment] ?? "gpt-41-mini";
+var openAiEndpoint = builder.Configuration[ConfigKeys.OpenAiEndpoint] ?? "";
+var openAiModel = builder.Configuration[ConfigKeys.OpenAiModel] ?? "default";
 
-if (!string.IsNullOrWhiteSpace(endpoint))
+if (!string.IsNullOrWhiteSpace(azureEndpoint))
 {
     builder.Services.AddSingleton<IChatClient>(sp =>
     {
-        var openAiClient = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential());
+        var openAiClient = new AzureOpenAIClient(new Uri(azureEndpoint), new DefaultAzureCredential());
         return openAiClient.GetChatClient(deployment).AsIChatClient();
+    });
+}
+else if (!string.IsNullOrWhiteSpace(openAiEndpoint))
+{
+    // OpenAI-compatible endpoint (LM Studio, Ollama, etc.)
+    builder.Services.AddSingleton<IChatClient>(sp =>
+    {
+        var client = new OpenAIClient(
+            new ApiKeyCredential("unused"),
+            new OpenAIClientOptions { Endpoint = new Uri(openAiEndpoint) });
+        return client.GetChatClient(openAiModel).AsIChatClient();
     });
 }
 else
@@ -120,21 +135,23 @@ else
 // AI orchestrator for natural language commands
 builder.Services.AddScoped<OrchestratorService>();
 
-// CORS for static SPA on different origin (dev: localhost:4200 → localhost:5100)
-builder.Services.AddCors(options =>
+// CORS for static SPA on different origin (dev only — production runs on single domain)
+if (builder.Environment.IsDevelopment())
 {
-    options.AddDefaultPolicy(policy =>
+    builder.Services.AddCors(options =>
     {
-        policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
+        options.AddDefaultPolicy(policy =>
+        {
+            policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader();
+        });
     });
-});
+}
 
 var app = builder.Build();
 
-app.UseCors();
-
 if (app.Environment.IsDevelopment())
 {
+    app.UseCors();
     app.UseDeveloperExceptionPage();
     app.MapOrleansDashboard("/dashboard");
 }

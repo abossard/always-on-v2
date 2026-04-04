@@ -8,9 +8,7 @@ builder.Host.UseOrleans(silo =>
 {
     silo.AddMemoryGrainStorageAsDefault();
 
-    var tracingEnabled = string.Equals(
-        builder.Configuration["DISTRIBUTED_TRACING_ENABLED"], "true",
-        StringComparison.OrdinalIgnoreCase);
+    var tracingEnabled = builder.Configuration.GetValue<bool>("DISTRIBUTED_TRACING_ENABLED");
     if (tracingEnabled)
     {
         silo.AddActivityPropagation();
