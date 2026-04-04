@@ -35,8 +35,10 @@ public sealed class OrchestratorService(
                 - To send a message → use SendMessage
                 - To start a discussion → use StartDiscussion
                 - Never fabricate IDs. All tools accept human-readable names, not IDs.
+                - There are NO minimum requirements. A group can have 0, 1, 2, or any number of agents.
 
                 AGENT CREATION:
+                - You MUST invent creative agent names, personas, and emojis yourself. Do not ask the user for these.
                 - Give each agent a distinct name, a 2-3 sentence persona, and a single emoji.
                 - Make personas creative and contrasting when multiple agents are in a group.
 
