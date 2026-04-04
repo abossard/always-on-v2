@@ -19,7 +19,7 @@ db.AddContainer(ResourceNames.Container, ResourceNames.PartitionKey);
 var api = builder.AddProject<Projects.DarkUxChallenge_Api>(ResourceNames.Api)
     .WithReference(cosmos)
     .WaitFor(cosmos)
-    .WithHttpEndpoint(port: 5199, isProxied: false)
+    .WithHttpEndpoint(port: 5199)
     .WithEnvironment("Storage__Provider", "CosmosDb")
     .WithEnvironment("CosmosDb__InitializeOnStartup", "true")
     .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development");
