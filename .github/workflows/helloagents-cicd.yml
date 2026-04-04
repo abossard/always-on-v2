@@ -130,8 +130,8 @@ jobs:
       - name: Build .NET projects
         run: dotnet build
         working-directory: src/HelloAgents
-      - name: Start Aspire AppHost
-        run: dotnet run --project HelloAgents.AppHost --no-build &
+      - name: Start Aspire AppHost (in-memory, no Docker)
+        run: dotnet run --project HelloAgents.AppHost.Local --no-build &
         working-directory: src/HelloAgents
         env:
           DcpPublisher__RandomizePorts: "false"
@@ -139,15 +139,11 @@ jobs:
           AZURE_OPENAI_DEPLOYMENT_NAME: gpt-41-mini
       - name: Wait for API to be healthy
         run: |
-          echo "Waiting for API on port 5100 (timeout 300s)..."
-          for i in $(seq 1 150); do
+          echo "Waiting for API on port 5100 (timeout 120s)..."
+          for i in $(seq 1 60); do
             if curl -sf --connect-timeout 2 --max-time 5 http://localhost:5100/health 2>/dev/null; then
               echo "API healthy after ~$((i*2))s"
               exit 0
-            fi
-            if [ $((i % 15)) -eq 0 ]; then
-              echo "Still waiting (${i}/150)... checking ports:"
-              ss -tlnp 2>/dev/null | grep -E '510[0-9]|808[0-9]' || true
             fi
             sleep 2
           done
