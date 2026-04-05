@@ -328,6 +328,148 @@ test.describe('Multi-Tab Real-Time', () => {
   });
 });
 
+// ─── SSE Delivery (proves stream pipeline works) ──────────
+
+test.describe('SSE Delivery', () => {
+  test('message sent via API appears in watching browser tab via SSE', async ({ page, request }) => {
+    test.setTimeout(30_000);
+
+    const groupName = uid('SSEMsgGrp');
+    const group = await createGroupViaAPI(request, groupName);
+
+    await waitForApp(page);
+    await page.getByText(groupName).click();
+    await expect(page.getByPlaceholder('Type a message...')).toBeVisible({ timeout: 5_000 });
+
+    // Give SSE time to connect
+    await page.waitForTimeout(1_500);
+
+    // Send message via raw API — the browser tab has no local state for this.
+    // It can ONLY appear if SSE delivers it.
+    const msg = uid('SSEOnly');
+    await request.post(`${apiBaseURL}/api/groups/${group.id}/messages`, {
+      data: { senderName: 'APISender', content: msg },
+    });
+
+    // Must appear via SSE — no other path
+    await expect(page.getByTestId('chat-messages').getByText(msg)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByTestId('chat-messages').getByText('APISender')).toBeVisible();
+  });
+
+  test('agent join event appears as system message via SSE', async ({ page, request }) => {
+    test.setTimeout(30_000);
+
+    const groupName = uid('SSEJoinGrp');
+    const agentName = uid('JoinBot');
+    const group = await createGroupViaAPI(request, groupName);
+
+    await waitForApp(page);
+    await page.getByText(groupName).click();
+    await expect(page.getByText('No messages yet')).toBeVisible({ timeout: 5_000 });
+
+    // Give SSE time to connect
+    await page.waitForTimeout(1_500);
+
+    // Create and add agent via API — browser is passive
+    const agent = await createAgentViaAPI(request, agentName, 'Joins via API', '🟢');
+    await request.post(`${apiBaseURL}/api/groups/${group.id}/agents`, {
+      data: { agentId: agent.id },
+    });
+
+    // "joined the group" system message should arrive via SSE
+    await expect(page.getByTestId('chat-messages').getByText('joined the group')).toBeVisible({ timeout: 15_000 });
+    // Agent name should appear in the message
+    await expect(page.getByTestId('chat-messages').getByText(agentName)).toBeVisible();
+  });
+
+  test('agent leave event appears as system message via SSE', async ({ page, request }) => {
+    test.setTimeout(30_000);
+
+    const groupName = uid('SSELeaveGrp');
+    const agentName = uid('LeaveBot');
+    const group = await createGroupViaAPI(request, groupName);
+    const agent = await createAgentViaAPI(request, agentName, 'Will leave', '🔴');
+    await addAgentToGroupViaAPI(request, group.id, agent.id);
+
+    await waitForApp(page);
+    await page.getByText(groupName).click();
+    // Wait for the "joined" message to appear from initial state load
+    await expect(page.getByTestId('chat-messages').getByText('joined the group')).toBeVisible({ timeout: 5_000 });
+
+    // Give SSE time to connect
+    await page.waitForTimeout(1_500);
+
+    // Remove agent via API — browser is passive
+    await request.delete(`${apiBaseURL}/api/groups/${group.id}/agents/${agent.id}`);
+
+    // "left the group" system message should arrive via SSE
+    await expect(page.getByTestId('chat-messages').getByText('left the group')).toBeVisible({ timeout: 15_000 });
+  });
+
+  test('discussion responses arrive via SSE in single tab', async ({ page, request }) => {
+    test.setTimeout(120_000);
+
+    const groupName = uid('SSEDiscussGrp');
+    const agentName = uid('SSEDiscBot');
+    const group = await createGroupViaAPI(request, groupName);
+    const agent = await createAgentViaAPI(request, agentName, 'A responsive debater', '🎯');
+    await addAgentToGroupViaAPI(request, group.id, agent.id);
+
+    // Seed a message so the agent has context
+    await request.post(`${apiBaseURL}/api/groups/${group.id}/messages`, {
+      data: { senderName: 'Setup', content: uid('DiscussSeed') },
+    });
+
+    await waitForApp(page);
+    await page.getByText(groupName).click();
+    await expect(page.getByPlaceholder('Type a message...')).toBeVisible({ timeout: 5_000 });
+
+    // Give SSE time to connect
+    await page.waitForTimeout(1_500);
+
+    // Trigger discussion — new code returns 202, responses ONLY via SSE
+    await page.getByRole('button', { name: /Start Discussion/ }).click();
+
+    // Agent response can ONLY arrive via SSE (discuss is async)
+    await expect(page.getByTestId('chat-messages').getByText(agentName, { exact: true })).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole('button', { name: /Start Discussion/ })).toBeEnabled({ timeout: 5_000 });
+  });
+
+  test('multiple API messages arrive in order via SSE', async ({ page, request }) => {
+    test.setTimeout(30_000);
+
+    const groupName = uid('SSEOrderGrp');
+    const group = await createGroupViaAPI(request, groupName);
+
+    await waitForApp(page);
+    await page.getByText(groupName).click();
+    await expect(page.getByPlaceholder('Type a message...')).toBeVisible({ timeout: 5_000 });
+
+    // Give SSE time to connect
+    await page.waitForTimeout(1_500);
+
+    // Send 5 messages rapidly via API
+    const batchId = uid('batch');
+    for (let i = 1; i <= 5; i++) {
+      await request.post(`${apiBaseURL}/api/groups/${group.id}/messages`, {
+        data: { senderName: `Sender${i}`, content: `${batchId}-msg-${i}` },
+      });
+    }
+
+    // All 5 should appear via SSE
+    for (let i = 1; i <= 5; i++) {
+      await expect(page.getByTestId('chat-messages').getByText(`${batchId}-msg-${i}`)).toBeVisible({ timeout: 15_000 });
+    }
+
+    // Verify ordering: msg-1 should be above msg-5 in the DOM
+    const messages = page.getByTestId('chat-messages');
+    const allText = await messages.innerText();
+    const idx1 = allText.indexOf(`${batchId}-msg-1`);
+    const idx5 = allText.indexOf(`${batchId}-msg-5`);
+    expect(idx1).toBeLessThan(idx5);
+  });
+});
+
 test.describe('API (direct)', () => {
   test('health endpoint returns 200', async ({ request }) => {
     const res = await request.get(`${apiBaseURL}/health`);
