@@ -216,10 +216,16 @@ public sealed class OrchestratorService(
         var lines = new List<string>();
         foreach (var (id, _) in entries)
         {
-            var grain = grainFactory.GetGrain<IAgentGrain>(id);
-            var info = await grain.GetInfoAsync();
-            if (info is null) continue;
-            lines.Add($"- {info.AvatarEmoji} {info.Name} (in {info.GroupIds.Length} groups)");
+            try
+            {
+                var grain = grainFactory.GetGrain<IAgentGrain>(id);
+                var info = await grain.GetInfoAsync();
+                lines.Add($"- {info.AvatarEmoji} {info.Name} (in {info.GroupIds.Length} groups)");
+            }
+            catch (InvalidOperationException)
+            {
+                await registry.UnregisterAsync(id);
+            }
         }
 
         return "Agents:\n" + string.Join("\n", lines);

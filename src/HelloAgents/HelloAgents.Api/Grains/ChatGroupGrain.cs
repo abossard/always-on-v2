@@ -103,10 +103,10 @@ public sealed class ChatGroupGrain(
             await _stream.SubscribeAsync(OnStreamEvent);
     }
 
-    public Task<ChatGroupDetail?> GetStateAsync()
+    public Task<ChatGroupDetail> GetStateAsync()
     {
         if (!state.State.Initialized)
-            return Task.FromResult<ChatGroupDetail?>(null);
+            throw new InvalidOperationException($"Group '{this.GetPrimaryKeyString()}' not initialized.");
 
         var groupId = this.GetPrimaryKeyString();
         var messages = state.State.Messages

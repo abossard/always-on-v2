@@ -185,10 +185,10 @@ public sealed class AgentGrain(
             await _agentStream.SubscribeAsync(OnIntentCompleted);
     }
 
-    public Task<AgentInfo?> GetInfoAsync()
+    public Task<AgentInfo> GetInfoAsync()
     {
         if (!state.State.Initialized)
-            return Task.FromResult<AgentInfo?>(null);
+            throw new InvalidOperationException($"Agent '{this.GetPrimaryKeyString()}' not initialized.");
 
         return Task.FromResult(new AgentInfo(
             this.GetPrimaryKeyString(),
@@ -198,10 +198,10 @@ public sealed class AgentGrain(
             state.State.ReflectionJournal));
     }
 
-    public Task<AgentPersona?> GetPersonaAsync()
+    public Task<AgentPersona> GetPersonaAsync()
     {
         if (!state.State.Initialized)
-            return Task.FromResult<AgentPersona?>(null);
+            throw new InvalidOperationException($"Agent '{this.GetPrimaryKeyString()}' not initialized.");
 
         return Task.FromResult(new AgentPersona(
             state.State.Name,

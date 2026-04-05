@@ -61,7 +61,7 @@ public static class Endpoints
             return Results.Created($"/api/groups/{id}", state);
         });
 
-        app.MapGet("/api/groups", async (IGrainFactory grains) =>
+        app.MapGet("/api/groups", async (IGrainFactory grains, ILogger<Program> logger) =>
         {
             var registry = grains.GetGrain<IGroupRegistryGrain>("default");
             var entries = await registry.ListAsync();
@@ -69,12 +69,20 @@ public static class Endpoints
             var summaries = new List<ChatGroupSummary>();
             foreach (var (id, _) in entries)
             {
-                var grain = grains.GetGrain<IChatGroupGrain>(id);
-                var state = await grain.GetStateAsync();
-                if (state is null) continue; // Uninitialized grain — stale registry entry
-                summaries.Add(new ChatGroupSummary(
-                    state.Id, state.Name, state.Description,
-                    state.Agents.Length, state.Messages.Length, state.CreatedAt));
+                try
+                {
+                    var grain = grains.GetGrain<IChatGroupGrain>(id);
+                    var state = await grain.GetStateAsync();
+                    summaries.Add(new ChatGroupSummary(
+                        state.Id, state.Name, state.Description,
+                        state.Agents.Length, state.Messages.Length, state.CreatedAt));
+                }
+                catch (InvalidOperationException)
+                {
+                    // Stale registry entry — auto-clean so this never happens again
+                    logger.LogWarning("Auto-cleaning stale group registry entry {GroupId}", id);
+                    await registry.UnregisterAsync(id);
+                }
             }
 
             return Results.Ok(summaries);
@@ -82,9 +90,15 @@ public static class Endpoints
 
         app.MapGet("/api/groups/{id}", async (string id, IGrainFactory grains) =>
         {
-            var grain = grains.GetGrain<IChatGroupGrain>(id);
-            var state = await grain.GetStateAsync();
-            return state is not null ? Results.Ok(state) : Results.NotFound();
+            try
+            {
+                var grain = grains.GetGrain<IChatGroupGrain>(id);
+                return Results.Ok(await grain.GetStateAsync());
+            }
+            catch (InvalidOperationException)
+            {
+                return Results.NotFound();
+            }
         });
 
         app.MapDelete("/api/groups/{id}", async (string id, IGrainFactory grains) =>
@@ -124,7 +138,7 @@ public static class Endpoints
             return Results.Created($"/api/agents/{id}", info);
         });
 
-        app.MapGet("/api/agents", async (IGrainFactory grains) =>
+        app.MapGet("/api/agents", async (IGrainFactory grains, ILogger<Program> logger) =>
         {
             var registry = grains.GetGrain<IAgentRegistryGrain>("default");
             var entries = await registry.ListAsync();
@@ -132,10 +146,16 @@ public static class Endpoints
             var agents = new List<AgentInfo>();
             foreach (var (id, _) in entries)
             {
-                var grain = grains.GetGrain<IAgentGrain>(id);
-                var info = await grain.GetInfoAsync();
-                if (info is null) continue;
-                agents.Add(info);
+                try
+                {
+                    var grain = grains.GetGrain<IAgentGrain>(id);
+                    agents.Add(await grain.GetInfoAsync());
+                }
+                catch (InvalidOperationException)
+                {
+                    logger.LogWarning("Auto-cleaning stale agent registry entry {AgentId}", id);
+                    await registry.UnregisterAsync(id);
+                }
             }
 
             return Results.Ok(agents);
@@ -143,9 +163,15 @@ public static class Endpoints
 
         app.MapGet("/api/agents/{id}", async (string id, IGrainFactory grains) =>
         {
-            var grain = grains.GetGrain<IAgentGrain>(id);
-            var info = await grain.GetInfoAsync();
-            return info is not null ? Results.Ok(info) : Results.NotFound();
+            try
+            {
+                var grain = grains.GetGrain<IAgentGrain>(id);
+                return Results.Ok(await grain.GetInfoAsync());
+            }
+            catch (InvalidOperationException)
+            {
+                return Results.NotFound();
+            }
         });
 
         app.MapDelete("/api/agents/{id}", async (string id, IGrainFactory grains) =>
