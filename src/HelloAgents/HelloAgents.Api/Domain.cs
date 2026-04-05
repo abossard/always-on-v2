@@ -138,15 +138,15 @@ public sealed record OrchestrateRequest(string Message);
 public interface IChatGroupGrain : IGrainWithStringKey
 {
     Task InitializeAsync(string name, string description);
-    Task<ChatGroupDetail> GetStateAsync();
+    Task<ChatGroupDetail?> GetStateAsync();
     Task DeleteAsync();
 }
 
 public interface IAgentGrain : IGrainWithStringKey
 {
     Task InitializeAsync(string name, string systemPrompt, string avatarEmoji);
-    Task<AgentInfo> GetInfoAsync();
-    Task<AgentPersona> GetPersonaAsync();
+    Task<AgentInfo?> GetInfoAsync();
+    Task<AgentPersona?> GetPersonaAsync();
     Task JoinGroupAsync(string groupId);
     Task LeaveGroupAsync(string groupId);
     Task DeleteAsync();

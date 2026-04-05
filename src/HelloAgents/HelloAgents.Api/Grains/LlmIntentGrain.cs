@@ -91,7 +91,7 @@ public sealed class LlmIntentGrain(
         catch (Exception ex)
         {
             logger.LogError(ex, "LlmIntentGrain {IntentId} failed for agent {AgentId}", intentId, request.AgentId);
-            // State remains persisted — will retry on next activation
+            throw; // Bubble up — state remains persisted for retry on reactivation
         }
     }
 

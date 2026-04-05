@@ -54,13 +54,12 @@ export default function HomePage() {
     api.getGroup(selectedGroupId).then(async (detail) => {
       setGroupDetail(detail);
       setMessages(detail.messages);
-      // Fetch full agent info (includes groupIds) for each member
       const agents = await Promise.all(
-        detail.agents.map(a => api.getAgent(a.id).catch(() => null))
+        detail.agents.map(a => api.getAgent(a.id))
       );
       setGroupAgents(agents.filter(Boolean) as AgentInfo[]);
       setIsLoadingGroup(false);
-    }).catch(() => setIsLoadingGroup(false));
+    }).catch((err) => { console.error("[Group] Failed to load:", err); setIsLoadingGroup(false); });
   }, [selectedGroupId]);
 
   // SSE for real-time messages
@@ -79,10 +78,10 @@ export default function HomePage() {
         api.getGroup(selectedGroupId).then(async (detail) => {
           setGroupDetail(detail);
           const agents = await Promise.all(
-            detail.agents.map(a => api.getAgent(a.id).catch(() => null))
+            detail.agents.map(a => api.getAgent(a.id))
           );
           setGroupAgents(agents.filter(Boolean) as AgentInfo[]);
-        }).catch(() => {});
+        }).catch((err) => console.error("[SSE] Failed to refresh after join/leave:", err));
         refreshGroups();
         refreshAgents();
       }
@@ -99,10 +98,10 @@ export default function HomePage() {
         setGroupDetail(detail);
         setMessages(detail.messages);
         const agents = await Promise.all(
-          detail.agents.map(a => api.getAgent(a.id).catch(() => null))
+          detail.agents.map(a => api.getAgent(a.id))
         );
         setGroupAgents(agents.filter(Boolean) as AgentInfo[]);
-      } catch { /* group may have been deleted */ }
+      } catch (err) { console.debug("[Refresh] Group may have been deleted:", err); }
     }
   }, [refreshGroups, refreshAgents, selectedGroupId]);
 

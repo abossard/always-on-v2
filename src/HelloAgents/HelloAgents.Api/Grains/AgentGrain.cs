@@ -105,7 +105,9 @@ public sealed class AgentGrain(
             state.State.Name, intentId, groupId);
 
         var intentGrain = GrainFactory.GetGrain<ILlmIntentGrain>(intentId);
-        intentGrain.ExecuteAsync(request, persona).Ignore();
+        intentGrain.ExecuteAsync(request, persona)
+            .ContinueWith(t => logger.LogError(t.Exception, "Intent {IntentId} failed", intentId),
+                TaskContinuationOptions.OnlyOnFaulted);
     }
 
     private static bool ShouldRespond(ChatMessage msg) => msg.EventType switch
@@ -158,7 +160,9 @@ public sealed class AgentGrain(
                 state.State.AvatarEmoji);
 
             var intentGrain = GrainFactory.GetGrain<ILlmIntentGrain>(reflectionIntentId);
-            intentGrain.ExecuteAsync(reflectionRequest, persona).Ignore();
+            intentGrain.ExecuteAsync(reflectionRequest, persona)
+                .ContinueWith(t => logger.LogError(t.Exception, "Reflection intent {IntentId} failed", reflectionIntentId),
+                    TaskContinuationOptions.OnlyOnFaulted);
         }
         else if (result.IntentType == IntentType.Reflection)
         {
@@ -181,10 +185,10 @@ public sealed class AgentGrain(
             await _agentStream.SubscribeAsync(OnIntentCompleted);
     }
 
-    public Task<AgentInfo> GetInfoAsync()
+    public Task<AgentInfo?> GetInfoAsync()
     {
         if (!state.State.Initialized)
-            throw new InvalidOperationException($"Agent '{this.GetPrimaryKeyString()}' not initialized.");
+            return Task.FromResult<AgentInfo?>(null);
 
         return Task.FromResult(new AgentInfo(
             this.GetPrimaryKeyString(),
@@ -194,10 +198,10 @@ public sealed class AgentGrain(
             state.State.ReflectionJournal));
     }
 
-    public Task<AgentPersona> GetPersonaAsync()
+    public Task<AgentPersona?> GetPersonaAsync()
     {
         if (!state.State.Initialized)
-            throw new InvalidOperationException($"Agent '{this.GetPrimaryKeyString()}' not initialized.");
+            return Task.FromResult<AgentPersona?>(null);
 
         return Task.FromResult(new AgentPersona(
             state.State.Name,
@@ -259,11 +263,8 @@ public sealed class AgentGrain(
 
     public async Task DeleteAsync()
     {
-        foreach (var (groupId, handle) in _groupHandles)
-        {
-            try { await handle.UnsubscribeAsync(); }
-            catch (Exception ex) { logger.LogWarning(ex, "Failed to unsubscribe from group {GroupId}", groupId); }
-        }
+        foreach (var (_, handle) in _groupHandles)
+            await handle.UnsubscribeAsync();
         _groupHandles.Clear();
         await state.ClearStateAsync();
     }

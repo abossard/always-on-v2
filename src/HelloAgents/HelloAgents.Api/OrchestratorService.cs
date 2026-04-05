@@ -109,14 +109,6 @@ public sealed class OrchestratorService(
         await agentGrain.JoinGroupAsync(groupId);
     }
 
-    private void PublishToGroupStream(string groupId, ChatMessage message)
-    {
-        var streamProvider = clusterClient.GetStreamProvider("ChatMessages");
-        var stream = streamProvider.GetStream<ChatMessage>(
-            StreamId.Create("group", groupId));
-        stream.OnNextAsync(message).Ignore();
-    }
-
     // ─── Tools ──────────────────────────────────────────────
 
     [Description("Create a chat group and populate it with one or more new agents in a single step.")]
@@ -224,16 +216,10 @@ public sealed class OrchestratorService(
         var lines = new List<string>();
         foreach (var (id, _) in entries)
         {
-            try
-            {
-                var grain = grainFactory.GetGrain<IAgentGrain>(id);
-                var info = await grain.GetInfoAsync();
-                lines.Add($"- {info.AvatarEmoji} {info.Name} (in {info.GroupIds.Length} groups)");
-            }
-            catch
-            {
-                lines.Add($"- {id} (unavailable)");
-            }
+            var grain = grainFactory.GetGrain<IAgentGrain>(id);
+            var info = await grain.GetInfoAsync();
+            if (info is null) continue;
+            lines.Add($"- {info.AvatarEmoji} {info.Name} (in {info.GroupIds.Length} groups)");
         }
 
         return "Agents:\n" + string.Join("\n", lines);

@@ -103,10 +103,10 @@ public sealed class ChatGroupGrain(
             await _stream.SubscribeAsync(OnStreamEvent);
     }
 
-    public Task<ChatGroupDetail> GetStateAsync()
+    public Task<ChatGroupDetail?> GetStateAsync()
     {
         if (!state.State.Initialized)
-            throw new InvalidOperationException($"Group '{this.GetPrimaryKeyString()}' not initialized.");
+            return Task.FromResult<ChatGroupDetail?>(null);
 
         var groupId = this.GetPrimaryKeyString();
         var messages = state.State.Messages
@@ -124,27 +124,19 @@ public sealed class ChatGroupGrain(
 
     public async Task DeleteAsync()
     {
-        // Notify agents about group deletion via stream
         if (_stream is not null)
         {
             foreach (var (agentId, agent) in state.State.Agents)
             {
-                try
-                {
-                    await _stream.OnNextAsync(new ChatMessage(
-                        Guid.NewGuid().ToString("N"),
-                        this.GetPrimaryKeyString(),
-                        agent.Name,
-                        agent.AvatarEmoji,
-                        SenderType.System,
-                        agentId,
-                        DateTimeOffset.UtcNow,
-                        EventType.AgentLeft));
-                }
-                catch (Exception ex)
-                {
-                    logger.LogWarning(ex, "Failed to publish AgentLeft for {AgentId} during group deletion", agentId);
-                }
+                await _stream.OnNextAsync(new ChatMessage(
+                    Guid.NewGuid().ToString("N"),
+                    this.GetPrimaryKeyString(),
+                    agent.Name,
+                    agent.AvatarEmoji,
+                    SenderType.System,
+                    agentId,
+                    DateTimeOffset.UtcNow,
+                    EventType.AgentLeft));
             }
         }
 

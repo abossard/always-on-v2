@@ -320,8 +320,8 @@ test.describe('Multi-Tab Real-Time', () => {
     await tabA.getByRole('button', { name: /Start Discussion/ }).click();
 
     // Both tabs should see the agent response in the chat messages area
-    await expect(tabA.getByTestId('chat-messages').getByText(agentName, { exact: true })).toBeVisible({ timeout: 60_000 });
-    await expect(tabB.getByTestId('chat-messages').getByText(agentName, { exact: true })).toBeVisible({ timeout: 60_000 });
+    await expect(tabA.getByTestId('chat-messages').getByText(agentName, { exact: true }).first()).toBeVisible({ timeout: 60_000 });
+    await expect(tabB.getByTestId('chat-messages').getByText(agentName, { exact: true }).first()).toBeVisible({ timeout: 60_000 });
 
     await contextA.close();
     await contextB.close();

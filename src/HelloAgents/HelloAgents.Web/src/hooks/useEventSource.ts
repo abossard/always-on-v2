@@ -27,8 +27,8 @@ export function useEventSource(
         if (msg.id && msg.senderName) {
           onMessageRef.current(msg);
         }
-      } catch {
-        // ignore parse errors
+      } catch (e) {
+        console.warn("[SSE] Failed to parse event:", event.data, e);
       }
     };
 
