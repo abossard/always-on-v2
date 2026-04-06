@@ -8,6 +8,7 @@ var builder = DistributedApplication.CreateBuilder(args);
 var cosmos = builder.AddAzureCosmosDB(ResourceNames.CosmosDb)
     .RunAsPreviewEmulator(emulator =>
     {
+        emulator.WithEnvironment("PROTOCOL", "https");
         emulator.WithLifetime(ContainerLifetime.Persistent);
         emulator.WithDataVolume();
     });
