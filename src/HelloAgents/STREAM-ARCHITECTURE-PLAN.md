@@ -1,5 +1,17 @@
 # HelloAgents: Stream-Driven Architecture Plan
 
+> **Status: ✅ Implemented** (April 2026). All core design goals achieved. 11 backend + 26 Playwright E2E tests passing. See deviations below.
+
+## Implementation Notes
+
+Changes from the original plan:
+- **DiscussAsync** replaced with topic-based system message (not rounds-based). Agents respond autonomously via SSE.
+- **No deduplication** — per the Idempotency section, no dedup state is maintained. Duplicates are rare and age out.
+- **GroupContexts** are in-memory only (not persisted) — rebuilt from live stream events per the plan.
+- **SenderType** uses `System` enum value — `AgentJoined`/`AgentLeft` events carry agentId in the content field.
+- **Auto-cleaning registry** — stale registry entries are removed on discovery (defines the error out of existence).
+- **Aspire CLI** used for local dev and CI (dynamic port discovery, `aspire resource e2e start`).
+
 ## Overview
 
 Refactor HelloAgents from a **request/response grain-call model** to a **fully event-driven, stream-based architecture** where:

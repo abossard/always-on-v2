@@ -82,28 +82,33 @@ Key features: OIDC authentication (no secrets), multi-arch native builds (no QEM
 
 ### Prerequisites
 
-- [.NET 9 SDK](https://dotnet.microsoft.com/download)
+- [.NET 10 SDK](https://dotnet.microsoft.com/download)
+- [Aspire CLI](https://learn.microsoft.com/dotnet/aspire/fundamentals/cli): `dotnet tool install -g Aspire.Cli`
 - [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli)
 - [Azure Developer CLI (azd)](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) or Podman
 - [kubectl](https://kubernetes.io/docs/tasks/tools/)
+- Node.js (LTS) — for React SPAs and Playwright E2E
 
 ### Getting Started
 
 ```bash
-# Clone and navigate
-cd always_on_v2
+# Run any app locally (example: HelloAgents)
+cd src/HelloAgents
+cd HelloAgents.Web && npm ci && cd ..
+aspire run --apphost HelloAgents.AppHost.Local
 
-# Restore and build
-dotnet build src/AlwaysOn.PlayerProgression/AlwaysOn.PlayerProgression.sln
-
-# Run locally
-dotnet run --project src/AlwaysOn.PlayerProgression/src/AlwaysOn.Api
+# Run PlayersOnLevel0
+cd src/PlayersOnLevel0
+cd PlayersOnLevel0.SPA.Web && npm ci && cd ..
+dotnet run --project PlayersOnLevel0.AppHost
 
 # Deploy to Azure
 azd auth login
 azd up
 ```
+
+See each app's README for detailed local development instructions.
 
 ## Quick Start
 
@@ -218,9 +223,7 @@ azd provision
 
 ## Observability — OpenTelemetry & Application Insights
 
-All applications use [OpenTelemetry](https://opentelemetry.io/docs/languages/dotnet/) with `Azure.Monitor.OpenTelemetry.Exporter` 1.7.0 to send traces, metrics, and logs to Application Insights. The shared `ServiceDefaults` project in each app configures the pipeline using direct exporter APIs (`AddAzureMonitorTraceExporter`, `AddAzureMonitorMetricExporter`, `AddAzureMonitorLogExporter`).
-
-> **Why not `UseAzureMonitor()`?** The `Azure.Monitor.OpenTelemetry.AspNetCore` wrapper registers trace exporters post-build via a hosted service. OpenTelemetry SDK 1.15+ made `TracerProvider.AddProcessor()` after build a silent no-op — traces never reach App Insights. Direct exporter APIs register at builder time and work correctly. See [ADR-0053](docs/adr/0053-direct-azure-monitor-otel-exporters-DI.md) for the full investigation.
+All applications use the `Azure.Monitor.OpenTelemetry.AspNetCore` distro (1.4.0) with `UseAzureMonitor()` and `DefaultAzureCredential` for managed identity auth. The shared `ServiceDefaults` project in each app configures the full OpenTelemetry pipeline (traces, metrics, logs) with automatic instrumentation for ASP.NET Core, HTTP clients, and runtime metrics. An `OtelDiagnosticsListener` captures export diagnostics to stdout for operational visibility.
 
 ## Roadmap — Steps to Production Readiness
 
