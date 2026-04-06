@@ -207,7 +207,7 @@ jobs:
           set -euo pipefail
           echo "## 🚀 Flux Deployment Status" >> $GITHUB_STEP_SUMMARY
 
-          # Discover AKS clusters (fail immediately if az command fails)
+          # Discover AKS clusters
           CLUSTERS=$(az aks list --query "[].{name:name, rg:resourceGroup}" -o json)
           COUNT=$(echo "$CLUSTERS" | jq length)
           if [ "$COUNT" -eq 0 ]; then
@@ -216,22 +216,23 @@ jobs:
           fi
           echo "Found $COUNT cluster(s): $(echo "$CLUSTERS" | jq -r '.[].name' | tr '\n' ', ')"
 
-          # Check each cluster's Flux config
-          FAILED=0
-          echo "$CLUSTERS" | jq -c '.[]' | while read -r cluster; do
-            NAME=$(echo "$cluster" | jq -r '.name')
-            RG=$(echo "$cluster" | jq -r '.rg')
+          # Check each cluster — skip those without Flux config (e.g., Fleet hub)
+          CHECKED=0
+          for row in $(echo "$CLUSTERS" | jq -c '.[]'); do
+            NAME=$(echo "$row" | jq -r '.name')
+            RG=$(echo "$row" | jq -r '.rg')
             echo ""
             echo "### Cluster: $NAME (RG: $RG)" | tee -a $GITHUB_STEP_SUMMARY
 
-            # First call: verify the az command works at all (fail fast on auth/config errors)
+            # Probe: does this cluster have the Flux config?
             if ! az k8s-configuration flux show \
               --resource-group "$RG" --cluster-name "$NAME" \
               --cluster-type managedClusters --name cluster-config \
-              --query "properties.complianceState" -o tsv 2>&1; then
-              echo "❌ Failed to query Flux config for cluster $NAME — check permissions and config name" | tee -a $GITHUB_STEP_SUMMARY
-              exit 1
+              --query "name" -o tsv 2>/dev/null; then
+              echo "⏭️  No Flux config 'cluster-config' on $NAME — skipping (Fleet hub?)" | tee -a $GITHUB_STEP_SUMMARY
+              continue
             fi
+            CHECKED=$((CHECKED + 1))
 
             for i in $(seq 1 25); do
               STATE=$(az k8s-configuration flux show \
@@ -247,20 +248,12 @@ jobs:
               fi
 
               if [ "$i" -eq 25 ]; then
-                echo "❌ Cluster $NAME: Flux not compliant after 25 min (state: $STATE)" | tee -a $GITHUB_STEP_SUMMARY
+                echo "❌ Cluster $NAME: not compliant after 25 min (state: $STATE)" | tee -a $GITHUB_STEP_SUMMARY
                 echo '```' >> $GITHUB_STEP_SUMMARY
                 az k8s-configuration flux show \
                   --resource-group "$RG" --cluster-name "$NAME" \
                   --cluster-type managedClusters --name cluster-config \
                   -o json 2>&1 | tee -a $GITHUB_STEP_SUMMARY
-                echo '```' >> $GITHUB_STEP_SUMMARY
-
-                echo "### Deployed Objects" >> $GITHUB_STEP_SUMMARY
-                echo '```' >> $GITHUB_STEP_SUMMARY
-                az k8s-configuration flux deployed-object list \
-                  --resource-group "$RG" --cluster-name "$NAME" \
-                  --cluster-type managedClusters --name cluster-config \
-                  -o table 2>&1 | tee -a $GITHUB_STEP_SUMMARY
                 echo '```' >> $GITHUB_STEP_SUMMARY
                 exit 1
               fi
@@ -268,6 +261,11 @@ jobs:
               sleep 60
             done
           done
+
+          if [ "$CHECKED" -eq 0 ]; then
+            echo "❌ No clusters have Flux config 'cluster-config'" | tee -a $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
       - name: Health check production
         run: |
           curl -sf --max-time 10 https://agents.alwayson.actor/health \
