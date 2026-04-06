@@ -119,7 +119,9 @@ jobs:
       - name: Install Aspire workload
         run: dotnet workload install aspire
       - name: Install Aspire CLI
-        uses: timheuer/setup-aspire@v0.1.0
+        run: |
+          dotnet tool install -g Aspire.Cli
+          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
       - name: Install Web dependencies
         run: npm ci
         working-directory: src/HelloAgents/HelloAgents.Web
@@ -132,11 +134,12 @@ jobs:
       - name: Build .NET projects
         run: dotnet build
         working-directory: src/HelloAgents
-      - name: Start Aspire AppHost (in-memory, no Docker)
+      - name: Start Aspire AppHost
         run: aspire run --apphost HelloAgents.AppHost.Local --detach --non-interactive --nologo
         working-directory: src/HelloAgents
         env:
           ASPIRE_ALLOW_UNSECURED_TRANSPORT: "true"
+          DcpPublisher__RandomizePorts: "false"
           AZURE_OPENAI_ENDPOINT: ${{ steps.ai.outputs.endpoint }}
           AZURE_OPENAI_DEPLOYMENT_NAME: gpt-41-mini
       - name: Wait for services
@@ -147,13 +150,12 @@ jobs:
         working-directory: src/HelloAgents
         env:
           ASPIRE_ALLOW_UNSECURED_TRANSPORT: "true"
-      - name: Run Playwright E2E (local project)
-        run: |
-          aspire resource e2e start --non-interactive --nologo
-          aspire wait e2e --status down --timeout 300 --non-interactive --nologo
-        working-directory: src/HelloAgents
+      - name: Run Playwright E2E (local)
+        run: npx playwright test --project=local
+        working-directory: src/HelloAgents/HelloAgents.E2E
         env:
-          ASPIRE_ALLOW_UNSECURED_TRANSPORT: "true"
+          services__web__http__0: http://localhost:4200
+          services__api__http__0: http://localhost:5100
       - name: Playwright report summary
         if: always()
         uses: daun/playwright-report-summary@v3
