@@ -9,6 +9,7 @@ using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Testing;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.DependencyInjection;
 using PlayersOnLevel0.Api;
 using PlayersOnLevel0.AppHost;
 using TUnit.Core.Interfaces;
@@ -84,6 +85,9 @@ public class AspireFixture : IAsyncInitializer, IAsyncDisposable
     {
         var builder = await DistributedApplicationTestingBuilder
             .CreateAsync<Projects.PlayersOnLevel0_AppHost>();
+
+        builder.Services.Configure<ResourceNotificationServiceOptions>(options =>
+            options.DefaultWaitBehavior = WaitBehavior.WaitOnResourceUnavailable);
 
         _app = await builder.BuildAsync();
         await _app.StartAsync();
