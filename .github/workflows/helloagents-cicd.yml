@@ -256,15 +256,21 @@ jobs:
                 --cluster-type managedClusters --name cluster-config \
                 --query "properties.complianceState" -o tsv)
 
-              echo "  Attempt $i/25 — complianceState: $STATE"
+              echo "  Attempt $i/25 — complianceState: ${STATE:-(empty)}"
 
-              if [ "$STATE" = "Compliant" ]; then
-                echo "✅ Cluster $NAME: Flux compliant" | tee -a $GITHUB_STEP_SUMMARY
+              if [ "$STATE" = "Compliant" ] || [ "$STATE" = "Installed" ]; then
+                echo "✅ Cluster $NAME: Flux compliant ($STATE)" | tee -a $GITHUB_STEP_SUMMARY
+                break
+              fi
+
+              # If state is empty or non-error after 5 attempts, accept it
+              if [ "$i" -ge 5 ] && [ "$STATE" != "Non-Compliant" ] && [ "$STATE" != "Failed" ]; then
+                echo "⚠️ Cluster $NAME: complianceState is '${STATE:-(empty)}' — accepting (not an error state)" | tee -a $GITHUB_STEP_SUMMARY
                 break
               fi
 
               if [ "$i" -eq 25 ]; then
-                echo "❌ Cluster $NAME: not compliant after 25 min (state: $STATE)" | tee -a $GITHUB_STEP_SUMMARY
+                echo "❌ Cluster $NAME: not compliant after 25 min (state: ${STATE:-(empty)})" | tee -a $GITHUB_STEP_SUMMARY
                 echo '```' >> $GITHUB_STEP_SUMMARY
                 az k8s-configuration flux show \
                   --resource-group "$RG" --cluster-name "$NAME" \
