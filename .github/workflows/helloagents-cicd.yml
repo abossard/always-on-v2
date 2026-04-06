@@ -135,11 +135,10 @@ jobs:
         run: dotnet build
         working-directory: src/HelloAgents
       - name: Start Aspire AppHost
-        run: aspire run --apphost HelloAgents.AppHost.Local --detach --non-interactive --nologo
+        run: aspire start --apphost HelloAgents.AppHost.Local --non-interactive --nologo
         working-directory: src/HelloAgents
         env:
           ASPIRE_ALLOW_UNSECURED_TRANSPORT: "true"
-          DcpPublisher__RandomizePorts: "false"
           AZURE_OPENAI_ENDPOINT: ${{ steps.ai.outputs.endpoint }}
           AZURE_OPENAI_DEPLOYMENT_NAME: gpt-41-mini
       - name: Wait for services
@@ -148,14 +147,19 @@ jobs:
           aspire wait web --timeout 120 --non-interactive --nologo
           aspire describe --non-interactive --nologo
         working-directory: src/HelloAgents
-        env:
-          ASPIRE_ALLOW_UNSECURED_TRANSPORT: "true"
-      - name: Run Playwright E2E (local)
-        run: npx playwright test --project=local
-        working-directory: src/HelloAgents/HelloAgents.E2E
-        env:
-          services__web__http__0: http://localhost:4200
-          services__api__http__0: http://localhost:5100
+      - name: Run Playwright E2E via Aspire
+        run: |
+          aspire resource e2e start --non-interactive --nologo
+          aspire wait e2e --status down --timeout 300 --non-interactive --nologo
+        working-directory: src/HelloAgents
+      - name: Collect E2E logs on failure
+        if: failure()
+        run: aspire logs e2e --non-interactive --nologo --tail 200 || true
+        working-directory: src/HelloAgents
+      - name: Stop Aspire
+        if: always()
+        run: aspire stop --non-interactive --nologo || true
+        working-directory: src/HelloAgents
       - name: Playwright report summary
         if: always()
         uses: daun/playwright-report-summary@v3

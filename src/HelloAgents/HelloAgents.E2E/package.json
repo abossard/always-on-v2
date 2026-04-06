@@ -2,7 +2,9 @@
   "name": "helloagents.e2e",
   "private": true,
   "scripts": {
-    "test": "playwright test"
+    "test": "playwright test --project=local",
+    "test:production": "playwright test --project=production",
+    "test:all": "playwright test"
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2"
