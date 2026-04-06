@@ -25,11 +25,20 @@ builder.Host.UseOrleans(silo =>
     }
 
     // Grain storage: Cosmos DB or in-memory
-    var cosmosConnectionString = builder.Configuration.GetConnectionString("cosmos");
+    var cosmosConnectionString = storage.Provider == StorageProvider.CosmosDb
+        ? builder.Configuration.GetConnectionString("cosmos")
+            ?? throw new InvalidOperationException(
+                "ConnectionStrings:cosmos is required when Storage:Provider is CosmosDb. " +
+                "Set via Aspire WithReference(cosmos) or env var ConnectionStrings__cosmos=AccountEndpoint=https://...")
+        : null;
+
     var isEmulator = cosmosConnectionString?.Contains("AccountKey=C2y6yDjf5") == true;
-    if (storage.Provider == StorageProvider.CosmosDb)
+    var hasAccountKey = cosmosConnectionString?.Contains("AccountKey=") == true;
+
+    // Single config helper for all Cosmos grain storage registrations
+    void ConfigureCosmos(Orleans.Persistence.Cosmos.CosmosGrainStorageOptions options)
     {
-        silo.AddCosmosGrainStorage("Default", options =>
+        if (hasAccountKey)
         {
             options.ConfigureCosmosClient(cosmosConnectionString!);
             if (isEmulator)
@@ -40,10 +49,26 @@ builder.Host.UseOrleans(silo =>
                     LimitToEndpoint = true
                 };
             }
-            options.DatabaseName = cosmosDb.DatabaseName;
-            options.ContainerName = cosmosDb.ContainerName;
-            options.IsResourceCreationEnabled = true;
-        });
+        }
+        else
+        {
+            // Endpoint-only (e.g. "AccountEndpoint=https://cosmos-xxx.documents.azure.com:443/")
+            var endpoint = cosmosConnectionString!
+                .Replace("AccountEndpoint=", "", StringComparison.OrdinalIgnoreCase)
+                .TrimEnd(';');
+            options.ConfigureCosmosClient(endpoint, new DefaultAzureCredential());
+        }
+
+        options.DatabaseName = cosmosDb.DatabaseName;
+        options.ContainerName = cosmosDb.ContainerName;
+        // Emulator: Aspire AppHost creates DB/containers — skip to avoid 503 race with pgcosmos boot.
+        // Production: Orleans creates if missing (safety net; Bicep is primary owner).
+        options.IsResourceCreationEnabled = !isEmulator;
+    }
+
+    if (storage.Provider == StorageProvider.CosmosDb)
+    {
+        silo.AddCosmosGrainStorage("Default", ConfigureCosmos);
     }
     else
     {
@@ -88,21 +113,7 @@ builder.Host.UseOrleans(silo =>
         // Persistent PubSub store so subscriptions survive silo restarts
         if (storage.Provider == StorageProvider.CosmosDb)
         {
-            silo.AddCosmosGrainStorage("PubSubStore", options =>
-            {
-                options.ConfigureCosmosClient(cosmosConnectionString!);
-                if (isEmulator)
-                {
-                    options.ClientOptions = new Microsoft.Azure.Cosmos.CosmosClientOptions
-                    {
-                        ConnectionMode = Microsoft.Azure.Cosmos.ConnectionMode.Gateway,
-                        LimitToEndpoint = true
-                    };
-                }
-                options.DatabaseName = cosmosDb.DatabaseName;
-                options.ContainerName = cosmosDb.ContainerName;
-                options.IsResourceCreationEnabled = true;
-            });
+            silo.AddCosmosGrainStorage("PubSubStore", ConfigureCosmos);
         }
         else
         {

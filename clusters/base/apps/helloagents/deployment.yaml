@@ -61,8 +61,8 @@ spec:
               value: ${HELLOAGENTS_COSMOS_DATABASE}
             - name: CosmosDb__ContainerName
               value: ${HELLOAGENTS_COSMOS_CONTAINER}
-            - name: CosmosDb__Endpoint
-              value: ${COSMOS_ENDPOINT}
+            - name: ConnectionStrings__cosmos
+              value: "AccountEndpoint=${COSMOS_ENDPOINT}"
             - name: ORLEANS_CLUSTERING
               value: "Redis"
             - name: Redis__ConnectionString
