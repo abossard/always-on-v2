@@ -24,17 +24,11 @@ on:
         type: string
         default: ''
 
-permissions:
-  contents: read
-  checks: write
-  pull-requests: write
-  id-token: write
-
 jobs:
   verify-flux:
     name: Verify Flux Deployment
     runs-on: ubuntu-latest
-    timeout-minutes: ${{ fromJSON(inputs.timeout_minutes) + 5 }}
+    timeout-minutes: 65
     steps:
       - name: Azure Login (OIDC)
         uses: azure/login@v2
