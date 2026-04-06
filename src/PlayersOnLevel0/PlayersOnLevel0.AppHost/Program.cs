@@ -19,7 +19,7 @@ db.AddContainer(ResourceNames.LeaderboardContainer, "/timeWindow");
 
 var api = builder.AddProject<Projects.PlayersOnLevel0_Api>(ResourceNames.Api)
     .WithReference(cosmos)
-    .WaitFor(cosmos)
+    .WaitFor(cosmos, WaitBehavior.WaitOnResourceUnavailable)
     .WithEnvironment("Storage__Provider", "CosmosDb")
     .WithEnvironment("CosmosDb__InitializeOnStartup", "true")
     .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development");

@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Aspire.Hosting;
+using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Testing;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -73,7 +74,9 @@ public class AspireFixture : IAsyncInitializer, IAsyncDisposable
 
         _app = await builder.BuildAsync();
         await _app.StartAsync();
-        await _app.ResourceNotifications.WaitForResourceHealthyAsync(ResourceNames.Api);
+        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+        await _app.ResourceNotifications.WaitForResourceHealthyAsync(
+            ResourceNames.Api, WaitBehavior.WaitOnResourceUnavailable, cts.Token);
         Client = _app.CreateHttpClient(ResourceNames.Api);
     }
 
