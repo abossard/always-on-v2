@@ -202,6 +202,8 @@ jobs:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Install k8s-configuration extension
+        run: az extension add --name k8s-configuration --yes
       - name: Wait for Flux compliance (up to 25 min)
         run: |
           set -euo pipefail
