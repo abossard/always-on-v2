@@ -92,10 +92,20 @@ jobs:
               echo "$FLUX_JSON" | jq -r '
                 .statuses[]? |
                 "\(.kind)/\(.name): \(.complianceState) — \(
-                  [.statusConditions[]? | "\(.type)=\(.status) (\(.reason // "?")): \(.message // "" | .[0:120])"]
+                  [.statusConditions[]? | "\(.type)=\(.status) (\(.reason // "?")): \(.message // "")"]
                   | join("; ")
                 )"' 2>&1 | tee -a $GITHUB_STEP_SUMMARY
               echo '```' >> $GITHUB_STEP_SUMMARY
+
+              # Dump full JSON for non-compliant states to capture complete diagnostics
+              if [ "$STATE" != "Compliant" ]; then
+                echo '<details><summary>Full Flux JSON (click to expand)</summary>' >> $GITHUB_STEP_SUMMARY
+                echo '' >> $GITHUB_STEP_SUMMARY
+                echo '```json' >> $GITHUB_STEP_SUMMARY
+                echo "$FLUX_JSON" | jq '.' >> $GITHUB_STEP_SUMMARY
+                echo '```' >> $GITHUB_STEP_SUMMARY
+                echo '</details>' >> $GITHUB_STEP_SUMMARY
+              fi
 
               # SUCCESS
               if [ "$STATE" = "Compliant" ]; then
