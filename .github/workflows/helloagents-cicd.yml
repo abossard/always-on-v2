@@ -207,7 +207,7 @@ jobs:
     needs: [docker-build-push]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 65
     steps:
       - name: Azure Login (OIDC)
         uses: azure/login@v2
@@ -217,75 +217,98 @@ jobs:
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
       - name: Install k8s-configuration extension
         run: az extension add --name k8s-configuration --yes
-      - name: Observe Flux status (diagnostic)
+      - name: Wait for Flux compliance (up to 1 hour)
         run: |
-          set -uo pipefail
-          echo "## 🔍 Flux Deployment Diagnostic" >> $GITHUB_STEP_SUMMARY
+          set -euo pipefail
+          echo "## 🚀 Flux Deployment Verification" >> $GITHUB_STEP_SUMMARY
 
-          # Discover AKS clusters
           CLUSTERS=$(az aks list --query "[].{name:name, rg:resourceGroup}" -o json)
-          echo "Found clusters: $(echo "$CLUSTERS" | jq -r '.[].name' | tr '\n' ', ')"
+          COUNT=$(echo "$CLUSTERS" | jq length)
+          if [ "$COUNT" -eq 0 ]; then
+            echo "❌ No AKS clusters found" | tee -a $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          echo "Found $COUNT cluster(s): $(echo "$CLUSTERS" | jq -r '.[].name' | tr '\n' ', ')"
 
+          CHECKED=0
           for row in $(echo "$CLUSTERS" | jq -c '.[]'); do
             NAME=$(echo "$row" | jq -r '.name')
             RG=$(echo "$row" | jq -r '.rg')
-            echo ""
-            echo "### Cluster: $NAME" | tee -a $GITHUB_STEP_SUMMARY
+            echo "" | tee -a $GITHUB_STEP_SUMMARY
+            echo "### Cluster: $NAME (RG: $RG)" | tee -a $GITHUB_STEP_SUMMARY
 
-            # Check if cluster has flux config
+            # Skip clusters without flux config (e.g. Fleet hub)
             if ! az k8s-configuration flux show \
               --resource-group "$RG" --cluster-name "$NAME" \
               --cluster-type managedClusters --name cluster-config \
               --query "name" -o tsv 2>&1; then
-              echo "⏭️ No Flux config — skipping (Fleet hub?)" | tee -a $GITHUB_STEP_SUMMARY
+              echo "⏭️ No Flux config — skipping" | tee -a $GITHUB_STEP_SUMMARY
               continue
             fi
+            CHECKED=$((CHECKED + 1))
 
-            # Snapshot flux config status every 60s for 10 minutes
-            for i in $(seq 1 10); do
-              echo ""
-              echo "#### Snapshot $i/10 ($(date -u +%H:%M:%S))" | tee -a $GITHUB_STEP_SUMMARY
-              echo '```json' >> $GITHUB_STEP_SUMMARY
-              az k8s-configuration flux show \
+            # Poll every 60s for up to 60 attempts (1 hour)
+            for i in $(seq 1 60); do
+              FLUX_JSON=$(az k8s-configuration flux show \
                 --resource-group "$RG" --cluster-name "$NAME" \
                 --cluster-type managedClusters --name cluster-config \
-                -o json 2>&1 | tee -a $GITHUB_STEP_SUMMARY
-              echo '```' >> $GITHUB_STEP_SUMMARY
+                -o json 2>&1)
+
+              STATE=$(echo "$FLUX_JSON" | jq -r '.complianceState // "unknown"')
+              COMMIT=$(echo "$FLUX_JSON" | jq -r '.sourceSyncedCommitId // "unknown"')
+
+              # Per-kustomization status summary
+              KUST_SUMMARY=$(echo "$FLUX_JSON" | jq -r '
+                [.statuses[] | select(.kind == "Kustomization") | "\(.name): \(.complianceState)"]
+                | join(", ")' 2>/dev/null || echo "unavailable")
+
+              echo "  [$i/60] $(date -u +%H:%M:%S) — $STATE | commit: ${COMMIT##*:} | kustomizations: $KUST_SUMMARY"
+              echo "| $i | $(date -u +%H:%M:%S) | $STATE | ${COMMIT##*:} | $KUST_SUMMARY |" >> $GITHUB_STEP_SUMMARY
+
+              # SUCCESS: all compliant
+              if [ "$STATE" = "Compliant" ]; then
+                echo "" | tee -a $GITHUB_STEP_SUMMARY
+                echo "✅ **Cluster $NAME: Compliant** after ~${i} min" | tee -a $GITHUB_STEP_SUMMARY
+                echo "Commit: $COMMIT" | tee -a $GITHUB_STEP_SUMMARY
+                break
+              fi
+
+              # FAIL FAST: check for error states in individual kustomizations
+              ERRORS=$(echo "$FLUX_JSON" | jq -r '
+                [.statuses[] | select(.complianceState == "Failed" or .complianceState == "Error") | .name]
+                | join(", ")' 2>/dev/null || echo "")
+              if [ -n "$ERRORS" ]; then
+                echo "" | tee -a $GITHUB_STEP_SUMMARY
+                echo "❌ **Cluster $NAME: Kustomizations in error: $ERRORS**" | tee -a $GITHUB_STEP_SUMMARY
+                echo '```json' >> $GITHUB_STEP_SUMMARY
+                echo "$FLUX_JSON" | jq '.statuses[] | select(.complianceState == "Failed" or .complianceState == "Error")' >> $GITHUB_STEP_SUMMARY
+                echo '```' >> $GITHUB_STEP_SUMMARY
+                exit 1
+              fi
+
+              # TIMEOUT
+              if [ "$i" -eq 60 ]; then
+                echo "" | tee -a $GITHUB_STEP_SUMMARY
+                echo "❌ **Cluster $NAME: Not compliant after 1 hour (state: $STATE)**" | tee -a $GITHUB_STEP_SUMMARY
+                echo '```json' >> $GITHUB_STEP_SUMMARY
+                echo "$FLUX_JSON" | jq '.' >> $GITHUB_STEP_SUMMARY
+                echo '```' >> $GITHUB_STEP_SUMMARY
+                exit 1
+              fi
+
               sleep 60
             done
-
-            # Kustomization list
-            echo "#### Kustomizations" | tee -a $GITHUB_STEP_SUMMARY
-            echo '```json' >> $GITHUB_STEP_SUMMARY
-            az k8s-configuration flux kustomization list \
-              --resource-group "$RG" --cluster-name "$NAME" \
-              --cluster-type managedClusters --name cluster-config \
-              -o json 2>&1 | tee -a $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-
-            # Deployed objects
-            echo "#### Deployed Objects" | tee -a $GITHUB_STEP_SUMMARY
-            echo '```json' >> $GITHUB_STEP_SUMMARY
-            az k8s-configuration flux deployed-object list \
-              --resource-group "$RG" --cluster-name "$NAME" \
-              --cluster-type managedClusters --name cluster-config \
-              -o json 2>&1 | tee -a $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
           done
 
-          # Cluster health context
-          echo "#### AKS Cluster Info" | tee -a $GITHUB_STEP_SUMMARY
-          echo '```json' >> $GITHUB_STEP_SUMMARY
-          az aks list --query "[].{name:name, provisioningState:provisioningState, powerState:powerState.code, k8sVersion:kubernetesVersion}" -o json 2>&1 | tee -a $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-
-          # Always succeed — this is observation only
-          echo "✅ Diagnostic complete" | tee -a $GITHUB_STEP_SUMMARY
+          if [ "$CHECKED" -eq 0 ]; then
+            echo "❌ No clusters have Flux config 'cluster-config'" | tee -a $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
       - name: Health check production
         run: |
           curl -sf --max-time 10 https://agents.alwayson.actor/health \
             && echo "✅ Production healthy" | tee -a $GITHUB_STEP_SUMMARY \
-            || echo "⚠️ Production health check failed (may still be rolling out)" | tee -a $GITHUB_STEP_SUMMARY
+            || { echo "❌ Production health check failed" | tee -a $GITHUB_STEP_SUMMARY; exit 1; }
 
   production-smoke:
     name: Production Smoke Tests

@@ -89,6 +89,9 @@ Key features: OIDC authentication (no secrets), multi-arch native builds (no QEM
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) or Podman
 - [kubectl](https://kubernetes.io/docs/tasks/tools/)
 - Node.js (LTS) — for React SPAs and Playwright E2E
+- [ripgrep (rg)](https://github.com/BurntSushi/ripgrep) — fast code search
+- [jq](https://jqlang.github.io/jq/) — JSON processing (API responses, CI scripts)
+- [yq](https://github.com/mikefarah/yq) — YAML processing (K8s manifests, Flux configs)
 
 ### Getting Started
 
