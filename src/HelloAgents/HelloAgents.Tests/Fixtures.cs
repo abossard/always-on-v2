@@ -2,6 +2,7 @@
 // Fixtures provide an HttpClient. Tests don't know what's behind it.
 
 using Aspire.Hosting;
+using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Testing;
 using HelloAgents.AppHost;
 using Microsoft.AspNetCore.Hosting;
@@ -50,9 +51,13 @@ public class AspireFixture : IAsyncInitializer, IAsyncDisposable
         _app = await builder.BuildAsync();
         await _app.StartAsync();
 
-        // Cosmos emulator needs time to boot (PostgreSQL + Citus + gateway)
+        // Cosmos vnext-preview emulator needs ~60-90s to boot PostgreSQL + Citus.
+        // During boot, health checks return Unhealthy → Aspire marks cosmos as
+        // "failed" → API (which WaitFor cosmos) also fails. WaitOnResourceUnavailable
+        // keeps waiting for recovery instead of throwing on the failed state.
         using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
-        await _app.ResourceNotifications.WaitForResourceHealthyAsync(ResourceNames.Api, cts.Token);
+        await _app.ResourceNotifications.WaitForResourceHealthyAsync(
+            ResourceNames.Api, WaitBehavior.WaitOnResourceUnavailable, cts.Token);
         Client = _app.CreateHttpClient(ResourceNames.Api);
     }
 
