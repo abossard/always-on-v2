@@ -1,0 +1,178 @@
+name: Verify Flux Deployment
+
+on:
+  workflow_call:
+    inputs:
+      flux_config_name:
+        description: 'Name of the Flux configuration to verify'
+        required: false
+        type: string
+        default: 'cluster-config'
+      timeout_minutes:
+        description: 'Maximum time to wait for Flux compliance (minutes)'
+        required: false
+        type: number
+        default: 60
+      production_url:
+        description: 'Production URL for Playwright smoke tests (optional). If set, runs @smoke tests.'
+        required: false
+        type: string
+        default: ''
+      e2e_dir:
+        description: 'Path to E2E test directory (required if production_url is set)'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  verify-flux:
+    name: Verify Flux Deployment
+    runs-on: ubuntu-latest
+    timeout-minutes: ${{ fromJSON(inputs.timeout_minutes) + 5 }}
+    steps:
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Install k8s-configuration extension
+        run: az extension add --name k8s-configuration --yes
+      - name: Wait for Flux compliance
+        run: |
+          set -euo pipefail
+          echo "## 🚀 Flux Deployment Verification" >> $GITHUB_STEP_SUMMARY
+          echo "Config: **${{ inputs.flux_config_name }}** | Timeout: **${{ inputs.timeout_minutes }}min**" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          CLUSTERS=$(az aks list --query "[].{name:name, rg:resourceGroup}" -o json)
+          COUNT=$(echo "$CLUSTERS" | jq length)
+          if [ "$COUNT" -eq 0 ]; then
+            echo "❌ No AKS clusters found" | tee -a $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          echo "Found $COUNT cluster(s): $(echo "$CLUSTERS" | jq -r '.[].name' | tr '\n' ', ')"
+
+          CHECKED=0
+          for row in $(echo "$CLUSTERS" | jq -c '.[]'); do
+            NAME=$(echo "$row" | jq -r '.name')
+            RG=$(echo "$row" | jq -r '.rg')
+            echo "" | tee -a $GITHUB_STEP_SUMMARY
+            echo "### Cluster: $NAME" | tee -a $GITHUB_STEP_SUMMARY
+
+            # Skip clusters without flux config (e.g. Fleet hub)
+            if ! az k8s-configuration flux show \
+              --resource-group "$RG" --cluster-name "$NAME" \
+              --cluster-type managedClusters --name "${{ inputs.flux_config_name }}" \
+              --query "name" -o tsv 2>&1; then
+              echo "⏭️ No Flux config '${{ inputs.flux_config_name }}' — skipping" | tee -a $GITHUB_STEP_SUMMARY
+              continue
+            fi
+            CHECKED=$((CHECKED + 1))
+
+            echo "| # | Time | State | Commit | Kustomizations |" >> $GITHUB_STEP_SUMMARY
+            echo "|---|------|-------|--------|----------------|" >> $GITHUB_STEP_SUMMARY
+
+            MAX_ATTEMPTS=${{ inputs.timeout_minutes }}
+            for i in $(seq 1 "$MAX_ATTEMPTS"); do
+              FLUX_JSON=$(az k8s-configuration flux show \
+                --resource-group "$RG" --cluster-name "$NAME" \
+                --cluster-type managedClusters --name "${{ inputs.flux_config_name }}" \
+                -o json 2>&1)
+
+              STATE=$(echo "$FLUX_JSON" | jq -r '.complianceState // "unknown"')
+              COMMIT=$(echo "$FLUX_JSON" | jq -r '.sourceSyncedCommitId // "unknown"')
+              SHORT_COMMIT="${COMMIT##*:}"
+              SHORT_COMMIT="${SHORT_COMMIT:0:8}"
+
+              KUST_SUMMARY=$(echo "$FLUX_JSON" | jq -r '
+                [.statuses[]? | select(.kind == "Kustomization") | "\(.name): \(.complianceState)"]
+                | join(", ")' 2>/dev/null || echo "unavailable")
+
+              echo "  [$i/$MAX_ATTEMPTS] $(date -u +%H:%M:%S) — $STATE | $SHORT_COMMIT | $KUST_SUMMARY"
+              echo "| $i | $(date -u +%H:%M:%S) | $STATE | $SHORT_COMMIT | $KUST_SUMMARY |" >> $GITHUB_STEP_SUMMARY
+
+              # SUCCESS
+              if [ "$STATE" = "Compliant" ]; then
+                echo "" | tee -a $GITHUB_STEP_SUMMARY
+                echo "✅ **Cluster $NAME: Compliant** after ~${i} min (commit: $SHORT_COMMIT)" | tee -a $GITHUB_STEP_SUMMARY
+                break
+              fi
+
+              # FAIL FAST on error states
+              ERRORS=$(echo "$FLUX_JSON" | jq -r '
+                [.statuses[]? | select(.complianceState == "Failed" or .complianceState == "Error") | .name]
+                | join(", ")' 2>/dev/null || echo "")
+              if [ -n "$ERRORS" ]; then
+                echo "" | tee -a $GITHUB_STEP_SUMMARY
+                echo "❌ **Cluster $NAME: Error in kustomizations: $ERRORS**" | tee -a $GITHUB_STEP_SUMMARY
+                echo '```json' >> $GITHUB_STEP_SUMMARY
+                echo "$FLUX_JSON" | jq '.statuses[]? | select(.complianceState == "Failed" or .complianceState == "Error")' >> $GITHUB_STEP_SUMMARY
+                echo '```' >> $GITHUB_STEP_SUMMARY
+                exit 1
+              fi
+
+              # TIMEOUT
+              if [ "$i" -eq "$MAX_ATTEMPTS" ]; then
+                echo "" | tee -a $GITHUB_STEP_SUMMARY
+                echo "❌ **Cluster $NAME: Not compliant after $MAX_ATTEMPTS min (state: $STATE)**" | tee -a $GITHUB_STEP_SUMMARY
+                echo '```json' >> $GITHUB_STEP_SUMMARY
+                echo "$FLUX_JSON" | jq '.' >> $GITHUB_STEP_SUMMARY
+                echo '```' >> $GITHUB_STEP_SUMMARY
+                exit 1
+              fi
+
+              sleep 60
+            done
+          done
+
+          if [ "$CHECKED" -eq 0 ]; then
+            echo "❌ No clusters have Flux config '${{ inputs.flux_config_name }}'" | tee -a $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+
+  production-smoke:
+    name: Production Smoke Tests
+    needs: [verify-flux]
+    if: inputs.production_url != '' && inputs.e2e_dir != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+      - name: Install E2E dependencies
+        run: npm ci
+        working-directory: ${{ inputs.e2e_dir }}
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: ${{ inputs.e2e_dir }}
+      - name: Run production smoke tests
+        run: npx playwright test --project=production
+        working-directory: ${{ inputs.e2e_dir }}
+        env:
+          PRODUCTION_URL: ${{ inputs.production_url }}
+          PRODUCTION_API_URL: ${{ inputs.production_url }}
+      - name: Playwright report summary
+        if: always()
+        uses: daun/playwright-report-summary@v3
+        with:
+          report-file: ${{ inputs.e2e_dir }}/test-results/results.json
+          job-summary: true
+      - name: Upload production smoke report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-production
+          retention-days: 5
+          path: |
+            ${{ inputs.e2e_dir }}/playwright-report/
+            ${{ inputs.e2e_dir }}/test-results/
