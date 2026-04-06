@@ -34,7 +34,7 @@ spec:
       serviceAccountName: ${HELLOAGENTS_SA_NAME}
       containers:
         - name: helloagents
-          image: ${ACR_LOGIN_SERVER}/helloagents:1775462110-41676f23
+          image: ${ACR_LOGIN_SERVER}/helloagents:1775466999-d03ca07e
           ports:
             - containerPort: 8080
               name: http
@@ -124,7 +124,7 @@ spec:
     spec:
       containers:
         - name: helloagents-web
-          image: ${ACR_LOGIN_SERVER}/helloagents-web:1775462110-41676f23
+          image: ${ACR_LOGIN_SERVER}/helloagents-web:1775466999-d03ca07e
           ports:
             - containerPort: 8080
           env:
