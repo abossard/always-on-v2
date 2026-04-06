@@ -50,6 +50,7 @@ var web = builder.AddNpmApp(ResourceNames.Web, "../HelloAgents.Web", "dev")
 
 builder.AddNpmApp("e2e", "../HelloAgents.E2E", "test")
     .WithReference(web)
+    .WithReference(api)
     .WithParentRelationship(web)
     .WithExplicitStart()
     .ExcludeFromManifest();
