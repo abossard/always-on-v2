@@ -7,12 +7,14 @@ on:
       - 'src/PlayersOnLevel0/**'
       - '.github/workflows/level0-cicd.yml'
       - '.github/workflows/app-build-push.yml'
+      - '.github/workflows/app-verify-deploy.yml'
   pull_request:
     branches: [main]
     paths:
       - 'src/PlayersOnLevel0/**'
       - '.github/workflows/level0-cicd.yml'
       - '.github/workflows/app-build-push.yml'
+      - '.github/workflows/app-verify-deploy.yml'
   workflow_dispatch:
 
 concurrency:
@@ -180,4 +182,11 @@ jobs:
       dockerfile: src/PlayersOnLevel0/PlayersOnLevel0.Api/Dockerfile
       deploy_manifest: clusters/base/apps/level0/deployment.yaml
       extra_images: '[{"name":"level0-web","context":"src/PlayersOnLevel0/PlayersOnLevel0.SPA.Web","dockerfile":"src/PlayersOnLevel0/PlayersOnLevel0.SPA.Web/Dockerfile"}]'
+    secrets: inherit
+
+  verify-deployment:
+    name: Verify Flux Deployment
+    needs: [docker-build-push]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    uses: ./.github/workflows/app-verify-deploy.yml
     secrets: inherit

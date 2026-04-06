@@ -7,12 +7,14 @@ on:
       - 'src/HelloOrleons/**'
       - '.github/workflows/helloorleons-cicd.yml'
       - '.github/workflows/app-build-push.yml'
+      - '.github/workflows/app-verify-deploy.yml'
   pull_request:
     branches: [main]
     paths:
       - 'src/HelloOrleons/**'
       - '.github/workflows/helloorleons-cicd.yml'
       - '.github/workflows/app-build-push.yml'
+      - '.github/workflows/app-verify-deploy.yml'
   workflow_dispatch:
 
 concurrency:
@@ -77,4 +79,11 @@ jobs:
       docker_context: src/HelloOrleons
       dockerfile: src/HelloOrleons/HelloOrleons.Api/Dockerfile
       deploy_manifest: clusters/base/apps/helloorleons/deployment.yaml
+    secrets: inherit
+
+  verify-deployment:
+    name: Verify Flux Deployment
+    needs: [docker-build-push]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    uses: ./.github/workflows/app-verify-deploy.yml
     secrets: inherit

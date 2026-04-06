@@ -7,12 +7,14 @@ on:
       - 'src/DarkUxChallenge/**'
       - '.github/workflows/darkux-cicd.yml'
       - '.github/workflows/app-build-push.yml'
+      - '.github/workflows/app-verify-deploy.yml'
   pull_request:
     branches: [main]
     paths:
       - 'src/DarkUxChallenge/**'
       - '.github/workflows/darkux-cicd.yml'
       - '.github/workflows/app-build-push.yml'
+      - '.github/workflows/app-verify-deploy.yml'
   workflow_dispatch:
 
 concurrency:
@@ -182,4 +184,11 @@ jobs:
       dockerfile: src/DarkUxChallenge/DarkUxChallenge.Api/Dockerfile
       deploy_manifest: clusters/base/apps/darkux/deployment.yaml
       extra_images: '[{"name":"darkux-web","context":"src/DarkUxChallenge/DarkUxChallenge.SPA.Web","dockerfile":"src/DarkUxChallenge/DarkUxChallenge.SPA.Web/Dockerfile"}]'
+    secrets: inherit
+
+  verify-deployment:
+    name: Verify Flux Deployment
+    needs: [docker-build-push]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    uses: ./.github/workflows/app-verify-deploy.yml
     secrets: inherit
