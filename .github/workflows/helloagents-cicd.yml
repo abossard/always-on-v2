@@ -202,75 +202,64 @@ jobs:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
           tenant-id: ${{ vars.AZURE_TENANT_ID }}
           subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-      - name: Get AKS credentials
-        run: |
-          CLUSTER=$(az aks list --query "[0].name" -o tsv)
-          RG=$(az aks list --query "[0].resourceGroup" -o tsv)
-          az aks get-credentials --name "$CLUSTER" --resource-group "$RG" --overwrite-existing
-          echo "Connected to AKS cluster: $CLUSTER"
-      - name: Wait for Flux rollout (up to 25 min)
-        id: rollout
+      - name: Wait for Flux compliance (up to 25 min)
         run: |
           echo "## 🚀 Flux Deployment Status" >> $GITHUB_STEP_SUMMARY
-          for i in $(seq 1 25); do
-            echo "Attempt $i/25 — checking rollout status..."
-            if kubectl -n helloagents rollout status deployment/helloagents-api --timeout=60s 2>&1; then
-              echo "✅ Deployment rolled out successfully after ~${i} minutes" | tee -a $GITHUB_STEP_SUMMARY
-              exit 0
-            fi
-            echo "Not ready yet, waiting 60s..."
-            sleep 60
+
+          # Discover AKS clusters
+          CLUSTERS=$(az aks list --query "[].{name:name, rg:resourceGroup}" -o json)
+          echo "Found clusters: $(echo "$CLUSTERS" | jq -r '.[].name' | tr '\n' ', ')"
+
+          # Check each cluster's Flux config
+          echo "$CLUSTERS" | jq -c '.[]' | while read -r cluster; do
+            NAME=$(echo "$cluster" | jq -r '.name')
+            RG=$(echo "$cluster" | jq -r '.rg')
+            echo ""
+            echo "### Cluster: $NAME (RG: $RG)" | tee -a $GITHUB_STEP_SUMMARY
+
+            for i in $(seq 1 25); do
+              STATE=$(az k8s-configuration flux show \
+                --resource-group "$RG" \
+                --cluster-name "$NAME" \
+                --cluster-type managedClusters \
+                --name cluster-config \
+                --query "properties.complianceState" -o tsv 2>/dev/null || echo "Unknown")
+
+              echo "  Attempt $i/25 — complianceState: $STATE"
+
+              if [ "$STATE" = "Compliant" ]; then
+                echo "✅ Cluster $NAME: Flux compliant" | tee -a $GITHUB_STEP_SUMMARY
+                break
+              fi
+
+              if [ "$i" -eq 25 ]; then
+                echo "❌ Cluster $NAME: Flux not compliant after 25 min (state: $STATE)" | tee -a $GITHUB_STEP_SUMMARY
+                # Show full config details on failure
+                echo '```' >> $GITHUB_STEP_SUMMARY
+                az k8s-configuration flux show \
+                  --resource-group "$RG" --cluster-name "$NAME" \
+                  --cluster-type managedClusters --name cluster-config \
+                  -o json 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+                echo '```' >> $GITHUB_STEP_SUMMARY
+
+                echo "### Deployed Objects" >> $GITHUB_STEP_SUMMARY
+                echo '```' >> $GITHUB_STEP_SUMMARY
+                az k8s-configuration flux deployed-object list \
+                  --resource-group "$RG" --cluster-name "$NAME" \
+                  --cluster-type managedClusters --name cluster-config \
+                  -o table 2>&1 | tee -a $GITHUB_STEP_SUMMARY || true
+                echo '```' >> $GITHUB_STEP_SUMMARY
+                exit 1
+              fi
+
+              sleep 60
+            done
           done
-          echo "❌ Deployment did not roll out in 25 minutes" | tee -a $GITHUB_STEP_SUMMARY
-          exit 1
-      - name: Collect diagnostics on failure
-        if: failure()
-        run: |
-          echo "## ❌ Deployment Failure Diagnostics" >> $GITHUB_STEP_SUMMARY
-
-          echo "### Pod Status" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          kubectl -n helloagents get pods -o wide 2>&1 | tee -a $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-
-          echo "### Pod Details" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          kubectl -n helloagents describe pods -l app=helloagents 2>&1 | tail -80 | tee -a $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-
-          echo "### Container Logs (current)" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          kubectl -n helloagents logs -l app=helloagents --tail=50 --all-containers 2>&1 | tee -a $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-
-          echo "### Container Logs (previous/crashed)" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          kubectl -n helloagents logs -l app=helloagents --tail=50 --all-containers --previous 2>&1 | tee -a $GITHUB_STEP_SUMMARY || true
-          echo '```' >> $GITHUB_STEP_SUMMARY
-
-          echo "### Kubernetes Events (errors)" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          kubectl -n helloagents get events --sort-by='.lastTimestamp' --field-selector type!=Normal 2>&1 | tail -30 | tee -a $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-
-          echo "### Flux Kustomizations" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          kubectl get kustomizations.kustomize.toolkit.fluxcd.io -A -o wide 2>&1 | tee -a $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-
-          echo "### Flux Git Repositories" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          kubectl get gitrepositories.source.toolkit.fluxcd.io -A -o wide 2>&1 | tee -a $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-
-          echo "### Flux Image Policies" >> $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
-          kubectl get imagepolicies.image.toolkit.fluxcd.io -A -o wide 2>&1 | tee -a $GITHUB_STEP_SUMMARY
-          echo '```' >> $GITHUB_STEP_SUMMARY
       - name: Health check production
-        if: success()
         run: |
-          curl -sf --max-time 10 https://agents.alwayson.actor/health && echo "✅ Production healthy" | tee -a $GITHUB_STEP_SUMMARY || echo "❌ Production health check failed" | tee -a $GITHUB_STEP_SUMMARY
+          curl -sf --max-time 10 https://agents.alwayson.actor/health \
+            && echo "✅ Production healthy" | tee -a $GITHUB_STEP_SUMMARY \
+            || echo "⚠️ Production health check failed (may still be rolling out)" | tee -a $GITHUB_STEP_SUMMARY
 
   production-smoke:
     name: Production Smoke Tests
