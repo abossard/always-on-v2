@@ -1,6 +1,7 @@
 import { defineConfig } from '@playwright/test';
 
-const baseURL = process.env.services__web__http__0 ?? 'http://localhost:5000';
+const baseURL = process.env.services__web__http__0 ?? 'http://localhost:4200';
+const productionURL = process.env.PRODUCTION_URL ?? 'https://agents.alwayson.actor';
 
 export default defineConfig({
   testDir: './tests',
@@ -13,9 +14,16 @@ export default defineConfig({
     ['html', { open: 'never' }],
     ['json', { outputFile: 'test-results/results.json' }],
   ],
-  use: {
-    baseURL,
-    trace: 'on',
-    screenshot: 'on',
-  },
+  projects: [
+    {
+      name: 'local',
+      use: { baseURL, trace: 'on', screenshot: 'on' },
+    },
+    {
+      name: 'production',
+      use: { baseURL: productionURL, trace: 'on', screenshot: 'on' },
+      grep: /@smoke/,
+      retries: 1,
+    },
+  ],
 });

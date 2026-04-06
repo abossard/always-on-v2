@@ -1,6 +1,10 @@
 import { test, expect } from '@playwright/test';
 
-const apiBaseURL = process.env.services__api__http__0 ?? 'http://localhost:5100';
+// API base URL: in local mode, Aspire injects services__api__http__0.
+// In production mode, API is at the same origin as the web (or a known URL).
+const apiBaseURL = process.env.services__api__http__0
+  ?? process.env.PRODUCTION_API_URL
+  ?? 'http://localhost:5100';
 
 // ─── Helpers ───────────────────────────────────────────────
 
@@ -35,14 +39,21 @@ async function addAgentToGroupViaAPI(request: import('@playwright/test').APIRequ
     data: { agentId },
   });
   expect(res.ok()).toBeTruthy();
-  // Stream-based membership — allow propagation
   await new Promise(r => setTimeout(r, 500));
+}
+
+async function deleteGroupViaAPI(request: import('@playwright/test').APIRequestContext, groupId: string) {
+  await request.delete(`${apiBaseURL}/api/groups/${groupId}`);
+}
+
+async function deleteAgentViaAPI(request: import('@playwright/test').APIRequestContext, agentId: string) {
+  await request.delete(`${apiBaseURL}/api/agents/${agentId}`);
 }
 
 // ─── Layout & Navigation ──────────────────────────────────
 
 test.describe('Layout & Navigation', () => {
-  test('app loads with three-panel layout and welcome screen', async ({ page }) => {
+  test('@smoke app loads with three-panel layout and welcome screen', async ({ page }) => {
     await waitForApp(page);
 
     await expect(page.getByText('Chat Groups')).toBeVisible();
@@ -51,7 +62,7 @@ test.describe('Layout & Navigation', () => {
     await expect(page.getByText('Select or create a group')).toBeVisible();
   });
 
-  test('selecting a group shows chat and agent panels', async ({ page, request }) => {
+  test('@smoke selecting a group shows chat and agent panels', async ({ page, request }) => {
     const name = uid('NavTest');
     await createGroupViaAPI(request, name);
     await waitForApp(page);
@@ -67,7 +78,7 @@ test.describe('Layout & Navigation', () => {
 // ─── Group Management ─────────────────────────────────────
 
 test.describe('Group Management', () => {
-  test('can create a group via UI', async ({ page }) => {
+  test('@smoke can create a group via UI', async ({ page }) => {
     const name = uid('UIGroup');
     await waitForApp(page);
 
@@ -105,7 +116,7 @@ test.describe('Group Management', () => {
 // ─── Agent Management ─────────────────────────────────────
 
 test.describe('Agent Management', () => {
-  test('can create an agent from the roster panel', async ({ page, request }) => {
+  test('@smoke can create an agent from the roster panel', async ({ page, request }) => {
     const groupName = uid('AgentCreateGrp');
     const agentName = uid('NewBot');
     await createGroupViaAPI(request, groupName);
@@ -123,7 +134,7 @@ test.describe('Agent Management', () => {
     await expect(page.getByText(agentName, { exact: true })).toBeVisible({ timeout: 10_000 });
   });
 
-  test('can add an existing agent to a group', async ({ page, request }) => {
+  test('@smoke can add an existing agent to a group', async ({ page, request }) => {
     const groupName = uid('AddAgentGrp');
     const agentName = uid('ExistBot');
     await createGroupViaAPI(request, groupName);
@@ -159,7 +170,7 @@ test.describe('Agent Management', () => {
 // ─── Chat & Messaging ─────────────────────────────────────
 
 test.describe('Chat & Messaging', () => {
-  test('can send a message and see it appear', async ({ page, request }) => {
+  test('@smoke can send a message and see it appear', async ({ page, request }) => {
     const groupName = uid('ChatTest');
     await createGroupViaAPI(request, groupName);
     await waitForApp(page);
@@ -205,7 +216,7 @@ test.describe('Chat & Messaging', () => {
 // ─── Discussion ────────────────────────────────────────────
 
 test.describe('Discussion', () => {
-  test('start discussion shows busy indicator and agent responses', async ({ page, request }) => {
+  test('@smoke start discussion shows busy indicator and agent responses', async ({ page, request }) => {
     test.setTimeout(120_000);
 
     const groupName = uid('DiscussGrp');
@@ -331,7 +342,7 @@ test.describe('Multi-Tab Real-Time', () => {
 // ─── SSE Delivery (proves stream pipeline works) ──────────
 
 test.describe('SSE Delivery', () => {
-  test('message sent via API appears in watching browser tab via SSE', async ({ page, request }) => {
+  test('@smoke message sent via API appears in watching browser tab via SSE', async ({ page, request }) => {
     test.setTimeout(30_000);
 
     const groupName = uid('SSEMsgGrp');
@@ -356,7 +367,7 @@ test.describe('SSE Delivery', () => {
     await expect(page.getByTestId('chat-messages').getByText('APISender')).toBeVisible();
   });
 
-  test('agent join event appears as system message via SSE', async ({ page, request }) => {
+  test('@smoke agent join event appears as system message via SSE', async ({ page, request }) => {
     test.setTimeout(30_000);
 
     const groupName = uid('SSEJoinGrp');
@@ -406,7 +417,7 @@ test.describe('SSE Delivery', () => {
     await expect(page.getByTestId('chat-messages').getByText('left the group')).toBeVisible({ timeout: 15_000 });
   });
 
-  test('discussion responses arrive via SSE in single tab', async ({ page, request }) => {
+  test('@smoke discussion responses arrive via SSE in single tab', async ({ page, request }) => {
     test.setTimeout(120_000);
 
     const groupName = uid('SSEDiscussGrp');
@@ -471,12 +482,12 @@ test.describe('SSE Delivery', () => {
 });
 
 test.describe('API (direct)', () => {
-  test('health endpoint returns 200', async ({ request }) => {
+  test('@smoke health endpoint returns 200', async ({ request }) => {
     const res = await request.get(`${apiBaseURL}/health`);
     expect(res.status()).toBe(200);
   });
 
-  test('group CRUD lifecycle', async ({ request }) => {
+  test('@smoke group CRUD lifecycle', async ({ request }) => {
     const name = uid('CRUDGroup');
     const createRes = await request.post(`${apiBaseURL}/api/groups`, {
       data: { name, description: 'API lifecycle test' },
@@ -493,7 +504,7 @@ test.describe('API (direct)', () => {
     expect((await request.delete(`${apiBaseURL}/api/groups/${group.id}`)).status()).toBe(204);
   });
 
-  test('agent CRUD lifecycle', async ({ request }) => {
+  test('@smoke agent CRUD lifecycle', async ({ request }) => {
     const name = uid('CRUDAgent');
     const createRes = await request.post(`${apiBaseURL}/api/agents`, {
       data: { name, personaDescription: 'Lifecycle test', avatarEmoji: '🧪' },
@@ -527,7 +538,7 @@ test.describe('API (direct)', () => {
     expect(detail2.agents.every((a: { id: string }) => a.id !== agent.id)).toBeTruthy();
   });
 
-  test('send message and verify in group state', async ({ request }) => {
+  test('@smoke send message and verify in group state', async ({ request }) => {
     const group = await createGroupViaAPI(request, uid('MsgGrp'));
     const content = uid('HelloAPI');
 

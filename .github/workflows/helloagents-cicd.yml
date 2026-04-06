@@ -118,6 +118,8 @@ jobs:
           echo "AI Services endpoint: $ENDPOINT"
       - name: Install Aspire workload
         run: dotnet workload install aspire
+      - name: Install Aspire CLI
+        uses: timheuer/setup-aspire@v0.1.0
       - name: Install Web dependencies
         run: npm ci
         working-directory: src/HelloAgents/HelloAgents.Web
@@ -127,30 +129,31 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
         working-directory: src/HelloAgents/HelloAgents.E2E
-      - name: Install Aspire CLI
-        run: dotnet tool install -g Aspire.Cli || true
       - name: Build .NET projects
         run: dotnet build
         working-directory: src/HelloAgents
       - name: Start Aspire AppHost (in-memory, no Docker)
-        run: |
-          aspire run --apphost HelloAgents.AppHost.Local --detach --non-interactive --nologo
+        run: aspire run --apphost HelloAgents.AppHost.Local --detach --non-interactive --nologo
         working-directory: src/HelloAgents
         env:
           ASPIRE_ALLOW_UNSECURED_TRANSPORT: "true"
           AZURE_OPENAI_ENDPOINT: ${{ steps.ai.outputs.endpoint }}
           AZURE_OPENAI_DEPLOYMENT_NAME: gpt-41-mini
-      - name: Wait for API and Web to be healthy
+      - name: Wait for services
         run: |
           aspire wait api --timeout 120 --non-interactive --nologo
           aspire wait web --timeout 120 --non-interactive --nologo
           aspire describe --non-interactive --nologo
         working-directory: src/HelloAgents
-      - name: Run Playwright E2E via Aspire
+        env:
+          ASPIRE_ALLOW_UNSECURED_TRANSPORT: "true"
+      - name: Run Playwright E2E (local project)
         run: |
           aspire resource e2e start --non-interactive --nologo
           aspire wait e2e --status down --timeout 300 --non-interactive --nologo
         working-directory: src/HelloAgents
+        env:
+          ASPIRE_ALLOW_UNSECURED_TRANSPORT: "true"
       - name: Playwright report summary
         if: always()
         uses: daun/playwright-report-summary@v3
@@ -161,7 +164,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-report
+          name: playwright-report-local
           retention-days: 5
           path: |
             src/HelloAgents/HelloAgents.E2E/playwright-report/
@@ -179,3 +182,126 @@ jobs:
       deploy_manifest: clusters/base/apps/helloagents/deployment.yaml
       extra_images: '[{"name":"helloagents-web","context":"src/HelloAgents/HelloAgents.Web","dockerfile":"src/HelloAgents/HelloAgents.Web/Dockerfile"}]'
     secrets: inherit
+
+  verify-deployment:
+    name: Verify Flux Deployment
+    needs: [docker-build-push]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Get AKS credentials
+        run: |
+          CLUSTER=$(az aks list --query "[0].name" -o tsv)
+          RG=$(az aks list --query "[0].resourceGroup" -o tsv)
+          az aks get-credentials --name "$CLUSTER" --resource-group "$RG" --overwrite-existing
+          echo "Connected to AKS cluster: $CLUSTER"
+      - name: Wait for Flux rollout (up to 25 min)
+        id: rollout
+        run: |
+          echo "## 🚀 Flux Deployment Status" >> $GITHUB_STEP_SUMMARY
+          for i in $(seq 1 25); do
+            echo "Attempt $i/25 — checking rollout status..."
+            if kubectl -n helloagents rollout status deployment/helloagents-api --timeout=60s 2>&1; then
+              echo "✅ Deployment rolled out successfully after ~${i} minutes" | tee -a $GITHUB_STEP_SUMMARY
+              exit 0
+            fi
+            echo "Not ready yet, waiting 60s..."
+            sleep 60
+          done
+          echo "❌ Deployment did not roll out in 25 minutes" | tee -a $GITHUB_STEP_SUMMARY
+          exit 1
+      - name: Collect diagnostics on failure
+        if: failure()
+        run: |
+          echo "## ❌ Deployment Failure Diagnostics" >> $GITHUB_STEP_SUMMARY
+
+          echo "### Pod Status" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          kubectl -n helloagents get pods -o wide 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+          echo "### Pod Details" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          kubectl -n helloagents describe pods -l app=helloagents 2>&1 | tail -80 | tee -a $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+          echo "### Container Logs (current)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          kubectl -n helloagents logs -l app=helloagents --tail=50 --all-containers 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+          echo "### Container Logs (previous/crashed)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          kubectl -n helloagents logs -l app=helloagents --tail=50 --all-containers --previous 2>&1 | tee -a $GITHUB_STEP_SUMMARY || true
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+          echo "### Kubernetes Events (errors)" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          kubectl -n helloagents get events --sort-by='.lastTimestamp' --field-selector type!=Normal 2>&1 | tail -30 | tee -a $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+          echo "### Flux Kustomizations" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          kubectl get kustomizations.kustomize.toolkit.fluxcd.io -A -o wide 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+          echo "### Flux Git Repositories" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          kubectl get gitrepositories.source.toolkit.fluxcd.io -A -o wide 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+
+          echo "### Flux Image Policies" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          kubectl get imagepolicies.image.toolkit.fluxcd.io -A -o wide 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+      - name: Health check production
+        if: success()
+        run: |
+          curl -sf --max-time 10 https://agents.alwayson.actor/health && echo "✅ Production healthy" | tee -a $GITHUB_STEP_SUMMARY || echo "❌ Production health check failed" | tee -a $GITHUB_STEP_SUMMARY
+
+  production-smoke:
+    name: Production Smoke Tests
+    needs: [verify-deployment]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+      - name: Install E2E dependencies
+        run: npm ci
+        working-directory: src/HelloAgents/HelloAgents.E2E
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: src/HelloAgents/HelloAgents.E2E
+      - name: Run production smoke tests
+        run: npx playwright test --project=production
+        working-directory: src/HelloAgents/HelloAgents.E2E
+        env:
+          PRODUCTION_URL: https://agents.alwayson.actor
+          PRODUCTION_API_URL: https://agents.alwayson.actor
+      - name: Playwright report summary
+        if: always()
+        uses: daun/playwright-report-summary@v3
+        with:
+          report-file: src/HelloAgents/HelloAgents.E2E/test-results/results.json
+          job-summary: true
+      - name: Upload production smoke report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-production
+          retention-days: 5
+          path: |
+            src/HelloAgents/HelloAgents.E2E/playwright-report/
+            src/HelloAgents/HelloAgents.E2E/test-results/
