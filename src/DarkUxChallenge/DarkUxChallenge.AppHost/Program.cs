@@ -8,7 +8,6 @@ var builder = DistributedApplication.CreateBuilder(args);
 var cosmos = builder.AddAzureCosmosDB(ResourceNames.CosmosDb)
     .RunAsPreviewEmulator(emulator =>
     {
-        emulator.WithEnvironment("PROTOCOL", "https");
         emulator.WithLifetime(ContainerLifetime.Persistent);
         emulator.WithDataVolume();
     });
@@ -19,7 +18,7 @@ db.AddContainer(ResourceNames.Container, ResourceNames.PartitionKey);
 
 var api = builder.AddProject<Projects.DarkUxChallenge_Api>(ResourceNames.Api)
     .WithReference(cosmos)
-    .WaitFor(cosmos, WaitBehavior.WaitOnResourceUnavailable)
+    .WaitFor(cosmos)
     .WithEnvironment("Storage__Provider", "CosmosDb")
     .WithEnvironment("CosmosDb__InitializeOnStartup", "true")
     .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development");

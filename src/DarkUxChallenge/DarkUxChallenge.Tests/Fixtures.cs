@@ -5,11 +5,9 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
 using Aspire.Hosting;
-using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Testing;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.DependencyInjection;
 using DarkUxChallenge.Api;
 using DarkUxChallenge.AppHost;
 using TUnit.Core.Interfaces;
@@ -73,14 +71,9 @@ public class AspireFixture : IAsyncInitializer, IAsyncDisposable
         var builder = await DistributedApplicationTestingBuilder
             .CreateAsync<Projects.DarkUxChallenge_AppHost>();
 
-        builder.Services.Configure<ResourceNotificationServiceOptions>(options =>
-            options.DefaultWaitBehavior = WaitBehavior.WaitOnResourceUnavailable);
-
         _app = await builder.BuildAsync();
         await _app.StartAsync();
-        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
-        await _app.ResourceNotifications.WaitForResourceHealthyAsync(
-            ResourceNames.Api, WaitBehavior.WaitOnResourceUnavailable, cts.Token);
+        await _app.ResourceNotifications.WaitForResourceHealthyAsync(ResourceNames.Api);
         Client = _app.CreateHttpClient(ResourceNames.Api);
     }
 

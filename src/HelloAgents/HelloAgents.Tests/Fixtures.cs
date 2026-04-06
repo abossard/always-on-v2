@@ -2,12 +2,10 @@
 // Fixtures provide an HttpClient. Tests don't know what's behind it.
 
 using Aspire.Hosting;
-using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Testing;
 using HelloAgents.AppHost;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.DependencyInjection;
 using TUnit.Core.Interfaces;
 
 namespace HelloAgents.Tests;
@@ -49,19 +47,9 @@ public class AspireFixture : IAsyncInitializer, IAsyncDisposable
         var builder = await DistributedApplicationTestingBuilder
             .CreateAsync<Projects.HelloAgents_AppHost>();
 
-        // Cosmos vnext-preview emulator needs ~30-60s to boot PostgreSQL + Citus.
-        // During boot, health checks return Unhealthy. Default WaitBehavior
-        // (StopOnResourceUnavailable) marks the API as FailedToStart permanently.
-        // WaitOnResourceUnavailable lets the orchestrator keep waiting for recovery.
-        builder.Services.Configure<ResourceNotificationServiceOptions>(options =>
-            options.DefaultWaitBehavior = WaitBehavior.WaitOnResourceUnavailable);
-
         _app = await builder.BuildAsync();
         await _app.StartAsync();
-
-        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
-        await _app.ResourceNotifications.WaitForResourceHealthyAsync(
-            ResourceNames.Api, WaitBehavior.WaitOnResourceUnavailable, cts.Token);
+        await _app.ResourceNotifications.WaitForResourceHealthyAsync(ResourceNames.Api);
         Client = _app.CreateHttpClient(ResourceNames.Api);
     }
 

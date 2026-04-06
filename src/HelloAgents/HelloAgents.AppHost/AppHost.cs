@@ -9,7 +9,6 @@ var builder = DistributedApplication.CreateBuilder(args);
 var cosmos = builder.AddAzureCosmosDB(ResourceNames.CosmosDb)
     .RunAsPreviewEmulator(emulator =>
     {
-        emulator.WithEnvironment("PROTOCOL", "https");
         emulator.WithLifetime(ContainerLifetime.Persistent);
         emulator.WithDataVolume();
     });
@@ -30,8 +29,8 @@ var queues = storage.AddQueues("queuestorage");
 var api = builder.AddProject<Projects.HelloAgents_Api>(ResourceNames.Api)
     .WithReference(cosmos)
     .WithReference(queues)
-    .WaitFor(cosmos, WaitBehavior.WaitOnResourceUnavailable)
-    .WaitFor(storage, WaitBehavior.WaitOnResourceUnavailable)
+    .WaitFor(cosmos)
+    .WaitFor(storage)
     .WithExternalHttpEndpoints()
     .WithEnvironment("Storage__Provider", "CosmosDb")
     .WithEnvironment("CosmosDb__DatabaseName", ResourceNames.Database)
