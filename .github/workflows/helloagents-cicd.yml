@@ -67,17 +67,26 @@ jobs:
             core.exportVariable('ACTIONS_RESULTS_URL', process.env['ACTIONS_RESULTS_URL']);
       - name: Run tests
         run: |
-          for attempt in 1 2 3; do
-            echo "=== Test attempt $attempt ==="
-            dotnet run --project HelloAgents.Tests --no-build -- \
-              --report-trx --report-trx-filename results.trx \
-              && break
-            echo "Attempt $attempt failed, retrying..."
-          done
+          dotnet run --project HelloAgents.Tests --no-build -- \
+            --report-trx --report-trx-filename results.trx
         working-directory: src/HelloAgents
         env:
           AZURE_OPENAI_ENDPOINT: ${{ steps.ai.outputs.endpoint }}
           AZURE_OPENAI_DEPLOYMENT_NAME: gpt-41-mini
+      - name: Collect Docker diagnostics
+        if: always()
+        run: |
+          echo "## 🐳 Docker Container Status" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          docker ps -a 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          for cid in $(docker ps -aq 2>/dev/null); do
+            CNAME=$(docker inspect --format '{{.Name}}' "$cid" 2>&1)
+            echo "### Container: $CNAME" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            docker logs --tail 80 "$cid" 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          done
       - name: Publish test results
         if: always()
         uses: EnricoMi/publish-unit-test-result-action@v2
@@ -227,13 +236,14 @@ jobs:
             echo "### Cluster: $NAME (RG: $RG)" | tee -a $GITHUB_STEP_SUMMARY
 
             # Probe: does this cluster have the Flux config?
-            if ! az k8s-configuration flux show \
+            PROBE_OUTPUT=$(az k8s-configuration flux show \
               --resource-group "$RG" --cluster-name "$NAME" \
               --cluster-type managedClusters --name cluster-config \
-              --query "name" -o tsv 2>/dev/null; then
-              echo "⏭️  No Flux config 'cluster-config' on $NAME — skipping (Fleet hub?)" | tee -a $GITHUB_STEP_SUMMARY
+              --query "name" -o tsv 2>&1) || {
+              echo "⏭️  No Flux config 'cluster-config' on $NAME — skipping" | tee -a $GITHUB_STEP_SUMMARY
+              echo "    Reason: $PROBE_OUTPUT"
               continue
-            fi
+            }
             CHECKED=$((CHECKED + 1))
 
             for i in $(seq 1 25); do
