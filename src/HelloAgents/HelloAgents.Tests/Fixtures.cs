@@ -49,7 +49,10 @@ public class AspireFixture : IAsyncInitializer, IAsyncDisposable
 
         _app = await builder.BuildAsync();
         await _app.StartAsync();
-        await _app.ResourceNotifications.WaitForResourceHealthyAsync(ResourceNames.Api);
+
+        // Cosmos emulator needs time to boot (PostgreSQL + Citus + gateway)
+        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+        await _app.ResourceNotifications.WaitForResourceHealthyAsync(ResourceNames.Api, cts.Token);
         Client = _app.CreateHttpClient(ResourceNames.Api);
     }
 

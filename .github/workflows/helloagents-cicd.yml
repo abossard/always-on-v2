@@ -80,7 +80,7 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
           docker ps -a 2>&1 | tee -a $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          for cid in $(docker ps -aq 2>/dev/null); do
+          for cid in $(docker ps -aq); do
             CNAME=$(docker inspect --format '{{.Name}}' "$cid" 2>&1)
             echo "### Container: $CNAME" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
