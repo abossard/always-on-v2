@@ -105,6 +105,27 @@ jobs:
                 echo "$FLUX_JSON" | jq '.' >> $GITHUB_STEP_SUMMARY
                 echo '```' >> $GITHUB_STEP_SUMMARY
                 echo '</details>' >> $GITHUB_STEP_SUMMARY
+
+                # Extract failed K8s resources and get pod-level diagnostics (every 5 polls)
+                FAILED_RESOURCES=$(echo "$FLUX_JSON" | jq -r '
+                  [.statuses[]? | select(.complianceState == "Non-Compliant" or .complianceState == "Pending") |
+                   .statusConditions[]? | .message // "" |
+                   capture("Deployment/(?<ns>[^/]+)/(?<dep>[^ ]+)") |
+                   "\(.ns) \(.dep)"] | unique | .[]' 2>/dev/null || true)
+                if [ -n "$FAILED_RESOURCES" ] && [ $((i % 5)) -eq 1 ]; then
+                  echo "" | tee -a $GITHUB_STEP_SUMMARY
+                  echo "##### 🔍 K8s Diagnostics for failed deployments" | tee -a $GITHUB_STEP_SUMMARY
+                  while IFS=' ' read -r NS DEP; do
+                    echo "" | tee -a $GITHUB_STEP_SUMMARY
+                    echo "**$NS/$DEP:**" | tee -a $GITHUB_STEP_SUMMARY
+                    echo '```' >> $GITHUB_STEP_SUMMARY
+                    az aks command invoke \
+                      --resource-group "$RG" --name "$NAME" \
+                      --command "kubectl get pods -n $NS -l app=$DEP -o wide && echo '---EVENTS---' && kubectl get events -n $NS --sort-by=.lastTimestamp --field-selector involvedObject.kind=Pod 2>&1 | tail -30 && echo '---DESCRIBE---' && kubectl describe deployment/$DEP -n $NS 2>&1 | tail -40" \
+                      -o tsv --query "logs" 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+                    echo '```' >> $GITHUB_STEP_SUMMARY
+                  done <<< "$FAILED_RESOURCES"
+                fi
               fi
 
               # SUCCESS
