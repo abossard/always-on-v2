@@ -85,16 +85,20 @@ jobs:
               SHORT_COMMIT="${COMMIT##*:}"
               SHORT_COMMIT="${SHORT_COMMIT:0:8}"
 
-              KUST_SUMMARY=$(echo "$FLUX_JSON" | jq -r '
-                [.statuses[]? | select(.kind == "Kustomization") | "\(.name): \(.complianceState)"]
-                | join(", ")' 2>/dev/null || echo "unavailable")
-
-              echo "  [$i/$MAX_ATTEMPTS] $(date -u +%H:%M:%S) — $STATE | $SHORT_COMMIT | $KUST_SUMMARY"
-              echo "| $i | $(date -u +%H:%M:%S) | $STATE | $SHORT_COMMIT | $KUST_SUMMARY |" >> $GITHUB_STEP_SUMMARY
+              # Full per-resource status with conditions
+              echo "" | tee -a $GITHUB_STEP_SUMMARY
+              echo "#### Poll $i/$MAX_ATTEMPTS — $(date -u +%H:%M:%S) — **$STATE** (commit: $SHORT_COMMIT)" | tee -a $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              echo "$FLUX_JSON" | jq -r '
+                .statuses[]? |
+                "\(.kind)/\(.name): \(.complianceState) — \(
+                  [.statusConditions[]? | "\(.type)=\(.status) (\(.reason // "?")): \(.message // "" | .[0:120])"]
+                  | join("; ")
+                )"' 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
 
               # SUCCESS
               if [ "$STATE" = "Compliant" ]; then
-                echo "" | tee -a $GITHUB_STEP_SUMMARY
                 echo "✅ **Cluster $NAME: Compliant** after ~${i} min (commit: $SHORT_COMMIT)" | tee -a $GITHUB_STEP_SUMMARY
                 break
               fi
@@ -104,10 +108,9 @@ jobs:
                 [.statuses[]? | select(.complianceState == "Failed" or .complianceState == "Error") | .name]
                 | join(", ")' 2>/dev/null || echo "")
               if [ -n "$ERRORS" ]; then
-                echo "" | tee -a $GITHUB_STEP_SUMMARY
-                echo "❌ **Cluster $NAME: Error in kustomizations: $ERRORS**" | tee -a $GITHUB_STEP_SUMMARY
+                echo "❌ **Cluster $NAME: Error in: $ERRORS**" | tee -a $GITHUB_STEP_SUMMARY
                 echo '```json' >> $GITHUB_STEP_SUMMARY
-                echo "$FLUX_JSON" | jq '.statuses[]? | select(.complianceState == "Failed" or .complianceState == "Error")' >> $GITHUB_STEP_SUMMARY
+                echo "$FLUX_JSON" | jq '.' >> $GITHUB_STEP_SUMMARY
                 echo '```' >> $GITHUB_STEP_SUMMARY
                 exit 1
               fi
