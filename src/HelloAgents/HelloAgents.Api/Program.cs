@@ -25,12 +25,21 @@ builder.Host.UseOrleans(silo =>
     }
 
     // Grain storage: Cosmos DB or in-memory
+    var cosmosConnectionString = builder.Configuration.GetConnectionString("cosmos");
+    var isEmulator = cosmosConnectionString?.Contains("AccountKey=C2y6yDjf5") == true;
     if (storage.Provider == StorageProvider.CosmosDb)
     {
-        var cosmosConnectionString = builder.Configuration.GetConnectionString("cosmos");
         silo.AddCosmosGrainStorage("Default", options =>
         {
             options.ConfigureCosmosClient(cosmosConnectionString!);
+            if (isEmulator)
+            {
+                options.ClientOptions = new Microsoft.Azure.Cosmos.CosmosClientOptions
+                {
+                    ConnectionMode = Microsoft.Azure.Cosmos.ConnectionMode.Gateway,
+                    LimitToEndpoint = true
+                };
+            }
             options.DatabaseName = cosmosDb.DatabaseName;
             options.ContainerName = cosmosDb.ContainerName;
             options.IsResourceCreationEnabled = true;
@@ -79,10 +88,17 @@ builder.Host.UseOrleans(silo =>
         // Persistent PubSub store so subscriptions survive silo restarts
         if (storage.Provider == StorageProvider.CosmosDb)
         {
-            var cosmosCs = builder.Configuration.GetConnectionString("cosmos");
             silo.AddCosmosGrainStorage("PubSubStore", options =>
             {
-                options.ConfigureCosmosClient(cosmosCs!);
+                options.ConfigureCosmosClient(cosmosConnectionString!);
+                if (isEmulator)
+                {
+                    options.ClientOptions = new Microsoft.Azure.Cosmos.CosmosClientOptions
+                    {
+                        ConnectionMode = Microsoft.Azure.Cosmos.ConnectionMode.Gateway,
+                        LimitToEndpoint = true
+                    };
+                }
                 options.DatabaseName = cosmosDb.DatabaseName;
                 options.ContainerName = cosmosDb.ContainerName;
                 options.IsResourceCreationEnabled = true;
