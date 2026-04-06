@@ -228,7 +228,7 @@ test.describe('Discussion', () => {
     // The button may briefly show "Discussing..." or the LLM may respond before we can observe it
     // Just wait for the agent response in the chat messages area (up to 60s for LLM call)
     const chatMessages = page.getByTestId('chat-messages');
-    await expect(chatMessages.getByText(agentName, { exact: true })).toBeVisible({ timeout: 60_000 });
+    await expect(chatMessages.getByText(agentName, { exact: true }).first()).toBeVisible({ timeout: 60_000 });
     await expect(page.getByRole('button', { name: /Start Discussion/ })).toBeEnabled({ timeout: 5_000 });
   });
 });
