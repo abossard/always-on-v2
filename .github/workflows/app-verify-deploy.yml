@@ -122,7 +122,7 @@ jobs:
                     az aks command invoke \
                       --resource-group "$RG" --name "$NAME" \
                       --command "kubectl get pods -n $NS -l app=$DEP -o wide && echo '---EVENTS---' && kubectl get events -n $NS --sort-by=.lastTimestamp --field-selector involvedObject.kind=Pod 2>&1 | tail -30 && echo '---DESCRIBE---' && kubectl describe deployment/$DEP -n $NS 2>&1 | tail -40" \
-                      -o tsv --query "logs" 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+                      -o tsv --query "logs" 2>&1 | tee -a $GITHUB_STEP_SUMMARY || true
                     echo '```' >> $GITHUB_STEP_SUMMARY
                   done <<< "$FAILED_RESOURCES"
                 fi
