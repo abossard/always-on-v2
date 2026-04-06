@@ -6,11 +6,15 @@ on:
     paths:
       - 'src/HelloAgents/**'
       - '.github/workflows/helloagents-cicd.yml'
+      - '.github/workflows/app-build-push.yml'
+      - '.github/workflows/app-verify-deploy.yml'
   pull_request:
     branches: [main]
     paths:
       - 'src/HelloAgents/**'
       - '.github/workflows/helloagents-cicd.yml'
+      - '.github/workflows/app-build-push.yml'
+      - '.github/workflows/app-verify-deploy.yml'
   workflow_dispatch:
 
 concurrency:
