@@ -104,6 +104,7 @@ resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2025-04-15' = {
   }
   properties: {
     databaseAccountOfferType: 'Standard'
+    publicNetworkAccess: 'Enabled'
     enableAutomaticFailover: true
     enableMultipleWriteLocations: true
     disableLocalAuth: true
@@ -253,6 +254,8 @@ resource globalLogAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01
   properties: {
     sku: { name: 'PerGB2018' }
     retentionInDays: 90
+    publicNetworkAccessForIngestion: 'Enabled'
+    publicNetworkAccessForQuery: 'Enabled'
   }
 }
 

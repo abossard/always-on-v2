@@ -30,6 +30,8 @@ resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   properties: {
     sku: { name: 'PerGB2018' }
     retentionInDays: 30
+    publicNetworkAccessForIngestion: 'Enabled'
+    publicNetworkAccessForQuery: 'Enabled'
   }
 }
 
@@ -40,6 +42,9 @@ resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
 resource monitorWorkspace 'Microsoft.Monitor/accounts@2023-04-03' = {
   name: 'amw-${baseName}-${regionKey}'
   location: location
+  properties: {
+    publicNetworkAccess: 'Enabled'
+  }
 }
 
 // ============================================================================
