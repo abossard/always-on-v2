@@ -152,7 +152,7 @@ jobs:
         run: dotnet build
         working-directory: src/HelloAgents
       - name: Start Aspire AppHost
-        run: aspire start --apphost HelloAgents.AppHost --non-interactive --nologo
+        run: aspire start --apphost HelloAgents.AppHost --non-interactive --nologo --isolated
         working-directory: src/HelloAgents
         env:
           ASPIRE_ALLOW_UNSECURED_TRANSPORT: "true"

@@ -120,7 +120,7 @@ jobs:
 
       - name: Start Aspire AppHost
         run: |
-          aspire start --apphost ${{ inputs.apphost_project }} --non-interactive --nologo || {
+          aspire start --apphost ${{ inputs.apphost_project }} --non-interactive --nologo --isolated || {
             echo "## ❌ Aspire AppHost failed to start" >> $GITHUB_STEP_SUMMARY
             echo "Dumping Aspire CLI logs:" >> $GITHUB_STEP_SUMMARY
             for f in ~/.aspire/logs/*.log; do
