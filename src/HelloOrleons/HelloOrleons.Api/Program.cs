@@ -5,6 +5,8 @@ var builder = WebApplication.CreateSlimBuilder(args);
 builder.WebHost.UseKestrelHttpsConfiguration();
 builder.AddServiceDefaults();
 
+builder.Services.Configure<GrainConfig>(builder.Configuration.GetSection(GrainConfig.Section));
+
 builder.Host.UseOrleans(silo =>
 {
     var storageProvider = builder.Configuration["Storage:Provider"] ?? "InMemory";
@@ -24,17 +26,27 @@ builder.Host.UseOrleans(silo =>
 
     void ConfigureCosmos(Orleans.Persistence.Cosmos.CosmosGrainStorageOptions options)
     {
+        options.DatabaseName = cosmosDb.DatabaseName;
+        options.ContainerName = cosmosDb.ContainerName;
+        options.IsResourceCreationEnabled = !isEmulator;
+
+        if (isEmulator)
+        {
+            options.ClientOptions = new Microsoft.Azure.Cosmos.CosmosClientOptions
+            {
+                ConnectionMode = Microsoft.Azure.Cosmos.ConnectionMode.Gateway,
+                LimitToEndpoint = true,
+                AllowBulkExecution = cosmosDb.AllowBulkExecution
+            };
+        }
+        else
+        {
+            options.ClientOptions.AllowBulkExecution = cosmosDb.AllowBulkExecution;
+        }
+
         if (hasAccountKey)
         {
             options.ConfigureCosmosClient(cosmosConnectionString!);
-            if (isEmulator)
-            {
-                options.ClientOptions = new Microsoft.Azure.Cosmos.CosmosClientOptions
-                {
-                    ConnectionMode = Microsoft.Azure.Cosmos.ConnectionMode.Gateway,
-                    LimitToEndpoint = true
-                };
-            }
         }
         else
         {
@@ -43,10 +55,6 @@ builder.Host.UseOrleans(silo =>
                 .TrimEnd(';');
             options.ConfigureCosmosClient(endpoint, new DefaultAzureCredential());
         }
-
-        options.DatabaseName = cosmosDb.DatabaseName;
-        options.ContainerName = cosmosDb.ContainerName;
-        options.IsResourceCreationEnabled = !isEmulator;
     }
 
     if (isCosmosDb)

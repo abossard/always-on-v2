@@ -1,3 +1,4 @@
+using Microsoft.Extensions.Options;
 using Orleans.Runtime;
 
 namespace HelloOrleons.Api;
@@ -13,7 +14,8 @@ public sealed class HelloGrainState
 }
 
 public sealed class HelloGrain(
-    [PersistentState("hello")] IPersistentState<HelloGrainState> state) : Grain, IHelloGrain
+    [PersistentState("hello")] IPersistentState<HelloGrainState> state,
+    IOptions<GrainConfig> grainConfig) : Grain, IHelloGrain
 {
     long _inMemoryCount;
     bool _dirty;
@@ -24,7 +26,8 @@ public sealed class HelloGrain(
         _inMemoryCount = state.State.Count + state.State.PendingCount;
         _dirty = state.State.PendingCount > 0;
 
-        this.RegisterGrainTimer(FlushAsync, TimeSpan.FromSeconds(5), TimeSpan.FromSeconds(5));
+        var interval = TimeSpan.FromSeconds(grainConfig.Value.FlushIntervalSeconds);
+        this.RegisterGrainTimer(FlushAsync, interval, interval);
         return Task.CompletedTask;
     }
 
