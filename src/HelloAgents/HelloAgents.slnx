@@ -1,7 +1,6 @@
 <Solution>
   <Project Path="HelloAgents.Api/HelloAgents.Api.csproj" />
   <Project Path="HelloAgents.AppHost/HelloAgents.AppHost.csproj" />
-  <Project Path="HelloAgents.AppHost.Local/HelloAgents.AppHost.Local.csproj" />
   <Project Path="HelloAgents.ServiceDefaults/HelloAgents.ServiceDefaults.csproj" />
   <Project Path="HelloAgents.Tests/HelloAgents.Tests.csproj" />
 </Solution>

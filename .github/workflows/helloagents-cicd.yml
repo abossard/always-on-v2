@@ -152,7 +152,7 @@ jobs:
         run: dotnet build
         working-directory: src/HelloAgents
       - name: Start Aspire AppHost
-        run: aspire start --apphost HelloAgents.AppHost.Local --non-interactive --nologo
+        run: aspire start --apphost HelloAgents.AppHost --non-interactive --nologo
         working-directory: src/HelloAgents
         env:
           ASPIRE_ALLOW_UNSECURED_TRANSPORT: "true"
@@ -160,7 +160,7 @@ jobs:
           AZURE_OPENAI_DEPLOYMENT_NAME: gpt-41-mini
       - name: Wait for services
         run: |
-          aspire wait api --timeout 120 --non-interactive --nologo
+          aspire wait api --timeout 600 --non-interactive --nologo
           aspire wait web --timeout 120 --non-interactive --nologo
           aspire describe --non-interactive --nologo
         working-directory: src/HelloAgents

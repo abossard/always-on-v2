@@ -99,7 +99,7 @@ Key features: OIDC authentication (no secrets), multi-arch native builds (no QEM
 # Run any app locally (example: HelloAgents)
 cd src/HelloAgents
 cd HelloAgents.Web && npm ci && cd ..
-aspire run --apphost HelloAgents.AppHost.Local
+aspire run --apphost HelloAgents.AppHost
 
 # Run PlayersOnLevel0
 cd src/PlayersOnLevel0

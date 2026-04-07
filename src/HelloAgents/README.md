@@ -31,7 +31,6 @@ See [STREAM-ARCHITECTURE-PLAN.md](STREAM-ARCHITECTURE-PLAN.md) for the full desi
 | [HelloAgents.Api](HelloAgents.Api/) | Minimal API, Orleans silo, grain implementations, LLM integration |
 | [HelloAgents.Web](HelloAgents.Web/) | Next.js React frontend with SSE real-time updates |
 | [HelloAgents.AppHost](HelloAgents.AppHost/) | Aspire orchestrator (Cosmos DB + Azure Queue Storage emulators) |
-| [HelloAgents.AppHost.Local](HelloAgents.AppHost.Local/) | Aspire orchestrator (in-memory, no Docker, optional LM Studio) |
 | [HelloAgents.ServiceDefaults](HelloAgents.ServiceDefaults/) | OpenTelemetry, health checks, Azure Monitor |
 | [HelloAgents.Tests](HelloAgents.Tests/) | TUnit backend tests (in-memory + Cosmos matrix) |
 | [HelloAgents.E2E](HelloAgents.E2E/) | Playwright E2E tests (26 tests including SSE verification) |
@@ -56,7 +55,7 @@ cd HelloAgents.Web && npm ci && cd ..
 cd HelloAgents.E2E && npm ci && cd ..
 
 # Start everything
-aspire run --apphost HelloAgents.AppHost.Local
+aspire run --apphost HelloAgents.AppHost
 
 # The Aspire dashboard shows all resource URLs.
 # API and Web ports are assigned dynamically.
@@ -67,7 +66,7 @@ aspire run --apphost HelloAgents.AppHost.Local
 Start LM Studio, load a model (e.g., `liquid/lfm2.5-1.2b`), then:
 
 ```bash
-OPENAI_ENDPOINT=http://localhost:1234/v1 aspire run --apphost HelloAgents.AppHost.Local
+OPENAI_ENDPOINT=http://localhost:1234/v1 aspire run --apphost HelloAgents.AppHost
 ```
 
 Agents will respond with real LLM output instead of "(AI not configured)".
@@ -98,7 +97,7 @@ Runs 11 tests against the in-memory backend. For Cosmos DB tests, use the `cosmo
 cd src/HelloAgents
 
 # Start the stack in the background
-aspire run --apphost HelloAgents.AppHost.Local --detach
+aspire run --apphost HelloAgents.AppHost --detach
 
 # Wait for services, then run E2E
 aspire wait api
@@ -120,7 +119,7 @@ The 26 E2E tests cover:
 
 ```bash
 # Start the stack
-aspire run --apphost HelloAgents.AppHost.Local --detach
+aspire run --apphost HelloAgents.AppHost --detach
 aspire wait api && aspire wait web
 
 # Run Playwright directly (Aspire injects services__web__http__0 and services__api__http__0)

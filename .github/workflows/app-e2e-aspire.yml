@@ -1,0 +1,167 @@
+name: Aspire E2E Tests (Reusable)
+
+# Reusable workflow for Playwright E2E tests via Aspire CLI.
+# Handles: setup, Aspire start/wait/stop, Playwright run, report, artifacts.
+#
+# Usage:
+#   jobs:
+#     e2e:
+#       uses: ./.github/workflows/app-e2e-aspire.yml
+#       with:
+#         working_dir: src/HelloOrleons
+#         apphost_project: HelloOrleons.AppHost
+#         e2e_dir: src/HelloOrleons/HelloOrleons.E2E
+#         wait_resources: 'api'
+#       secrets: inherit
+
+on:
+  workflow_call:
+    inputs:
+      working_dir:
+        description: 'Working directory for dotnet commands (e.g. src/HelloOrleons)'
+        required: true
+        type: string
+      apphost_project:
+        description: 'Aspire AppHost project name (e.g. HelloOrleons.AppHost)'
+        required: true
+        type: string
+      e2e_dir:
+        description: 'Path to Playwright E2E test directory'
+        required: true
+        type: string
+      wait_resources:
+        description: 'Space-separated list of Aspire resources to wait for (e.g. "api" or "api web")'
+        required: false
+        type: string
+        default: 'api'
+      wait_timeout:
+        description: 'Timeout in seconds for each resource wait'
+        required: false
+        type: number
+        default: 600
+      extra_npm_dirs:
+        description: 'Space-separated list of additional directories to run npm ci in (e.g. "src/App/App.Web")'
+        required: false
+        type: string
+        default: ''
+      apphost_env:
+        description: 'Extra env vars for aspire start as KEY=VALUE lines (one per line)'
+        required: false
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
+jobs:
+  e2e:
+    name: Playwright E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+
+      - name: Install Aspire workload
+        run: dotnet workload install aspire
+
+      - name: Install Aspire CLI
+        run: |
+          dotnet tool install -g Aspire.Cli
+          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+
+      - name: Install extra npm dependencies
+        if: inputs.extra_npm_dirs != ''
+        run: |
+          for dir in ${{ inputs.extra_npm_dirs }}; do
+            echo "Installing npm deps in $dir..."
+            npm ci --prefix "$dir"
+          done
+
+      - name: Install E2E dependencies
+        run: npm ci
+        working-directory: ${{ inputs.e2e_dir }}
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: ${{ inputs.e2e_dir }}
+
+      - name: Build .NET projects
+        run: dotnet build
+        working-directory: ${{ inputs.working_dir }}
+
+      - name: Expose GitHub Actions runtime
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env['ACTIONS_RUNTIME_TOKEN']);
+            core.exportVariable('ACTIONS_RESULTS_URL', process.env['ACTIONS_RESULTS_URL']);
+
+      - name: Trust ASP.NET Core dev certificate
+        run: |
+          dotnet dev-certs https --trust || true
+          echo "SSL_CERT_DIR=$HOME/.aspnet/dev-certs/trust:/usr/lib/ssl/certs" >> $GITHUB_ENV
+
+      - name: Set extra AppHost env vars
+        if: inputs.apphost_env != ''
+        run: |
+          echo "${{ inputs.apphost_env }}" >> $GITHUB_ENV
+
+      - name: Start Aspire AppHost
+        run: aspire start --apphost ${{ inputs.apphost_project }} --non-interactive --nologo
+        working-directory: ${{ inputs.working_dir }}
+        env:
+          ASPIRE_ALLOW_UNSECURED_TRANSPORT: "true"
+
+      - name: Wait for services
+        run: |
+          for resource in ${{ inputs.wait_resources }}; do
+            echo "Waiting for $resource (timeout ${{ inputs.wait_timeout }}s)..."
+            aspire wait "$resource" --timeout ${{ inputs.wait_timeout }} --non-interactive --nologo
+          done
+          aspire describe --non-interactive --nologo
+        working-directory: ${{ inputs.working_dir }}
+
+      - name: Run Playwright E2E via Aspire
+        run: |
+          aspire resource e2e start --non-interactive --nologo
+          aspire wait e2e --status down --timeout 300 --non-interactive --nologo
+        working-directory: ${{ inputs.working_dir }}
+
+      - name: Collect E2E logs on failure
+        if: failure()
+        run: aspire logs e2e --non-interactive --nologo --tail 200 || true
+        working-directory: ${{ inputs.working_dir }}
+
+      - name: Stop Aspire
+        if: always()
+        run: aspire stop --non-interactive --nologo || true
+        working-directory: ${{ inputs.working_dir }}
+
+      - name: Playwright report summary
+        if: always()
+        uses: daun/playwright-report-summary@v3
+        with:
+          report-file: ${{ inputs.e2e_dir }}/test-results/results.json
+          job-summary: true
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          retention-days: 5
+          path: |
+            ${{ inputs.e2e_dir }}/playwright-report/
+            ${{ inputs.e2e_dir }}/test-results/
