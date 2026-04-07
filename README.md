@@ -22,15 +22,15 @@ A hands-on learning framework for senior software engineers: design, build, and 
 
 ## Example Applications
 
-| App | Description | Tech Stack | SPA | Tests | E2E | AOT | Maturity |
-|-----|-------------|------------|:---:|:-----:|:---:|:---:|----------|
-| **[PlayersOnLevel0](src/PlayersOnLevel0/)** | Lightweight REST API for player progression | .NET 10, Cosmos DB, Aspire | ✅ React+Vite | ✅ TUnit | ✅ Playwright | ✅ | ⭐⭐⭐⭐⭐ Production |
-| **[DarkUxChallenge](src/DarkUxChallenge/)** | Accessibility testing challenge — hostile-but-truthful UX | .NET 10, Cosmos DB, Aspire | ✅ React+Vite | ✅ TUnit | ✅ Playwright | ✅ | ⭐⭐⭐⭐⭐ Production |
-| **[HelloAgents](src/HelloAgents/)** | AI multi-agent conversations with Orleans streaming | .NET 10, Orleans, Redis, OpenAI, Cosmos DB | ✅ React | ✅ TUnit | ✅ Playwright | — | ⭐⭐⭐⭐ Production (429 rate limits) |
-| **[HelloOrleons](src/HelloOrleons/)** | Orleans clustering demo with Redis | .NET 10, Orleans, Redis | — | ✅ TUnit | — | — | ⭐⭐⭐⭐ Production |
-| **[PlayersOn](src/PlayersOn/)** | Orleans grain architecture reference | .NET 10, Orleans | — | ✅ | — | — | ⭐⭐ Reference only |
-| **[PlayersOnOrleans](src/PlayersOnOrleons/)** | Minimal Orleans alternative demo | .NET 10, Orleans | — | ✅ | — | — | ⭐⭐ Reference only |
-| **[Orthereum](src/Orthereum/)** | Ethereum-like state machine with AOT | .NET 10, Orleans, AOT | — | ✅ | — | ✅ | ⭐⭐ Reference only |
+| App | Description | Tech Stack | SPA | Tests | E2E | AOT |
+|-----|-------------|------------|:---:|:-----:|:---:|:---:|
+| **[PlayersOnLevel0](src/PlayersOnLevel0/)** | Lightweight REST API for player progression | .NET 10, Cosmos DB, Aspire | ✅ React+Vite | ✅ TUnit | ✅ Playwright | ✅ |
+| **[DarkUxChallenge](src/DarkUxChallenge/)** | Accessibility testing challenge — hostile-but-truthful UX | .NET 10, Cosmos DB, Aspire | ✅ React+Vite | ✅ TUnit | ✅ Playwright | ✅ |
+| **[HelloAgents](src/HelloAgents/)** | AI multi-agent conversations with Orleans streaming | .NET 10, Orleans, Redis, OpenAI, Cosmos DB | ✅ React | ✅ TUnit | ✅ Playwright | — |
+| **[HelloOrleons](src/HelloOrleons/)** | Orleans clustering demo with Redis | .NET 10, Orleans, Redis | — | ✅ TUnit | — | — |
+| **[PlayersOn](src/PlayersOn/)** | Orleans grain architecture reference | .NET 10, Orleans | — | ✅ | — | — |
+| **[PlayersOnOrleans](src/PlayersOnOrleons/)** | Minimal Orleans alternative demo | .NET 10, Orleans | — | ✅ | — | — |
+| **[Orthereum](src/Orthereum/)** | Ethereum-like state machine with AOT | .NET 10, Orleans, AOT | — | ✅ | — | ✅ |
 
 ### Deployment Status
 
