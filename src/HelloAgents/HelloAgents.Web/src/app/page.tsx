@@ -43,12 +43,14 @@ export default function HomePage() {
 
   // Fetch group detail when selected
   useEffect(() => {
+    // Always clear ephemeral thinking state on any group change
+    setThinkingAgents(new Set());
+
     if (!selectedGroupId) {
       setGroupDetail(null);
       setMessages([]);
       setGroupAgents([]);
       setStreamEvents([]);
-      setThinkingAgents(new Set());
       return;
     }
 
