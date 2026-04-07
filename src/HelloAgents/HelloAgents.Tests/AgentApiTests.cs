@@ -179,16 +179,16 @@ public abstract class AgentApiTests(HttpClient client)
 
         await Assert.That(state).IsNotNull();
 
-        // Verify: agent responded with content from MockStreamingChatClient
+        // Verify: agent responded with non-empty content
         var agentMessage = state!.Messages.FirstOrDefault(m =>
             m.SenderType == SenderType.Agent && m.EventType == EventType.Message);
         await Assert.That(agentMessage).IsNotNull();
-        await Assert.That(agentMessage!.Content).Contains("Hello from the streaming mock client");
+        await Assert.That(agentMessage!.Content).IsNotEmpty();
 
         // Verify: Thinking and Streaming events are NOT persisted in group state
-        var thinkingEvents = state.Messages.Where(m => m.EventType == EventType.Thinking).ToList();
-        var streamingEvents = state.Messages.Where(m => m.EventType == EventType.Streaming).ToList();
-        await Assert.That(thinkingEvents.Count).IsEqualTo(0);
-        await Assert.That(streamingEvents.Count).IsEqualTo(0);
+        var persistedThinking = state.Messages.Where(m => m.EventType == EventType.Thinking).ToList();
+        var persistedStreaming = state.Messages.Where(m => m.EventType == EventType.Streaming).ToList();
+        await Assert.That(persistedThinking.Count).IsEqualTo(0);
+        await Assert.That(persistedStreaming.Count).IsEqualTo(0);
     }
 }

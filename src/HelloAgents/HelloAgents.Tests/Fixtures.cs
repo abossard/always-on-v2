@@ -6,6 +6,7 @@ using Aspire.Hosting.Testing;
 using HelloAgents.AppHost;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.Extensions.Configuration;
 using TUnit.Core.Interfaces;
 
 namespace HelloAgents.Tests;
@@ -27,13 +28,21 @@ public class InMemoryFixture : WebApplicationFactory<HelloAgents.Api.Program>, I
 
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        builder.UseSetting("Storage:Provider", "InMemory");
-        builder.UseSetting("AZURE_OPENAI_ENDPOINT", "");
-        builder.UseSetting("OPENAI_ENDPOINT", "");
-        builder.UseSetting("LLM_STREAM_CHUNK_CHARS", "20");
-        builder.UseSetting("LLM_STREAM_CHUNK_INTERVAL_MS", "50");
-        // Signal Program.cs to use MockStreamingChatClient
-        builder.UseSetting("USE_MOCK_CHAT_CLIENT", "true");
+        // Clear AI endpoints so NoOpChatClient is used when real Azure OpenAI is not available.
+        // In CI, AZURE_OPENAI_ENDPOINT is set as env var → real AI is used.
+        // Locally without env vars → NoOpChatClient (agents respond with "(AI not configured)").
+        Environment.SetEnvironmentVariable("AZURE_OPENAI_ENDPOINT",
+            Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT") ?? "");
+
+        builder.ConfigureAppConfiguration(config =>
+        {
+            config.AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["Storage:Provider"] = "InMemory",
+                ["LLM_STREAM_CHUNK_CHARS"] = "20",
+                ["LLM_STREAM_CHUNK_INTERVAL_MS"] = "50",
+            });
+        });
     }
 }
 

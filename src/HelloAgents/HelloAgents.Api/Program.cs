@@ -136,12 +136,7 @@ var deployment = builder.Configuration[ConfigKeys.AzureOpenAiDeployment] ?? "gpt
 var openAiEndpoint = builder.Configuration[ConfigKeys.OpenAiEndpoint] ?? "";
 var openAiModel = builder.Configuration[ConfigKeys.OpenAiModel] ?? "default";
 
-if (builder.Configuration.GetValue<bool>("USE_MOCK_CHAT_CLIENT"))
-{
-    // Test mode: use mock streaming chat client
-    builder.Services.AddSingleton<IChatClient>(new MockStreamingChatClient());
-}
-else if (!string.IsNullOrWhiteSpace(azureEndpoint))
+if (!string.IsNullOrWhiteSpace(azureEndpoint))
 {
     builder.Services.TryAddSingleton<IChatClient>(sp =>
     {
@@ -221,7 +216,7 @@ namespace HelloAgents.Api
     }
 
     /// <summary>Mock streaming chat client for testing. Yields tokens with short delays.</summary>
-    internal sealed class MockStreamingChatClient : IChatClient
+    public sealed class MockStreamingChatClient : IChatClient
     {
         private static readonly string[] Tokens = ["Hello ", "from ", "the ", "streaming ", "mock ", "client! ", "This ", "is ", "a ", "test."];
 
