@@ -57,7 +57,16 @@ export default function HomePage() {
     setIsLoadingGroup(true);
     api.getGroup(selectedGroupId).then(async (detail) => {
       setGroupDetail(detail);
-      setMessages(detail.messages);
+      // Separate persisted messages from ephemeral pending messages (thinking/streaming)
+      const pending = new Map<string, string>();
+      const history: ChatMessage[] = [];
+      for (const m of detail.messages) {
+        if (m.eventType === "Thinking") pending.set(m.senderName, "");
+        else if (m.eventType === "Streaming") pending.set(m.senderName, m.content);
+        else history.push(m);
+      }
+      setMessages(history);
+      setThinkingAgents(pending);
       const agents = await Promise.all(
         detail.agents.map(a => api.getAgent(a.id))
       );

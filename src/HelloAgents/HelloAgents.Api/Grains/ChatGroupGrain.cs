@@ -8,6 +8,7 @@ public sealed class ChatGroupGrain(
 {
     private const int MaxMessages = 200;
     private IAsyncStream<ChatMessage>? _stream;
+    private readonly Dictionary<string, ChatMessageState> _pendingMessages = [];
 
     public override async Task OnActivateAsync(CancellationToken ct)
     {
@@ -75,6 +76,10 @@ public sealed class ChatGroupGrain(
                 break;
 
             case EventType.Message:
+                // Agent message clears any pending thinking/streaming for that agent
+                if (msg.SenderType == SenderType.Agent)
+                    _pendingMessages.Remove(msg.SenderName);
+
                 AppendMessage(new ChatMessageState
                 {
                     Id = msg.Id,
@@ -87,6 +92,22 @@ public sealed class ChatGroupGrain(
                     GroupId = msg.GroupId
                 });
                 await state.WriteStateAsync();
+                break;
+
+            case EventType.Thinking:
+            case EventType.Streaming:
+                // Track in memory — not persisted, cleared when final Message arrives
+                _pendingMessages[msg.SenderName] = new ChatMessageState
+                {
+                    Id = msg.Id,
+                    SenderName = msg.SenderName,
+                    SenderEmoji = msg.SenderEmoji,
+                    SenderType = msg.SenderType,
+                    EventType = msg.EventType,
+                    Content = msg.Content,
+                    Timestamp = msg.Timestamp,
+                    GroupId = msg.GroupId
+                };
                 break;
         }
     }
@@ -109,7 +130,10 @@ public sealed class ChatGroupGrain(
             throw new InvalidOperationException($"Group '{this.GetPrimaryKeyString()}' not initialized.");
 
         var groupId = this.GetPrimaryKeyString();
+
+        // Persisted messages + ephemeral pending messages (thinking/streaming)
         var messages = state.State.Messages
+            .Concat(_pendingMessages.Values)
             .Select(m => new ChatMessage(m.Id, groupId, m.SenderName, m.SenderEmoji, m.SenderType, m.Content, m.Timestamp, m.EventType))
             .ToArray();
 
