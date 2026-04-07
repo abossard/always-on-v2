@@ -63,7 +63,9 @@ public sealed class LlmIntentGrain(
         state.State.CreatedAt = DateTimeOffset.UtcNow;
         await state.WriteStateAsync();
 
-        await ExecuteCoreAsync();
+        // Fire-and-forget: don't block the caller (Orleans has a 30s grain call timeout).
+        // State is persisted — crash recovery handles failures.
+        _ = ExecuteCoreAsync();
     }
 
     public async Task CancelAsync()
