@@ -49,7 +49,7 @@ jobs:
         id: provision
         run: |
           az stack sub create \
-            --name "$AZURE_ENV_NAME" \
+            --name "azd-stack-$AZURE_ENV_NAME" \
             --location "${{ vars.AZURE_LOCATION }}" \
             --template-file infra/main.bicep \
             --parameters infra/main.bicepparam \
