@@ -11,6 +11,7 @@ const eventTypeColors: Record<string, string> = {
   Message: "text-blue-400",
   AgentJoined: "text-emerald-400",
   AgentLeft: "text-rose-400",
+  Thinking: "text-yellow-400",
 };
 
 const senderTypeIcons: Record<string, string> = {
@@ -87,6 +88,7 @@ export function StreamDiagnostics({ events }: Props) {
             <span className="text-[10px] text-blue-400">● Message</span>
             <span className="text-[10px] text-emerald-400">● Joined</span>
             <span className="text-[10px] text-rose-400">● Left</span>
+            <span className="text-[10px] text-yellow-400">● Thinking</span>
           </div>
         </div>
       )}

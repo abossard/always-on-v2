@@ -2,7 +2,7 @@
 // ─── API Types ──────────────────────────────────────────────
 
 export type SenderType = "User" | "Agent" | "System";
-export type EventType = "Message" | "AgentJoined" | "AgentLeft";
+export type EventType = "Message" | "AgentJoined" | "AgentLeft" | "Thinking";
 
 export interface ChatMessage {
   id: string;

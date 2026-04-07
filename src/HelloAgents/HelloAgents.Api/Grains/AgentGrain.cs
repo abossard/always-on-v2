@@ -11,6 +11,7 @@ public sealed class AgentGrain(
     private IAsyncStream<IntentResult>? _agentStream;
     private readonly Dictionary<string, StreamSubscriptionHandle<ChatMessage>> _groupHandles = [];
     private readonly Dictionary<string, List<ChatMessageState>> _groupContexts = [];
+    private readonly Dictionary<string, string> _pendingIntents = []; // groupId → intentId
 
     public override async Task OnActivateAsync(CancellationToken ct)
     {
@@ -34,6 +35,26 @@ public sealed class AgentGrain(
             await SubscribeToGroupStream(streamProvider, groupId);
 
         await base.OnActivateAsync(ct);
+    }
+
+    public override async Task OnDeactivateAsync(DeactivationReason reason, CancellationToken ct)
+    {
+        // Kill all pending intent grains — orphan intents serve no purpose
+        foreach (var (_, intentId) in _pendingIntents)
+        {
+            try
+            {
+                var grain = GrainFactory.GetGrain<ILlmIntentGrain>(intentId);
+                _ = grain.CancelAsync();
+            }
+            catch (Exception ex)
+            {
+                logger.LogDebug(ex, "Failed to cancel intent {IntentId} during deactivation", intentId);
+            }
+        }
+        _pendingIntents.Clear();
+
+        await base.OnDeactivateAsync(reason, ct);
     }
 
     private async Task SubscribeToGroupStream(IStreamProvider streamProvider, string groupId)
@@ -88,8 +109,18 @@ public sealed class AgentGrain(
         if (!ShouldRespond(msg))
             return;
 
-        // Spawn LlmIntentGrain — fire and forget
         var agentId = this.GetPrimaryKeyString();
+
+        // Cancel existing pending intent for this group — agent needs a fresh answer
+        if (_pendingIntents.TryGetValue(groupId, out var oldIntentId))
+        {
+            logger.LogInformation("Agent {AgentName} cancelling stale intent {IntentId} for group {GroupId}",
+                state.State.Name, oldIntentId, groupId);
+            var oldGrain = GrainFactory.GetGrain<ILlmIntentGrain>(oldIntentId);
+            _ = oldGrain.CancelAsync();
+            _pendingIntents.Remove(groupId);
+        }
+
         var intentId = $"{agentId}-{Guid.NewGuid().ToString("N")[..8]}";
         var context = _groupContexts.GetValueOrDefault(groupId, []);
         var recentContext = context.TakeLast(MaxContextMessages).ToList();
@@ -104,10 +135,27 @@ public sealed class AgentGrain(
         logger.LogInformation("Agent {AgentName} spawning intent {IntentId} for group {GroupId}",
             state.State.Name, intentId, groupId);
 
+        // Spawn the intent grain
         var intentGrain = GrainFactory.GetGrain<ILlmIntentGrain>(intentId);
         intentGrain.ExecuteAsync(request, persona)
-            .ContinueWith(t => logger.LogError(t.Exception, "Intent {IntentId} failed", intentId),
+            .ContinueWith(t => logger.LogError(t.Exception, "Intent {IntentId} failed to start", intentId),
                 TaskContinuationOptions.OnlyOnFaulted);
+
+        // Track and publish "thinking" AFTER creating the intent
+        _pendingIntents[groupId] = intentId;
+
+        var streamProvider = this.GetStreamProvider("ChatMessages");
+        var groupStream = streamProvider.GetStream<ChatMessage>(
+            StreamId.Create("group", groupId));
+        await groupStream.OnNextAsync(new ChatMessage(
+            $"thinking-{intentId}",
+            groupId,
+            state.State.Name,
+            state.State.AvatarEmoji,
+            SenderType.Agent,
+            $"{state.State.AvatarEmoji} {state.State.Name} will respond...",
+            DateTimeOffset.UtcNow,
+            EventType.Thinking));
     }
 
     private static bool ShouldRespond(ChatMessage msg) => msg.EventType switch
@@ -126,8 +174,35 @@ public sealed class AgentGrain(
     /// <summary>Processes LLM results from intent grains on the agent stream.</summary>
     private async Task OnIntentCompleted(IntentResult result, StreamSequenceToken? token)
     {
-        logger.LogInformation("AgentGrain {AgentName} received {IntentType} result {IntentId} for group {GroupId}",
-            state.State.Name, result.IntentType, result.IntentId, result.GroupId);
+        // Clear pending tracking
+        if (_pendingIntents.TryGetValue(result.GroupId, out var pendingId)
+            && pendingId == result.IntentId)
+        {
+            _pendingIntents.Remove(result.GroupId);
+        }
+
+        logger.LogInformation("AgentGrain {AgentName} received {IntentType} result {IntentId} for group {GroupId} (failed={Failed})",
+            state.State.Name, result.IntentType, result.IntentId, result.GroupId, result.Failed);
+
+        if (result.Failed)
+        {
+            // Only surface failure for Response intents — reflections are silent
+            if (result.IntentType == IntentType.Response)
+            {
+                var streamProvider = this.GetStreamProvider("ChatMessages");
+                var groupStream = streamProvider.GetStream<ChatMessage>(
+                    StreamId.Create("group", result.GroupId));
+                await groupStream.OnNextAsync(new ChatMessage(
+                    Guid.NewGuid().ToString("N"),
+                    result.GroupId,
+                    state.State.Name,
+                    state.State.AvatarEmoji,
+                    SenderType.System,
+                    $"⚠️ {state.State.Name} couldn't respond (rate limited). Try again later.",
+                    DateTimeOffset.UtcNow));
+            }
+            return;
+        }
 
         if (result.IntentType == IntentType.Response)
         {
@@ -237,6 +312,14 @@ public sealed class AgentGrain(
     {
         var agentId = this.GetPrimaryKeyString();
 
+        // Cancel any pending intent for this group
+        if (_pendingIntents.TryGetValue(groupId, out var intentId))
+        {
+            var grain = GrainFactory.GetGrain<ILlmIntentGrain>(intentId);
+            _ = grain.CancelAsync();
+            _pendingIntents.Remove(groupId);
+        }
+
         var streamProvider = this.GetStreamProvider("ChatMessages");
         var groupStream = streamProvider.GetStream<ChatMessage>(
             StreamId.Create("group", groupId));
@@ -263,6 +346,14 @@ public sealed class AgentGrain(
 
     public async Task DeleteAsync()
     {
+        // Cancel all pending intents
+        foreach (var (_, intentId) in _pendingIntents)
+        {
+            var grain = GrainFactory.GetGrain<ILlmIntentGrain>(intentId);
+            _ = grain.CancelAsync();
+        }
+        _pendingIntents.Clear();
+
         foreach (var (_, handle) in _groupHandles)
             await handle.UnsubscribeAsync();
         _groupHandles.Clear();

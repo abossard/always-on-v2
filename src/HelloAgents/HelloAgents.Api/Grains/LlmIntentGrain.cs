@@ -4,36 +4,43 @@ using Orleans.Streams;
 namespace HelloAgents.Api.Grains;
 
 /// <summary>
-/// Ephemeral grain for durable LLM I/O. Persists intent before calling LLM,
-/// publishes result to agent stream, then self-destructs.
-/// On crash recovery: retries from persisted state.
+/// Decoupled LLM worker grain. Persists everything needed to retry autonomously.
+/// Publishes IntentResult to the agent stream on success or after exhausting retries.
+/// Has no knowledge of groups or agent-specific logic — just calls LLM and retries.
 /// </summary>
 public sealed class LlmIntentGrain(
     [PersistentState("intent", "Default")] IPersistentState<LlmIntentGrainState> state,
     IChatClient chatClient,
-    IGrainFactory grainFactory,
+    IConfiguration configuration,
     ILogger<LlmIntentGrain> logger) : Grain, ILlmIntentGrain
 {
+    private IGrainTimer? _retryTimer;
+
+    private int MaxRetries => configuration.GetValue(ConfigKeys.LlmIntentMaxRetries, 10);
+    private int MaxAgeMinutes => configuration.GetValue(ConfigKeys.LlmIntentMaxAgeMinutes, 60);
+
     public override async Task OnActivateAsync(CancellationToken ct)
     {
-        // Crash recovery: if state exists and not completed, retry
         if (!string.IsNullOrEmpty(state.State.AgentId) && !state.State.Completed)
         {
-            logger.LogInformation("LlmIntentGrain {IntentId} recovering — retrying LLM call for agent {AgentId}",
-                this.GetPrimaryKeyString(), state.State.AgentId);
+            // Check max age — fail immediately if too old
+            if (IsExpired())
+            {
+                logger.LogWarning("LlmIntentGrain {IntentId} expired (age > {Max}min), failing",
+                    this.GetPrimaryKeyString(), MaxAgeMinutes);
+                await PublishFailure();
+                return;
+            }
 
-            // Fetch persona from AgentGrain (not persisted in intent state)
-            var agentGrain = grainFactory.GetGrain<IAgentGrain>(state.State.AgentId);
-            var persona = await agentGrain.GetPersonaAsync();
+            // Staggered recovery from persisted schedule
+            var delay = state.State.NextRetryAt.HasValue && state.State.NextRetryAt > DateTimeOffset.UtcNow
+                ? state.State.NextRetryAt.Value - DateTimeOffset.UtcNow
+                : TimeSpan.FromSeconds(2 + Random.Shared.NextDouble() * 30);
 
-            var request = new IntentRequest(
-                state.State.AgentId,
-                state.State.GroupId,
-                state.State.Context,
-                state.State.IntentType);
+            logger.LogInformation("LlmIntentGrain {IntentId} scheduling recovery in {Delay:F1}s (attempt {Retry})",
+                this.GetPrimaryKeyString(), delay.TotalSeconds, state.State.RetryCount);
 
-            // Fire-and-forget retry
-            _ = ExecuteCoreAsync(request, persona);
+            ScheduleRetryTimer(delay);
         }
 
         await base.OnActivateAsync(ct);
@@ -41,68 +48,136 @@ public sealed class LlmIntentGrain(
 
     public async Task ExecuteAsync(IntentRequest request, AgentPersona persona)
     {
-        // Persist minimal state — this IS the durability checkpoint
         state.State.AgentId = request.AgentId;
         state.State.GroupId = request.GroupId;
         state.State.Context = request.Context;
         state.State.IntentType = request.IntentType;
+        state.State.Persona = persona;
         state.State.Completed = false;
+        state.State.RetryCount = 0;
+        state.State.NextRetryAt = null;
         state.State.CreatedAt = DateTimeOffset.UtcNow;
         await state.WriteStateAsync();
 
-        await ExecuteCoreAsync(request, persona);
+        await ExecuteCoreAsync();
     }
 
-    private async Task ExecuteCoreAsync(IntentRequest request, AgentPersona persona)
+    public async Task CancelAsync()
+    {
+        _retryTimer?.Dispose();
+        _retryTimer = null;
+        state.State.Completed = true;
+        await state.ClearStateAsync();
+        DeactivateOnIdle();
+    }
+
+    private async Task ExecuteCoreAsync()
     {
         var intentId = this.GetPrimaryKeyString();
         try
         {
+            // Check max age before attempting
+            if (IsExpired())
+            {
+                logger.LogWarning("LlmIntentGrain {IntentId} expired during retry", intentId);
+                await PublishFailure();
+                return;
+            }
+
+            var persona = state.State.Persona!;
             string result;
 
-            if (request.IntentType == IntentType.Response)
+            if (state.State.IntentType == IntentType.Response)
             {
-                result = await GenerateResponseAsync(request, persona);
+                result = await GenerateResponseAsync(persona);
             }
-            else // Reflection
+            else
             {
-                result = await GenerateReflectionAsync(request, persona);
+                result = await GenerateReflectionAsync(persona);
             }
 
-            // Publish result to the agent stream
-            var streamProvider = this.GetStreamProvider("ChatMessages");
-            var agentStream = streamProvider.GetStream<IntentResult>(
-                StreamId.Create("agent", request.AgentId));
-
-            await agentStream.OnNextAsync(new IntentResult(
-                request.GroupId,
-                result,
-                intentId,
-                request.IntentType));
+            // Publish success to the agent stream
+            await PublishResult(new IntentResult(
+                state.State.GroupId, result, intentId, state.State.IntentType));
 
             logger.LogInformation("LlmIntentGrain {IntentId} completed {IntentType} for agent {AgentId}",
-                intentId, request.IntentType, request.AgentId);
+                intentId, state.State.IntentType, state.State.AgentId);
 
-            // Self-destruct: clear state and deactivate
             state.State.Completed = true;
             await state.ClearStateAsync();
             DeactivateOnIdle();
         }
         catch (Exception ex)
         {
-            logger.LogError(ex, "LlmIntentGrain {IntentId} failed for agent {AgentId}", intentId, request.AgentId);
-            throw; // Bubble up — state remains persisted for retry on reactivation
+            state.State.RetryCount++;
+
+            if (state.State.RetryCount > MaxRetries)
+            {
+                logger.LogError(ex, "LlmIntentGrain {IntentId} exhausted {Max} retries for agent {AgentId}",
+                    intentId, MaxRetries, state.State.AgentId);
+                await PublishFailure();
+                return;
+            }
+
+            // Exponential backoff with full jitter: min(5 * 2^attempt, 55) + rand(0,5)
+            var baseDelay = Math.Min(5 * Math.Pow(2, state.State.RetryCount - 1), 55);
+            var delay = TimeSpan.FromSeconds(baseDelay + Random.Shared.NextDouble() * 5);
+
+            state.State.NextRetryAt = DateTimeOffset.UtcNow + delay;
+            await state.WriteStateAsync();
+
+            logger.LogWarning(ex, "LlmIntentGrain {IntentId} retry {N}/{Max} in {Delay:F1}s",
+                intentId, state.State.RetryCount, MaxRetries, delay.TotalSeconds);
+
+            ScheduleRetryTimer(delay);
         }
     }
 
-    private async Task<string> GenerateResponseAsync(IntentRequest request, AgentPersona persona)
+    private async Task RetryFromStateAsync()
+    {
+        _retryTimer?.Dispose();
+        _retryTimer = null;
+        await ExecuteCoreAsync();
+    }
+
+    private void ScheduleRetryTimer(TimeSpan delay)
+    {
+        _retryTimer?.Dispose();
+        _retryTimer = this.RegisterGrainTimer(
+            async _ => await RetryFromStateAsync(),
+            new GrainTimerCreationOptions(delay, Timeout.InfiniteTimeSpan));
+    }
+
+    private bool IsExpired() =>
+        state.State.CreatedAt != default &&
+        DateTimeOffset.UtcNow - state.State.CreatedAt > TimeSpan.FromMinutes(MaxAgeMinutes);
+
+    private async Task PublishFailure()
+    {
+        var intentId = this.GetPrimaryKeyString();
+        await PublishResult(new IntentResult(
+            state.State.GroupId, "", intentId, state.State.IntentType, Failed: true));
+        state.State.Completed = true;
+        await state.ClearStateAsync();
+        DeactivateOnIdle();
+    }
+
+    private async Task PublishResult(IntentResult result)
+    {
+        var streamProvider = this.GetStreamProvider("ChatMessages");
+        var resultStream = streamProvider.GetStream<IntentResult>(
+            StreamId.Create("agent", state.State.AgentId));
+        await resultStream.OnNextAsync(result);
+    }
+
+    private async Task<string> GenerateResponseAsync(AgentPersona persona)
     {
         var messages = new List<Microsoft.Extensions.AI.ChatMessage>
         {
             new(ChatRole.System, BuildSystemPrompt(persona))
         };
 
-        foreach (var msg in request.Context)
+        foreach (var msg in state.State.Context)
         {
             var role = msg.SenderType == SenderType.Agent ? ChatRole.Assistant : ChatRole.User;
             messages.Add(new Microsoft.Extensions.AI.ChatMessage(role, $"[{msg.SenderEmoji} {msg.SenderName}]: {msg.Content}"));
@@ -117,9 +192,9 @@ public sealed class LlmIntentGrain(
         return response.Text ?? "(no response)";
     }
 
-    private async Task<string> GenerateReflectionAsync(IntentRequest request, AgentPersona persona)
+    private async Task<string> GenerateReflectionAsync(AgentPersona persona)
     {
-        var latestContext = request.Context.LastOrDefault()?.Content ?? "";
+        var latestContext = state.State.Context.LastOrDefault()?.Content ?? "";
 
         var messages = new List<Microsoft.Extensions.AI.ChatMessage>
         {
@@ -130,7 +205,7 @@ public sealed class LlmIntentGrain(
                 "and notable points from the conversation. Be extremely concise."),
             new(ChatRole.User,
                 $"Current journal:\n{persona.ReflectionJournal}\n\n" +
-                $"Latest response in group '{request.GroupId}':\n{latestContext}\n\n" +
+                $"Latest response in group '{state.State.GroupId}':\n{latestContext}\n\n" +
                 "Produce the updated journal:")
         };
 

@@ -1,4 +1,5 @@
 using System.ClientModel;
+using System.ClientModel.Primitives;
 using Azure.AI.OpenAI;
 using Azure.Identity;
 using HelloAgents.Api;
@@ -138,7 +139,9 @@ if (!string.IsNullOrWhiteSpace(azureEndpoint))
 {
     builder.Services.AddSingleton<IChatClient>(sp =>
     {
-        var openAiClient = new AzureOpenAIClient(new Uri(azureEndpoint), new DefaultAzureCredential());
+        var options = new AzureOpenAIClientOptions();
+        options.RetryPolicy = new ClientRetryPolicy(maxRetries: 3);
+        var openAiClient = new AzureOpenAIClient(new Uri(azureEndpoint), new DefaultAzureCredential(), options);
         return openAiClient.GetChatClient(deployment).AsIChatClient();
     });
 }

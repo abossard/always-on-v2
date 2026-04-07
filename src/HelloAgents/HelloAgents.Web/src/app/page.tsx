@@ -23,6 +23,7 @@ export default function HomePage() {
   const [isAddingAgent, setIsAddingAgent] = useState(false);
   const [isCreatingAgent, setIsCreatingAgent] = useState(false);
   const [streamEvents, setStreamEvents] = useState<ChatMessage[]>([]);
+  const [thinkingAgents, setThinkingAgents] = useState<Set<string>>(new Set());
 
   // Fetch groups and agents on mount
   const refreshGroups = useCallback(async () => {
@@ -47,6 +48,7 @@ export default function HomePage() {
       setMessages([]);
       setGroupAgents([]);
       setStreamEvents([]);
+      setThinkingAgents(new Set());
       return;
     }
 
@@ -66,6 +68,21 @@ export default function HomePage() {
   useEventSource(selectedGroupId, (msg) => {
     // Track stream events for diagnostics
     setStreamEvents((prev) => [...prev.slice(-49), msg]);
+
+    // Handle Thinking events as ephemeral state — don't add to messages
+    if (msg.eventType === "Thinking") {
+      setThinkingAgents((prev) => new Set(prev).add(msg.senderName));
+      return;
+    }
+
+    // Agent message clears thinking state for that agent
+    if (msg.senderType === "Agent" && msg.eventType === "Message") {
+      setThinkingAgents((prev) => {
+        const next = new Set(prev);
+        next.delete(msg.senderName);
+        return next;
+      });
+    }
 
     setMessages((prev) => {
       if (prev.some((m) => m.id === msg.id)) return prev;
@@ -215,6 +232,7 @@ export default function HomePage() {
               isDiscussing={isDiscussing}
               isSending={isSending}
               groupName={groupDetail.name}
+              thinkingAgents={thinkingAgents}
             />
           ) : (
             <div className="flex-1 flex items-center justify-center">

@@ -8,7 +8,7 @@ namespace HelloAgents.Api;
 public enum SenderType { User, Agent, System }
 
 [JsonConverter(typeof(JsonStringEnumConverter<EventType>))]
-public enum EventType { Message, AgentJoined, AgentLeft }
+public enum EventType { Message, AgentJoined, AgentLeft, Thinking }
 
 [JsonConverter(typeof(JsonStringEnumConverter<IntentType>))]
 public enum IntentType { Response, Reflection }
@@ -55,7 +55,8 @@ public sealed record IntentResult(
     [property: Id(0)] string GroupId,
     [property: Id(1)] string Response,
     [property: Id(2)] string IntentId,
-    [property: Id(3)] IntentType IntentType);
+    [property: Id(3)] IntentType IntentType,
+    [property: Id(4)] bool Failed = false);
 
 /// <summary>Request passed to LlmIntentGrain.ExecuteAsync.</summary>
 [GenerateSerializer]
@@ -115,6 +116,9 @@ public sealed class LlmIntentGrainState
     [Id(3)] public IntentType IntentType { get; set; }
     [Id(4)] public bool Completed { get; set; }
     [Id(5)] public DateTimeOffset CreatedAt { get; set; }
+    [Id(6)] public int RetryCount { get; set; }
+    [Id(7)] public DateTimeOffset? NextRetryAt { get; set; }
+    [Id(8)] public AgentPersona? Persona { get; set; }
 }
 
 [GenerateSerializer]
@@ -155,6 +159,7 @@ public interface IAgentGrain : IGrainWithStringKey
 public interface ILlmIntentGrain : IGrainWithStringKey
 {
     Task ExecuteAsync(IntentRequest request, AgentPersona persona);
+    Task CancelAsync();
 }
 
 public interface IGroupRegistryGrain : IGrainWithStringKey
