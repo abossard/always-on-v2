@@ -124,6 +124,17 @@ jobs:
         env:
           ASPIRE_ALLOW_UNSECURED_TRANSPORT: "true"
 
+      - name: Dump Aspire logs on failure
+        if: failure()
+        run: |
+          echo "## Aspire CLI Logs" >> $GITHUB_STEP_SUMMARY
+          for f in ~/.aspire/logs/*.log; do
+            echo "### $(basename $f)" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            tail -100 "$f" 2>/dev/null | tee -a $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          done
+
       - name: Wait for services
         run: |
           for resource in ${{ inputs.wait_resources }}; do
