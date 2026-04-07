@@ -147,7 +147,7 @@ jobs:
               },
               {
                 "name": "LOCUST_RUN_TIME",
-                "value": "60s"
+                "value": "60"
               }
             ]
 
