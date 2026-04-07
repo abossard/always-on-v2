@@ -38,18 +38,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install azd
-        uses: Azure/setup-azd@v2
-
-      - name: Log in with Azure (Federated Credentials)
-        run: |
-          azd auth login `
-            --client-id "$Env:AZURE_CLIENT_ID" `
-            --federated-credential-provider "github" `
-            --tenant-id "$Env:AZURE_TENANT_ID"
-        shell: pwsh
-
-      - name: Log in Azure CLI (OIDC)
+      - name: Log in to Azure (OIDC)
         uses: azure/login@v2
         with:
           client-id: ${{ vars.AZURE_CLIENT_ID }}
@@ -59,12 +48,14 @@ jobs:
       - name: Provision Infrastructure
         id: provision
         run: |
-          ARGS="--no-prompt"
-          # Force --no-state on scheduled runs (drift correction) or manual trigger with force
-          if [[ "${{ github.event_name }}" == "schedule" ]] || [[ "${{ inputs.force-provision }}" == "true" ]]; then
-            ARGS="$ARGS --no-state"
-          fi
-          azd provision $ARGS
+          az stack sub create \
+            --name "$AZURE_ENV_NAME" \
+            --location "${{ vars.AZURE_LOCATION }}" \
+            --template-file infra/main.bicep \
+            --parameters infra/main.bicepparam \
+            --action-on-unmanage detachAll \
+            --deny-settings-mode none \
+            --yes
 
       - name: Enable Managed Gateway API on AKS clusters
         if: steps.provision.outcome == 'success'
@@ -119,7 +110,7 @@ jobs:
             echo "::warning::DEPLOY_KEY_ADMIN_TOKEN secret not set — printing keys for manual registration"
 
             # Still try to read keys from deployment outputs for display
-            ENV_NAME=$(azd env get-value AZURE_ENV_NAME 2>/dev/null || echo "always-on-v2")
+            ENV_NAME="${AZURE_ENV_NAME:-alwayson}"
             DEPLOYMENT_NAME=$(az deployment sub list \
               --query "[?starts_with(name, '${ENV_NAME}') && properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
               -o tsv 2>/dev/null || echo "")
@@ -147,8 +138,7 @@ jobs:
             exit 0
           fi
 
-          # Get the deployment name from azd environment
-          ENV_NAME=$(azd env get-value AZURE_ENV_NAME 2>/dev/null || echo "always-on-v2")
+          ENV_NAME="${AZURE_ENV_NAME:-alwayson}"
 
           # Find the latest successful subscription-level deployment
           DEPLOYMENT_NAME=$(az deployment sub list \

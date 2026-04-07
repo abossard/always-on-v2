@@ -29,15 +29,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install azd
-        uses: Azure/setup-azd@v1.0.0
-
       - name: Log in to Azure (OIDC)
-        run: azd auth login --federated-credential-provider github
-        env:
-          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
-          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
-          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
 
       - name: Select param file for environment
         run: |
@@ -47,10 +44,12 @@ jobs:
           # dev uses main.bicepparam as-is (already set to dev)
 
       - name: Provision infrastructure
-        run: azd provision --no-prompt
-        env:
-          AZURE_ENV_NAME: ${{ vars.AZURE_ENV_NAME }}
-          AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
-          AZURE_SUBSCRIPTION_ID: ${{ vars.AZURE_SUBSCRIPTION_ID }}
-          AZURE_TENANT_ID: ${{ vars.AZURE_TENANT_ID }}
-          AZURE_CLIENT_ID: ${{ vars.AZURE_CLIENT_ID }}
+        run: |
+          az stack sub create \
+            --name "${{ vars.AZURE_ENV_NAME }}" \
+            --location "${{ vars.AZURE_LOCATION }}" \
+            --template-file infra/main.bicep \
+            --parameters infra/main.bicepparam \
+            --action-on-unmanage detachAll \
+            --deny-settings-mode none \
+            --yes
