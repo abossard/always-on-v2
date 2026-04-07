@@ -8,7 +8,7 @@ namespace HelloAgents.Api;
 public enum SenderType { User, Agent, System }
 
 [JsonConverter(typeof(JsonStringEnumConverter<EventType>))]
-public enum EventType { Message, AgentJoined, AgentLeft, Thinking }
+public enum EventType { Message, AgentJoined, AgentLeft, Thinking, Streaming }
 
 [JsonConverter(typeof(JsonStringEnumConverter<IntentType>))]
 public enum IntentType { Response, Reflection }
@@ -56,7 +56,8 @@ public sealed record IntentResult(
     [property: Id(1)] string Response,
     [property: Id(2)] string IntentId,
     [property: Id(3)] IntentType IntentType,
-    [property: Id(4)] bool Failed = false);
+    [property: Id(4)] bool Failed = false,
+    [property: Id(5)] bool IsPartial = false);
 
 /// <summary>Request passed to LlmIntentGrain.ExecuteAsync.</summary>
 [GenerateSerializer]

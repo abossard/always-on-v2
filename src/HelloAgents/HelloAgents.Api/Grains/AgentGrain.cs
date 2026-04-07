@@ -174,11 +174,33 @@ public sealed class AgentGrain(
     /// <summary>Processes LLM results from intent grains on the agent stream.</summary>
     private async Task OnIntentCompleted(IntentResult result, StreamSequenceToken? token)
     {
-        // Clear pending tracking
-        if (_pendingIntents.TryGetValue(result.GroupId, out var pendingId)
+        // Only clear pending tracking on final (non-partial) results
+        if (!result.IsPartial
+            && _pendingIntents.TryGetValue(result.GroupId, out var pendingId)
             && pendingId == result.IntentId)
         {
             _pendingIntents.Remove(result.GroupId);
+        }
+
+        if (result.IsPartial)
+        {
+            // Forward partial streaming text to group stream with stable ID
+            if (result.IntentType == IntentType.Response)
+            {
+                var streamProvider = this.GetStreamProvider("ChatMessages");
+                var groupStream = streamProvider.GetStream<ChatMessage>(
+                    StreamId.Create("group", result.GroupId));
+                await groupStream.OnNextAsync(new ChatMessage(
+                    $"stream-{result.IntentId}",
+                    result.GroupId,
+                    state.State.Name,
+                    state.State.AvatarEmoji,
+                    SenderType.Agent,
+                    result.Response,
+                    DateTimeOffset.UtcNow,
+                    EventType.Streaming));
+            }
+            return;
         }
 
         logger.LogInformation("AgentGrain {AgentName} received {IntentType} result {IntentId} for group {GroupId} (failed={Failed})",

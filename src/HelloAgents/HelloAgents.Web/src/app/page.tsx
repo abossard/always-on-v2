@@ -23,7 +23,7 @@ export default function HomePage() {
   const [isAddingAgent, setIsAddingAgent] = useState(false);
   const [isCreatingAgent, setIsCreatingAgent] = useState(false);
   const [streamEvents, setStreamEvents] = useState<ChatMessage[]>([]);
-  const [thinkingAgents, setThinkingAgents] = useState<Set<string>>(new Set());
+  const [thinkingAgents, setThinkingAgents] = useState<Map<string, string>>(new Map());
 
   // Fetch groups and agents on mount
   const refreshGroups = useCallback(async () => {
@@ -44,7 +44,7 @@ export default function HomePage() {
   // Fetch group detail when selected
   useEffect(() => {
     // Always clear ephemeral thinking state on any group change
-    setThinkingAgents(new Set());
+    setThinkingAgents(new Map());
 
     if (!selectedGroupId) {
       setGroupDetail(null);
@@ -73,14 +73,20 @@ export default function HomePage() {
 
     // Handle Thinking events as ephemeral state — don't add to messages
     if (msg.eventType === "Thinking") {
-      setThinkingAgents((prev) => new Set(prev).add(msg.senderName));
+      setThinkingAgents((prev) => new Map(prev).set(msg.senderName, ""));
       return;
     }
 
-    // Agent message clears thinking state for that agent
+    // Handle Streaming events — update partial text for agent
+    if (msg.eventType === "Streaming") {
+      setThinkingAgents((prev) => new Map(prev).set(msg.senderName, msg.content));
+      return;
+    }
+
+    // Agent message clears thinking/streaming state for that agent
     if (msg.senderType === "Agent" && msg.eventType === "Message") {
       setThinkingAgents((prev) => {
-        const next = new Set(prev);
+        const next = new Map(prev);
         next.delete(msg.senderName);
         return next;
       });

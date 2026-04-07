@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using HelloAgents.Api;
 
 namespace HelloAgents.Tests;
@@ -136,5 +137,58 @@ public abstract class AgentApiTests(HttpClient client)
         var response = await client.PostAsJsonAsync("/api/orchestrate",
             new OrchestrateRequest(""));
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
+    }
+
+    [Test]
+    [Timeout(30_000)]
+    public async Task Discussion_AgentRespondsWithStreamingContent()
+    {
+        // Create group
+        var groupResponse = await client.PostAsJsonAsync("/api/groups",
+            new CreateGroupRequest("StreamTest", "Streaming test"));
+        var group = await groupResponse.Content.ReadFromJsonAsync<ChatGroupDetail>();
+        await Assert.That(group).IsNotNull();
+
+        // Create agent
+        var agentResponse = await client.PostAsJsonAsync("/api/agents",
+            new CreateAgentRequest("StreamBot", "A streaming test bot", "🔄"));
+        var agent = await agentResponse.Content.ReadFromJsonAsync<AgentInfo>();
+        await Assert.That(agent).IsNotNull();
+
+        // Add agent to group
+        await client.PostAsJsonAsync($"/api/groups/{group!.Id}/agents",
+            new AddAgentToGroupRequest(agent!.Id));
+        await Task.Delay(500);
+
+        // Send a message to trigger agent response
+        await client.PostAsJsonAsync($"/api/groups/{group.Id}/messages",
+            new SendMessageRequest("Tester", "Tell me something"));
+
+        // Wait for the agent to process (streaming + Orleans stream propagation)
+        // The MockStreamingChatClient yields tokens quickly, but Orleans needs time
+        ChatGroupDetail? state = null;
+        for (int i = 0; i < 20; i++)
+        {
+            await Task.Delay(500);
+            var stateResponse = await client.GetAsync($"/api/groups/{group.Id}");
+            state = await stateResponse.Content.ReadFromJsonAsync<ChatGroupDetail>();
+            // Look for an agent message (from MockStreamingChatClient)
+            if (state?.Messages.Any(m => m.SenderType == SenderType.Agent && m.EventType == EventType.Message) == true)
+                break;
+        }
+
+        await Assert.That(state).IsNotNull();
+
+        // Verify: agent responded with content from MockStreamingChatClient
+        var agentMessage = state!.Messages.FirstOrDefault(m =>
+            m.SenderType == SenderType.Agent && m.EventType == EventType.Message);
+        await Assert.That(agentMessage).IsNotNull();
+        await Assert.That(agentMessage!.Content).Contains("Hello from the streaming mock client");
+
+        // Verify: Thinking and Streaming events are NOT persisted in group state
+        var thinkingEvents = state.Messages.Where(m => m.EventType == EventType.Thinking).ToList();
+        var streamingEvents = state.Messages.Where(m => m.EventType == EventType.Streaming).ToList();
+        await Assert.That(thinkingEvents.Count).IsEqualTo(0);
+        await Assert.That(streamingEvents.Count).IsEqualTo(0);
     }
 }

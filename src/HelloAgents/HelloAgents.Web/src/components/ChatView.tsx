@@ -10,7 +10,7 @@ interface Props {
   isDiscussing: boolean;
   isSending: boolean;
   groupName: string;
-  thinkingAgents: Set<string>;
+  thinkingAgents: Map<string, string>;
 }
 
 export function ChatView({ messages, onSendMessage, onStartDiscussion, isDiscussing, isSending, groupName, thinkingAgents }: Props) {
@@ -140,19 +140,32 @@ export function ChatView({ messages, onSendMessage, onStartDiscussion, isDiscuss
             </span>
           </div>
         )}
-        {/* Per-agent thinking indicators */}
-        {Array.from(thinkingAgents).map((agentName) => (
-          <div key={`thinking-${agentName}`} className="flex gap-3 items-center">
-            <div className="text-2xl">🤖</div>
-            <div className="bg-yellow-500/10 border border-yellow-500/20 rounded-lg px-4 py-2.5">
-              <div className="flex items-center gap-2">
-                <div className="flex gap-1.5">
-                  <span className="w-2 h-2 bg-yellow-400/60 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-                  <span className="w-2 h-2 bg-yellow-400/60 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-                  <span className="w-2 h-2 bg-yellow-400/60 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+        {/* Per-agent thinking/streaming indicators */}
+        {Array.from(thinkingAgents).map(([agentName, partialText]) => (
+          <div key={`thinking-${agentName}`} className="flex gap-3">
+            <div className="text-2xl flex-shrink-0 mt-1">🤖</div>
+            <div className={`max-w-[75%] rounded-lg px-3 py-2 ${partialText ? "bg-white/10 text-white" : "bg-yellow-500/10 border border-yellow-500/20"}`}>
+              {partialText ? (
+                <>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-semibold text-white/80">{agentName}</span>
+                    <span className="text-xs text-yellow-300/50">streaming...</span>
+                  </div>
+                  <p className="text-sm leading-relaxed">
+                    {partialText}
+                    <span className="inline-block w-1.5 h-4 bg-yellow-400/60 ml-0.5 animate-pulse align-text-bottom" />
+                  </p>
+                </>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <div className="flex gap-1.5">
+                    <span className="w-2 h-2 bg-yellow-400/60 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-2 h-2 bg-yellow-400/60 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-2 h-2 bg-yellow-400/60 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                  </div>
+                  <span className="text-xs text-yellow-300/70">{agentName} will respond...</span>
                 </div>
-                <span className="text-xs text-yellow-300/70">{agentName} will respond...</span>
-              </div>
+              )}
             </div>
           </div>
         ))}

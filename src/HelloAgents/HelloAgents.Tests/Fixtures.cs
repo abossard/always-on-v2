@@ -28,8 +28,12 @@ public class InMemoryFixture : WebApplicationFactory<HelloAgents.Api.Program>, I
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
         builder.UseSetting("Storage:Provider", "InMemory");
-        // Clear Azure OpenAI endpoint so NoOpChatClient is used
         builder.UseSetting("AZURE_OPENAI_ENDPOINT", "");
+        builder.UseSetting("OPENAI_ENDPOINT", "");
+        builder.UseSetting("LLM_STREAM_CHUNK_CHARS", "20");
+        builder.UseSetting("LLM_STREAM_CHUNK_INTERVAL_MS", "50");
+        // Signal Program.cs to use MockStreamingChatClient
+        builder.UseSetting("USE_MOCK_CHAT_CLIENT", "true");
     }
 }
 

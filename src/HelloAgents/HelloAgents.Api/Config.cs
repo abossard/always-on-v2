@@ -33,4 +33,6 @@ public static class ConfigKeys
     public const string OpenAiModel = "OPENAI_MODEL";
     public const string LlmIntentMaxRetries = "LLM_INTENT_MAX_RETRIES";
     public const string LlmIntentMaxAgeMinutes = "LLM_INTENT_MAX_AGE_MINUTES";
+    public const string LlmStreamChunkChars = "LLM_STREAM_CHUNK_CHARS";
+    public const string LlmStreamChunkIntervalMs = "LLM_STREAM_CHUNK_INTERVAL_MS";
 }

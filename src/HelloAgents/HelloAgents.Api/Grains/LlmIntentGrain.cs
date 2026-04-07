@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Text;
 using Microsoft.Extensions.AI;
 using Orleans.Streams;
 
@@ -18,6 +20,8 @@ public sealed class LlmIntentGrain(
 
     private int MaxRetries => configuration.GetValue(ConfigKeys.LlmIntentMaxRetries, 10);
     private int MaxAgeMinutes => configuration.GetValue(ConfigKeys.LlmIntentMaxAgeMinutes, 60);
+    private int ChunkChars => configuration.GetValue(ConfigKeys.LlmStreamChunkChars, 50);
+    private int ChunkIntervalMs => configuration.GetValue(ConfigKeys.LlmStreamChunkIntervalMs, 500);
 
     public override async Task OnActivateAsync(CancellationToken ct)
     {
@@ -188,8 +192,8 @@ public sealed class LlmIntentGrain(
             "Stay in character. Reference what others said. Don't repeat yourself. " +
             "Do NOT prefix your response with your name or emoji — just speak directly."));
 
-        var response = await chatClient.GetResponseAsync(messages);
-        return response.Text ?? "(no response)";
+        // Stream and publish partial chunks for Response intents
+        return await StreamWithChunks(messages, publishChunks: true);
     }
 
     private async Task<string> GenerateReflectionAsync(AgentPersona persona)
@@ -209,8 +213,61 @@ public sealed class LlmIntentGrain(
                 "Produce the updated journal:")
         };
 
-        var response = await chatClient.GetResponseAsync(messages);
-        return response.Text ?? persona.ReflectionJournal;
+        // Stream internally but don't publish chunks (reflections have no UI)
+        return await StreamWithChunks(messages, publishChunks: false);
+    }
+
+    /// <summary>
+    /// Streams LLM response tokens, optionally publishing aggregated chunks as partial IntentResults.
+    /// Chunks are published when either ChunkChars or ChunkIntervalMs is reached (whichever first).
+    /// </summary>
+    private async Task<string> StreamWithChunks(List<Microsoft.Extensions.AI.ChatMessage> messages, bool publishChunks)
+    {
+        var intentId = this.GetPrimaryKeyString();
+        var fullText = new StringBuilder();
+        var chunkBuffer = new StringBuilder();
+        var lastChunkTime = Stopwatch.GetTimestamp();
+
+        await foreach (var update in chatClient.GetStreamingResponseAsync(messages))
+        {
+            var text = update.Text;
+            if (string.IsNullOrEmpty(text))
+                continue;
+
+            fullText.Append(text);
+
+            if (!publishChunks)
+                continue;
+
+            chunkBuffer.Append(text);
+            var elapsed = Stopwatch.GetElapsedTime(lastChunkTime);
+
+            if (chunkBuffer.Length >= ChunkChars || elapsed.TotalMilliseconds >= ChunkIntervalMs)
+            {
+                await PublishResult(new IntentResult(
+                    state.State.GroupId,
+                    fullText.ToString(),
+                    intentId,
+                    state.State.IntentType,
+                    IsPartial: true));
+
+                chunkBuffer.Clear();
+                lastChunkTime = Stopwatch.GetTimestamp();
+            }
+        }
+
+        // Publish any remaining buffered text as a final partial chunk
+        if (publishChunks && chunkBuffer.Length > 0)
+        {
+            await PublishResult(new IntentResult(
+                state.State.GroupId,
+                fullText.ToString(),
+                intentId,
+                state.State.IntentType,
+                IsPartial: true));
+        }
+
+        return fullText.Length > 0 ? fullText.ToString() : "(no response)";
     }
 
     private static string BuildSystemPrompt(AgentPersona persona)
