@@ -41,9 +41,9 @@ spec:
             - name: CosmosDb__Endpoint
               value: ${COSMOS_ENDPOINT}
             - name: CosmosDb__DatabaseName
-              value: darkuxchallenge
+              value: ${DARKUX_COSMOS_DATABASE}
             - name: CosmosDb__ContainerName
-              value: users
+              value: ${DARKUX_COSMOS_CONTAINER}
             - name: AZURE_CLIENT_ID
               value: ${DARKUX_IDENTITY_CLIENT_ID}
             - name: APPLICATIONINSIGHTS_CONNECTION_STRING

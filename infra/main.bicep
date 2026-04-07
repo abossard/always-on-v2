@@ -226,6 +226,7 @@ module helloOrleons 'apps/helloorleons/infra.bicep' = {
   params: {
     baseName: baseName
     location: globalLocation
+    cosmosAccountName: global.outputs.cosmosName
     appInsightsId: global.outputs.appInsightsId
   }
 }
@@ -287,6 +288,8 @@ var appFluxVars = [
     namespace: apps[1].namespace
     identityClientId: helloOrleons.outputs.identityClientId
     identityId: helloOrleons.outputs.identityId
+    cosmosDatabase: helloOrleons.outputs.databaseName
+    cosmosContainer: helloOrleons.outputs.containerName
     aiServicesEndpoint: ai.outputs.aiServicesEndpoint
   }
   {

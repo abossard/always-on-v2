@@ -10,6 +10,8 @@ builder.Host.UseOrleans(silo =>
     var storageProvider = builder.Configuration["Storage:Provider"] ?? "InMemory";
     var isCosmosDb = string.Equals(storageProvider, "CosmosDb", StringComparison.OrdinalIgnoreCase);
 
+    var cosmosDb = builder.Configuration.GetSection(CosmosDbConfig.Section).Get<CosmosDbConfig>() ?? new();
+
     var cosmosConnectionString = isCosmosDb
         ? builder.Configuration.GetConnectionString("cosmos")
             ?? throw new InvalidOperationException(
@@ -42,8 +44,8 @@ builder.Host.UseOrleans(silo =>
             options.ConfigureCosmosClient(endpoint, new DefaultAzureCredential());
         }
 
-        options.DatabaseName = "helloorleons";
-        options.ContainerName = "OrleansStorage";
+        options.DatabaseName = cosmosDb.DatabaseName;
+        options.ContainerName = cosmosDb.ContainerName;
         options.IsResourceCreationEnabled = !isEmulator;
     }
 

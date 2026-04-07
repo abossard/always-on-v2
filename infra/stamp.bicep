@@ -423,6 +423,8 @@ var helloOrleonsFluxVars = length(appFluxVars) > 1 && appFluxVars[1].name == 'he
   HELLOORLEONS_SA_NAME: appFluxVars[1].name
   HELLOORLEONS_IDENTITY_CLIENT_ID: appFluxVars[1].identityClientId
   HELLOORLEONS_IDENTITY_ID: appFluxVars[1].identityId
+  HELLOORLEONS_COSMOS_DATABASE: appFluxVars[1].cosmosDatabase
+  HELLOORLEONS_COSMOS_CONTAINER: appFluxVars[1].cosmosContainer
   HELLOORLEONS_DNS_LABEL: 'helloorleons-${stampName}'
   HELLOORLEONS_GATEWAY_HOSTNAME: 'helloorleons-${stampName}.${dnsZoneName}'
 } : {}
