@@ -119,21 +119,21 @@ jobs:
           echo "${{ inputs.apphost_env }}" >> $GITHUB_ENV
 
       - name: Start Aspire AppHost
-        run: aspire start --apphost ${{ inputs.apphost_project }} --non-interactive --nologo
+        run: |
+          aspire start --apphost ${{ inputs.apphost_project }} --non-interactive --nologo || {
+            echo "## ❌ Aspire AppHost failed to start" >> $GITHUB_STEP_SUMMARY
+            echo "Dumping Aspire CLI logs:" >> $GITHUB_STEP_SUMMARY
+            for f in ~/.aspire/logs/*.log; do
+              echo "### $(basename "$f")" >> $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+              cat "$f" 2>/dev/null | tee -a $GITHUB_STEP_SUMMARY
+              echo '```' >> $GITHUB_STEP_SUMMARY
+            done
+            exit 1
+          }
         working-directory: ${{ inputs.working_dir }}
         env:
           ASPIRE_ALLOW_UNSECURED_TRANSPORT: "true"
-
-      - name: Dump Aspire logs on failure
-        if: failure()
-        run: |
-          echo "## Aspire CLI Logs" >> $GITHUB_STEP_SUMMARY
-          for f in ~/.aspire/logs/*.log; do
-            echo "### $(basename $f)" >> $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-            tail -100 "$f" 2>/dev/null | tee -a $GITHUB_STEP_SUMMARY
-            echo '```' >> $GITHUB_STEP_SUMMARY
-          done
 
       - name: Wait for services
         run: |
