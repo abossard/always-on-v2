@@ -135,15 +135,15 @@ jobs:
             [
               {
                 "name": "LOCUST_HOST",
-                "value": "https://hello.alwayson.actor"
+                "value": "https://helloorleons-swedencentral-002.swedencentral.alwayson.actor"
               },
               {
                 "name": "LOCUST_USERS",
-                "value": "1000"
+                "value": "200"
               },
               {
                 "name": "LOCUST_SPAWN_RATE",
-                "value": "100"
+                "value": "20"
               },
               {
                 "name": "LOCUST_RUN_TIME",

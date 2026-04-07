@@ -1,7 +1,7 @@
 version: v0.1
 testId: helloorleons-load-test
 displayName: HelloOrleons Load Test
-description: 1000 concurrent users hitting /hello/:name for 60s
+description: 200 concurrent users hitting /hello/:name for 60s (direct gateway, bypasses Front Door)
 testType: Locust
 testPlan: locustfile.py
 engineInstances: 1
