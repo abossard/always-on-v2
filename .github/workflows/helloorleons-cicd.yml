@@ -110,32 +110,51 @@ jobs:
     secrets: inherit
 
   load-test:
-    name: Locust Load Test
+    name: Azure Load Test
     needs: [verify-deployment]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
-      - name: Run Locust load test
-        run: |
-          docker run --rm \
-            -v $PWD/src/HelloOrleons/HelloOrleons.LoadTest:/mnt/locust \
-            locustio/locust \
-            -f /mnt/locust/locustfile.py \
-            --host https://hello.alwayson.actor \
-            --users 1000 \
-            --spawn-rate 100 \
-            --run-time 60s \
-            --headless \
-            --csv /mnt/locust/results \
-            --html /mnt/locust/report.html
-      - name: Upload Locust report
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run Azure Load Test
+        uses: azure/load-testing@v1
+        with:
+          loadTestConfigFile: src/HelloOrleons/HelloOrleons.LoadTest/helloorleons-loadtest.yaml
+          loadTestResource: lt-alwayson
+          resourceGroup: rg-alwayson-global
+          env: |
+            [
+              {
+                "name": "LOCUST_HOST",
+                "value": "https://hello.alwayson.actor"
+              },
+              {
+                "name": "LOCUST_USERS",
+                "value": "1000"
+              },
+              {
+                "name": "LOCUST_SPAWN_RATE",
+                "value": "100"
+              },
+              {
+                "name": "LOCUST_RUN_TIME",
+                "value": "60s"
+              }
+            ]
+
+      - name: Upload Load Test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: locust-report
-          retention-days: 5
-          path: |
-            src/HelloOrleons/HelloOrleons.LoadTest/report.html
-            src/HelloOrleons/HelloOrleons.LoadTest/results_*.csv
+          name: azure-load-test-results
+          retention-days: 14
+          path: ${{ github.workspace }}/loadTest
