@@ -134,6 +134,8 @@ jobs:
         working-directory: ${{ inputs.working_dir }}
         env:
           ASPIRE_ALLOW_UNSECURED_TRANSPORT: "true"
+          ASPNETCORE_URLS: "http://localhost:18888"
+          ASPIRE_DASHBOARD_OTLP_HTTP_ENDPOINT_URL: "http://localhost:18889"
 
       - name: Wait for services
         run: |

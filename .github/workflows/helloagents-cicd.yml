@@ -156,6 +156,8 @@ jobs:
         working-directory: src/HelloAgents
         env:
           ASPIRE_ALLOW_UNSECURED_TRANSPORT: "true"
+          ASPNETCORE_URLS: "http://localhost:18888"
+          ASPIRE_DASHBOARD_OTLP_HTTP_ENDPOINT_URL: "http://localhost:18889"
           AZURE_OPENAI_ENDPOINT: ${{ steps.ai.outputs.endpoint }}
           AZURE_OPENAI_DEPLOYMENT_NAME: gpt-41-mini
       - name: Wait for services
