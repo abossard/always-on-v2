@@ -15,11 +15,8 @@ param location string
 @description('Resource ID of the user-assigned managed identity for the health model.')
 param identityId string
 
-@description('Subscription ID to discover resources from. Leave empty to skip discovery.')
-param discoverySubscriptionId string = ''
-
-@description('Subscription display name (shown in discovery rule).')
-param discoverySubscriptionName string = ''
+@description('Resource ID of the Application Insights component for topology discovery.')
+param appInsightsId string = ''
 
 @description('Whether to add recommended signals during discovery.')
 param addRecommendedSignals bool = true
@@ -27,14 +24,11 @@ param addRecommendedSignals bool = true
 @description('Whether to discover relationships between resources.')
 param discoverRelationships bool = true
 
-@description('Value of the alwayson-env tag used to scope discovery to managed resource groups.')
-param environmentTag string
-
 // ─── Variables ──────────────────────────────────────────────────
 
 var identityName = last(split(identityId, '/'))
-var enableDiscovery = !empty(discoverySubscriptionId)
-var discoveryRuleGuid = guid(discoverySubscriptionId)
+var enableDiscovery = !empty(appInsightsId)
+var discoveryRuleGuid = guid(appInsightsId)
 
 // ─── Health Model ───────────────────────────────────────────────
 
@@ -62,19 +56,19 @@ resource authsetting 'Microsoft.CloudHealth/healthmodels/authenticationsettings@
   }
 }
 
-// ─── Discovery Rule (subscription scope) ────────────────────────
+// ─── Discovery Rule (Application Insights topology) ─────────────
 
 resource discoveryRule 'Microsoft.CloudHealth/healthmodels/discoveryrules@2026-01-01-preview' = if (enableDiscovery) {
   name: discoveryRuleGuid
   parent: healthmodel
   properties: {
-    displayName: !empty(discoverySubscriptionName) ? discoverySubscriptionName : discoverySubscriptionId
+    displayName: 'appin'
     addRecommendedSignals: addRecommendedSignals ? 'Enabled' : 'Disabled'
     authenticationSetting: authsetting.name
     discoverRelationships: discoverRelationships ? 'Enabled' : 'Disabled'
     specification: {
-      kind: 'ResourceGraphQuery'
-      resourceGraphQuery: 'resources\n| where subscriptionId =~ "${discoverySubscriptionId}"\n| where resourceGroup in (\n    resourcecontainers\n    | where type == "microsoft.resources/subscriptions/resourcegroups"\n    | where tags["alwayson-env"] == "${environmentTag}"\n    | project name\n  )\n| where type in~ (\n    "microsoft.documentdb/databaseaccounts",\n    "microsoft.storage/storageaccounts",\n    "microsoft.cdn/profiles",\n    "microsoft.containerservice/managedclusters",\n    "microsoft.containerregistry/registries",\n    "microsoft.operationalinsights/workspaces",\n    "microsoft.insights/components",\n    "microsoft.network/dnszones",\n    "microsoft.containerservice/fleets",\n    "microsoft.monitor/accounts",\n    "microsoft.loadtestservice/loadtests"\n  )'
+      kind: 'ApplicationInsightsTopology'
+      applicationInsightsResourceId: appInsightsId
     }
   }
 }

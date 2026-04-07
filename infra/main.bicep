@@ -553,11 +553,9 @@ module healthModel 'healthmodel/healthmodel.bicep' = {
     name: 'hm-${baseName}'
     location: healthModelLocation
     identityId: global.outputs.healthModelIdentityId
-    discoverySubscriptionId: subscription().subscriptionId
-    discoverySubscriptionName: subscription().displayName
+    appInsightsId: global.outputs.appInsightsId
     addRecommendedSignals: true
     discoverRelationships: true
-    environmentTag: baseName
   }
 }
 
