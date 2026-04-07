@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using HelloOrleons.Api;
 
 namespace HelloOrleons.Tests;
 
@@ -28,17 +29,13 @@ public abstract class HelloApiTests(HttpClient client)
     {
         var name = $"test-{Guid.NewGuid():N}";
 
-        // First call — count should be 1
-        var response1 = await client.GetAsync($"/hello/{name}");
-        await Assert.That(response1.StatusCode).IsEqualTo(HttpStatusCode.OK);
+        var result1 = await client.GetFromJsonAsync<HelloResponse>($"/hello/{name}");
+        await Assert.That(result1).IsNotNull();
+        await Assert.That(result1!.Name).IsEqualTo(name);
+        await Assert.That(result1.Count).IsEqualTo(1);
 
-        var result1 = await response1.Content.ReadFromJsonAsync<string>();
-        await Assert.That(result1).IsEqualTo($"{name} (1x times)");
-
-        // Second call — count should be 2
-        var response2 = await client.GetAsync($"/hello/{name}");
-        var result2 = await response2.Content.ReadFromJsonAsync<string>();
-        await Assert.That(result2).IsEqualTo($"{name} (2x times)");
+        var result2 = await client.GetFromJsonAsync<HelloResponse>($"/hello/{name}");
+        await Assert.That(result2!.Count).IsEqualTo(2);
     }
 
     [Test]
@@ -51,12 +48,10 @@ public abstract class HelloApiTests(HttpClient client)
         await client.GetAsync($"/hello/{name2}");
         await client.GetAsync($"/hello/{name1}");
 
-        var response1 = await client.GetAsync($"/hello/{name1}");
-        var result1 = await response1.Content.ReadFromJsonAsync<string>();
-        await Assert.That(result1).IsEqualTo($"{name1} (3x times)");
+        var result1 = await client.GetFromJsonAsync<HelloResponse>($"/hello/{name1}");
+        await Assert.That(result1!.Count).IsEqualTo(3);
 
-        var response2 = await client.GetAsync($"/hello/{name2}");
-        var result2 = await response2.Content.ReadFromJsonAsync<string>();
-        await Assert.That(result2).IsEqualTo($"{name2} (2x times)");
+        var result2 = await client.GetFromJsonAsync<HelloResponse>($"/hello/{name2}");
+        await Assert.That(result2!.Count).IsEqualTo(2);
     }
 }

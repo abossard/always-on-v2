@@ -31,7 +31,7 @@ jobs:
   build-and-test:
     name: Build & Test
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - name: Setup .NET 10
@@ -52,16 +52,22 @@ jobs:
           script: |
             core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env['ACTIONS_RUNTIME_TOKEN']);
             core.exportVariable('ACTIONS_RESULTS_URL', process.env['ACTIONS_RESULTS_URL']);
+      - name: Trust ASP.NET Core dev certificate
+        run: |
+          dotnet dev-certs https --trust || true
+          echo "SSL_CERT_DIR=$HOME/.aspnet/dev-certs/trust:/usr/lib/ssl/certs" >> $GITHUB_ENV
       - name: Run tests
         run: |
-          for attempt in 1 2 3; do
-            echo "=== Test attempt $attempt ==="
-            dotnet run --project HelloOrleons.Tests --no-build -- \
-              --report-trx --report-trx-filename results.trx \
-              && break
-            echo "Attempt $attempt failed, retrying..."
-          done
+          dotnet run --project HelloOrleons.Tests --no-build -- \
+            --report-trx --report-trx-filename results.trx
         working-directory: src/HelloOrleons
+      - name: Collect Docker diagnostics
+        if: always()
+        run: |
+          echo "## 🐳 Docker Container Status" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          docker ps -a 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
       - name: Publish test results
         if: always()
         uses: EnricoMi/publish-unit-test-result-action@v2
@@ -69,9 +75,77 @@ jobs:
           files: src/HelloOrleons/**/TestResults/**/*.trx
           check_name: HelloOrleons Test Results
 
+  e2e:
+    name: Playwright E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+      - name: Install Aspire workload
+        run: dotnet workload install aspire
+      - name: Install Aspire CLI
+        run: |
+          dotnet tool install -g Aspire.Cli
+          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+      - name: Install E2E dependencies
+        run: npm ci
+        working-directory: src/HelloOrleons/HelloOrleons.E2E
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: src/HelloOrleons/HelloOrleons.E2E
+      - name: Build .NET projects
+        run: dotnet build
+        working-directory: src/HelloOrleons
+      - name: Start Aspire AppHost
+        run: aspire start --apphost HelloOrleons.AppHost --non-interactive --nologo
+        working-directory: src/HelloOrleons
+        env:
+          ASPIRE_ALLOW_UNSECURED_TRANSPORT: "true"
+      - name: Wait for services
+        run: |
+          aspire wait api --timeout 600 --non-interactive --nologo
+          aspire describe --non-interactive --nologo
+        working-directory: src/HelloOrleons
+      - name: Run Playwright E2E via Aspire
+        run: |
+          aspire resource e2e start --non-interactive --nologo
+          aspire wait e2e --status down --timeout 300 --non-interactive --nologo
+        working-directory: src/HelloOrleons
+      - name: Collect E2E logs on failure
+        if: failure()
+        run: aspire logs e2e --non-interactive --nologo --tail 200 || true
+        working-directory: src/HelloOrleons
+      - name: Stop Aspire
+        if: always()
+        run: aspire stop --non-interactive --nologo || true
+        working-directory: src/HelloOrleons
+      - name: Playwright report summary
+        if: always()
+        uses: daun/playwright-report-summary@v3
+        with:
+          report-file: src/HelloOrleons/HelloOrleons.E2E/test-results/results.json
+          job-summary: true
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          retention-days: 5
+          path: |
+            src/HelloOrleons/HelloOrleons.E2E/playwright-report/
+            src/HelloOrleons/HelloOrleons.E2E/test-results/
+
   docker-build-push:
     name: Build & Push Container Image
-    needs: [build-and-test]
+    needs: [build-and-test, e2e]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     uses: ./.github/workflows/app-build-push.yml
     with:
@@ -86,4 +160,38 @@ jobs:
     needs: [docker-build-push]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     uses: ./.github/workflows/app-verify-deploy.yml
+    with:
+      production_url: https://hello.alwayson.actor
+      e2e_dir: src/HelloOrleons/HelloOrleons.E2E
     secrets: inherit
+
+  load-test:
+    name: Locust Load Test
+    needs: [verify-deployment]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Locust load test
+        run: |
+          docker run --rm \
+            -v $PWD/src/HelloOrleons/HelloOrleons.LoadTest:/mnt/locust \
+            locustio/locust \
+            -f /mnt/locust/locustfile.py \
+            --host https://hello.alwayson.actor \
+            --users 1000 \
+            --spawn-rate 100 \
+            --run-time 60s \
+            --headless \
+            --csv /mnt/locust/results \
+            --html /mnt/locust/report.html
+      - name: Upload Locust report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: locust-report
+          retention-days: 5
+          path: |
+            src/HelloOrleons/HelloOrleons.LoadTest/report.html
+            src/HelloOrleons/HelloOrleons.LoadTest/results_*.csv

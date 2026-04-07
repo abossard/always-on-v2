@@ -59,6 +59,10 @@ spec:
               value: "Redis"
             - name: Redis__ConnectionString
               value: "redis:6379"
+            - name: ConnectionStrings__cosmos
+              value: "AccountEndpoint=${COSMOS_ENDPOINT}"
+            - name: Storage__Provider
+              value: "CosmosDb"
           resizePolicy:
             - resourceName: cpu
               restartPolicy: NotRequired
