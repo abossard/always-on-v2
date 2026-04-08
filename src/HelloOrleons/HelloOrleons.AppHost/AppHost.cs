@@ -4,23 +4,17 @@ var builder = DistributedApplication.CreateBuilder(args);
 
 #pragma warning disable ASPIRECOSMOSDB001
 var cosmos = builder.AddAzureCosmosDB(ResourceNames.CosmosDb)
-    .RunAsPreviewEmulator(emulator =>
-    {
-        emulator.WithLifetime(ContainerLifetime.Persistent);
-        emulator.WithDataVolume();
-    });
+    .RunAsPreviewEmulator();
 #pragma warning restore ASPIRECOSMOSDB001
 
 var db = cosmos.AddCosmosDatabase(ResourceNames.Database);
 db.AddContainer(ResourceNames.Container, "/PartitionKey");
 db.AddContainer(ResourceNames.ClusterContainer, "/ClusterId");
 
-var orleans = builder.AddOrleans(ResourceNames.Cluster)
-    .WithClustering(cosmos)
-    .WithGrainStorage("Default", cosmos);
-
+// Orleans providers are configured explicitly in the API project (see ADR-0058).
+// Aspire auto-config via AddOrleans().WithGrainStorage() doesn't work with Orleans 10.0.1.
+// We only pass the Cosmos connection string; the API handles clustering + storage setup.
 var api = builder.AddProject<Projects.HelloOrleons_Api>(ResourceNames.Api)
-    .WithReference(orleans)
     .WithReference(cosmos)
     .WaitFor(cosmos)
     .WithHttpEndpoint(name: "http")

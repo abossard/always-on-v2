@@ -85,7 +85,6 @@ public static class ServiceDefaultsExtensions
                     .AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
                     .AddSource("Azure.*")
-                    .AddSource("Microsoft.Orleans.Runtime")
                     .AddSource("Microsoft.Orleans.Application");
             });
 
