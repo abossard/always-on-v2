@@ -32,6 +32,14 @@ build:
       context: src/HelloAgents/HelloAgents.Web
       docker:
         dockerfile: Dockerfile
+    - image: graphorleons
+      context: src/GraphOrleons
+      docker:
+        dockerfile: GraphOrleons.Api/Dockerfile
+    - image: graphorleons-web
+      context: src/GraphOrleons/GraphOrleons.Web
+      docker:
+        dockerfile: Dockerfile
 
 deploy:
   kustomize:

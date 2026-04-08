@@ -73,6 +73,12 @@ param apps array = [
     namespace: 'helloagents'
     cacheDuration: ''
   }
+  {
+    name: 'graphorleons'
+    subdomain: 'events'
+    namespace: 'graphorleons'
+    cacheDuration: ''
+  }
 ]
 
 @description('Region configurations with stamps. Each region has a key, location, and stamps array.')
@@ -181,6 +187,7 @@ module ai 'ai.bicep' = {
       helloOrleons.outputs.identityPrincipalId
       darkUxChallenge.outputs.identityPrincipalId
       helloAgents.outputs.identityPrincipalId
+      graphOrleons.outputs.identityPrincipalId
       ciServicePrincipalId
     ]
   }
@@ -237,6 +244,21 @@ module helloOrleons 'apps/helloorleons/infra.bicep' = {
 
 module helloAgents 'apps/helloagents/infra.bicep' = {
   name: 'deploy-app-helloagents'
+  scope: globalRg
+  params: {
+    baseName: baseName
+    location: globalLocation
+    cosmosAccountName: global.outputs.cosmosName
+    appInsightsId: global.outputs.appInsightsId
+  }
+}
+
+// ============================================================================
+// Application: GraphOrleons (in-memory — no Cosmos DB)
+// ============================================================================
+
+module graphOrleons 'apps/graphorleons/infra.bicep' = {
+  name: 'deploy-app-graphorleons'
   scope: globalRg
   params: {
     baseName: baseName
@@ -309,6 +331,14 @@ var appFluxVars = [
     identityPrincipalId: helloAgents.outputs.identityPrincipalId
     cosmosDatabase: helloAgents.outputs.databaseName
     cosmosContainer: helloAgents.outputs.containerName
+    aiServicesEndpoint: ai.outputs.aiServicesEndpoint
+  }
+  {
+    name: apps[4].name
+    namespace: apps[4].namespace
+    identityClientId: graphOrleons.outputs.identityClientId
+    identityId: graphOrleons.outputs.identityId
+    identityPrincipalId: graphOrleons.outputs.identityPrincipalId
     aiServicesEndpoint: ai.outputs.aiServicesEndpoint
   }
 ]
@@ -452,6 +482,24 @@ module helloAgentsFederatedCreds 'apps/helloagents/federated-creds.bicep' = [
 ]
 
 // ============================================================================
+// App Federated Credentials (GraphOrleons workload identity per stamp)
+// ============================================================================
+
+module graphOrleonsFederatedCreds 'apps/graphorleons/federated-creds.bicep' = [
+  for (stamp, i) in allStamps: {
+    name: 'deploy-graphorleons-fedcred-${stamp.regionKey}-${stamp.stampKey}'
+    scope: globalRg
+    params: {
+      identityName: 'id-graphorleons-${baseName}'
+      stampName: stamps[i].outputs.stampName
+      oidcIssuerUrl: stamps[i].outputs.aksOidcIssuerUrl
+      serviceAccountNamespace: apps[4].namespace
+      serviceAccountName: apps[4].name
+    }
+  }
+]
+
+// ============================================================================
 // App Front Door Routing (generic module — reused per app)
 // ============================================================================
 
@@ -509,6 +557,21 @@ module helloAgentsRouting 'app-routing.bicep' = {
     subdomain: apps[3].subdomain
     stamps: allStamps
     cacheDuration: apps[3].cacheDuration
+    probePath: '/health'
+  }
+}
+
+module graphOrleonsRouting 'app-routing.bicep' = {
+  name: 'deploy-routing-graphorleons'
+  scope: globalRg
+  dependsOn: [for (stamp, i) in allStamps: stamps[i]]
+  params: {
+    baseName: baseName
+    domainName: domainName
+    appName: 'graphorleons'
+    subdomain: apps[4].subdomain
+    stamps: allStamps
+    cacheDuration: apps[4].cacheDuration
     probePath: '/health'
   }
 }
@@ -583,6 +646,8 @@ output aiServicesName string = ai.outputs.aiServicesName
 output aiHubName string = ai.outputs.hubName
 output aiProjectName string = ai.outputs.projectName
 
+output graphOrleonsIdentityClientId string = graphOrleons.outputs.identityClientId
+
 // Generic app endpoints — used by CI/CD to display all URLs
 output appEndpoints array = [
   {
@@ -599,6 +664,11 @@ output appEndpoints array = [
     name: apps[2].name
     frontDoorUrl: 'https://${darkUxRouting.outputs.hostname}'
     stampOrigins: darkUxRouting.outputs.stampOrigins
+  }
+  {
+    name: apps[4].name
+    frontDoorUrl: 'https://${graphOrleonsRouting.outputs.hostname}'
+    stampOrigins: graphOrleonsRouting.outputs.stampOrigins
   }
 ]
 

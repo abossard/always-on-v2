@@ -1,0 +1,6 @@
+<Solution>
+  <Project Path="GraphOrleons.Api/GraphOrleons.Api.csproj" />
+  <Project Path="GraphOrleons.AppHost/GraphOrleons.AppHost.csproj" />
+  <Project Path="GraphOrleons.ServiceDefaults/GraphOrleons.ServiceDefaults.csproj" />
+  <Project Path="GraphOrleons.Tests/GraphOrleons.Tests.csproj" />
+</Solution>

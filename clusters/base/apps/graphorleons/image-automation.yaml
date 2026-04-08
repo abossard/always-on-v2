@@ -1,0 +1,24 @@
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImageRepository
+metadata:
+  name: graphorleons
+  namespace: flux-system
+spec:
+  image: ${ACR_LOGIN_SERVER}/graphorleons
+  interval: 1m
+  provider: azure
+---
+apiVersion: image.toolkit.fluxcd.io/v1beta2
+kind: ImagePolicy
+metadata:
+  name: graphorleons
+  namespace: flux-system
+spec:
+  imageRepositoryRef:
+    name: graphorleons
+  filterTags:
+    pattern: '^(?P<ts>[0-9]+)-[a-f0-9]{8}$'
+    extract: '$ts'
+  policy:
+    numerical:
+      order: asc

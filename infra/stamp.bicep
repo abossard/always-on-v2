@@ -452,7 +452,16 @@ var helloAgentsFluxVars = length(appFluxVars) > 3 && appFluxVars[3].name == 'hel
   HELLOAGENTS_GATEWAY_HOSTNAME: 'helloagents-${stampName}.${dnsZoneName}'
 } : {}
 
-var fluxSubstitute = union(sharedFluxVars, level0FluxVars, helloOrleonsFluxVars, darkuxFluxVars, helloAgentsFluxVars)
+var graphorleonsFluxVars = length(appFluxVars) > 4 && appFluxVars[4].name == 'graphorleons' ? {
+  GRAPHORLEONS_NAMESPACE: appFluxVars[4].namespace
+  GRAPHORLEONS_SA_NAME: appFluxVars[4].name
+  GRAPHORLEONS_IDENTITY_CLIENT_ID: appFluxVars[4].identityClientId
+  GRAPHORLEONS_IDENTITY_ID: appFluxVars[4].identityId
+  GRAPHORLEONS_DNS_LABEL: 'graphorleons-${stampName}'
+  GRAPHORLEONS_GATEWAY_HOSTNAME: 'graphorleons-${stampName}.${dnsZoneName}'
+} : {}
+
+var fluxSubstitute = union(sharedFluxVars, level0FluxVars, helloOrleonsFluxVars, darkuxFluxVars, helloAgentsFluxVars, graphorleonsFluxVars)
 
 resource fluxConfig 'Microsoft.KubernetesConfiguration/fluxConfigurations@2024-04-01-preview' = {
   scope: aksCluster

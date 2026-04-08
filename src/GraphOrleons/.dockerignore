@@ -1,0 +1,12 @@
+**/bin/
+**/obj/
+**/TestResults/
+**/.vs/
+**/node_modules/
+**/.next/
+**/dist/
+**/out/
+**/*.user
+**/*.suo
+**/playwright-report/
+**/test-results/

@@ -1,0 +1,180 @@
+name: GraphOrleons CI/CD
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/GraphOrleons/**'
+      - '.github/workflows/graphorleons-cicd.yml'
+      - '.github/workflows/app-build-push.yml'
+      - '.github/workflows/app-verify-deploy.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'src/GraphOrleons/**'
+      - '.github/workflows/graphorleons-cicd.yml'
+      - '.github/workflows/app-build-push.yml'
+      - '.github/workflows/app-verify-deploy.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: graphorleons-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  checks: write
+  pull-requests: write
+  id-token: write
+
+jobs:
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Install Aspire workload
+        run: dotnet workload install aspire
+      - name: Restore
+        run: dotnet restore
+        working-directory: src/GraphOrleons
+      - name: Build
+        run: dotnet build --no-restore
+        working-directory: src/GraphOrleons
+      - name: Expose GitHub Actions runtime
+        uses: actions/github-script@v7
+        with:
+          script: |
+            core.exportVariable('ACTIONS_RUNTIME_TOKEN', process.env['ACTIONS_RUNTIME_TOKEN']);
+            core.exportVariable('ACTIONS_RESULTS_URL', process.env['ACTIONS_RESULTS_URL']);
+      - name: Trust ASP.NET Core dev certificate
+        run: |
+          dotnet dev-certs https --trust || true
+          echo "SSL_CERT_DIR=$HOME/.aspnet/dev-certs/trust:/usr/lib/ssl/certs" >> $GITHUB_ENV
+      - name: Run tests
+        run: |
+          dotnet run --project GraphOrleons.Tests --no-build -- \
+            --report-trx --report-trx-filename results.trx
+        working-directory: src/GraphOrleons
+      - name: Collect Docker diagnostics
+        if: always()
+        run: |
+          echo "## 🐳 Docker Container Status" >> $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          docker ps -a 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+          echo '```' >> $GITHUB_STEP_SUMMARY
+          for cid in $(docker ps -aq); do
+            CNAME=$(docker inspect --format '{{.Name}}' "$cid" 2>&1)
+            echo "### Container: $CNAME" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            docker logs --tail 80 "$cid" 2>&1 | tee -a $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          done
+      - name: Publish test results
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: src/GraphOrleons/**/TestResults/**/*.trx
+          check_name: GraphOrleons Test Results
+
+  e2e:
+    name: Playwright E2E Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup .NET 10
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+      - name: Install Aspire workload
+        run: dotnet workload install aspire
+      - name: Install Aspire CLI
+        run: |
+          dotnet tool install -g Aspire.Cli
+          echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
+      - name: Install Web dependencies
+        run: npm ci
+        working-directory: src/GraphOrleons/GraphOrleons.Web
+      - name: Install E2E dependencies
+        run: npm ci
+        working-directory: src/GraphOrleons/GraphOrleons.E2E
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+        working-directory: src/GraphOrleons/GraphOrleons.E2E
+      - name: Build .NET projects
+        run: dotnet build
+        working-directory: src/GraphOrleons
+      - name: Start Aspire AppHost
+        run: aspire start --apphost GraphOrleons.AppHost --non-interactive --nologo --isolated
+        working-directory: src/GraphOrleons
+        env:
+          ASPIRE_ALLOW_UNSECURED_TRANSPORT: "true"
+          ASPNETCORE_URLS: "http://localhost:18888"
+          ASPIRE_DASHBOARD_OTLP_HTTP_ENDPOINT_URL: "http://localhost:18889"
+      - name: Wait for services
+        run: |
+          aspire wait api --timeout 600 --non-interactive --nologo
+          aspire wait web --timeout 120 --non-interactive --nologo
+          aspire describe --non-interactive --nologo
+        working-directory: src/GraphOrleons
+      - name: Run Playwright E2E via Aspire
+        run: |
+          aspire resource e2e start --non-interactive --nologo
+          aspire wait e2e --status down --timeout 300 --non-interactive --nologo
+        working-directory: src/GraphOrleons
+      - name: Collect E2E logs on failure
+        if: failure()
+        run: aspire logs e2e --non-interactive --nologo --tail 200 || true
+        working-directory: src/GraphOrleons
+      - name: Stop Aspire
+        if: always()
+        run: aspire stop --non-interactive --nologo || true
+        working-directory: src/GraphOrleons
+      - name: Playwright report summary
+        if: always()
+        uses: daun/playwright-report-summary@v3
+        with:
+          report-file: src/GraphOrleons/GraphOrleons.E2E/test-results/results.json
+          job-summary: true
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-local
+          retention-days: 5
+          path: |
+            src/GraphOrleons/GraphOrleons.E2E/playwright-report/
+            src/GraphOrleons/GraphOrleons.E2E/test-results/
+
+  docker-build-push:
+    name: Build & Push Container Image
+    needs: [build-and-test, e2e]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    uses: ./.github/workflows/app-build-push.yml
+    with:
+      app_name: graphorleons
+      docker_context: src/GraphOrleons
+      dockerfile: src/GraphOrleons/GraphOrleons.Api/Dockerfile
+      deploy_manifest: clusters/base/apps/graphorleons/deployment.yaml
+      extra_images: '[{"name":"graphorleons-web","context":"src/GraphOrleons/GraphOrleons.Web","dockerfile":"src/GraphOrleons/GraphOrleons.Web/Dockerfile"}]'
+    secrets: inherit
+
+  verify-deployment:
+    name: Verify Flux Deployment
+    needs: [docker-build-push]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    uses: ./.github/workflows/app-verify-deploy.yml
+    with:
+      production_url: https://events.alwayson.actor
+      e2e_dir: src/GraphOrleons/GraphOrleons.E2E
+    secrets: inherit

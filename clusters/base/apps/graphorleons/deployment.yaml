@@ -1,0 +1,149 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ${GRAPHORLEONS_NAMESPACE}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ${GRAPHORLEONS_SA_NAME}
+  namespace: ${GRAPHORLEONS_NAMESPACE}
+  annotations:
+    azure.workload.identity/client-id: ${GRAPHORLEONS_IDENTITY_CLIENT_ID}
+  labels:
+    azure.workload.identity/use: "true"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: graphorleons
+  namespace: ${GRAPHORLEONS_NAMESPACE}
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: graphorleons
+  template:
+    metadata:
+      labels:
+        app: graphorleons
+        azure.workload.identity/use: "true"
+        orleans/serviceId: graphorleons
+        orleans/clusterId: graphorleons
+    spec:
+      serviceAccountName: ${GRAPHORLEONS_SA_NAME}
+      containers:
+        - name: graphorleons
+          image: ${ACR_LOGIN_SERVER}/graphorleons:latest
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 11111
+              name: silo
+            - containerPort: 30000
+              name: gateway
+          env:
+            - name: AZURE_CLIENT_ID
+              value: ${GRAPHORLEONS_IDENTITY_CLIENT_ID}
+            - name: APPLICATIONINSIGHTS_CONNECTION_STRING
+              value: ${APPLICATIONINSIGHTS_CONNECTION_STRING}
+            - name: OTEL_SERVICE_NAME
+              value: graphorleons
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: deployment.environment=${STAMP_NAME},cloud.region=${REGION},stamp=${STAMP_KEY}
+            - name: ORLEANS_CLUSTERING
+              value: "Redis"
+            - name: Redis__ConnectionString
+              value: "redis:6379"
+          resizePolicy:
+            - resourceName: cpu
+              restartPolicy: NotRequired
+            - resourceName: memory
+              restartPolicy: NotRequired
+          resources:
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              memory: 2Gi
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 8080
+            initialDelaySeconds: 15
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: graphorleons
+  namespace: ${GRAPHORLEONS_NAMESPACE}
+spec:
+  selector:
+    app: graphorleons
+  ports:
+    - port: 8080
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: graphorleons-web
+  namespace: ${GRAPHORLEONS_NAMESPACE}
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: graphorleons-web
+  template:
+    metadata:
+      labels:
+        app: graphorleons-web
+    spec:
+      containers:
+        - name: graphorleons-web
+          image: ${ACR_LOGIN_SERVER}/graphorleons-web:latest
+          ports:
+            - containerPort: 8080
+          env:
+            - name: PORT
+              value: "8080"
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 2
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            initialDelaySeconds: 5
+            periodSeconds: 15
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: graphorleons-web
+  namespace: ${GRAPHORLEONS_NAMESPACE}
+spec:
+  selector:
+    app: graphorleons-web
+  ports:
+    - port: 8080
+      targetPort: 8080

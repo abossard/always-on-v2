@@ -1,0 +1,1 @@
+{"root":["./src/app.tsx","./src/api.ts","./src/main.tsx","./src/types.ts","./src/vite-env.d.ts","./src/components/componentlist.tsx","./src/components/eventgenerator.tsx","./src/components/graphview.tsx","./src/components/tenantselector.tsx"],"version":"5.8.3"}
