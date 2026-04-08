@@ -51,6 +51,8 @@ spec:
               value: helloorleons
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: deployment.environment=${STAMP_NAME},cloud.region=${REGION},stamp=${STAMP_KEY}
+            - name: OTEL_TRACES_SAMPLER_ARG
+              value: "${OTEL_TRACES_SAMPLER_ARG}"
             - name: AI__Endpoint
               value: ${AI_SERVICES_ENDPOINT}
             - name: AI__ModelName

@@ -20,11 +20,7 @@ builder.Host.UseOrleans(silo =>
     var redis = builder.Configuration.GetSection(RedisConfig.Section).Get<RedisConfig>() ?? new();
     var clustering = Enum.TryParse<ClusteringProvider>(builder.Configuration[ConfigKeys.OrleansClustering], ignoreCase: true, out var cp) ? cp : ClusteringProvider.Localhost;
 
-    var tracingEnabled = builder.Configuration.GetValue<bool>(ConfigKeys.DistributedTracing);
-    if (tracingEnabled)
-    {
-        silo.AddActivityPropagation();
-    }
+    silo.AddActivityPropagation();
 
     // Grain storage: Cosmos DB or in-memory
     var cosmosConnectionString = storage.Provider == StorageProvider.CosmosDb

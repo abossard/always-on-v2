@@ -6,6 +6,7 @@ using Azure.Identity;
 using Azure.Monitor.OpenTelemetry.AspNetCore;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 using Microsoft.Extensions.Hosting;
@@ -66,6 +67,8 @@ public static class ServiceDefaultsExtensions
             });
         }
 
+        var samplingRatio = builder.Configuration.GetValue("OTEL_TRACES_SAMPLER_ARG", 1.0);
+
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics =>
             {
@@ -77,6 +80,7 @@ public static class ServiceDefaultsExtensions
             .WithTracing(tracing =>
             {
                 tracing
+                    .SetSampler(new ParentBasedSampler(new TraceIdRatioBasedSampler(samplingRatio)))
                     .AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
                     .AddSource("Azure.*");

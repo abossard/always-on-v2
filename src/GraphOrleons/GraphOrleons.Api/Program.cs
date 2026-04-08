@@ -15,9 +15,7 @@ builder.Host.UseOrleans(silo =>
     silo.AddMemoryGrainStorage("PubSubStore");
     silo.AddMemoryStreams("TenantStream");
 
-    var tracingEnabled = builder.Configuration.GetValue<bool>(ConfigKeys.DistributedTracing);
-    if (tracingEnabled)
-        silo.AddActivityPropagation();
+    silo.AddActivityPropagation();
 
     var clustering = builder.Configuration[ConfigKeys.OrleansClustering];
     if (clustering == "Redis")
