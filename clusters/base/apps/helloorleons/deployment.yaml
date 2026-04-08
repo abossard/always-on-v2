@@ -56,16 +56,24 @@ spec:
             - name: AI__ModelName
               value: ${AI_MODEL_GPT41}
             - name: ORLEANS_CLUSTERING
-              value: "Redis"
-            - name: Redis__ConnectionString
-              value: "redis:6379"
+              value: "Kubernetes"
             - name: ConnectionStrings__cosmos
               value: "AccountEndpoint=${COSMOS_ENDPOINT}"
-            - name: Storage__Provider
-              value: "CosmosDb"
-            - name: CosmosDb__DatabaseName
+            - name: Orleans__Clustering__ProviderType
+              value: "AzureCosmosDB"
+            - name: Orleans__Clustering__ServiceKey
+              value: "cosmos"
+            - name: Orleans__Clustering__DatabaseName
               value: ${HELLOORLEONS_COSMOS_DATABASE}
-            - name: CosmosDb__ContainerName
+            - name: Orleans__Clustering__ContainerName
+              value: "OrleansCluster"
+            - name: Orleans__GrainStorage__Default__ProviderType
+              value: "AzureCosmosDB"
+            - name: Orleans__GrainStorage__Default__ServiceKey
+              value: "cosmos"
+            - name: Orleans__GrainStorage__Default__DatabaseName
+              value: ${HELLOORLEONS_COSMOS_DATABASE}
+            - name: Orleans__GrainStorage__Default__ContainerName
               value: ${HELLOORLEONS_COSMOS_CONTAINER}
           resizePolicy:
             - resourceName: cpu

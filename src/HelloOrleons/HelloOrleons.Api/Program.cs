@@ -1,5 +1,6 @@
 using Azure.Identity;
 using HelloOrleons.Api;
+using Microsoft.Azure.Cosmos;
 
 var builder = WebApplication.CreateSlimBuilder(args);
 builder.WebHost.UseKestrelHttpsConfiguration();
@@ -7,81 +8,46 @@ builder.AddServiceDefaults();
 
 builder.Services.Configure<GrainConfig>(builder.Configuration.GetSection(GrainConfig.Section));
 
-builder.Host.UseOrleans(silo =>
+// Register keyed CosmosClient for Orleans auto-config providers.
+// Orleans resolves this via ServiceKey in CosmosClusteringProviderBuilder / CosmosGrainStorageProviderBuilder.
+var cosmosConnectionString = builder.Configuration.GetConnectionString("cosmos");
+if (!string.IsNullOrEmpty(cosmosConnectionString))
 {
-    var storageProvider = builder.Configuration["Storage:Provider"] ?? "InMemory";
-    var isCosmosDb = string.Equals(storageProvider, "CosmosDb", StringComparison.OrdinalIgnoreCase);
+    var isEmulator = cosmosConnectionString.Contains("AccountKey=C2y6yDjf5");
+    var hasAccountKey = cosmosConnectionString.Contains("AccountKey=");
 
-    var cosmosDb = builder.Configuration.GetSection(CosmosDbConfig.Section).Get<CosmosDbConfig>() ?? new();
-
-    var cosmosConnectionString = isCosmosDb
-        ? builder.Configuration.GetConnectionString("cosmos")
-            ?? throw new InvalidOperationException(
-                "ConnectionStrings:cosmos is required when Storage:Provider is CosmosDb. " +
-                "Set via Aspire WithReference(cosmos) or env var ConnectionStrings__cosmos=AccountEndpoint=https://...")
-        : null;
-
-    var isEmulator = cosmosConnectionString?.Contains("AccountKey=C2y6yDjf5") == true;
-    var hasAccountKey = cosmosConnectionString?.Contains("AccountKey=") == true;
-
-    void ConfigureCosmos(Orleans.Persistence.Cosmos.CosmosGrainStorageOptions options)
+    builder.Services.AddKeyedSingleton<CosmosClient>("cosmos", (_, _) =>
     {
-        options.DatabaseName = cosmosDb.DatabaseName;
-        options.ContainerName = cosmosDb.ContainerName;
-        options.IsResourceCreationEnabled = !isEmulator;
-
-        if (isEmulator)
-        {
-            options.ClientOptions = new Microsoft.Azure.Cosmos.CosmosClientOptions
-            {
-                ConnectionMode = Microsoft.Azure.Cosmos.ConnectionMode.Gateway,
-                LimitToEndpoint = true,
-                AllowBulkExecution = cosmosDb.AllowBulkExecution
-            };
-        }
-        else
-        {
-            options.ClientOptions.AllowBulkExecution = cosmosDb.AllowBulkExecution;
-        }
-
         if (hasAccountKey)
         {
-            options.ConfigureCosmosClient(cosmosConnectionString!);
+            var clientOptions = isEmulator
+                ? new CosmosClientOptions { ConnectionMode = ConnectionMode.Gateway, LimitToEndpoint = true }
+                : new CosmosClientOptions();
+            return new CosmosClient(cosmosConnectionString, clientOptions);
         }
-        else
-        {
-            var endpoint = cosmosConnectionString!
-                .Replace("AccountEndpoint=", "", StringComparison.OrdinalIgnoreCase)
-                .TrimEnd(';');
-            options.ConfigureCosmosClient(endpoint, new DefaultAzureCredential());
-        }
-    }
 
-    if (isCosmosDb)
-    {
-        silo.AddCosmosGrainStorage("Default", ConfigureCosmos);
-    }
-    else
-    {
-        silo.AddMemoryGrainStorageAsDefault();
-    }
+        var endpoint = cosmosConnectionString
+            .Replace("AccountEndpoint=", "", StringComparison.OrdinalIgnoreCase)
+            .TrimEnd(';');
+        return new CosmosClient(endpoint, new DefaultAzureCredential());
+    });
+}
 
-    var tracingEnabled = builder.Configuration.GetValue<bool>("DISTRIBUTED_TRACING_ENABLED");
-    if (tracingEnabled)
-    {
-        silo.AddActivityPropagation();
-    }
+builder.Host.UseOrleans(silo =>
+{
+    silo.AddActivityPropagation();
 
-    var clustering = builder.Configuration["ORLEANS_CLUSTERING"];
-    if (clustering == "Redis")
+    var isKubernetes = builder.Configuration["ORLEANS_CLUSTERING"] == "Kubernetes";
+    if (isKubernetes)
     {
         silo.UseKubernetesHosting();
-        silo.UseRedisClustering(builder.Configuration["Redis__ConnectionString"] ?? "redis:6379");
     }
-    else
-    {
-        silo.UseLocalhostClustering();
-    }
+
+    // Clustering and grain storage are auto-configured by Orleans
+    // via env vars injected by Aspire (local dev) or K8s deployment.yaml (production).
+    //
+    // The keyed CosmosClient (ServiceKey=cosmos) registered above is
+    // resolved by Orleans providers via [RegisterProvider("AzureCosmosDB", ...)].
 });
 
 var app = builder.Build();

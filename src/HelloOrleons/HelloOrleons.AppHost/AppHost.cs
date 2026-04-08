@@ -13,13 +13,18 @@ var cosmos = builder.AddAzureCosmosDB(ResourceNames.CosmosDb)
 
 var db = cosmos.AddCosmosDatabase(ResourceNames.Database);
 db.AddContainer(ResourceNames.Container, "/PartitionKey");
+db.AddContainer(ResourceNames.ClusterContainer, "/ClusterId");
+
+var orleans = builder.AddOrleans(ResourceNames.Cluster)
+    .WithClustering(cosmos)
+    .WithGrainStorage("Default", cosmos);
 
 var api = builder.AddProject<Projects.HelloOrleons_Api>(ResourceNames.Api)
+    .WithReference(orleans)
     .WithReference(cosmos)
     .WaitFor(cosmos)
     .WithHttpEndpoint(name: "http")
     .WithExternalHttpEndpoints()
-    .WithEnvironment("Storage__Provider", "CosmosDb")
     .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development");
 
 builder.AddNpmApp("e2e", "../HelloOrleons.E2E", "test")
