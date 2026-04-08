@@ -8,9 +8,6 @@ public sealed class HelloGrainState
 {
     [Id(0)]
     public long Count { get; set; }
-
-    [Id(1)]
-    public long PendingCount { get; set; }
 }
 
 public sealed class HelloGrain(
@@ -22,9 +19,7 @@ public sealed class HelloGrain(
 
     public override Task OnActivateAsync(CancellationToken ct)
     {
-        // Recover: durable count + any pending increments from a previous crash
-        _inMemoryCount = state.State.Count + state.State.PendingCount;
-        _dirty = state.State.PendingCount > 0;
+        _inMemoryCount = state.State.Count;
 
         var interval = TimeSpan.FromSeconds(grainConfig.Value.FlushIntervalSeconds);
         this.RegisterGrainTimer(FlushAsync, interval, interval);
@@ -42,13 +37,7 @@ public sealed class HelloGrain(
     {
         if (!_dirty) return;
 
-        // Phase 1: persist pending delta (crash-safe — PendingCount survives restart)
-        state.State.PendingCount = _inMemoryCount - state.State.Count;
-        await state.WriteStateAsync();
-
-        // Phase 2: confirm — move pending into durable count
         state.State.Count = _inMemoryCount;
-        state.State.PendingCount = 0;
         await state.WriteStateAsync();
 
         _dirty = false;
