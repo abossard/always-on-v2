@@ -58,16 +58,17 @@ public static class ServiceDefaultsExtensions
         var useAzureMonitor = !string.IsNullOrEmpty(connStr);
         Console.WriteLine($"[OTEL] Azure Monitor: {(useAzureMonitor ? $"enabled (conn str len={connStr!.Length})" : "DISABLED — no connection string")}");
 
+        var samplingRatio = builder.Configuration.GetValue("OTEL_TRACES_SAMPLER_ARG", 1.0);
+
         if (useAzureMonitor)
         {
             builder.Services.AddOpenTelemetry().UseAzureMonitor(options =>
             {
                 options.ConnectionString = connStr;
                 options.Credential = new DefaultAzureCredential();
+                options.SamplingRatio = (float)samplingRatio;
             });
         }
-
-        var samplingRatio = builder.Configuration.GetValue("OTEL_TRACES_SAMPLER_ARG", 1.0);
 
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics =>
@@ -80,7 +81,6 @@ public static class ServiceDefaultsExtensions
             .WithTracing(tracing =>
             {
                 tracing
-                    .SetSampler(new ParentBasedSampler(new TraceIdRatioBasedSampler(samplingRatio)))
                     .AddAspNetCoreInstrumentation()
                     .AddHttpClientInstrumentation()
                     .AddSource("Azure.*");

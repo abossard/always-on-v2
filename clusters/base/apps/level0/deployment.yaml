@@ -54,6 +54,8 @@ spec:
               value: level0
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: deployment.environment=${STAMP_NAME},cloud.region=${REGION},stamp=${STAMP_KEY}
+            - name: OTEL_TRACES_SAMPLER
+              value: "${OTEL_TRACES_SAMPLER}"
             - name: OTEL_TRACES_SAMPLER_ARG
               value: "${OTEL_TRACES_SAMPLER_ARG}"
             - name: AI__Endpoint
