@@ -120,6 +120,10 @@ jobs:
       - name: Build .NET projects
         run: dotnet build
         working-directory: src/DarkUxChallenge
+      - name: Trust ASP.NET Core dev certificate
+        run: |
+          dotnet dev-certs https --trust || true
+          echo "SSL_CERT_DIR=$HOME/.aspnet/dev-certs/trust:/usr/lib/ssl/certs" >> $GITHUB_ENV
       - name: Start Aspire AppHost
         run: dotnet run --project DarkUxChallenge.AppHost --no-build &
         working-directory: src/DarkUxChallenge
