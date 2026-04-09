@@ -8,10 +8,6 @@ builder.AddServiceDefaults();
 // Type-safe config — crash on startup if invalid
 builder.Services.AddAppConfiguration(builder.Configuration);
 
-// JSON source generation for AOT
-builder.Services.ConfigureHttpJsonOptions(options =>
-    options.SerializerOptions.TypeInfoResolverChain.Insert(0, AppJsonContext.Default));
-
 // Aspire Cosmos integration
 var cosmosConnStr = builder.Configuration.GetConnectionString("cosmos");
 if (!string.IsNullOrEmpty(cosmosConnStr))

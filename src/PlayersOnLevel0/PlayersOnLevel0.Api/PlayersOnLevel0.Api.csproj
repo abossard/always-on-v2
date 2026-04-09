@@ -4,8 +4,6 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <PublishAot>true</PublishAot>
-    <InvariantGlobalization>true</InvariantGlobalization>
   </PropertyGroup>
 
   <ItemGroup>
@@ -16,23 +14,6 @@
 
   <ItemGroup>
     <ProjectReference Include="..\PlayersOnLevel0.ServiceDefaults\PlayersOnLevel0.ServiceDefaults.csproj" />
-  </ItemGroup>
-
-  <!-- Preserve all Cosmos DB SDK assemblies and Newtonsoft.Json.
-       The SDK uses Newtonsoft.Json with reflection-based JsonConverters for
-       internal types (PartitionKeyInternalJsonConverter in Direct.dll).
-       All four Cosmos DLLs must be preserved to avoid trimming issues. -->
-  <ItemGroup>
-    <TrimmerRootAssembly Include="System.Configuration.ConfigurationManager" />
-    <TrimmerRootAssembly Include="Newtonsoft.Json" />
-    <TrimmerRootAssembly Include="Microsoft.Azure.Cosmos.Client" />
-    <TrimmerRootAssembly Include="Microsoft.Azure.Cosmos.Direct" />
-    <TrimmerRootAssembly Include="Microsoft.Azure.Cosmos.Core" />
-    <TrimmerRootAssembly Include="Microsoft.Azure.Cosmos.Serialization.HybridRow" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <TrimmerRootDescriptor Include="TrimmerRoots.xml" />
   </ItemGroup>
 
 </Project>
