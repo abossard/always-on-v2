@@ -202,10 +202,8 @@ jobs:
     uses: ./.github/workflows/app-build-push.yml
     with:
       app_name: helloagents
-      docker_context: src/HelloAgents
-      dockerfile: src/HelloAgents/HelloAgents.Api/Dockerfile
+      bake_source: src/HelloAgents
       deploy_manifest: clusters/base/apps/helloagents/deployment.yaml
-      extra_images: '[{"name":"helloagents-web","context":"src/HelloAgents/HelloAgents.Web","dockerfile":"src/HelloAgents/HelloAgents.Web/Dockerfile"}]'
     secrets: inherit
 
   verify-deployment:

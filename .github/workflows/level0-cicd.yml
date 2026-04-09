@@ -182,10 +182,8 @@ jobs:
     uses: ./.github/workflows/app-build-push.yml
     with:
       app_name: level0
-      docker_context: src/PlayersOnLevel0
-      dockerfile: src/PlayersOnLevel0/PlayersOnLevel0.Api/Dockerfile
+      bake_source: src/PlayersOnLevel0
       deploy_manifest: clusters/base/apps/level0/deployment.yaml
-      extra_images: '[{"name":"level0-web","context":"src/PlayersOnLevel0/PlayersOnLevel0.SPA.Web","dockerfile":"src/PlayersOnLevel0/PlayersOnLevel0.SPA.Web/Dockerfile"}]'
     secrets: inherit
 
   verify-deployment:

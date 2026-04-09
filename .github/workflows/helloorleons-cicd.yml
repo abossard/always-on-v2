@@ -94,8 +94,7 @@ jobs:
     uses: ./.github/workflows/app-build-push.yml
     with:
       app_name: helloorleons
-      docker_context: src/HelloOrleons
-      dockerfile: src/HelloOrleons/HelloOrleons.Api/Dockerfile
+      bake_source: src/HelloOrleons
       deploy_manifest: clusters/base/apps/helloorleons/deployment.yaml
     secrets: inherit
 

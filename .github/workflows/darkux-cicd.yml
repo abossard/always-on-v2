@@ -184,10 +184,8 @@ jobs:
     uses: ./.github/workflows/app-build-push.yml
     with:
       app_name: darkux
-      docker_context: src/DarkUxChallenge
-      dockerfile: src/DarkUxChallenge/DarkUxChallenge.Api/Dockerfile
+      bake_source: src/DarkUxChallenge
       deploy_manifest: clusters/base/apps/darkux/deployment.yaml
-      extra_images: '[{"name":"darkux-web","context":"src/DarkUxChallenge/DarkUxChallenge.SPA.Web","dockerfile":"src/DarkUxChallenge/DarkUxChallenge.SPA.Web/Dockerfile"}]'
     secrets: inherit
 
   verify-deployment:

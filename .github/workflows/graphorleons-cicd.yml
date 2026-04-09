@@ -163,10 +163,8 @@ jobs:
     uses: ./.github/workflows/app-build-push.yml
     with:
       app_name: graphorleons
-      docker_context: src/GraphOrleons
-      dockerfile: src/GraphOrleons/GraphOrleons.Api/Dockerfile
+      bake_source: src/GraphOrleons
       deploy_manifest: clusters/base/apps/graphorleons/deployment.yaml
-      extra_images: '[{"name":"graphorleons-web","context":"src/GraphOrleons/GraphOrleons.Web","dockerfile":"src/GraphOrleons/GraphOrleons.Web/Dockerfile"}]'
     secrets: inherit
 
   verify-deployment:
