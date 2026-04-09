@@ -31,28 +31,22 @@ not referenced by your application.
 
 ```mermaid
 flowchart TD
-    A["🔷 Aspire AppHost\nAddOrleans()\n.WithGrainStorage(cosmos)\n.WithClustering(cosmos)"]
-    B["📦 ProviderConfiguration.Create()\nAzureCosmosDBResource\n→ strip 'Resource'\n→ &quot;AzureCosmosDB&quot;"]
-    C["🌍 Environment Variables\nOrleans__GrainStorage__Default__ProviderType=AzureCosmosDB\nOrleans__GrainStorage__Default__ServiceKey=cosmos\nOrleans__Clustering__ProviderType=AzureCosmosDB"]
-    D["⚙️ Orleans Runtime\nSiloBuilder constructor\nDefaultSiloServices.ApplyConfiguration()"]
-    E["🔍 Assembly Scanner\nAppDomain.CurrentDomain.GetAssemblies()\n.SelectMany(asm =>\n  asm.GetCustomAttributes&lt;RegisterProviderAttribute&gt;())"]
-    F["📚 Orleans.Persistence.Cosmos 10.0.1\nOrleans.Clustering.Cosmos 10.0.1"]
-    G["❌ CRASH\nCould not find Clustering provider\nnamed 'AzureCosmosDB'"]
+    classDef aspire   fill:#0078d4,color:#fff,stroke:#005a9e,stroke-width:2px
+    classDef envvar   fill:#d46b08,color:#fff,stroke:#ad5a07,stroke-width:2px
+    classDef runtime  fill:#5c2d91,color:#fff,stroke:#4a2474,stroke-width:2px
+    classDef broken   fill:#991b1b,color:#fff,stroke:#7f1d1d,stroke-width:2px
+    classDef crash    fill:#0f0f0f,color:#ff453a,stroke:#ff0000,stroke-width:3px
 
-    A --> B
-    B --> C
-    C --> D
-    D --> E
-    E --> F
-    F -->|"❌ No [RegisterProvider] attributes\n'AzureCosmosDB' not in dictionary"| G
+    A(["🔷 Aspire AppHost\nAddOrleans().WithClustering(cosmos)\n.WithGrainStorage(cosmos)"]):::aspire
+    B["ProviderConfiguration.Create()\nAzureCosmosDBResource → strip 'Resource'\n→ type name = AzureCosmosDB"]:::aspire
+    C["🌍 Injected Env Vars\nOrleans__Clustering__ProviderType = AzureCosmosDB\nOrleans__GrainStorage__Default__ProviderType = AzureCosmosDB\nOrleans__*__ServiceKey = cosmos"]:::envvar
+    D["⚙️ SiloBuilder constructor\nDefaultSiloServices.ApplyConfiguration()\nreads IConfiguration Orleans__ sections"]:::runtime
+    E["🔍 Assembly Scanner\nAppDomain.CurrentDomain.GetAssemblies()\n.SelectMany(GetCustomAttributes RegisterProviderAttribute)"]:::runtime
+    F[("📦 Orleans.Persistence.Cosmos 10.0.1\nOrleans.Clustering.Cosmos 10.0.1")]:::broken
+    G["❌ No RegisterProvider attributes found\nAzureCosmosDB not in provider type dictionary"]:::broken
+    H[["💥 InvalidOperationException\nCould not find Clustering provider\nnamed 'AzureCosmosDB'"]]:::crash
 
-    style A fill:#0078d4,color:#fff
-    style B fill:#0078d4,color:#fff
-    style C fill:#ff8c00,color:#fff
-    style D fill:#5c2d91,color:#fff
-    style E fill:#5c2d91,color:#fff
-    style F fill:#e81123,color:#fff
-    style G fill:#e81123,color:#fff,stroke:#800000,stroke-width:3px
+    A --> B --> C --> D --> E --> F --> G --> H
 ```
 
 ### Why Assembly.Load doesn't help
@@ -74,31 +68,31 @@ This is consistent with the HelloAgents project which already uses this pattern 
 
 ```mermaid
 flowchart LR
-    subgraph AppHost ["🔷 Aspire AppHost"]
-        AH["AddAzureCosmosDB()\n(emulator + conn string)\n\n✅ NO AddOrleans()\n✅ NO WithGrainStorage()\n✅ NO WithClustering()"]
+    classDef apphost fill:#0078d4,color:#fff,stroke:#005a9e,stroke-width:2px
+    classDef api     fill:#5c2d91,color:#fff,stroke:#4a2474,stroke-width:2px
+    classDef prod    fill:#107c10,color:#fff,stroke:#0e6610,stroke-width:2px
+    classDef dev     fill:#374151,color:#d1d5db,stroke:#6b7280,stroke-width:2px
+    classDef k8s     fill:#0369a1,color:#fff,stroke:#0c4a6e,stroke-width:2px
+
+    subgraph AppHost ["🔷 Aspire AppHost (fixed)"]
+        AH(["AddAzureCosmosDB()\nemulator + connection string\n\nNO AddOrleans()\nNO WithGrainStorage()\nNO WithClustering()"]):::apphost
     end
 
     subgraph API ["🟣 Orleans API — Program.cs"]
         direction TB
-        CS["ConnectionStrings__cosmos\n+ ORLEANS_CLUSTERING=Kubernetes"]
-        EX["UseOrleans(silo =>\n  silo.AddCosmosGrainStorageAsDefault()\n  silo.UseCosmosClustering()\n  silo.UseKubernetesHosting())"]
-        DEV["Dev fallback\nUseLocalhostClustering()\nAddMemoryGrainStorageAsDefault()"]
-        CS -->|"has cosmos conn str"| EX
-        CS -->|"no cosmos conn str"| DEV
+        CHECK{"cosmos conn str\npresent?"}:::api
+        PROD["🌐 Production Mode\nsilo.UseCosmosClustering()\nsilo.AddCosmosGrainStorageAsDefault()\nsilo.UseKubernetesHosting()"]:::prod
+        DEV["🛠️ Dev / Fallback\nsilo.UseLocalhostClustering()\nsilo.AddMemoryGrainStorageAsDefault()"]:::dev
+        CHECK -->|"✅ yes"| PROD
+        CHECK -->|"no"| DEV
     end
 
     subgraph K8s ["☸️ Kubernetes Deployment"]
-        ENV["env:\n  ORLEANS_CLUSTERING: Kubernetes\n  ConnectionStrings__cosmos: AccountEndpoint=...\n  ✅ NO Orleans__* auto-config vars"]
+        ENV["env vars\nORLEANS_CLUSTERING: Kubernetes\nConnectionStrings__cosmos: AccountEndpoint...\n\nNO Orleans__* auto-config vars"]:::k8s
     end
 
-    AppHost -->|"injects ConnectionStrings__cosmos"| API
-    K8s -->|"injects env vars at runtime"| API
-
-    style AppHost fill:#0078d4,color:#fff
-    style API fill:#5c2d91,color:#fff
-    style K8s fill:#107c10,color:#fff
-    style EX fill:#3a0078,color:#fff
-    style DEV fill:#4a4a4a,color:#fff
+    AH -->|"injects ConnectionStrings__cosmos"| CHECK
+    ENV -->|"injects env vars at runtime"| CHECK
 ```
 
 ## Alternatives Considered
@@ -129,20 +123,33 @@ flowchart LR
 
 ```mermaid
 flowchart TD
-    subgraph Apps ["Orleans Apps in always-on-v2"]
-        HO["HelloOrleons\n✅ Program.cs: explicit config\n✅ K8s: Orleans__ vars removed\n✅ Fixed in commit 5c8970b"]
-        GO["GraphOrleons\n✅ Program.cs: explicit config\n✅ K8s: Orleans__ vars removed\n✅ Fixed in commit 5c8970b"]
-        HA["HelloAgents\n✅ Program.cs: explicit config\n✅ K8s: was already clean\n✅ No changes needed"]
-    end
+    classDef issue  fill:#b45309,color:#fff,stroke:#92400e,stroke-width:2px
+    classDef fixed  fill:#107c10,color:#fff,stroke:#0e6610,stroke-width:2px
+    classDef detail fill:#166534,color:#fff,stroke:#14532d,stroke-width:1px
+    classDef future fill:#1e293b,color:#94a3b8,stroke:#475569,stroke-width:2px,stroke-dasharray:5 5
 
-    subgraph Future ["🔮 Future (when dotnet/orleans#9730 ships)"]
-        FC["May revert to Aspire auto-config\nAddOrleans().WithGrainStorage()\nonce [RegisterProvider] attributes\nare source-generated"]
-    end
+    ISSUE(["🐛 Root Cause\ndotnet/orleans#9730\nRegisterProvider attributes missing\nfrom Orleans 10.0.1 Cosmos packages"]):::issue
 
-    Apps -.->|"revisit when Orleans 10.x\nadds RegisterProvider support"| Future
+    HO["HelloOrleons\n✅ FIXED"]:::fixed
+    GO["GraphOrleons\n✅ FIXED"]:::fixed
+    HA["HelloAgents\n✅ ALREADY CLEAN"]:::fixed
 
-    style HO fill:#107c10,color:#fff
-    style GO fill:#107c10,color:#fff
-    style HA fill:#107c10,color:#fff
-    style Future fill:#4a4a4a,color:#ddd,stroke:#888
+    HO_PC["Program.cs\nexplicit provider config\nUseCosmosClustering()\nAddCosmosGrainStorageAsDefault()"]:::detail
+    HO_K8S["K8s deployment.yaml\nOrleans__* env vars removed\n(8 vars deleted)"]:::detail
+
+    GO_PC["Program.cs\nexplicit provider config\nUseCosmosClustering()"]:::detail
+    GO_K8S["K8s deployment.yaml\nOrleans__* env vars removed\n(4 vars deleted)"]:::detail
+
+    HA_PC["Program.cs\nexplicit provider config\nalready correct — no changes needed"]:::detail
+
+    FUTURE(["🔮 Future\nwhen dotnet/orleans#9730 ships"]):::future
+    REVERT["May revert to Aspire auto-config\nAddOrleans().WithGrainStorage()\nonce RegisterProvider source-gen lands"]:::future
+
+    ISSUE --> HO & GO & HA
+    HO --> HO_PC & HO_K8S
+    GO --> GO_PC & GO_K8S
+    HA --> HA_PC
+
+    ISSUE -.->|"when resolved"| FUTURE
+    FUTURE -.-> REVERT
 ```
