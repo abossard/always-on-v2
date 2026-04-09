@@ -1,13 +1,24 @@
 """GraphOrleons hot-tenant load test — millions of tiny writes into one stable hierarchy."""
 
+import os
 import random
 
 from locust import HttpUser, between, task
 
-TENANT = "hot-tenant"
-ROOT_COMPONENT = "ingress"
-BRANCH_COUNT = 6
-LEAVES_PER_BRANCH = 6
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None or raw == "":
+        return default
+    return int(raw)
+
+
+TENANT = os.getenv("GRAPH_TENANT", "hot-tenant")
+ROOT_COMPONENT = os.getenv("GRAPH_ROOT_COMPONENT", "ingress")
+BRANCH_COUNT = _env_int("GRAPH_BRANCH_COUNT", 6)
+LEAVES_PER_BRANCH = _env_int("GRAPH_LEAVES_PER_BRANCH", 6)
+TINY_EVENT_WEIGHT = _env_int("GRAPH_TINY_EVENT_WEIGHT", 18)
+EDGE_EVENT_WEIGHT = _env_int("GRAPH_EDGE_EVENT_WEIGHT", 2)
 
 
 def build_components() -> list[str]:
@@ -37,6 +48,7 @@ HIERARCHY_EDGES = build_edges()
 
 class GraphOrleonsHotTenantUser(HttpUser):
     wait_time = between(0, 0)
+    host = os.getenv("TARGET_HOST")
 
     def on_start(self):
         self.tenant = TENANT
@@ -49,7 +61,7 @@ class GraphOrleonsHotTenantUser(HttpUser):
         self.sequence += 1
         return self.sequence
 
-    @task(18)
+    @task(TINY_EVENT_WEIGHT)
     def post_tiny_component_event(self):
         component = random.choice(self.components)
         payload = {
@@ -62,7 +74,7 @@ class GraphOrleonsHotTenantUser(HttpUser):
         }
         self.client.post("/api/events", json=payload, name="/api/events (tiny component)")
 
-    @task(2)
+    @task(EDGE_EVENT_WEIGHT)
     def post_stable_hierarchy_edge(self):
         source, target, impact = self.edges[self.edge_index]
         self.edge_index = (self.edge_index + 1) % len(self.edges)

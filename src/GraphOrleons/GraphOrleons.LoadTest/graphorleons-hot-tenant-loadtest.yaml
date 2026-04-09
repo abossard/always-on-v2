@@ -4,10 +4,28 @@ displayName: GraphOrleons Hot Tenant Load Test
 description: One tenant, 43 stable components, tiny event payloads, zero think time, heavy write saturation
 testType: Locust
 testPlan: locustfile-hot-tenant.py
-engineInstances: 1
+engineInstances: 2
+properties:
+  userPropertyFile: locust-hot-tenant.conf
+env:
+  - name: TARGET_HOST
+    value: http://graphorleons-api
+  - name: GRAPH_TENANT
+    value: hot-tenant
+  - name: GRAPH_ROOT_COMPONENT
+    value: ingress
+  - name: GRAPH_BRANCH_COUNT
+    value: "6"
+  - name: GRAPH_LEAVES_PER_BRANCH
+    value: "6"
+  - name: GRAPH_TINY_EVENT_WEIGHT
+    value: "18"
+  - name: GRAPH_EDGE_EVENT_WEIGHT
+    value: "2"
 failureCriteria:
   - avg(response_time_ms) > 500
   - percentage(error) > 5
+  - avg(requests_per_sec) < 500
 autoStop:
   errorPercentage: 90
   timeWindow: 30
