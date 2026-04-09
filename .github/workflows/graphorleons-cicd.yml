@@ -162,3 +162,65 @@ jobs:
       bake_source: src/GraphOrleons
       deploy_manifest: clusters/base/apps/graphorleons/deployment.yaml
     secrets: inherit
+
+  load-test:
+    name: Azure Load Test
+    needs: [docker-build-push]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Run Azure Load Test
+        uses: azure/load-testing@v1
+        with:
+          loadTestConfigFile: src/GraphOrleons/GraphOrleons.LoadTest/graphorleons-hot-tenant-loadtest.yaml
+          loadTestResource: lt-alwayson
+          resourceGroup: rg-alwayson-global
+          env: |
+            [
+              {
+                "name": "LOCUST_HOST",
+                "value": "https://graphorleons-swedencentral-002.swedencentral.alwayson.actor"
+              },
+              {
+                "name": "LOCUST_USERS",
+                "value": "400"
+              },
+              {
+                "name": "LOCUST_SPAWN_RATE",
+                "value": "80"
+              },
+              {
+                "name": "LOCUST_RUN_TIME",
+                "value": "600"
+              },
+              {
+                "name": "GRAPH_TENANT",
+                "value": "hot-tenant"
+              },
+              {
+                "name": "GRAPH_BRANCH_COUNT",
+                "value": "6"
+              },
+              {
+                "name": "GRAPH_LEAVES_PER_BRANCH",
+                "value": "6"
+              }
+            ]
+
+      - name: Upload Load Test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: azure-load-test-results-graphorleons
+          retention-days: 14
+          path: ${{ github.workspace }}/loadTest
