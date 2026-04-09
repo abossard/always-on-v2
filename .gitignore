@@ -50,3 +50,6 @@ coverage/
 .env
 *.lscache
 dist/assets/*
+
+# Compiled ARM templates (use .bicep source only)
+infra/**/*.json
