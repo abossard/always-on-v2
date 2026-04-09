@@ -48,7 +48,6 @@ HIERARCHY_EDGES = build_edges()
 
 class GraphOrleonsHotTenantUser(HttpUser):
     wait_time = between(0, 0)
-    host = os.getenv("TARGET_HOST")
 
     def on_start(self):
         self.tenant = TENANT
