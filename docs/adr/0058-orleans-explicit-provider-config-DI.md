@@ -124,3 +124,25 @@ flowchart LR
 - [Orleans DefaultSiloServices.cs](https://github.com/dotnet/orleans/blob/main/src/Orleans.Runtime/Hosting/DefaultSiloServices.cs) — Assembly scanning that fails to find providers
 - [Orleans Cosmos DB grain persistence docs](https://learn.microsoft.com/en-us/dotnet/orleans/grains/grain-persistence/azure-cosmos-db) — Official explicit configuration API
 - ADR-0056: HelloOrleons write-behind high performance (original design)
+
+## App Status
+
+```mermaid
+flowchart TD
+    subgraph Apps ["Orleans Apps in always-on-v2"]
+        HO["HelloOrleons\n✅ Program.cs: explicit config\n✅ K8s: Orleans__ vars removed\n✅ Fixed in commit 5c8970b"]
+        GO["GraphOrleons\n✅ Program.cs: explicit config\n✅ K8s: Orleans__ vars removed\n✅ Fixed in commit 5c8970b"]
+        HA["HelloAgents\n✅ Program.cs: explicit config\n✅ K8s: was already clean\n✅ No changes needed"]
+    end
+
+    subgraph Future ["🔮 Future (when dotnet/orleans#9730 ships)"]
+        FC["May revert to Aspire auto-config\nAddOrleans().WithGrainStorage()\nonce [RegisterProvider] attributes\nare source-generated"]
+    end
+
+    Apps -.->|"revisit when Orleans 10.x\nadds RegisterProvider support"| Future
+
+    style HO fill:#107c10,color:#fff
+    style GO fill:#107c10,color:#fff
+    style HA fill:#107c10,color:#fff
+    style Future fill:#4a4a4a,color:#ddd,stroke:#888
+```
