@@ -29,20 +29,30 @@ not referenced by your application.
 
 5. **The `Orleans.Persistence.Cosmos` and `Orleans.Clustering.Cosmos` assemblies do not have `[RegisterProvider]` attributes** in version 10.0.1. The provider type `"AzureCosmosDB"` is never registered → lookup fails → crash.
 
-```
-┌─────────────────────────┐     env vars      ┌──────────────────────┐
-│  Aspire AppHost         │──────────────────▶│  Orleans Runtime     │
-│  AddOrleans()           │  ProviderType=    │  ApplyConfiguration()│
-│  .WithGrainStorage()    │  "AzureCosmosDB"  │  Scans assemblies    │
-│  .WithClustering()      │                   │  for [RegisterProvider]
-└─────────────────────────┘                   └──────────┬───────────┘
-                                                         │
-                                              ╔══════════▼══════════╗
-                                              ║  Orleans.Persistence║
-                                              ║  .Cosmos 10.0.1    ║
-                                              ║  ❌ NO [RegisterProvider]
-                                              ║  attribute exists   ║
-                                              ╚═════════════════════╝
+```mermaid
+flowchart TD
+    A["🔷 Aspire AppHost\nAddOrleans()\n.WithGrainStorage(cosmos)\n.WithClustering(cosmos)"]
+    B["📦 ProviderConfiguration.Create()\nAzureCosmosDBResource\n→ strip 'Resource'\n→ &quot;AzureCosmosDB&quot;"]
+    C["🌍 Environment Variables\nOrleans__GrainStorage__Default__ProviderType=AzureCosmosDB\nOrleans__GrainStorage__Default__ServiceKey=cosmos\nOrleans__Clustering__ProviderType=AzureCosmosDB"]
+    D["⚙️ Orleans Runtime\nSiloBuilder constructor\nDefaultSiloServices.ApplyConfiguration()"]
+    E["🔍 Assembly Scanner\nAppDomain.CurrentDomain.GetAssemblies()\n.SelectMany(asm =>\n  asm.GetCustomAttributes&lt;RegisterProviderAttribute&gt;())"]
+    F["📚 Orleans.Persistence.Cosmos 10.0.1\nOrleans.Clustering.Cosmos 10.0.1"]
+    G["❌ CRASH\nCould not find Clustering provider\nnamed 'AzureCosmosDB'"]
+
+    A --> B
+    B --> C
+    C --> D
+    D --> E
+    E --> F
+    F -->|"❌ No [RegisterProvider] attributes\n'AzureCosmosDB' not in dictionary"| G
+
+    style A fill:#0078d4,color:#fff
+    style B fill:#0078d4,color:#fff
+    style C fill:#ff8c00,color:#fff
+    style D fill:#5c2d91,color:#fff
+    style E fill:#5c2d91,color:#fff
+    style F fill:#e81123,color:#fff
+    style G fill:#e81123,color:#fff,stroke:#800000,stroke-width:3px
 ```
 
 ### Why Assembly.Load doesn't help
@@ -62,14 +72,33 @@ This means:
 
 This is consistent with the HelloAgents project which already uses this pattern successfully.
 
-```
-┌─────────────────────────┐  ConnectionStrings  ┌──────────────────────┐
-│  Aspire AppHost         │─────:cosmos────────▶│  Orleans API         │
-│  AddAzureCosmosDB()     │                     │  UseOrleans(silo =>  │
-│  (emulator + connstr)   │                     │    AddCosmosGrain... │
-│  NO AddOrleans()        │                     │    UseCosmosClustering│
-└─────────────────────────┘                     │  )                   │
-                                                └──────────────────────┘
+```mermaid
+flowchart LR
+    subgraph AppHost ["🔷 Aspire AppHost"]
+        AH["AddAzureCosmosDB()\n(emulator + conn string)\n\n✅ NO AddOrleans()\n✅ NO WithGrainStorage()\n✅ NO WithClustering()"]
+    end
+
+    subgraph API ["🟣 Orleans API — Program.cs"]
+        direction TB
+        CS["ConnectionStrings__cosmos\n+ ORLEANS_CLUSTERING=Kubernetes"]
+        EX["UseOrleans(silo =>\n  silo.AddCosmosGrainStorageAsDefault()\n  silo.UseCosmosClustering()\n  silo.UseKubernetesHosting())"]
+        DEV["Dev fallback\nUseLocalhostClustering()\nAddMemoryGrainStorageAsDefault()"]
+        CS -->|"has cosmos conn str"| EX
+        CS -->|"no cosmos conn str"| DEV
+    end
+
+    subgraph K8s ["☸️ Kubernetes Deployment"]
+        ENV["env:\n  ORLEANS_CLUSTERING: Kubernetes\n  ConnectionStrings__cosmos: AccountEndpoint=...\n  ✅ NO Orleans__* auto-config vars"]
+    end
+
+    AppHost -->|"injects ConnectionStrings__cosmos"| API
+    K8s -->|"injects env vars at runtime"| API
+
+    style AppHost fill:#0078d4,color:#fff
+    style API fill:#5c2d91,color:#fff
+    style K8s fill:#107c10,color:#fff
+    style EX fill:#3a0078,color:#fff
+    style DEV fill:#4a4a4a,color:#fff
 ```
 
 ## Alternatives Considered
