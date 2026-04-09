@@ -27,6 +27,7 @@ A hands-on learning framework for senior software engineers: design, build, and 
 | **[PlayersOnLevel0](src/PlayersOnLevel0/)** | Lightweight REST API for player progression | .NET 10, Cosmos DB, Aspire | ✅ React+Vite | ✅ TUnit | ✅ Playwright | ✅ |
 | **[DarkUxChallenge](src/DarkUxChallenge/)** | Accessibility testing challenge — hostile-but-truthful UX | .NET 10, Cosmos DB, Aspire | ✅ React+Vite | ✅ TUnit | ✅ Playwright | ✅ |
 | **[HelloAgents](src/HelloAgents/)** | AI multi-agent conversations with Orleans streaming | .NET 10, Orleans, Redis, OpenAI, Cosmos DB | ✅ React | ✅ TUnit | ✅ Playwright | — |
+| **[GraphOrleons](src/GraphOrleons/)** | Event-driven graph modeling with Orleans grains | .NET 10, Orleans, Cosmos DB, Aspire | ✅ React+Vite | ✅ TUnit | ✅ Playwright | — |
 | **[HelloOrleons](src/HelloOrleons/)** | Orleans clustering demo with Redis | .NET 10, Orleans, Redis | — | ✅ TUnit | — | — |
 | **[PlayersOn](src/PlayersOn/)** | Orleans grain architecture reference | .NET 10, Orleans | — | ✅ | — | — |
 | **[PlayersOnOrleans](src/PlayersOnOrleons/)** | Minimal Orleans alternative demo | .NET 10, Orleans | — | ✅ | — | — |
@@ -39,6 +40,7 @@ A hands-on learning framework for senior software engineers: design, build, and 
 | PlayersOnLevel0 | ✅ | `level0` | ✅ `level0-cicd.yml` | ✅ | [level0.alwayson.actor](https://level0.alwayson.actor) | swedencentral, germanywestcentral |
 | DarkUxChallenge | ✅ | `darkux` | ✅ `darkux-cicd.yml` | ✅ | [darkux.alwayson.actor](https://darkux.alwayson.actor) | swedencentral, germanywestcentral |
 | HelloAgents | ✅ | `helloagents` | ✅ `helloagents-cicd.yml` | ✅ | [agents.alwayson.actor](https://agents.alwayson.actor) | swedencentral, germanywestcentral |
+| GraphOrleons | ✅ | `graphorleons` | ✅ `graphorleons-cicd.yml` | ✅ | [events.alwayson.actor](https://events.alwayson.actor) | swedencentral, germanywestcentral |
 | HelloOrleons | ✅ | `helloorleons` | ✅ `helloorleons-cicd.yml` | ✅ | [hello.alwayson.actor](https://hello.alwayson.actor) | swedencentral, germanywestcentral |
 | PlayersOn | ❌ | — | — | — | — | — |
 | PlayersOnOrleans | ❌ | — | — | — | — | — |
@@ -69,6 +71,7 @@ A hands-on learning framework for senior software engineers: design, build, and 
 | `level0-cicd.yml` | Push to `src/PlayersOnLevel0/**` | Build → TUnit tests (3x retry) → E2E → Docker build+push → Flux deploys |
 | `darkux-cicd.yml` | Push to `src/DarkUxChallenge/**` | Build → TUnit tests (3x retry) → E2E → Docker build+push → Flux deploys |
 | `helloagents-cicd.yml` | Push to `src/HelloAgents/**` | Build → TUnit tests (3x retry) → E2E → Docker build+push → Flux deploys |
+| `graphorleons-cicd.yml` | Push to `src/GraphOrleons/**` | Build → TUnit tests (3x retry) → E2E → Docker build+push → Flux deploys |
 | `helloorleons-cicd.yml` | Push to `src/HelloOrleons/**` | Build → TUnit tests (3x retry) → Docker build+push → Flux deploys |
 | `app-build-push.yml` | Reusable (called by above) | Multi-arch Docker build (amd64/arm64 native), ACR push, manifest update |
 | `azure-dev.yml` | Manual dispatch | `azd provision` + `azd deploy` for infrastructure |

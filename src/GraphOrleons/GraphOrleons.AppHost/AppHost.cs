@@ -14,12 +14,9 @@ var cosmos = builder.AddAzureCosmosDB(ResourceNames.CosmosDb)
 var db = cosmos.AddCosmosDatabase(ResourceNames.Database);
 db.AddContainer(ResourceNames.ClusterContainer, "/ClusterId");
 
-var orleans = builder.AddOrleans(ResourceNames.Cluster)
-    .WithClustering(cosmos);
-
-// API (Orleans silo with in-memory grain storage, Cosmos clustering)
+// Orleans providers are configured explicitly in the API project.
+// Aspire auto-config via AddOrleans().WithClustering() doesn't work with Orleans 10.0.1.
 var api = builder.AddProject<Projects.GraphOrleons_Api>(ResourceNames.Api)
-    .WithReference(orleans)
     .WithReference(cosmos)
     .WaitFor(cosmos)
     .WithExternalHttpEndpoints()

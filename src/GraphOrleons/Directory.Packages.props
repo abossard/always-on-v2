@@ -11,7 +11,7 @@
     <PackageVersion Include="Microsoft.Orleans.Clustering.Cosmos" Version="10.0.1" />
     <PackageVersion Include="Microsoft.Orleans.Dashboard" Version="10.0.1" />
     <!-- Aspire -->
-    <PackageVersion Include="Aspire.Hosting.Azure.CosmosDB" Version="13.2.1" />
+    <PackageVersion Include="Aspire.Hosting.Azure.CosmosDB" Version="13.2.2" />
     <PackageVersion Include="Aspire.Hosting.NodeJs" Version="9.5.2" />
     <PackageVersion Include="Aspire.Hosting.Orleans" Version="13.2.1" />
     <PackageVersion Include="Aspire.Hosting.Testing" Version="13.2.1" />

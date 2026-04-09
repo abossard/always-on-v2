@@ -1,7 +1,0 @@
-<Solution>
-  <Project Path="PlayersOnOrleons.Abstractions/PlayersOnOrleons.Abstractions.csproj" />
-  <Project Path="PlayersOnOrleons.Api/PlayersOnOrleons.Api.csproj" />
-  <Project Path="PlayersOnOrleons.AppHost/PlayersOnOrleons.AppHost.csproj" />
-  <Project Path="PlayersOnOrleons.ServiceDefaults/PlayersOnOrleons.ServiceDefaults.csproj" />
-  <Project Path="PlayersOnOrleons.Tests/PlayersOnOrleons.Tests.csproj" />
-</Solution>

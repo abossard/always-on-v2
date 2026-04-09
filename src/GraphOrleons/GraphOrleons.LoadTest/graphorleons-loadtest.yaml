@@ -1,0 +1,13 @@
+version: v0.1
+testId: graphorleons-load-test
+displayName: GraphOrleons Load Test
+description: 200 users across 50 tenants, 20 components each — heavy writes with graph edges
+testType: Locust
+testPlan: locustfile.py
+engineInstances: 1
+failureCriteria:
+  - avg(response_time_ms) > 500
+  - percentage(error) > 5
+autoStop:
+  errorPercentage: 90
+  timeWindow: 30

@@ -11,29 +11,7 @@ builder.AddServiceDefaults();
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
-// Register keyed CosmosClient for Orleans clustering auto-config.
 var cosmosConnectionString = builder.Configuration.GetConnectionString("cosmos");
-if (!string.IsNullOrEmpty(cosmosConnectionString))
-{
-    var isEmulator = cosmosConnectionString.Contains("AccountKey=C2y6yDjf5");
-    var hasAccountKey = cosmosConnectionString.Contains("AccountKey=");
-
-    builder.Services.AddKeyedSingleton<CosmosClient>("cosmos", (_, _) =>
-    {
-        if (hasAccountKey)
-        {
-            var clientOptions = isEmulator
-                ? new CosmosClientOptions { ConnectionMode = ConnectionMode.Gateway, LimitToEndpoint = true }
-                : new CosmosClientOptions();
-            return new CosmosClient(cosmosConnectionString, clientOptions);
-        }
-
-        var endpoint = cosmosConnectionString
-            .Replace("AccountEndpoint=", "", StringComparison.OrdinalIgnoreCase)
-            .TrimEnd(';');
-        return new CosmosClient(endpoint, new DefaultAzureCredential());
-    });
-}
 
 builder.Host.UseOrleans(silo =>
 {
@@ -49,9 +27,39 @@ builder.Host.UseOrleans(silo =>
         silo.UseKubernetesHosting();
     }
 
-    // Clustering is auto-configured by Orleans via env vars
-    // (ProviderType=AzureCosmosDB, ServiceKey=cosmos) set by
-    // Aspire (local dev) or K8s deployment.yaml (production).
+    // Explicit Orleans clustering config — Aspire auto-config via
+    // AddOrleans().WithClustering() doesn't work with Orleans 10.0.1.
+    if (!string.IsNullOrEmpty(cosmosConnectionString))
+    {
+        var isEmulator = cosmosConnectionString.Contains("AccountKey=C2y6yDjf5");
+        var hasAccountKey = cosmosConnectionString.Contains("AccountKey=");
+
+        silo.UseCosmosClustering(o =>
+        {
+            o.DatabaseName = "graphorleons";
+            o.ContainerName = "OrleansCluster";
+            o.IsResourceCreationEnabled = true;
+            if (hasAccountKey)
+            {
+                o.ConfigureCosmosClient(cosmosConnectionString);
+                if (isEmulator)
+                {
+                    o.ClientOptions = new CosmosClientOptions
+                    {
+                        ConnectionMode = ConnectionMode.Gateway,
+                        LimitToEndpoint = true
+                    };
+                }
+            }
+            else
+            {
+                var endpoint = cosmosConnectionString
+                    .Replace("AccountEndpoint=", "", StringComparison.OrdinalIgnoreCase)
+                    .TrimEnd(';');
+                o.ConfigureCosmosClient(endpoint, new DefaultAzureCredential());
+            }
+        });
+    }
 
     silo.AddDashboard();
 });

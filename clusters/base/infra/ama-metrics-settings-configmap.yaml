@@ -15,6 +15,6 @@ data:
     windowskubeproxy = false
     prometheuscollectorhealth = false
   pod-annotation-based-scraping: |-
-    podannotationnamespaceregex = "default|hello|level0|alwayson.*|aks-istio-ingress|aks-istio-system|darkux|helloagents"
+    podannotationnamespaceregex = "level0|darkux|helloagents|helloorleons|graphorleons|aks-istio-ingress|aks-istio-system"
   default-targets-metrics-keep-list: |-
     minimalingestionprofile = true

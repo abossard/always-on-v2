@@ -37,7 +37,6 @@ builder.Services.AddOpenTelemetry()
         .AddAspNetCoreInstrumentation()
         .AddHttpClientInstrumentation()
         .AddSource("Azure.*")
-        .AddSource("Microsoft.Orleans.Runtime")      // Orleans apps only
         .AddSource("Microsoft.Orleans.Application")); // Orleans apps only
 ```
 

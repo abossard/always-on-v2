@@ -56,7 +56,6 @@ public static class ServiceDefaultsExtensions
         var otel = builder.Services.AddOpenTelemetry()
             .WithMetrics(m => m.AddMeter("Microsoft.Orleans"))
             .WithTracing(t => t
-                .AddSource("Microsoft.Orleans.Runtime")
                 .AddSource("Microsoft.Orleans.Application"));
 
         if (!string.IsNullOrEmpty(connStr))

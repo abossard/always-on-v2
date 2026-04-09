@@ -7,91 +7,61 @@ data:
   prometheus-config: |
     global:
       scrape_interval: 30s
-    scrape_configs:
-    # Scrape Istio Envoy sidecar metrics from application namespaces
-    - job_name: istio-envoy-app
-      scheme: http
-      metrics_path: /stats/prometheus
-      kubernetes_sd_configs:
-        - role: pod
-          namespaces:
-            names:
-              - default
-              - hello
-              - level0
-              - alwayson
-      relabel_configs:
-        # Only scrape pods that have an Istio sidecar (istio-proxy container)
-        - source_labels: [__meta_kubernetes_pod_container_name]
-          action: keep
-          regex: istio-proxy
-        # Target the Envoy admin port
-        - source_labels: [__address__]
-          action: replace
-          regex: ([^:]+)(?::\d+)?
-          replacement: $1:15020
-          target_label: __address__
-        - source_labels: [__meta_kubernetes_namespace]
-          action: replace
-          target_label: namespace
-        - source_labels: [__meta_kubernetes_pod_name]
-          action: replace
-          target_label: pod
-    # Scrape Istio ingress gateway metrics
-    - job_name: istio-ingress-gateway
-      scheme: http
-      metrics_path: /stats/prometheus
-      kubernetes_sd_configs:
-        - role: pod
-          namespaces:
-            names:
-              - aks-istio-ingress
-              - aks-istio-system
-      relabel_configs:
-        - source_labels: [__meta_kubernetes_pod_container_name]
-          action: keep
-          regex: istio-proxy
-        - source_labels: [__address__]
-          action: replace
-          regex: ([^:]+)(?::\d+)?
-          replacement: $1:15020
-          target_label: __address__
-        - source_labels: [__meta_kubernetes_namespace]
-          action: replace
-          target_label: namespace
-        - source_labels: [__meta_kubernetes_pod_name]
-          action: replace
-          target_label: pod
-    # Scrape application pod metrics (any pod, no annotation required)
-    - job_name: app-pods
-      scheme: http
-      kubernetes_sd_configs:
-        - role: pod
-          namespaces:
-            names:
-              - default
-              - hello
-              - level0
-              - alwayson
-      relabel_configs:
-        # Skip istio-proxy containers (already scraped above)
-        - source_labels: [__meta_kubernetes_pod_container_name]
-          action: drop
-          regex: istio-proxy
-        # Use custom metrics path if annotated
-        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
-          action: replace
-          target_label: __metrics_path__
-          regex: (.+)
-        # Use custom port if annotated
-        - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
-          action: replace
-          regex: ([^:]+)(?::\d+)?;(\d+)
-          replacement: $1:$2
-          target_label: __address__
-        - source_labels: [__meta_kubernetes_namespace]
-          action: replace
-          target_label: namespace
-        - source_labels: [__meta_kubernetes_pod_name]
-          action: replace
-          target_label: pod
+    scrape_configs: []
+    # --- DISABLED: see ADR-0060 for Prometheus scraping strategy review ---
+    # # Scrape Istio ingress gateway metrics
+    # - job_name: istio-ingress-gateway
+    #   scheme: http
+    #   metrics_path: /stats/prometheus
+    #   kubernetes_sd_configs:
+    #     - role: pod
+    #       namespaces:
+    #         names:
+    #           - aks-istio-ingress
+    #           - aks-istio-system
+    #   relabel_configs:
+    #     - source_labels: [__meta_kubernetes_pod_container_name]
+    #       action: keep
+    #       regex: istio-proxy
+    #     - source_labels: [__address__]
+    #       action: replace
+    #       regex: ([^:]+)(?::\d+)?
+    #       replacement: $1:15020
+    #       target_label: __address__
+    #     - source_labels: [__meta_kubernetes_namespace]
+    #       action: replace
+    #       target_label: namespace
+    #     - source_labels: [__meta_kubernetes_pod_name]
+    #       action: replace
+    #       target_label: pod
+    # # Scrape application pod metrics (any pod, no annotation required)
+    # - job_name: app-pods
+    #   scheme: http
+    #   kubernetes_sd_configs:
+    #     - role: pod
+    #       namespaces:
+    #         names:
+    #           - level0
+    #           - darkux
+    #           - helloagents
+    #           - helloorleons
+    #           - graphorleons
+    #   relabel_configs:
+    #     - source_labels: [__meta_kubernetes_pod_container_name]
+    #       action: drop
+    #       regex: istio-proxy
+    #     - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+    #       action: replace
+    #       target_label: __metrics_path__
+    #       regex: (.+)
+    #     - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+    #       action: replace
+    #       regex: ([^:]+)(?::\d+)?;(\d+)
+    #       replacement: $1:$2
+    #       target_label: __address__
+    #     - source_labels: [__meta_kubernetes_namespace]
+    #       action: replace
+    #       target_label: namespace
+    #     - source_labels: [__meta_kubernetes_pod_name]
+    #       action: replace
+    #       target_label: pod
