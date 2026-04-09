@@ -403,7 +403,7 @@ var sharedFluxVars = {
   AI_MODEL_GPT41_MINI: length(aiModelDeployments) > 1 ? aiModelDeployments[1] : ''
   AI_MODEL_GPT54: length(aiModelDeployments) > 2 ? aiModelDeployments[2] : ''
   OTEL_TRACES_SAMPLER: 'parentbased_traceidratio'
-  OTEL_TRACES_SAMPLER_ARG: '''0.01'''
+  OTEL_TRACES_SAMPLER_ARG: '''"0.01"'''
 }
 
 // Per-app vars — prefixed with uppercase app name
