@@ -217,6 +217,30 @@ resource fdApexRedirectRule 'Microsoft.Cdn/profiles/ruleSets/rules@2025-04-15' =
   }
 }
 
+// Dummy origin group required by Front Door (route never reaches it — redirect fires first)
+resource fdApexOriginGroup 'Microsoft.Cdn/profiles/originGroups@2025-04-15' = {
+  parent: frontDoor
+  name: 'og-apex-redirect'
+  properties: {
+    loadBalancingSettings: {
+      sampleSize: 4
+      successfulSamplesRequired: 3
+    }
+  }
+}
+
+resource fdApexOrigin 'Microsoft.Cdn/profiles/originGroups/origins@2025-04-15' = {
+  parent: fdApexOriginGroup
+  name: 'placeholder'
+  properties: {
+    hostName: 'github.com'
+    httpPort: 80
+    httpsPort: 443
+    priority: 1
+    weight: 1
+  }
+}
+
 resource fdApexRoute 'Microsoft.Cdn/profiles/afdEndpoints/routes@2025-04-15' = {
   parent: fdEndpoint
   name: 'route-apex-redirect'
@@ -224,6 +248,7 @@ resource fdApexRoute 'Microsoft.Cdn/profiles/afdEndpoints/routes@2025-04-15' = {
     customDomains: [
       { id: fdCustomDomain.id }
     ]
+    originGroup: { id: fdApexOriginGroup.id }
     supportedProtocols: ['Http', 'Https']
     patternsToMatch: ['/*']
     httpsRedirect: 'Enabled'
@@ -233,6 +258,7 @@ resource fdApexRoute 'Microsoft.Cdn/profiles/afdEndpoints/routes@2025-04-15' = {
       { id: fdApexRuleSet.id }
     ]
   }
+  dependsOn: [fdApexOrigin]
 }
 
 // ============================================================================
