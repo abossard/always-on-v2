@@ -191,6 +191,50 @@ resource fdCustomDomain 'Microsoft.Cdn/profiles/customDomains@2025-04-15' = {
   }
 }
 
+// Apex domain redirect: alwayson.actor → GitHub repo
+resource fdApexRuleSet 'Microsoft.Cdn/profiles/ruleSets@2025-04-15' = {
+  parent: frontDoor
+  name: 'ApexRedirect'
+}
+
+resource fdApexRedirectRule 'Microsoft.Cdn/profiles/ruleSets/rules@2025-04-15' = {
+  parent: fdApexRuleSet
+  name: 'RedirectToGitHub'
+  properties: {
+    order: 1
+    actions: [
+      {
+        name: 'UrlRedirect'
+        parameters: {
+          typeName: 'DeliveryRuleUrlRedirectActionParameters'
+          redirectType: 'PermanentRedirect'
+          destinationProtocol: 'Https'
+          customHostname: 'github.com'
+          customPath: '/abossard/always-on-v2'
+        }
+      }
+    ]
+  }
+}
+
+resource fdApexRoute 'Microsoft.Cdn/profiles/afdEndpoints/routes@2025-04-15' = {
+  parent: fdEndpoint
+  name: 'route-apex-redirect'
+  properties: {
+    customDomains: [
+      { id: fdCustomDomain.id }
+    ]
+    supportedProtocols: ['Http', 'Https']
+    patternsToMatch: ['/*']
+    httpsRedirect: 'Enabled'
+    linkToDefaultDomain: 'Disabled'
+    enabledState: 'Enabled'
+    ruleSets: [
+      { id: fdApexRuleSet.id }
+    ]
+  }
+}
+
 // ============================================================================
 // Azure DNS Zone
 // ============================================================================
