@@ -155,7 +155,7 @@
       },
       "targets": [
         {
-          "expr": "sum(increase(kube_pod_container_status_restarts_total{namespace=\"$namespace\"}[24h]))",
+          "expr": "sum(increase(kube_pod_container_status_restarts_total{namespace=\"$namespace\"}[$__range]))",
           "legendFormat": "Restarts"
         }
       ]
