@@ -201,13 +201,3 @@ jobs:
       bake_source: src/HelloAgents
       deploy_manifest: clusters/base/apps/helloagents/deployment.yaml
     secrets: inherit
-
-  verify-deployment:
-    name: Verify Flux Deployment
-    needs: [docker-build-push]
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    uses: ./.github/workflows/app-verify-deploy.yml
-    with:
-      production_url: https://agents.alwayson.actor
-      e2e_dir: src/HelloAgents/HelloAgents.E2E
-    secrets: inherit

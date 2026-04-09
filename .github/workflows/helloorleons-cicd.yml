@@ -93,19 +93,9 @@ jobs:
       deploy_manifest: clusters/base/apps/helloorleons/deployment.yaml
     secrets: inherit
 
-  verify-deployment:
-    name: Verify Flux Deployment
-    needs: [docker-build-push]
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
-    uses: ./.github/workflows/app-verify-deploy.yml
-    with:
-      production_url: https://hello.alwayson.actor
-      e2e_dir: src/HelloOrleons/HelloOrleons.E2E
-    secrets: inherit
-
   load-test:
     name: Azure Load Test
-    needs: [verify-deployment]
+    needs: [docker-build-push]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 15

@@ -52,9 +52,9 @@ spec:
             - name: OTEL_RESOURCE_ATTRIBUTES
               value: deployment.environment=${STAMP_NAME},cloud.region=${REGION},stamp=${STAMP_KEY}
             - name: OTEL_TRACES_SAMPLER
-              value: "${OTEL_TRACES_SAMPLER}"
+              value: "parentbased_traceidratio"
             - name: OTEL_TRACES_SAMPLER_ARG
-              value: "${OTEL_TRACES_SAMPLER_ARG}"
+              value: "0.01"
             - name: ORLEANS_CLUSTERING
               value: "Kubernetes"
             - name: ConnectionStrings__cosmos
