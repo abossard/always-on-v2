@@ -1,1 +1,75 @@
 @import "tailwindcss";
+
+:root {
+	color-scheme: dark;
+	font-family: "Avenir Next", "Segoe UI", sans-serif;
+}
+
+html,
+body,
+#root {
+	min-height: 100%;
+}
+
+body {
+	margin: 0;
+	background:
+		radial-gradient(circle at top left, rgba(20, 184, 166, 0.18), transparent 32%),
+		radial-gradient(circle at top right, rgba(245, 158, 11, 0.14), transparent 24%),
+		linear-gradient(180deg, #06111f 0%, #020617 100%);
+}
+
+@keyframes topologyDrift {
+	0%,
+	100% {
+		transform: translateY(0px);
+	}
+
+	50% {
+		transform: translateY(-6px);
+	}
+}
+
+.topology-node-shell {
+	animation: topologyDrift 7.5s ease-in-out infinite;
+}
+
+.topology-node-shell[data-impact='Full'] {
+	animation-duration: 6.1s;
+}
+
+.topology-node-delay-0 {
+	animation-delay: 0ms;
+}
+
+.topology-node-delay-1 {
+	animation-delay: 140ms;
+}
+
+.topology-node-delay-2 {
+	animation-delay: 280ms;
+}
+
+.topology-node-delay-3 {
+	animation-delay: 420ms;
+}
+
+.topology-node-delay-4 {
+	animation-delay: 560ms;
+}
+
+.topology-node-delay-5 {
+	animation-delay: 700ms;
+}
+
+.topology-node-delay-6 {
+	animation-delay: 840ms;
+}
+
+.topology-node-delay-7 {
+	animation-delay: 980ms;
+}
+
+.topology-node-delay-8 {
+	animation-delay: 1120ms;
+}

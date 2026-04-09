@@ -3,3 +3,5 @@ kind: Kustomization
 resources:
   - cert-manager.yaml
   - external-dns.yaml
+  - ama-metrics-settings-configmap.yaml
+  - ama-metrics-prometheus-config.yaml

@@ -61,6 +61,10 @@ builder.Host.UseOrleans(silo =>
             }
         });
     }
+    else
+    {
+        silo.UseLocalhostClustering();
+    }
     silo.AddDashboard();
 });
 

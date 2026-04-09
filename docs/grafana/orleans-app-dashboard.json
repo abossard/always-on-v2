@@ -1,0 +1,437 @@
+{
+  "__inputs": [
+    {
+      "name": "DS_PROMETHEUS",
+      "label": "Managed Prometheus",
+      "description": "Azure Monitor Workspace (Managed Prometheus)",
+      "type": "datasource",
+      "pluginId": "prometheus",
+      "pluginName": "Prometheus"
+    },
+    {
+      "name": "DS_AZURE_MONITOR",
+      "label": "Azure Monitor",
+      "description": "Azure Monitor data source for Cosmos DB and AI Services metrics",
+      "type": "datasource",
+      "pluginId": "grafana-azure-monitor-datasource",
+      "pluginName": "Azure Monitor"
+    }
+  ],
+  "__requires": [
+    { "type": "grafana", "id": "grafana", "name": "Grafana", "version": "10.0.0" },
+    { "type": "datasource", "id": "prometheus", "name": "Prometheus", "version": "1.0.0" },
+    { "type": "datasource", "id": "grafana-azure-monitor-datasource", "name": "Azure Monitor", "version": "1.0.0" },
+    { "type": "panel", "id": "timeseries", "name": "Time series", "version": "" },
+    { "type": "panel", "id": "stat", "name": "Stat", "version": "" },
+    { "type": "panel", "id": "gauge", "name": "Gauge", "version": "" }
+  ],
+  "id": null,
+  "uid": "orleans-app-overview",
+  "title": "Orleans App Overview",
+  "description": "Kubernetes, Cosmos DB, and AI metrics for Orleans applications",
+  "tags": ["orleans", "kubernetes", "cosmos", "ai"],
+  "timezone": "browser",
+  "editable": true,
+  "graphTooltip": 1,
+  "refresh": "1m",
+  "time": { "from": "now-1h", "to": "now" },
+  "templating": {
+    "list": [
+      {
+        "name": "namespace",
+        "label": "App",
+        "type": "custom",
+        "current": { "text": "helloorleons", "value": "helloorleons" },
+        "options": [
+          { "text": "helloorleons", "value": "helloorleons", "selected": true },
+          { "text": "graphorleons", "value": "graphorleons", "selected": false },
+          { "text": "helloagents", "value": "helloagents", "selected": false }
+        ],
+        "query": "helloorleons,graphorleons,helloagents"
+      },
+      {
+        "name": "cosmos_db",
+        "label": "Cosmos DB Name",
+        "type": "custom",
+        "current": { "text": "helloorleons", "value": "helloorleons" },
+        "options": [
+          { "text": "helloorleons", "value": "helloorleons", "selected": true },
+          { "text": "graphorleons", "value": "graphorleons", "selected": false },
+          { "text": "helloagents", "value": "helloagents", "selected": false }
+        ],
+        "query": "helloorleons,graphorleons,helloagents"
+      },
+      {
+        "name": "cluster",
+        "label": "Cluster",
+        "type": "custom",
+        "current": { "text": "aks-alwayson-swedencentral-002", "value": "aks-alwayson-swedencentral-002" },
+        "options": [
+          { "text": "aks-alwayson-swedencentral-002", "value": "aks-alwayson-swedencentral-002", "selected": true }
+        ],
+        "query": "aks-alwayson-swedencentral-002"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "row",
+      "title": "🏥 Kubernetes Health — $namespace",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 },
+      "collapsed": false
+    },
+    {
+      "type": "stat",
+      "title": "Pod Restarts (24h)",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(increase(kube_pod_container_status_restarts_total{namespace=\"$namespace\"}[24h]))",
+          "legendFormat": "Restarts"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "OOMKilled Events",
+      "gridPos": { "h": 4, "w": 6, "x": 6, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(kube_pod_container_status_last_terminated_reason{namespace=\"$namespace\", reason=\"OOMKilled\"}) or vector(0)",
+          "legendFormat": "OOMKilled"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Running Pods",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "steps": [
+              { "color": "red", "value": null },
+              { "color": "green", "value": 1 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "count(kube_pod_status_phase{namespace=\"$namespace\", phase=\"Running\"} == 1)",
+          "legendFormat": "Running"
+        }
+      ]
+    },
+    {
+      "type": "stat",
+      "title": "Desired Replicas",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 1 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "targets": [
+        {
+          "expr": "sum(kube_deployment_spec_replicas{namespace=\"$namespace\"})",
+          "legendFormat": "Desired"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "⚡ CPU — $namespace",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 5 },
+      "collapsed": false
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU Usage by Pod (cores)",
+      "gridPos": { "h": 8, "w": 16, "x": 0, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": { "unit": "short", "custom": { "fillOpacity": 20 } }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"$namespace\", container!=\"\", container!=\"POD\"}[5m])) by (pod)",
+          "legendFormat": "{{pod}}"
+        },
+        {
+          "expr": "sum(kube_pod_container_resource_requests{namespace=\"$namespace\", resource=\"cpu\"}) by (pod)",
+          "legendFormat": "{{pod}} request"
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "title": "CPU Pressure (Usage / Request %)",
+      "description": "CPU usage as percentage of requested CPU. >100% means pods use more than requested — scheduling pressure.",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 6 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 200,
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 80 },
+              { "color": "red", "value": 120 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"$namespace\", container!=\"\", container!=\"POD\"}[5m])) / sum(kube_pod_container_resource_requests{namespace=\"$namespace\", resource=\"cpu\"}) * 100",
+          "legendFormat": "CPU Pressure"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "🧠 Memory — $namespace",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 },
+      "collapsed": false
+    },
+    {
+      "type": "timeseries",
+      "title": "Memory Usage vs Limit",
+      "gridPos": { "h": 8, "w": 16, "x": 0, "y": 15 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": { "unit": "bytes", "custom": { "fillOpacity": 20 } }
+      },
+      "targets": [
+        {
+          "expr": "sum(container_memory_working_set_bytes{namespace=\"$namespace\", container!=\"\", container!=\"POD\"}) by (pod)",
+          "legendFormat": "{{pod}} usage"
+        },
+        {
+          "expr": "sum(kube_pod_container_resource_limits{namespace=\"$namespace\", resource=\"memory\"}) by (pod)",
+          "legendFormat": "{{pod}} limit"
+        }
+      ]
+    },
+    {
+      "type": "gauge",
+      "title": "Memory Utilization (% of Limit)",
+      "gridPos": { "h": 8, "w": 8, "x": 16, "y": 15 },
+      "datasource": { "type": "prometheus", "uid": "${DS_PROMETHEUS}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 70 },
+              { "color": "red", "value": 90 }
+            ]
+          }
+        }
+      },
+      "targets": [
+        {
+          "expr": "sum(container_memory_working_set_bytes{namespace=\"$namespace\", container!=\"\", container!=\"POD\"}) / sum(kube_pod_container_resource_limits{namespace=\"$namespace\", resource=\"memory\"}) * 100",
+          "legendFormat": "Memory %"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "🗄️ Cosmos DB — $cosmos_db",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 23 },
+      "collapsed": false
+    },
+    {
+      "type": "timeseries",
+      "title": "Normalized RU Consumption %",
+      "description": "Percentage of provisioned throughput consumed. >80% = near throttling. 100% = requests being rate-limited (429s).",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 24 },
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "${DS_AZURE_MONITOR}" },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "thresholds": {
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 70 },
+              { "color": "red", "value": 90 }
+            ]
+          },
+          "custom": { "fillOpacity": 20, "thresholdsStyle": { "mode": "line" } }
+        }
+      },
+      "targets": [
+        {
+          "azureMonitor": {
+            "metricNamespace": "Microsoft.DocumentDB/databaseAccounts",
+            "metricName": "NormalizedRUConsumption",
+            "aggregation": "Maximum",
+            "dimensionFilters": [
+              { "dimension": "DatabaseName", "operator": "eq", "filters": ["$cosmos_db"] }
+            ],
+            "timeGrain": "PT5M"
+          },
+          "queryType": "Azure Monitor"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Total Requests (by Status)",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 24 },
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "${DS_AZURE_MONITOR}" },
+      "targets": [
+        {
+          "azureMonitor": {
+            "metricNamespace": "Microsoft.DocumentDB/databaseAccounts",
+            "metricName": "TotalRequests",
+            "aggregation": "Count",
+            "dimensionFilters": [
+              { "dimension": "DatabaseName", "operator": "eq", "filters": ["$cosmos_db"] },
+              { "dimension": "StatusCode", "operator": "eq", "filters": ["*"] }
+            ],
+            "timeGrain": "PT5M"
+          },
+          "queryType": "Azure Monitor"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "🤖 AI Models",
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 32 },
+      "collapsed": false
+    },
+    {
+      "type": "timeseries",
+      "title": "Tokens by Model (Input + Output)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 33 },
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "${DS_AZURE_MONITOR}" },
+      "fieldConfig": {
+        "defaults": { "custom": { "fillOpacity": 20, "stacking": { "mode": "normal" } } }
+      },
+      "targets": [
+        {
+          "azureMonitor": {
+            "metricNamespace": "Microsoft.CognitiveServices/accounts",
+            "metricName": "InputTokens",
+            "aggregation": "Total",
+            "dimensionFilters": [
+              { "dimension": "ModelDeploymentName", "operator": "eq", "filters": ["*"] }
+            ],
+            "timeGrain": "PT5M"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "input"
+        },
+        {
+          "azureMonitor": {
+            "metricNamespace": "Microsoft.CognitiveServices/accounts",
+            "metricName": "OutputTokens",
+            "aggregation": "Total",
+            "dimensionFilters": [
+              { "dimension": "ModelDeploymentName", "operator": "eq", "filters": ["*"] }
+            ],
+            "timeGrain": "PT5M"
+          },
+          "queryType": "Azure Monitor",
+          "refId": "output"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Requests by Model",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 33 },
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "${DS_AZURE_MONITOR}" },
+      "targets": [
+        {
+          "azureMonitor": {
+            "metricNamespace": "Microsoft.CognitiveServices/accounts",
+            "metricName": "AzureOpenAIRequests",
+            "aggregation": "Total",
+            "dimensionFilters": [
+              { "dimension": "ModelDeploymentName", "operator": "eq", "filters": ["*"] }
+            ],
+            "timeGrain": "PT5M"
+          },
+          "queryType": "Azure Monitor"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Response Latency by Model (ms)",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 41 },
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "${DS_AZURE_MONITOR}" },
+      "fieldConfig": {
+        "defaults": { "unit": "ms" }
+      },
+      "targets": [
+        {
+          "azureMonitor": {
+            "metricNamespace": "Microsoft.CognitiveServices/accounts",
+            "metricName": "AzureOpenAITimeToResponse",
+            "aggregation": "Average",
+            "dimensionFilters": [
+              { "dimension": "ModelDeploymentName", "operator": "eq", "filters": ["*"] }
+            ],
+            "timeGrain": "PT5M"
+          },
+          "queryType": "Azure Monitor"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Tokens per Second by Model",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 41 },
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "${DS_AZURE_MONITOR}" },
+      "targets": [
+        {
+          "azureMonitor": {
+            "metricNamespace": "Microsoft.CognitiveServices/accounts",
+            "metricName": "AzureOpenAITokenPerSecond",
+            "aggregation": "Average",
+            "dimensionFilters": [
+              { "dimension": "ModelDeploymentName", "operator": "eq", "filters": ["*"] }
+            ],
+            "timeGrain": "PT5M"
+          },
+          "queryType": "Azure Monitor"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "version": 1
+}
