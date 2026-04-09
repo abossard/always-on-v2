@@ -1,5 +1,3 @@
-using Orleans.Streams;
-
 namespace GraphOrleons.Api;
 
 public sealed class ComponentGrain : Grain, IComponentGrain
@@ -27,21 +25,17 @@ public sealed class ComponentGrain : Grain, IComponentGrain
         _history.Add(new PayloadEntry(DateTimeOffset.UtcNow, payloadJson));
         if (_history.Count > 10) _history.RemoveAt(0);
 
+        var tenantGrain = GrainFactory.GetGrain<ITenantGrain>(_tenant);
+
         if (!_registered)
         {
             _registered = true;
-            var stream = this.GetStreamProvider("TenantStream")
-                .GetStream<TenantStreamEvent>(StreamId.Create("tenant", _tenant));
-            await stream.OnNextAsync(new TenantStreamEvent(
-                TenantEventType.ComponentRegistered, _name, null, null));
+            await tenantGrain.RegisterComponent(_name);
         }
 
         if (fullComponentPath is not null)
         {
-            var stream = this.GetStreamProvider("TenantStream")
-                .GetStream<TenantStreamEvent>(StreamId.Create("tenant", _tenant));
-            await stream.OnNextAsync(new TenantStreamEvent(
-                TenantEventType.RelationshipReceived, _name, fullComponentPath, payloadJson));
+            await tenantGrain.ReceiveRelationship(_name, fullComponentPath, payloadJson);
         }
     }
 

@@ -1,39 +1,21 @@
-using Orleans.Streams;
-
 namespace GraphOrleons.Api;
 
-[ImplicitStreamSubscription("tenant")]
-public sealed class TenantGrain : Grain, ITenantGrain, IAsyncObserver<TenantStreamEvent>
+public sealed class TenantGrain : Grain, ITenantGrain
 {
     readonly HashSet<string> _components = [];
     readonly List<string> _modelIds = [];
     string? _activeModelId;
 
-    public override async Task OnActivateAsync(CancellationToken ct)
+    public Task RegisterComponent(string componentName)
     {
-        var stream = this.GetStreamProvider("TenantStream")
-            .GetStream<TenantStreamEvent>(StreamId.Create("tenant", this.GetPrimaryKeyString()));
-        await stream.SubscribeAsync(this);
-    }
-
-    public Task OnNextAsync(TenantStreamEvent item, StreamSequenceToken? token = null)
-    {
-        return item.Type switch
-        {
-            TenantEventType.ComponentRegistered => HandleComponentRegistered(item),
-            TenantEventType.RelationshipReceived => HandleRelationshipReceived(item),
-            _ => Task.CompletedTask
-        };
-    }
-
-    Task HandleComponentRegistered(TenantStreamEvent evt)
-    {
-        _components.Add(evt.ComponentName);
+        _components.Add(componentName);
         return Task.CompletedTask;
     }
 
-    async Task HandleRelationshipReceived(TenantStreamEvent evt)
+    public async Task ReceiveRelationship(string componentName, string componentPath, string payloadJson)
     {
+        _components.Add(componentName);
+
         if (_activeModelId is null)
         {
             _activeModelId = "default";
@@ -42,11 +24,8 @@ public sealed class TenantGrain : Grain, ITenantGrain, IAsyncObserver<TenantStre
 
         var modelGrain = GrainFactory.GetGrain<IModelGrain>(
             $"{this.GetPrimaryKeyString()}:{_activeModelId}");
-        await modelGrain.AddRelationships(evt.ComponentPath!, evt.PayloadJson ?? "{}");
+        await modelGrain.AddRelationships(componentPath, payloadJson);
     }
-
-    public Task OnCompletedAsync() => Task.CompletedTask;
-    public Task OnErrorAsync(Exception ex) => Task.CompletedTask;
 
     public Task<TenantOverview> GetOverview() =>
         Task.FromResult(new TenantOverview(

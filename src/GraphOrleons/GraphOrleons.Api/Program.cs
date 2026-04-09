@@ -17,8 +17,6 @@ var cosmosConnectionString = builder.Configuration.GetConnectionString("cosmos")
 builder.Host.UseOrleans(silo =>
 {
     silo.AddMemoryGrainStorageAsDefault();
-    silo.AddMemoryGrainStorage("PubSubStore");
-    silo.AddMemoryStreams("TenantStream");
 
     silo.AddActivityPropagation();
 

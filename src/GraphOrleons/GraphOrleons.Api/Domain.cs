@@ -14,8 +14,6 @@ public sealed record HealthEvent(
 
 public enum Impact { None, Partial, Full }
 
-public enum TenantEventType { ComponentRegistered, RelationshipReceived }
-
 // --- Value types (Orleans-serializable, use string for JSON payloads) ---
 
 [GenerateSerializer]
@@ -49,13 +47,6 @@ public sealed record TenantOverview(
     [property: Id(2)] IReadOnlyList<string> ModelIds,
     [property: Id(3)] string? ActiveModelId);
 
-[GenerateSerializer]
-public sealed record TenantStreamEvent(
-    [property: Id(0)] TenantEventType Type,
-    [property: Id(1)] string ComponentName,
-    [property: Id(2)] string? ComponentPath,
-    [property: Id(3)] string? PayloadJson);
-
 // --- Grain interfaces ---
 
 public interface IComponentGrain : IGrainWithStringKey
@@ -69,6 +60,8 @@ public interface ITenantGrain : IGrainWithStringKey
     Task<TenantOverview> GetOverview();
     Task<string[]> GetComponentNames();
     Task SetActiveModel(string modelId);
+    Task RegisterComponent(string componentName);
+    Task ReceiveRelationship(string componentName, string componentPath, string payloadJson);
 }
 
 public interface IModelGrain : IGrainWithStringKey
