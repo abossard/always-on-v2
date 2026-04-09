@@ -17,4 +17,4 @@ data:
   pod-annotation-based-scraping: |-
     podannotationnamespaceregex = "level0|darkux|helloagents|helloorleons|graphorleons|aks-istio-ingress|aks-istio-system"
   default-targets-metrics-keep-list: |-
-    minimalingestionprofile = true
+    minimalingestionprofile = false
