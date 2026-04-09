@@ -6,7 +6,6 @@ resources:
   - image-automation.yaml
 components:
   - ../gateway-component
-  - ../orleans-redis-component
   - ../orleans-infra-component
 patches:
   - target:
@@ -25,20 +24,6 @@ patches:
       - op: replace
         path: /spec/listeners/1/tls/certificateRefs/0/name
         value: events-gateway-tls
-  - target:
-      kind: Deployment
-      name: redis
-    patch: |
-      - op: replace
-        path: /metadata/namespace
-        value: ${GRAPHORLEONS_NAMESPACE}
-  - target:
-      kind: Service
-      name: redis
-    patch: |
-      - op: replace
-        path: /metadata/namespace
-        value: ${GRAPHORLEONS_NAMESPACE}
   - target:
       kind: Role
       name: APPNAME-orleans-pod-reader

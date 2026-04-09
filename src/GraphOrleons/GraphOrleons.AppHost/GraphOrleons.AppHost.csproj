@@ -7,7 +7,9 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.Azure.CosmosDB" />
     <PackageReference Include="Aspire.Hosting.NodeJs" />
+    <PackageReference Include="Aspire.Hosting.Orleans" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\GraphOrleons.Api\GraphOrleons.Api.csproj" />

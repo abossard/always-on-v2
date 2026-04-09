@@ -459,6 +459,7 @@ var graphorleonsFluxVars = length(appFluxVars) > 4 && appFluxVars[4].name == 'gr
   GRAPHORLEONS_SA_NAME: appFluxVars[4].name
   GRAPHORLEONS_IDENTITY_CLIENT_ID: appFluxVars[4].identityClientId
   GRAPHORLEONS_IDENTITY_ID: appFluxVars[4].identityId
+  GRAPHORLEONS_COSMOS_DATABASE: appFluxVars[4].cosmosDatabase
   GRAPHORLEONS_DNS_LABEL: 'graphorleons-${stampName}'
   GRAPHORLEONS_GATEWAY_HOSTNAME: 'graphorleons-${stampName}.${dnsZoneName}'
 } : {}

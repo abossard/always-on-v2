@@ -1,5 +1,7 @@
 using System.Text.Json.Serialization;
+using Azure.Identity;
 using GraphOrleons.Api;
+using Microsoft.Azure.Cosmos;
 using Orleans.Dashboard;
 
 var builder = WebApplication.CreateSlimBuilder(args);
@@ -9,6 +11,30 @@ builder.AddServiceDefaults();
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
+// Register keyed CosmosClient for Orleans clustering auto-config.
+var cosmosConnectionString = builder.Configuration.GetConnectionString("cosmos");
+if (!string.IsNullOrEmpty(cosmosConnectionString))
+{
+    var isEmulator = cosmosConnectionString.Contains("AccountKey=C2y6yDjf5");
+    var hasAccountKey = cosmosConnectionString.Contains("AccountKey=");
+
+    builder.Services.AddKeyedSingleton<CosmosClient>("cosmos", (_, _) =>
+    {
+        if (hasAccountKey)
+        {
+            var clientOptions = isEmulator
+                ? new CosmosClientOptions { ConnectionMode = ConnectionMode.Gateway, LimitToEndpoint = true }
+                : new CosmosClientOptions();
+            return new CosmosClient(cosmosConnectionString, clientOptions);
+        }
+
+        var endpoint = cosmosConnectionString
+            .Replace("AccountEndpoint=", "", StringComparison.OrdinalIgnoreCase)
+            .TrimEnd(';');
+        return new CosmosClient(endpoint, new DefaultAzureCredential());
+    });
+}
+
 builder.Host.UseOrleans(silo =>
 {
     silo.AddMemoryGrainStorageAsDefault();
@@ -17,16 +43,15 @@ builder.Host.UseOrleans(silo =>
 
     silo.AddActivityPropagation();
 
-    var clustering = builder.Configuration[ConfigKeys.OrleansClustering];
-    if (clustering == "Redis")
+    var isKubernetes = builder.Configuration[ConfigKeys.OrleansClustering] == "Kubernetes";
+    if (isKubernetes)
     {
         silo.UseKubernetesHosting();
-        silo.UseRedisClustering(builder.Configuration["Redis__ConnectionString"] ?? "redis:6379");
     }
-    else
-    {
-        silo.UseLocalhostClustering();
-    }
+
+    // Clustering is auto-configured by Orleans via env vars
+    // (ProviderType=AzureCosmosDB, ServiceKey=cosmos) set by
+    // Aspire (local dev) or K8s deployment.yaml (production).
 
     silo.AddDashboard();
 });

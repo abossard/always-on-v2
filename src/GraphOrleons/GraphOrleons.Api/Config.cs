@@ -8,5 +8,4 @@ public sealed class GrainConfig
 public static class ConfigKeys
 {
     public const string OrleansClustering = "ORLEANS_CLUSTERING";
-    public const string DistributedTracing = "DISTRIBUTED_TRACING_ENABLED";
 }

@@ -339,6 +339,7 @@ var appFluxVars = [
     identityClientId: graphOrleons.outputs.identityClientId
     identityId: graphOrleons.outputs.identityId
     identityPrincipalId: graphOrleons.outputs.identityPrincipalId
+    cosmosDatabase: graphOrleons.outputs.databaseName
     aiServicesEndpoint: ai.outputs.aiServicesEndpoint
   }
 ]

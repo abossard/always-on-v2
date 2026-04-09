@@ -2,8 +2,26 @@ using GraphOrleons.AppHost;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
-// API (Orleans silo with in-memory everything)
+#pragma warning disable ASPIRECOSMOSDB001
+var cosmos = builder.AddAzureCosmosDB(ResourceNames.CosmosDb)
+    .RunAsPreviewEmulator(emulator =>
+    {
+        emulator.WithLifetime(ContainerLifetime.Persistent);
+        emulator.WithDataVolume();
+    });
+#pragma warning restore ASPIRECOSMOSDB001
+
+var db = cosmos.AddCosmosDatabase(ResourceNames.Database);
+db.AddContainer(ResourceNames.ClusterContainer, "/ClusterId");
+
+var orleans = builder.AddOrleans(ResourceNames.Cluster)
+    .WithClustering(cosmos);
+
+// API (Orleans silo with in-memory grain storage, Cosmos clustering)
 var api = builder.AddProject<Projects.GraphOrleons_Api>(ResourceNames.Api)
+    .WithReference(orleans)
+    .WithReference(cosmos)
+    .WaitFor(cosmos)
     .WithExternalHttpEndpoints()
     .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development");
 
