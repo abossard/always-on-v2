@@ -63,22 +63,6 @@ spec:
               value: "Kubernetes"
             - name: ConnectionStrings__cosmos
               value: "AccountEndpoint=${COSMOS_ENDPOINT}"
-            - name: Orleans__Clustering__ProviderType
-              value: "AzureCosmosDB"
-            - name: Orleans__Clustering__ServiceKey
-              value: "cosmos"
-            - name: Orleans__Clustering__DatabaseName
-              value: ${HELLOORLEONS_COSMOS_DATABASE}
-            - name: Orleans__Clustering__ContainerName
-              value: "OrleansCluster"
-            - name: Orleans__GrainStorage__Default__ProviderType
-              value: "AzureCosmosDB"
-            - name: Orleans__GrainStorage__Default__ServiceKey
-              value: "cosmos"
-            - name: Orleans__GrainStorage__Default__DatabaseName
-              value: ${HELLOORLEONS_COSMOS_DATABASE}
-            - name: Orleans__GrainStorage__Default__ContainerName
-              value: ${HELLOORLEONS_COSMOS_CONTAINER}
           resizePolicy:
             - resourceName: cpu
               restartPolicy: NotRequired
