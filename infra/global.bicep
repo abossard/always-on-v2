@@ -241,6 +241,10 @@ resource fdApexOrigin 'Microsoft.Cdn/profiles/originGroups/origins@2025-04-15' =
   }
 }
 
+// originGroup references fdApexOriginGroup.id but route also needs origin to exist.
+// Referencing fdApexOrigin.id in a local var creates the implicit dependency.
+var apexOriginGroupIdWithDep = split(fdApexOrigin.id, '/origins/')[0]
+
 resource fdApexRoute 'Microsoft.Cdn/profiles/afdEndpoints/routes@2025-04-15' = {
   parent: fdEndpoint
   name: 'route-apex-redirect'
@@ -248,7 +252,7 @@ resource fdApexRoute 'Microsoft.Cdn/profiles/afdEndpoints/routes@2025-04-15' = {
     customDomains: [
       { id: fdCustomDomain.id }
     ]
-    originGroup: { id: fdApexOriginGroup.id }
+    originGroup: { id: apexOriginGroupIdWithDep }
     supportedProtocols: ['Http', 'Https']
     patternsToMatch: ['/*']
     httpsRedirect: 'Enabled'
@@ -258,7 +262,6 @@ resource fdApexRoute 'Microsoft.Cdn/profiles/afdEndpoints/routes@2025-04-15' = {
       { id: fdApexRuleSet.id }
     ]
   }
-  dependsOn: [fdApexOrigin]
 }
 
 // ============================================================================
