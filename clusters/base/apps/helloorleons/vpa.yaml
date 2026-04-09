@@ -9,7 +9,7 @@ spec:
     kind: Deployment
     name: helloorleons
   updatePolicy:
-    updateMode: "Auto"
+    updateMode: "Off"
   resourcePolicy:
     containerPolicies:
       - containerName: helloorleons
