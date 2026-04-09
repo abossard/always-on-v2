@@ -17,18 +17,19 @@ builder.Host.UseOrleans(silo =>
 {
     var storage = builder.Configuration.GetSection(StorageConfig.Section).Get<StorageConfig>() ?? new();
     var cosmosDb = builder.Configuration.GetSection(CosmosDbConfig.Section).Get<CosmosDbConfig>() ?? new();
-    var redis = builder.Configuration.GetSection(RedisConfig.Section).Get<RedisConfig>() ?? new();
     var clustering = Enum.TryParse<ClusteringProvider>(builder.Configuration[ConfigKeys.OrleansClustering], ignoreCase: true, out var cp) ? cp : ClusteringProvider.Localhost;
 
     silo.AddActivityPropagation();
 
-    // Grain storage: Cosmos DB or in-memory
-    var cosmosConnectionString = storage.Provider == StorageProvider.CosmosDb
-        ? builder.Configuration.GetConnectionString("cosmos")
-            ?? throw new InvalidOperationException(
-                "ConnectionStrings:cosmos is required when Storage:Provider is CosmosDb. " +
-                "Set via Aspire WithReference(cosmos) or env var ConnectionStrings__cosmos=AccountEndpoint=https://...")
-        : null;
+    // Cosmos connection string — used for grain storage AND clustering
+    var cosmosConnectionString = builder.Configuration.GetConnectionString("cosmos");
+    var requireCosmos = storage.Provider == StorageProvider.CosmosDb || clustering == ClusteringProvider.Kubernetes;
+    if (requireCosmos && string.IsNullOrEmpty(cosmosConnectionString))
+    {
+        throw new InvalidOperationException(
+            "ConnectionStrings:cosmos is required when Storage:Provider is CosmosDb or ORLEANS_CLUSTERING is Kubernetes. " +
+            "Set via Aspire WithReference(cosmos) or env var ConnectionStrings__cosmos=AccountEndpoint=https://...");
+    }
 
     var isEmulator = cosmosConnectionString?.Contains("AccountKey=C2y6yDjf5") == true;
     var hasAccountKey = cosmosConnectionString?.Contains("AccountKey=") == true;
@@ -73,11 +74,35 @@ builder.Host.UseOrleans(silo =>
         silo.AddMemoryGrainStorageAsDefault();
     }
 
-    // Clustering: Redis for Kubernetes or localhost for local dev
-    if (clustering == ClusteringProvider.Redis)
+    // Clustering: Cosmos DB for Kubernetes or localhost for local dev
+    if (clustering == ClusteringProvider.Kubernetes)
     {
         silo.UseKubernetesHosting();
-        silo.UseRedisClustering(redis.ConnectionString);
+        silo.UseCosmosClustering(options =>
+        {
+            options.DatabaseName = cosmosDb.DatabaseName;
+            options.ContainerName = "OrleansCluster";
+            options.IsResourceCreationEnabled = !isEmulator;
+            if (isEmulator)
+            {
+                options.ClientOptions = new Microsoft.Azure.Cosmos.CosmosClientOptions
+                {
+                    ConnectionMode = Microsoft.Azure.Cosmos.ConnectionMode.Gateway,
+                    LimitToEndpoint = true,
+                };
+            }
+            if (hasAccountKey)
+            {
+                options.ConfigureCosmosClient(cosmosConnectionString!);
+            }
+            else
+            {
+                var endpoint = cosmosConnectionString!
+                    .Replace("AccountEndpoint=", "", StringComparison.OrdinalIgnoreCase)
+                    .TrimEnd(';');
+                options.ConfigureCosmosClient(endpoint, new DefaultAzureCredential());
+            }
+        });
     }
     else
     {

@@ -7,4 +7,5 @@ public static class ResourceNames
     public const string CosmosDb = "cosmos";
     public const string Database = "helloagents";
     public const string Container = "OrleansStorage";
+    public const string ClusterContainer = "OrleansCluster";
 }

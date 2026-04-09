@@ -16,6 +16,7 @@ var cosmos = builder.AddAzureCosmosDB(ResourceNames.CosmosDb)
 
 var db = cosmos.AddCosmosDatabase(ResourceNames.Database);
 db.AddContainer(ResourceNames.Container, "/PartitionKey");
+db.AddContainer(ResourceNames.ClusterContainer, "/ClusterId");
 
 // Azure Queue Storage for Orleans Streams (cross-silo SSE)
 var storage = builder.AddAzureStorage("storage")

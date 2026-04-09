@@ -12,7 +12,7 @@
     <PackageReference Include="Microsoft.Extensions.AI" />
     <PackageReference Include="Microsoft.Extensions.AI.OpenAI" />
     <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
-    <PackageReference Include="Microsoft.Orleans.Clustering.Redis" />
+    <PackageReference Include="Microsoft.Orleans.Clustering.Cosmos" />
     <PackageReference Include="Microsoft.Orleans.Dashboard" />
     <PackageReference Include="Microsoft.Orleans.Hosting.Kubernetes" />
     <PackageReference Include="Microsoft.Orleans.Persistence.Cosmos" />

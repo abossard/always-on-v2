@@ -2,7 +2,7 @@ namespace HelloAgents.Api;
 
 public enum StorageProvider { InMemory, CosmosDb }
 
-public enum ClusteringProvider { Localhost, Redis }
+public enum ClusteringProvider { Localhost, Kubernetes }
 
 public sealed class StorageConfig
 {
@@ -17,16 +17,9 @@ public sealed class CosmosDbConfig
     public string ContainerName { get; set; } = "OrleansStorage";
 }
 
-public sealed class RedisConfig
-{
-    public const string Section = "Redis";
-    public string ConnectionString { get; set; } = "redis:6379";
-}
-
 public static class ConfigKeys
 {
     public const string OrleansClustering = "ORLEANS_CLUSTERING";
-    public const string DistributedTracing = "DISTRIBUTED_TRACING_ENABLED";
     public const string AzureOpenAiEndpoint = "AZURE_OPENAI_ENDPOINT";
     public const string AzureOpenAiDeployment = "AZURE_OPENAI_DEPLOYMENT_NAME";
     public const string OpenAiEndpoint = "OPENAI_ENDPOINT";

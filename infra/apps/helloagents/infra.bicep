@@ -68,6 +68,21 @@ resource container 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/container
   }
 }
 
+resource clusterContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2025-04-15' = {
+  parent: database
+  name: 'OrleansCluster'
+  properties: {
+    resource: {
+      id: 'OrleansCluster'
+      partitionKey: {
+        paths: ['/ClusterId']
+        kind: 'Hash'
+        version: 2
+      }
+    }
+  }
+}
+
 // ============================================================================
 // Cosmos DB RBAC — Data Contributor on the database
 // ============================================================================

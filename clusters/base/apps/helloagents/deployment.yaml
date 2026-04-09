@@ -68,9 +68,7 @@ spec:
             - name: ConnectionStrings__cosmos
               value: "AccountEndpoint=${COSMOS_ENDPOINT}"
             - name: ORLEANS_CLUSTERING
-              value: "Redis"
-            - name: Redis__ConnectionString
-              value: "redis:6379"
+              value: "Kubernetes"
             - name: ConnectionStrings__queuestorage
               value: ${HELLOAGENTS_STORAGE_QUEUE_ENDPOINT}
           resizePolicy:
