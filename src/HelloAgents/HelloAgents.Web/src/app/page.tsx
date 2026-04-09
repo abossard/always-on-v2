@@ -135,7 +135,15 @@ export default function HomePage() {
           detail.agents.map(a => api.getAgent(a.id))
         );
         setGroupAgents(agents.filter(Boolean) as AgentInfo[]);
-      } catch (err) { console.debug("[Refresh] Group may have been deleted:", err); }
+      } catch (err) {
+        console.debug("[Refresh] Group may have been deleted:", err);
+        setSelectedGroupId(null);
+        setGroupDetail(null);
+        setMessages([]);
+        setGroupAgents([]);
+        setStreamEvents([]);
+        setThinkingAgents(new Map());
+      }
     }
   }, [refreshGroups, refreshAgents, selectedGroupId]);
 
@@ -222,7 +230,7 @@ export default function HomePage() {
     <>
       <div className="h-screen flex bg-gray-900 text-white" data-test-id="chat-app-ready">
         {/* Left: Group list */}
-        <div className="w-64 flex-shrink-0 border-r border-white/10 bg-gray-900/80">
+        <div className="w-64 shrink-0 border-r border-white/10 bg-gray-900/80">
           <GroupList
             groups={groups}
             selectedId={selectedGroupId}
@@ -264,7 +272,7 @@ export default function HomePage() {
 
         {/* Right: Agent roster */}
         {selectedGroupId && groupDetail && (
-          <div className="w-64 flex-shrink-0 border-l border-white/10 bg-gray-900/80">
+          <div className="w-64 shrink-0 border-l border-white/10 bg-gray-900/80">
             <AgentRoster
               agents={groupAgents}
               allAgents={allAgents}

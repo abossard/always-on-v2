@@ -10,7 +10,7 @@ interface Message {
 }
 
 interface Props {
-  onActionComplete: () => void;
+  onActionComplete: () => void | Promise<void>;
 }
 
 export function OrchestratorSidebar({ onActionComplete }: Props) {
@@ -19,7 +19,7 @@ export function OrchestratorSidebar({ onActionComplete }: Props) {
     {
       id: "welcome",
       role: "assistant",
-      content: "Hi! I can help you create groups, add agents, and start discussions. Try something like:\n\n• \"Create a debate group about climate change\"\n• \"Add a skeptical scientist and an optimistic philosopher\"\n• \"Start a discussion in the first group\"",
+      content: "Hi! I can help you create groups, add agents, start discussions, and delete groups. Try something like:\n\n• \"Create a debate group about climate change\"\n• \"Delete all groups except the last one\"\n• \"Delete all groups\"\n• \"Delete some random groups\"",
     },
   ]);
   const [input, setInput] = useState("");
@@ -53,7 +53,7 @@ export function OrchestratorSidebar({ onActionComplete }: Props) {
         },
       ]);
       // Refresh the main UI after the orchestrator may have modified state
-      onActionComplete();
+      await onActionComplete();
     } catch (err) {
       setMessages((prev) => [
         ...prev,
@@ -70,8 +70,9 @@ export function OrchestratorSidebar({ onActionComplete }: Props) {
 
   const suggestions = [
     "Create a debate group about AI ethics with a skeptic and an optimist",
-    "List all groups and agents",
-    "Create a philosopher agent named Sophia with emoji 🦉",
+    "Delete all groups except the last one",
+    "Delete all groups",
+    "Delete some random groups",
   ];
 
   if (!isOpen) {
@@ -88,7 +89,7 @@ export function OrchestratorSidebar({ onActionComplete }: Props) {
   }
 
   return (
-    <div className="fixed bottom-6 right-6 w-96 h-[600px] bg-gray-800 rounded-xl shadow-2xl border border-white/10 flex flex-col z-50" data-test-id="orchestrator-panel">
+    <div className="fixed bottom-6 right-6 z-50 flex h-150 w-96 flex-col rounded-xl border border-white/10 bg-gray-800 shadow-2xl" data-test-id="orchestrator-panel">
       {/* Header */}
       <div className="p-3 border-b border-white/10 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -120,9 +121,9 @@ export function OrchestratorSidebar({ onActionComplete }: Props) {
         {isLoading && (
           <div className="bg-white/5 rounded-lg px-3 py-2 mr-4">
             <div className="flex gap-1.5 items-center">
-              <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
-              <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
-              <span className="w-2 h-2 bg-indigo-400 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+              <span className="h-2 w-2 animate-bounce rounded-full bg-indigo-400 [animation-delay:0ms]" />
+              <span className="h-2 w-2 animate-bounce rounded-full bg-indigo-400 [animation-delay:150ms]" />
+              <span className="h-2 w-2 animate-bounce rounded-full bg-indigo-400 [animation-delay:300ms]" />
               <span className="text-xs text-white/30 ml-2">Working on it...</span>
             </div>
           </div>

@@ -14,6 +14,7 @@ public sealed class OrchestratorService(
     IChatClient chatClient,
     IGrainFactory grainFactory,
     IClusterClient clusterClient,
+    GroupLifecycleService groupLifecycle,
     ILogger<OrchestratorService> logger)
 {
     public async Task<string> ExecuteAsync(string userMessage)
@@ -33,9 +34,15 @@ public sealed class OrchestratorService(
                 - To create a NEW group with NEW agents → use SetupGroupWithAgents (ONE call does everything)
                 - To add a NEW agent to an EXISTING group → use CreateAgentInGroup
                 - To add an EXISTING agent to a group → use AddExistingAgentToGroup
+                - To delete a SPECIFIC group by name → use DeleteGroup
+                - To delete EVERY group → use DeleteAllGroups
+                - To delete all groups except the last/newest one → use DeleteAllGroupsExceptNewest
+                - To delete random groups → use DeleteRandomGroups
                 - To send a message → use SendMessage
                 - To start a discussion → use StartDiscussion
                 - Never fabricate IDs. All tools accept human-readable names, not IDs.
+                - Interpret "last group" as the newest group by creation time.
+                - If the user asks to delete "some random groups" without a count, default to deleting 1 random group.
                 - There are NO minimum requirements. A group can have 0, 1, 2, or any number of agents.
 
                 AGENT CREATION:
@@ -63,6 +70,10 @@ public sealed class OrchestratorService(
             AIFunctionFactory.Create(CreateAgentInGroup),
             AIFunctionFactory.Create(AddExistingAgentToGroup),
             AIFunctionFactory.Create(RemoveAgentFromGroup),
+            AIFunctionFactory.Create(DeleteGroup),
+            AIFunctionFactory.Create(DeleteAllGroups),
+            AIFunctionFactory.Create(DeleteAllGroupsExceptNewest),
+            AIFunctionFactory.Create(DeleteRandomGroups),
             AIFunctionFactory.Create(ListGroups),
             AIFunctionFactory.Create(ListAgents),
             AIFunctionFactory.Create(SendMessage),
@@ -193,16 +204,91 @@ public sealed class OrchestratorService(
         return $"Removed agent '{agentName}' from group '{groupName}'.";
     }
 
+    [Description("Delete a chat group by name.")]
+    private async Task<string> DeleteGroup(
+        [Description("Name of the group to delete")] string groupName)
+    {
+        var groupId = await ResolveGroupIdAsync(groupName);
+        if (groupId is null)
+            return $"Error: group '{groupName}' not found.";
+
+        await groupLifecycle.DeleteGroupAsync(groupId);
+        logger.LogInformation("Orchestrator deleted group '{Group}'", groupName);
+        return $"Deleted group '{groupName}'.";
+    }
+
+    [Description("Delete all chat groups.")]
+    private async Task<string> DeleteAllGroups()
+    {
+        var groups = await groupLifecycle.ListGroupsAsync();
+        if (groups.Count == 0)
+            return "No groups exist yet.";
+
+        var deleted = await groupLifecycle.DeleteGroupsAsync(groups.Select(g => g.Id));
+        var deletedNames = string.Join(", ", groups.Select(g => $"'{g.Name}'"));
+        logger.LogInformation("Orchestrator deleted all groups ({Count})", deleted);
+        return $"Deleted {deleted} group(s): {deletedNames}.";
+    }
+
+    [Description("Delete all chat groups except the newest ones.")]
+    private async Task<string> DeleteAllGroupsExceptNewest(
+        [Description("How many newest groups to keep. Default is 1.")] int keepCount = 1)
+    {
+        var groups = await groupLifecycle.ListGroupsAsync();
+        if (groups.Count == 0)
+            return "No groups exist yet.";
+
+        keepCount = Math.Max(keepCount, 0);
+        if (keepCount >= groups.Count)
+            return $"No groups deleted. Keeping all {groups.Count} group(s).";
+
+        var targets = groups.Take(groups.Count - keepCount).ToList();
+        var deleted = await groupLifecycle.DeleteGroupsAsync(targets.Select(g => g.Id));
+
+        if (keepCount == 0)
+        {
+            logger.LogInformation("Orchestrator deleted all groups via keepCount=0");
+            return $"Deleted {deleted} group(s). No groups remain.";
+        }
+
+        var keptNames = string.Join(", ", groups.TakeLast(keepCount).Select(g => $"'{g.Name}'"));
+        var deletedNames = string.Join(", ", targets.Select(g => $"'{g.Name}'"));
+        logger.LogInformation("Orchestrator deleted {DeletedCount} groups and kept {KeepCount}", deleted, keepCount);
+        return $"Deleted {deleted} older group(s): {deletedNames}. Kept the newest {keepCount}: {keptNames}.";
+    }
+
+    [Description("Delete a random set of chat groups.")]
+    private async Task<string> DeleteRandomGroups(
+        [Description("How many random groups to delete. Default is 1.")] int count = 1)
+    {
+        var groups = (await groupLifecycle.ListGroupsAsync()).ToList();
+        if (groups.Count == 0)
+            return "No groups exist yet.";
+        if (count <= 0)
+            return "No groups deleted. Count must be positive.";
+
+        count = Math.Min(count, groups.Count);
+        for (var i = groups.Count - 1; i > 0; i--)
+        {
+            var j = Random.Shared.Next(i + 1);
+            (groups[i], groups[j]) = (groups[j], groups[i]);
+        }
+
+        var targets = groups.Take(count).ToList();
+        var deleted = await groupLifecycle.DeleteGroupsAsync(targets.Select(g => g.Id));
+        var deletedNames = string.Join(", ", targets.Select(g => $"'{g.Name}'"));
+        logger.LogInformation("Orchestrator deleted {DeletedCount} random groups", deleted);
+        return $"Deleted {deleted} random group(s): {deletedNames}.";
+    }
+
     [Description("List all chat groups in the system.")]
     private async Task<string> ListGroups()
     {
-        var registry = grainFactory.GetGrain<IGroupRegistryGrain>("default");
-        var entries = await registry.ListAsync();
-
-        if (entries.Count == 0) return "No groups exist yet.";
+        var groups = await groupLifecycle.ListGroupsAsync();
+        if (groups.Count == 0) return "No groups exist yet.";
 
         return "Groups:\n" + string.Join("\n",
-            entries.Select(e => $"- {e.Value} (id: {e.Key})"));
+            groups.Select(g => $"- {g.Name} (id: {g.Id}, created: {g.CreatedAt:O})"));
     }
 
     [Description("List all AI agents in the system.")]

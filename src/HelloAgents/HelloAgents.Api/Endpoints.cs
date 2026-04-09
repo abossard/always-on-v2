@@ -61,30 +61,9 @@ public static class Endpoints
             return Results.Created($"/api/groups/{id}", state);
         });
 
-        app.MapGet("/api/groups", async (IGrainFactory grains, ILogger<Program> logger) =>
+        app.MapGet("/api/groups", async (GroupLifecycleService groupLifecycle) =>
         {
-            var registry = grains.GetGrain<IGroupRegistryGrain>("default");
-            var entries = await registry.ListAsync();
-
-            var summaries = new List<ChatGroupSummary>();
-            foreach (var (id, _) in entries)
-            {
-                try
-                {
-                    var grain = grains.GetGrain<IChatGroupGrain>(id);
-                    var state = await grain.GetStateAsync();
-                    summaries.Add(new ChatGroupSummary(
-                        state.Id, state.Name, state.Description,
-                        state.Agents.Length, state.Messages.Length, state.CreatedAt));
-                }
-                catch (InvalidOperationException)
-                {
-                    // Stale registry entry — auto-clean so this never happens again
-                    logger.LogWarning("Auto-cleaning stale group registry entry {GroupId}", id);
-                    await registry.UnregisterAsync(id);
-                }
-            }
-
+            var summaries = await groupLifecycle.ListGroupSummariesAsync();
             return Results.Ok(summaries);
         });
 
@@ -101,14 +80,9 @@ public static class Endpoints
             }
         });
 
-        app.MapDelete("/api/groups/{id}", async (string id, IGrainFactory grains) =>
+        app.MapDelete("/api/groups/{id}", async (string id, GroupLifecycleService groupLifecycle) =>
         {
-            var grain = grains.GetGrain<IChatGroupGrain>(id);
-            await grain.DeleteAsync();
-
-            var registry = grains.GetGrain<IGroupRegistryGrain>("default");
-            await registry.UnregisterAsync(id);
-
+            await groupLifecycle.DeleteGroupAsync(id);
             return Results.NoContent();
         });
     }

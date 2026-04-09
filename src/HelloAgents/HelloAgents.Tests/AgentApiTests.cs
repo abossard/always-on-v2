@@ -119,6 +119,41 @@ public abstract class AgentApiTests(HttpClient client)
     }
 
     [Test]
+    public async Task DeleteGroup_RemovesMembershipFromAgents()
+    {
+        var groupResponse = await client.PostAsJsonAsync("/api/groups",
+            new CreateGroupRequest("Delete Flow", "Delete integration test"));
+        var group = await groupResponse.Content.ReadFromJsonAsync<ChatGroupDetail>();
+        await Assert.That(group).IsNotNull();
+
+        var agentResponse = await client.PostAsJsonAsync("/api/agents",
+            new CreateAgentRequest("DetachBot", "A bot that should be detached", "🧹"));
+        var agent = await agentResponse.Content.ReadFromJsonAsync<AgentInfo>();
+        await Assert.That(agent).IsNotNull();
+
+        var addResponse = await client.PostAsJsonAsync($"/api/groups/{group!.Id}/agents",
+            new AddAgentToGroupRequest(agent!.Id));
+        await Assert.That(addResponse.StatusCode).IsEqualTo(HttpStatusCode.OK);
+
+        await Task.Delay(500);
+
+        var deleteResponse = await client.DeleteAsync($"/api/groups/{group.Id}");
+        await Assert.That(deleteResponse.StatusCode).IsEqualTo(HttpStatusCode.NoContent);
+
+        await Task.Delay(500);
+
+        var deletedGroupResponse = await client.GetAsync($"/api/groups/{group.Id}");
+        await Assert.That(deletedGroupResponse.StatusCode).IsEqualTo(HttpStatusCode.NotFound);
+
+        var updatedAgentResponse = await client.GetAsync($"/api/agents/{agent.Id}");
+        await Assert.That(updatedAgentResponse.StatusCode).IsEqualTo(HttpStatusCode.OK);
+
+        var updatedAgent = await updatedAgentResponse.Content.ReadFromJsonAsync<AgentInfo>();
+        await Assert.That(updatedAgent).IsNotNull();
+        await Assert.That(updatedAgent!.GroupIds.Contains(group.Id)).IsFalse();
+    }
+
+    [Test]
     public async Task SendMessage_EmptyContent_ReturnsBadRequest()
     {
         // Create group first

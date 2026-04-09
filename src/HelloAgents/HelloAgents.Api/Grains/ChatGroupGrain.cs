@@ -148,22 +148,7 @@ public sealed class ChatGroupGrain(
 
     public async Task DeleteAsync()
     {
-        if (_stream is not null)
-        {
-            foreach (var (agentId, agent) in state.State.Agents)
-            {
-                await _stream.OnNextAsync(new ChatMessage(
-                    Guid.NewGuid().ToString("N"),
-                    this.GetPrimaryKeyString(),
-                    agent.Name,
-                    agent.AvatarEmoji,
-                    SenderType.System,
-                    agentId,
-                    DateTimeOffset.UtcNow,
-                    EventType.AgentLeft));
-            }
-        }
-
+        _pendingMessages.Clear();
         await state.ClearStateAsync();
     }
 

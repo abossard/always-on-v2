@@ -187,6 +187,7 @@ else
 
 // AI orchestrator for natural language commands
 builder.Services.AddScoped<OrchestratorService>();
+builder.Services.AddScoped<GroupLifecycleService>();
 
 // CORS for static SPA on different origin (dev only — production runs on single domain)
 if (builder.Environment.IsDevelopment())

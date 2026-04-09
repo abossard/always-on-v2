@@ -21,7 +21,7 @@ var productionStamp = {
 var dev = {
   acrSku: 'Basic'                      // no geo-replication needed in dev
   frontDoorSku: 'Standard_AzureFrontDoor'
-  cosmosAutoscaleMaxThroughput: 1000   // minimum
+  cosmosAutoscaleMaxThroughput: 10000   // 1k-10k autoscale range
   regions: [
     {
       key: 'swedencentral'
