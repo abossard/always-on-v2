@@ -11,6 +11,7 @@ using Orleans.Dashboard;
 var builder = WebApplication.CreateSlimBuilder(args);
 builder.WebHost.UseKestrelHttpsConfiguration();
 builder.AddServiceDefaults();
+builder.Host.ConfigureHostOptions(o => o.ShutdownTimeout = TimeSpan.FromSeconds(55));
 
 // Orleans silo with Cosmos persistence and Dashboard
 builder.Host.UseOrleans(silo =>

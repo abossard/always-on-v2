@@ -5,6 +5,7 @@ using Microsoft.Azure.Cosmos;
 var builder = WebApplication.CreateSlimBuilder(args);
 builder.WebHost.UseKestrelHttpsConfiguration();
 builder.AddServiceDefaults();
+builder.Host.ConfigureHostOptions(o => o.ShutdownTimeout = TimeSpan.FromSeconds(55));
 
 builder.Services.Configure<GrainConfig>(builder.Configuration.GetSection(GrainConfig.Section));
 

@@ -31,6 +31,7 @@ spec:
         orleans/serviceId: helloorleons
         orleans/clusterId: helloorleons
     spec:
+      terminationGracePeriodSeconds: 65
       serviceAccountName: ${HELLOORLEONS_SA_NAME}
       containers:
         - name: helloorleons
@@ -42,6 +43,10 @@ spec:
               name: silo
             - containerPort: 30000
               name: gateway
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "5"]
           env:
             - name: AZURE_CLIENT_ID
               value: ${HELLOORLEONS_IDENTITY_CLIENT_ID}

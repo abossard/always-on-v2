@@ -31,6 +31,7 @@ spec:
         orleans/serviceId: graphorleons
         orleans/clusterId: graphorleons
     spec:
+      terminationGracePeriodSeconds: 65
       serviceAccountName: ${GRAPHORLEONS_SA_NAME}
       containers:
         - name: graphorleons
@@ -42,6 +43,10 @@ spec:
               name: silo
             - containerPort: 30000
               name: gateway
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "5"]
           env:
             - name: AZURE_CLIENT_ID
               value: ${GRAPHORLEONS_IDENTITY_CLIENT_ID}
