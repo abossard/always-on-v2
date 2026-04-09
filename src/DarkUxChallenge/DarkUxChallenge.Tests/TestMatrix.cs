@@ -1,166 +1,78 @@
-// TestMatrix.cs — Wires every test suite to every backend.
-// Adding a new backend? Add one class per suite here. Tests never change.
+// TestMatrix.cs — Wires every test suite to the Aspire backend.
+// Adding a new test suite? Add one class here. Tests never change.
 
 namespace DarkUxChallenge.Tests;
 
 // ──────────────────────────────────────────────
-// InMemory backend (real Kestrel via UseKestrel)
+// Aspire (Cosmos emulator, needs Docker)
 // ──────────────────────────────────────────────
 
 [InheritsTests]
-[ClassDataSource<InMemoryFixture>(Shared = SharedType.PerTestSession)]
-public class InMemoryUserTests(InMemoryFixture f)
+[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
+public class UserTests(AspireFixture f)
     : UserManagementTests(f.Client);
 
 [InheritsTests]
-[ClassDataSource<InMemoryFixture>(Shared = SharedType.PerTestSession)]
-public class InMemoryLevel1Tests(InMemoryFixture f)
+[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
+public class Level1Tests(AspireFixture f)
     : Level1ConfirmshamingTests(f.Client);
 
 [InheritsTests]
-[ClassDataSource<InMemoryFixture>(Shared = SharedType.PerTestSession)]
-public class InMemoryLevel2Tests(InMemoryFixture f)
+[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
+public class Level2Tests(AspireFixture f)
     : Level2RoachMotelTests(f.Client);
 
 [InheritsTests]
-[ClassDataSource<InMemoryFixture>(Shared = SharedType.PerTestSession)]
-public class InMemoryLevel3Tests(InMemoryFixture f)
+[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
+public class Level3Tests(AspireFixture f)
     : Level3ForcedContinuityTests(f.Client);
 
 [InheritsTests]
-[ClassDataSource<InMemoryFixture>(Shared = SharedType.PerTestSession)]
-public class InMemoryLevel4Tests(InMemoryFixture f)
+[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
+public class Level4Tests(AspireFixture f)
     : Level4TrickWordingTests(f.Client);
 
 [InheritsTests]
-[ClassDataSource<InMemoryFixture>(Shared = SharedType.PerTestSession)]
-public class InMemoryLevel5Tests(InMemoryFixture f)
+[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
+public class Level5Tests(AspireFixture f)
     : Level5PreselectionTests(f.Client);
 
 [InheritsTests]
-[ClassDataSource<InMemoryFixture>(Shared = SharedType.PerTestSession)]
-public class InMemoryLevel6Tests(InMemoryFixture f)
+[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
+public class Level6Tests(AspireFixture f)
     : Level6BasketSneakingTests(f.Client);
 
 [InheritsTests]
-[ClassDataSource<InMemoryFixture>(Shared = SharedType.PerTestSession)]
-public class InMemoryLevel7Tests(InMemoryFixture f)
+[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
+public class Level7Tests(AspireFixture f)
     : Level7NaggingTests(f.Client);
 
 [InheritsTests]
-[ClassDataSource<InMemoryFixture>(Shared = SharedType.PerTestSession)]
-public class InMemoryLevel8Tests(InMemoryFixture f)
+[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
+public class Level8Tests(AspireFixture f)
     : Level8InterfaceInterferenceTests(f.Client);
 
 [InheritsTests]
-[ClassDataSource<InMemoryFixture>(Shared = SharedType.PerTestSession)]
-public class InMemoryLevel9Tests(InMemoryFixture f)
+[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
+public class Level9Tests(AspireFixture f)
     : Level9ZuckeringTests(f.Client);
 
 [InheritsTests]
-[ClassDataSource<InMemoryFixture>(Shared = SharedType.PerTestSession)]
-public class InMemoryLevel10Tests(InMemoryFixture f)
+[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
+public class Level10Tests(AspireFixture f)
     : Level10EmotionalManipulationTests(f.Client);
 
 [InheritsTests]
-[ClassDataSource<InMemoryFixture>(Shared = SharedType.PerTestSession)]
-public class InMemoryLevel11Tests(InMemoryFixture f)
+[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
+public class Level11Tests(AspireFixture f)
     : Level11SpeedTrapTests(f.Client);
 
 [InheritsTests]
-[ClassDataSource<InMemoryFixture>(Shared = SharedType.PerTestSession)]
-public class InMemoryLevel12Tests(InMemoryFixture f)
+[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
+public class Level12Tests(AspireFixture f)
     : Level12FlashRecallTests(f.Client);
 
 [InheritsTests]
-[ClassDataSource<InMemoryFixture>(Shared = SharedType.PerTestSession)]
-public class InMemoryLevel13Tests(InMemoryFixture f)
-    : Level13NeedleHaystackTests(f.Client);
-
-// ──────────────────────────────────────────────
-// Cosmos DB via Aspire (emulator)
-// ──────────────────────────────────────────────
-
-[InheritsTests]
-[Category("cosmos")]
 [ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
-public class CosmosUserTests(AspireFixture f)
-    : UserManagementTests(f.Client);
-
-[InheritsTests]
-[Category("cosmos")]
-[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
-public class CosmosLevel1Tests(AspireFixture f)
-    : Level1ConfirmshamingTests(f.Client);
-
-[InheritsTests]
-[Category("cosmos")]
-[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
-public class CosmosLevel2Tests(AspireFixture f)
-    : Level2RoachMotelTests(f.Client);
-
-[InheritsTests]
-[Category("cosmos")]
-[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
-public class CosmosLevel3Tests(AspireFixture f)
-    : Level3ForcedContinuityTests(f.Client);
-
-[InheritsTests]
-[Category("cosmos")]
-[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
-public class CosmosLevel4Tests(AspireFixture f)
-    : Level4TrickWordingTests(f.Client);
-
-[InheritsTests]
-[Category("cosmos")]
-[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
-public class CosmosLevel5Tests(AspireFixture f)
-    : Level5PreselectionTests(f.Client);
-
-[InheritsTests]
-[Category("cosmos")]
-[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
-public class CosmosLevel6Tests(AspireFixture f)
-    : Level6BasketSneakingTests(f.Client);
-
-[InheritsTests]
-[Category("cosmos")]
-[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
-public class CosmosLevel7Tests(AspireFixture f)
-    : Level7NaggingTests(f.Client);
-
-[InheritsTests]
-[Category("cosmos")]
-[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
-public class CosmosLevel8Tests(AspireFixture f)
-    : Level8InterfaceInterferenceTests(f.Client);
-
-[InheritsTests]
-[Category("cosmos")]
-[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
-public class CosmosLevel9Tests(AspireFixture f)
-    : Level9ZuckeringTests(f.Client);
-
-[InheritsTests]
-[Category("cosmos")]
-[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
-public class CosmosLevel10Tests(AspireFixture f)
-    : Level10EmotionalManipulationTests(f.Client);
-
-[InheritsTests]
-[Category("cosmos")]
-[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
-public class CosmosLevel11Tests(AspireFixture f)
-    : Level11SpeedTrapTests(f.Client);
-
-[InheritsTests]
-[Category("cosmos")]
-[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
-public class CosmosLevel12Tests(AspireFixture f)
-    : Level12FlashRecallTests(f.Client);
-
-[InheritsTests]
-[Category("cosmos")]
-[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
-public class CosmosLevel13Tests(AspireFixture f)
+public class Level13Tests(AspireFixture f)
     : Level13NeedleHaystackTests(f.Client);

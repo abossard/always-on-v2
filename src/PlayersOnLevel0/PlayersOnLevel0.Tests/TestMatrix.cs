@@ -1,57 +1,28 @@
-// TestMatrix.cs — Wires every test suite to every backend.
-// Adding a new backend? Add one class per suite here. Tests never change.
-// Adding a new test suite? Add one class per backend here.
+// TestMatrix.cs — Wires every test suite to the Aspire backend.
+// Adding a new test suite? Add one class here. Tests never change.
 
 namespace PlayersOnLevel0.Tests;
 
 // ──────────────────────────────────────────────
-// InMemory backend (real Kestrel via UseKestrel)
+// Aspire (Cosmos emulator, needs Docker)
 // ──────────────────────────────────────────────
 
 [InheritsTests]
-[ClassDataSource<InMemoryFixture>(Shared = SharedType.PerTestSession)]
-public class InMemoryPlayerTests(InMemoryFixture f)
+[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
+public class PlayerTests(AspireFixture f)
     : PlayerProgressionTests(f.Client);
 
 [InheritsTests]
-[ClassDataSource<InMemoryFixture>(Shared = SharedType.PerTestSession)]
-public class InMemoryClickTests(InMemoryFixture f)
+[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
+public class ClickTests(AspireFixture f)
     : ClickIntegrationTests(f.Client);
 
 [InheritsTests]
-[ClassDataSource<InMemoryFixture>(Shared = SharedType.PerTestSession)]
-public class InMemorySseTests(InMemoryFixture f)
+[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
+public class SseTests(AspireFixture f)
     : SseStreamingTests(f.Client);
 
 [InheritsTests]
-[ClassDataSource<InMemoryFixture>(Shared = SharedType.PerTestSession)]
-public class InMemoryLeaderboardTests(InMemoryFixture f)
-    : LeaderboardTests(f.Client);
-
-// ──────────────────────────────────────────────
-// Cosmos DB via Aspire (emulator)
-// ──────────────────────────────────────────────
-
-[InheritsTests]
-[Category("cosmos")]
 [ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
-public class CosmosPlayerTests(AspireFixture f)
-    : PlayerProgressionTests(f.Client);
-
-[InheritsTests]
-[Category("cosmos")]
-[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
-public class CosmosClickTests(AspireFixture f)
-    : ClickIntegrationTests(f.Client);
-
-[InheritsTests]
-[Category("cosmos")]
-[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
-public class CosmosSseTests(AspireFixture f)
-    : SseStreamingTests(f.Client);
-
-[InheritsTests]
-[Category("cosmos")]
-[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
-public class CosmosLeaderboardTests(AspireFixture f)
+public class LeaderboardTestsMatrix(AspireFixture f)
     : LeaderboardTests(f.Client);

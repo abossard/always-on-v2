@@ -60,7 +60,6 @@ builder.Host.UseOrleans(silo =>
             }
         });
     }
-
     silo.AddDashboard();
 });
 

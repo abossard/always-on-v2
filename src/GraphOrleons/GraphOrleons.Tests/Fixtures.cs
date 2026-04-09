@@ -4,31 +4,9 @@
 using Aspire.Hosting;
 using Aspire.Hosting.Testing;
 using GraphOrleons.AppHost;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
 using TUnit.Core.Interfaces;
 
 namespace GraphOrleons.Tests;
-
-// ──────────────────────────────────────────────
-// InMemory backend (real Kestrel, no Docker)
-// ──────────────────────────────────────────────
-
-public class InMemoryFixture : WebApplicationFactory<GraphOrleons.Api.Program>, IAsyncInitializer, IAsyncDisposable
-{
-    public HttpClient Client { get; private set; } = null!;
-
-    public Task InitializeAsync()
-    {
-        Client = CreateClient();
-        return Task.CompletedTask;
-    }
-
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
-    {
-        builder.UseEnvironment("Development");
-    }
-}
 
 // ──────────────────────────────────────────────
 // Full Aspire orchestration (needs Docker)

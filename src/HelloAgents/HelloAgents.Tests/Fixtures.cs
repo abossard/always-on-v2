@@ -4,50 +4,12 @@
 using Aspire.Hosting;
 using Aspire.Hosting.Testing;
 using HelloAgents.AppHost;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
-using Microsoft.Extensions.Configuration;
 using TUnit.Core.Interfaces;
 
 namespace HelloAgents.Tests;
 
 // ──────────────────────────────────────────────
-// InMemory backend (real Kestrel, no Docker)
-// ──────────────────────────────────────────────
-
-public class InMemoryFixture : WebApplicationFactory<HelloAgents.Api.Program>, IAsyncInitializer, IAsyncDisposable
-{
-    public HttpClient Client { get; private set; } = null!;
-
-    public Task InitializeAsync()
-    {
-        UseKestrel(0);
-        Client = CreateClient();
-        return Task.CompletedTask;
-    }
-
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
-    {
-        // Clear AI endpoints so NoOpChatClient is used when real Azure OpenAI is not available.
-        // In CI, AZURE_OPENAI_ENDPOINT is set as env var → real AI is used.
-        // Locally without env vars → NoOpChatClient (agents respond with "(AI not configured)").
-        Environment.SetEnvironmentVariable("AZURE_OPENAI_ENDPOINT",
-            Environment.GetEnvironmentVariable("AZURE_OPENAI_ENDPOINT") ?? "");
-
-        builder.ConfigureAppConfiguration(config =>
-        {
-            config.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["Storage:Provider"] = "InMemory",
-                ["LLM_STREAM_CHUNK_CHARS"] = "20",
-                ["LLM_STREAM_CHUNK_INTERVAL_MS"] = "50",
-            });
-        });
-    }
-}
-
-// ──────────────────────────────────────────────
-// Cosmos DB via Aspire (emulator, needs Docker)
+// Aspire fixture (Cosmos emulator, needs Docker)
 // ──────────────────────────────────────────────
 
 public class AspireFixture : IAsyncInitializer, IAsyncDisposable

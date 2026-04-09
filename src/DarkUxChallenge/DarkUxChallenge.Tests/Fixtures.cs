@@ -6,8 +6,6 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Aspire.Hosting;
 using Aspire.Hosting.Testing;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
 using DarkUxChallenge.Api;
 using DarkUxChallenge.AppHost;
 using TUnit.Core.Interfaces;
@@ -43,23 +41,8 @@ static class Api
 }
 
 // ──────────────────────────────────────────────
-// Fixtures — each provides an HttpClient
+// Aspire fixture (Cosmos emulator, needs Docker)
 // ──────────────────────────────────────────────
-
-public class InMemoryFixture : WebApplicationFactory<DarkUxChallenge.Api.Program>, IAsyncInitializer, IAsyncDisposable
-{
-    public HttpClient Client { get; private set; } = null!;
-
-    public Task InitializeAsync()
-    {
-        UseKestrel(0);
-        Client = CreateClient();
-        return Task.CompletedTask;
-    }
-
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
-        => builder.UseSetting("Storage:Provider", "InMemory");
-}
 
 public class AspireFixture : IAsyncInitializer, IAsyncDisposable
 {

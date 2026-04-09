@@ -6,8 +6,6 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using Aspire.Hosting;
 using Aspire.Hosting.Testing;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Mvc.Testing;
 using PlayersOnLevel0.Api;
 using PlayersOnLevel0.AppHost;
 using TUnit.Core.Interfaces;
@@ -54,25 +52,8 @@ static class Api
 }
 
 // ──────────────────────────────────────────────
-// Fixtures — each provides an HttpClient
+// Aspire fixture (Cosmos emulator, needs Docker)
 // ──────────────────────────────────────────────
-
-public class InMemoryFixture : WebApplicationFactory<PlayersOnLevel0.Api.Program>, IAsyncInitializer, IAsyncDisposable
-{
-    public HttpClient Client { get; private set; } = null!;
-
-    public Task InitializeAsync()
-    {
-        // UseKestrel(0) binds to a random port — real HTTP (not TestServer's buffered pipe)
-        // so SSE streaming, WebSockets, and all HTTP features work correctly.
-        UseKestrel(0);
-        Client = CreateClient();
-        return Task.CompletedTask;
-    }
-
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
-        => builder.UseSetting("Storage:Provider", "InMemory");
-}
 
 public class AspireFixture : IAsyncInitializer, IAsyncDisposable
 {
