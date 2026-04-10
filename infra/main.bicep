@@ -50,12 +50,6 @@ param ciServicePrincipalId string = '48b36630-1f18-4c06-9dc2-62c4a26c894e' // ms
 @description('Applications to deploy. Each entry creates per-app infrastructure, routing, and workload identity.')
 param apps array = [
   {
-    name: 'level0'
-    subdomain: 'level0'
-    namespace: 'level0'
-    cacheDuration: ''
-  }
-  {
     name: 'helloorleons'
     subdomain: 'hello'
     namespace: 'helloorleons'
@@ -183,28 +177,12 @@ module ai 'ai.bicep' = {
     location: globalLocation
     appInsightsId: global.outputs.appInsightsId
     appIdentityPrincipalIds: [
-      playerOnLevel0.outputs.identityPrincipalId
       helloOrleons.outputs.identityPrincipalId
       darkUxChallenge.outputs.identityPrincipalId
       helloAgents.outputs.identityPrincipalId
       graphOrleons.outputs.identityPrincipalId
       ciServicePrincipalId
     ]
-  }
-}
-
-// ============================================================================
-// Application: PlayersOnLevel0
-// ============================================================================
-
-module playerOnLevel0 'apps/level0/infra.bicep' = {
-  name: 'deploy-app-playeronlevel0'
-  scope: globalRg
-  params: {
-    baseName: baseName
-    location: globalLocation
-    cosmosAccountName: global.outputs.cosmosName
-    appInsightsId: global.outputs.appInsightsId
   }
 }
 
@@ -298,16 +276,6 @@ var appFluxVars = [
   {
     name: apps[0].name
     namespace: apps[0].namespace
-    identityClientId: playerOnLevel0.outputs.identityClientId
-    identityId: playerOnLevel0.outputs.identityId
-    cosmosDatabase: playerOnLevel0.outputs.databaseName
-    cosmosContainer: playerOnLevel0.outputs.containerName
-    cosmosLeaderboardContainer: playerOnLevel0.outputs.leaderboardContainerName
-    aiServicesEndpoint: ai.outputs.aiServicesEndpoint
-  }
-  {
-    name: apps[1].name
-    namespace: apps[1].namespace
     identityClientId: helloOrleons.outputs.identityClientId
     identityId: helloOrleons.outputs.identityId
     cosmosDatabase: helloOrleons.outputs.databaseName
@@ -315,8 +283,8 @@ var appFluxVars = [
     aiServicesEndpoint: ai.outputs.aiServicesEndpoint
   }
   {
-    name: apps[2].name
-    namespace: apps[2].namespace
+    name: apps[1].name
+    namespace: apps[1].namespace
     identityClientId: darkUxChallenge.outputs.identityClientId
     identityId: darkUxChallenge.outputs.identityId
     cosmosDatabase: darkUxChallenge.outputs.databaseName
@@ -324,8 +292,8 @@ var appFluxVars = [
     aiServicesEndpoint: ai.outputs.aiServicesEndpoint
   }
   {
-    name: apps[3].name
-    namespace: apps[3].namespace
+    name: apps[2].name
+    namespace: apps[2].namespace
     identityClientId: helloAgents.outputs.identityClientId
     identityId: helloAgents.outputs.identityId
     identityPrincipalId: helloAgents.outputs.identityPrincipalId
@@ -334,8 +302,8 @@ var appFluxVars = [
     aiServicesEndpoint: ai.outputs.aiServicesEndpoint
   }
   {
-    name: apps[4].name
-    namespace: apps[4].namespace
+    name: apps[3].name
+    namespace: apps[3].namespace
     identityClientId: graphOrleons.outputs.identityClientId
     identityId: graphOrleons.outputs.identityId
     identityPrincipalId: graphOrleons.outputs.identityPrincipalId
@@ -411,24 +379,6 @@ module dnsFederatedCreds 'dns-federated-credentials.bicep' = [
 ]
 
 // ============================================================================
-// App Federated Credentials (PlayersOnLevel0 workload identity per stamp)
-// ============================================================================
-
-module appFederatedCreds 'apps/level0/federated-creds.bicep' = [
-  for (stamp, i) in allStamps: {
-    name: 'deploy-app-fedcred-${stamp.regionKey}-${stamp.stampKey}'
-    scope: globalRg
-    params: {
-      identityName: 'id-playeronlevel0-${baseName}'
-      stampName: stamps[i].outputs.stampName
-      oidcIssuerUrl: stamps[i].outputs.aksOidcIssuerUrl
-      serviceAccountNamespace: apps[0].namespace
-      serviceAccountName: apps[0].name
-    }
-  }
-]
-
-// ============================================================================
 // App Federated Credentials (DarkUxChallenge workload identity per stamp)
 // ============================================================================
 
@@ -440,8 +390,8 @@ module darkUxFederatedCreds 'apps/darkux/federated-creds.bicep' = [
       identityName: 'id-darkuxchallenge-${baseName}'
       stampName: stamps[i].outputs.stampName
       oidcIssuerUrl: stamps[i].outputs.aksOidcIssuerUrl
-      serviceAccountNamespace: apps[2].namespace
-      serviceAccountName: apps[2].name
+      serviceAccountNamespace: apps[1].namespace
+      serviceAccountName: apps[1].name
     }
   }
 ]
@@ -458,8 +408,8 @@ module helloOrleonsFederatedCreds 'apps/helloorleons/federated-creds.bicep' = [
       identityName: 'id-helloorleons-${baseName}'
       stampName: stamps[i].outputs.stampName
       oidcIssuerUrl: stamps[i].outputs.aksOidcIssuerUrl
-      serviceAccountNamespace: apps[1].namespace
-      serviceAccountName: apps[1].name
+      serviceAccountNamespace: apps[0].namespace
+      serviceAccountName: apps[0].name
     }
   }
 ]
@@ -476,8 +426,8 @@ module helloAgentsFederatedCreds 'apps/helloagents/federated-creds.bicep' = [
       identityName: 'id-helloagents-${baseName}'
       stampName: stamps[i].outputs.stampName
       oidcIssuerUrl: stamps[i].outputs.aksOidcIssuerUrl
-      serviceAccountNamespace: apps[3].namespace
-      serviceAccountName: apps[3].name
+      serviceAccountNamespace: apps[2].namespace
+      serviceAccountName: apps[2].name
     }
   }
 ]
@@ -494,8 +444,8 @@ module graphOrleonsFederatedCreds 'apps/graphorleons/federated-creds.bicep' = [
       identityName: 'id-graphorleons-${baseName}'
       stampName: stamps[i].outputs.stampName
       oidcIssuerUrl: stamps[i].outputs.aksOidcIssuerUrl
-      serviceAccountNamespace: apps[4].namespace
-      serviceAccountName: apps[4].name
+      serviceAccountNamespace: apps[3].namespace
+      serviceAccountName: apps[3].name
     }
   }
 ]
@@ -503,20 +453,6 @@ module graphOrleonsFederatedCreds 'apps/graphorleons/federated-creds.bicep' = [
 // ============================================================================
 // App Front Door Routing (generic module — reused per app)
 // ============================================================================
-
-module level0Routing 'app-routing.bicep' = {
-  name: 'deploy-routing-level0'
-  scope: globalRg
-  dependsOn: [for (stamp, i) in allStamps: stamps[i]]
-  params: {
-    baseName: baseName
-    domainName: domainName
-    appName: 'level0'
-    subdomain: apps[0].subdomain
-    stamps: allStamps
-    cacheDuration: apps[0].cacheDuration
-  }
-}
 
 module helloOrleonsRouting 'app-routing.bicep' = {
   name: 'deploy-routing-helloorleons'
@@ -526,9 +462,9 @@ module helloOrleonsRouting 'app-routing.bicep' = {
     baseName: baseName
     domainName: domainName
     appName: 'helloorleons'
-    subdomain: apps[1].subdomain
+    subdomain: apps[0].subdomain
     stamps: allStamps
-    cacheDuration: apps[1].cacheDuration
+    cacheDuration: apps[0].cacheDuration
     probePath: '/health'
   }
 }
@@ -541,9 +477,9 @@ module darkUxRouting 'app-routing.bicep' = {
     baseName: baseName
     domainName: domainName
     appName: 'darkux'
-    subdomain: apps[2].subdomain
+    subdomain: apps[1].subdomain
     stamps: allStamps
-    cacheDuration: apps[2].cacheDuration
+    cacheDuration: apps[1].cacheDuration
   }
 }
 
@@ -555,9 +491,9 @@ module helloAgentsRouting 'app-routing.bicep' = {
     baseName: baseName
     domainName: domainName
     appName: 'helloagents'
-    subdomain: apps[3].subdomain
+    subdomain: apps[2].subdomain
     stamps: allStamps
-    cacheDuration: apps[3].cacheDuration
+    cacheDuration: apps[2].cacheDuration
     probePath: '/health'
   }
 }
@@ -570,9 +506,9 @@ module graphOrleonsRouting 'app-routing.bicep' = {
     baseName: baseName
     domainName: domainName
     appName: 'graphorleons'
-    subdomain: apps[4].subdomain
+    subdomain: apps[3].subdomain
     stamps: allStamps
-    cacheDuration: apps[4].cacheDuration
+    cacheDuration: apps[3].cacheDuration
     probePath: '/health'
   }
 }
@@ -638,9 +574,8 @@ output dnsZoneName string = domainName
 output aksClusterNames array = [
   for (stamp, i) in allStamps: stamps[i].outputs.aksClusterName
 ]
-output playerOnLevel0IdentityClientId string = playerOnLevel0.outputs.identityClientId
-output appInsightsConnectionString string = global.outputs.appInsightsConnectionString
 output helloOrleonsIdentityClientId string = helloOrleons.outputs.identityClientId
+output appInsightsConnectionString string = global.outputs.appInsightsConnectionString
 output darkUxChallengeIdentityClientId string = darkUxChallenge.outputs.identityClientId
 output aiServicesEndpoint string = ai.outputs.aiServicesEndpoint
 output aiServicesName string = ai.outputs.aiServicesName
@@ -653,21 +588,16 @@ output graphOrleonsIdentityClientId string = graphOrleons.outputs.identityClient
 output appEndpoints array = [
   {
     name: apps[0].name
-    frontDoorUrl: 'https://${level0Routing.outputs.hostname}'
-    stampOrigins: level0Routing.outputs.stampOrigins
-  }
-  {
-    name: apps[1].name
     frontDoorUrl: 'https://${helloOrleonsRouting.outputs.hostname}'
     stampOrigins: helloOrleonsRouting.outputs.stampOrigins
   }
   {
-    name: apps[2].name
+    name: apps[1].name
     frontDoorUrl: 'https://${darkUxRouting.outputs.hostname}'
     stampOrigins: darkUxRouting.outputs.stampOrigins
   }
   {
-    name: apps[4].name
+    name: apps[3].name
     frontDoorUrl: 'https://${graphOrleonsRouting.outputs.hostname}'
     stampOrigins: graphOrleonsRouting.outputs.stampOrigins
   }

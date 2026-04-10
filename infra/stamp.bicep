@@ -364,13 +364,13 @@ resource helloAgentsStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
 
 // RBAC — Storage Queue Data Contributor for HelloAgents identity
 var storageQueueDataContributorRoleId = '974c5e8b-45b9-4653-ba55-5f855dd0fb88'
-var helloAgentsIdentityId = length(appFluxVars) > 3 && appFluxVars[3].name == 'helloagents' ? appFluxVars[3].identityId : ''
+var helloAgentsIdentityId = length(appFluxVars) > 2 && appFluxVars[2].name == 'helloagents' ? appFluxVars[2].identityId : ''
 
 resource helloAgentsStorageQueueRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(helloAgentsIdentityId)) {
   name: guid(helloAgentsStorage.id, helloAgentsIdentityId, storageQueueDataContributorRoleId)
   scope: helloAgentsStorage
   properties: {
-    principalId: length(appFluxVars) > 3 ? appFluxVars[3].identityPrincipalId : ''
+    principalId: length(appFluxVars) > 2 ? appFluxVars[2].identityPrincipalId : ''
     roleDefinitionId: subscriptionResourceId(
       'Microsoft.Authorization/roleDefinitions',
       storageQueueDataContributorRoleId
@@ -406,63 +406,51 @@ var sharedFluxVars = {
 
 // Per-app vars — prefixed with uppercase app name
 // Pattern: {APPNAME}_{VARNAME}. Add entries here for each app.
-var level0FluxVars = length(appFluxVars) > 0 && appFluxVars[0].name == 'level0' ? {
-  LEVEL0_NAMESPACE: appFluxVars[0].namespace
-  LEVEL0_SA_NAME: appFluxVars[0].name
-  LEVEL0_IDENTITY_CLIENT_ID: appFluxVars[0].identityClientId
-  LEVEL0_IDENTITY_ID: appFluxVars[0].identityId
-  LEVEL0_COSMOS_DATABASE: appFluxVars[0].cosmosDatabase
-  LEVEL0_COSMOS_CONTAINER: appFluxVars[0].cosmosContainer
-  LEVEL0_COSMOS_LEADERBOARD_CONTAINER: appFluxVars[0].cosmosLeaderboardContainer
-  LEVEL0_DNS_LABEL: 'level0-${stampName}'
-  LEVEL0_GATEWAY_HOSTNAME: 'level0-${stampName}.${dnsZoneName}'
-} : {}
-
-var helloOrleonsFluxVars = length(appFluxVars) > 1 && appFluxVars[1].name == 'helloorleons' ? {
-  HELLOORLEONS_NAMESPACE: appFluxVars[1].namespace
-  HELLOORLEONS_SA_NAME: appFluxVars[1].name
-  HELLOORLEONS_IDENTITY_CLIENT_ID: appFluxVars[1].identityClientId
-  HELLOORLEONS_IDENTITY_ID: appFluxVars[1].identityId
-  HELLOORLEONS_COSMOS_DATABASE: appFluxVars[1].cosmosDatabase
-  HELLOORLEONS_COSMOS_CONTAINER: appFluxVars[1].cosmosContainer
+var helloOrleonsFluxVars = length(appFluxVars) > 0 && appFluxVars[0].name == 'helloorleons' ? {
+  HELLOORLEONS_NAMESPACE: appFluxVars[0].namespace
+  HELLOORLEONS_SA_NAME: appFluxVars[0].name
+  HELLOORLEONS_IDENTITY_CLIENT_ID: appFluxVars[0].identityClientId
+  HELLOORLEONS_IDENTITY_ID: appFluxVars[0].identityId
+  HELLOORLEONS_COSMOS_DATABASE: appFluxVars[0].cosmosDatabase
+  HELLOORLEONS_COSMOS_CONTAINER: appFluxVars[0].cosmosContainer
   HELLOORLEONS_DNS_LABEL: 'helloorleons-${stampName}'
   HELLOORLEONS_GATEWAY_HOSTNAME: 'helloorleons-${stampName}.${dnsZoneName}'
 } : {}
 
-var darkuxFluxVars = length(appFluxVars) > 2 && appFluxVars[2].name == 'darkux' ? {
-  DARKUX_NAMESPACE: appFluxVars[2].namespace
-  DARKUX_SA_NAME: appFluxVars[2].name
-  DARKUX_IDENTITY_CLIENT_ID: appFluxVars[2].identityClientId
-  DARKUX_IDENTITY_ID: appFluxVars[2].identityId
-  DARKUX_COSMOS_DATABASE: appFluxVars[2].cosmosDatabase
-  DARKUX_COSMOS_CONTAINER: appFluxVars[2].cosmosContainer
+var darkuxFluxVars = length(appFluxVars) > 1 && appFluxVars[1].name == 'darkux' ? {
+  DARKUX_NAMESPACE: appFluxVars[1].namespace
+  DARKUX_SA_NAME: appFluxVars[1].name
+  DARKUX_IDENTITY_CLIENT_ID: appFluxVars[1].identityClientId
+  DARKUX_IDENTITY_ID: appFluxVars[1].identityId
+  DARKUX_COSMOS_DATABASE: appFluxVars[1].cosmosDatabase
+  DARKUX_COSMOS_CONTAINER: appFluxVars[1].cosmosContainer
   DARKUX_DNS_LABEL: 'darkux-${stampName}'
   DARKUX_GATEWAY_HOSTNAME: 'darkux-${stampName}.${dnsZoneName}'
 } : {}
 
-var helloAgentsFluxVars = length(appFluxVars) > 3 && appFluxVars[3].name == 'helloagents' ? {
-  HELLOAGENTS_NAMESPACE: appFluxVars[3].namespace
-  HELLOAGENTS_SA_NAME: appFluxVars[3].name
-  HELLOAGENTS_IDENTITY_CLIENT_ID: appFluxVars[3].identityClientId
-  HELLOAGENTS_IDENTITY_ID: appFluxVars[3].identityId
-  HELLOAGENTS_COSMOS_DATABASE: appFluxVars[3].cosmosDatabase
-  HELLOAGENTS_COSMOS_CONTAINER: appFluxVars[3].cosmosContainer
+var helloAgentsFluxVars = length(appFluxVars) > 2 && appFluxVars[2].name == 'helloagents' ? {
+  HELLOAGENTS_NAMESPACE: appFluxVars[2].namespace
+  HELLOAGENTS_SA_NAME: appFluxVars[2].name
+  HELLOAGENTS_IDENTITY_CLIENT_ID: appFluxVars[2].identityClientId
+  HELLOAGENTS_IDENTITY_ID: appFluxVars[2].identityId
+  HELLOAGENTS_COSMOS_DATABASE: appFluxVars[2].cosmosDatabase
+  HELLOAGENTS_COSMOS_CONTAINER: appFluxVars[2].cosmosContainer
   HELLOAGENTS_STORAGE_QUEUE_ENDPOINT: helloAgentsStorage.properties.primaryEndpoints.queue
   HELLOAGENTS_DNS_LABEL: 'helloagents-${stampName}'
   HELLOAGENTS_GATEWAY_HOSTNAME: 'helloagents-${stampName}.${dnsZoneName}'
 } : {}
 
-var graphorleonsFluxVars = length(appFluxVars) > 4 && appFluxVars[4].name == 'graphorleons' ? {
-  GRAPHORLEONS_NAMESPACE: appFluxVars[4].namespace
-  GRAPHORLEONS_SA_NAME: appFluxVars[4].name
-  GRAPHORLEONS_IDENTITY_CLIENT_ID: appFluxVars[4].identityClientId
-  GRAPHORLEONS_IDENTITY_ID: appFluxVars[4].identityId
-  GRAPHORLEONS_COSMOS_DATABASE: appFluxVars[4].cosmosDatabase
+var graphorleonsFluxVars = length(appFluxVars) > 3 && appFluxVars[3].name == 'graphorleons' ? {
+  GRAPHORLEONS_NAMESPACE: appFluxVars[3].namespace
+  GRAPHORLEONS_SA_NAME: appFluxVars[3].name
+  GRAPHORLEONS_IDENTITY_CLIENT_ID: appFluxVars[3].identityClientId
+  GRAPHORLEONS_IDENTITY_ID: appFluxVars[3].identityId
+  GRAPHORLEONS_COSMOS_DATABASE: appFluxVars[3].cosmosDatabase
   GRAPHORLEONS_DNS_LABEL: 'graphorleons-${stampName}'
   GRAPHORLEONS_GATEWAY_HOSTNAME: 'graphorleons-${stampName}.${dnsZoneName}'
 } : {}
 
-var fluxSubstitute = union(sharedFluxVars, level0FluxVars, helloOrleonsFluxVars, darkuxFluxVars, helloAgentsFluxVars, graphorleonsFluxVars)
+var fluxSubstitute = union(sharedFluxVars, helloOrleonsFluxVars, darkuxFluxVars, helloAgentsFluxVars, graphorleonsFluxVars)
 
 resource fluxConfig 'Microsoft.KubernetesConfiguration/fluxConfigurations@2024-04-01-preview' = {
   scope: aksCluster

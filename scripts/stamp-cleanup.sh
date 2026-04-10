@@ -32,11 +32,11 @@ DNS_ZONE="${REGION}.${BASE_NAME}.actor"
 ORIGIN_NAME="origin-${STAMP_NAME}"
 
 # App identities in global RG
-APP_IDENTITIES=("id-playeronlevel0-${BASE_NAME}" "id-helloorleons-${BASE_NAME}" "id-darkuxchallenge-${BASE_NAME}")
+APP_IDENTITIES=("id-helloorleons-${BASE_NAME}" "id-darkuxchallenge-${BASE_NAME}")
 # Regional identity
 REGIONAL_IDENTITY="id-certmanager-${BASE_NAME}-${REGION}"
 # Origin groups
-ORIGIN_GROUPS=("og-level0" "og-helloorleons" "og-darkux")
+ORIGIN_GROUPS=("og-helloorleons" "og-darkux")
 
 run() {
   if [ "$DRY_RUN" = "--dry-run" ]; then

@@ -41,7 +41,6 @@ data:
     #     - role: pod
     #       namespaces:
     #         names:
-    #           - level0
     #           - darkux
     #           - helloagents
     #           - helloorleons

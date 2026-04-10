@@ -24,7 +24,6 @@ A hands-on learning framework for senior software engineers: design, build, and 
 
 | App | Description | Tech Stack | SPA | Tests | E2E | AOT |
 |-----|-------------|------------|:---:|:-----:|:---:|:---:|
-| **[PlayersOnLevel0](src/PlayersOnLevel0/)** | Lightweight REST API for player progression | .NET 10, Cosmos DB, Aspire | ✅ React+Vite | ✅ TUnit | ✅ Playwright | ✅ |
 | **[DarkUxChallenge](src/DarkUxChallenge/)** | Accessibility testing challenge — hostile-but-truthful UX | .NET 10, Cosmos DB, Aspire | ✅ React+Vite | ✅ TUnit | ✅ Playwright | ✅ |
 | **[HelloAgents](src/HelloAgents/)** | AI multi-agent conversations with Orleans streaming | .NET 10, Orleans, Redis, OpenAI, Cosmos DB | ✅ React | ✅ TUnit | ✅ Playwright | — |
 | **[GraphOrleons](src/GraphOrleons/)** | Event-driven graph modeling with Orleans grains | .NET 10, Orleans, Cosmos DB, Aspire | ✅ React+Vite | ✅ TUnit | ✅ Playwright | — |
@@ -37,7 +36,6 @@ A hands-on learning framework for senior software engineers: design, build, and 
 
 | App | Deployed | Namespace | CI/CD | Infra (Bicep) | Gateway Route | Regions |
 |-----|:--------:|-----------|:-----:|:-------------:|---------------|---------|
-| PlayersOnLevel0 | ✅ | `level0` | ✅ `level0-cicd.yml` | ✅ | [level0.alwayson.actor](https://level0.alwayson.actor) | swedencentral, germanywestcentral |
 | DarkUxChallenge | ✅ | `darkux` | ✅ `darkux-cicd.yml` | ✅ | [darkux.alwayson.actor](https://darkux.alwayson.actor) | swedencentral, germanywestcentral |
 | HelloAgents | ✅ | `helloagents` | ✅ `helloagents-cicd.yml` | ✅ | [agents.alwayson.actor](https://agents.alwayson.actor) | swedencentral, germanywestcentral |
 | GraphOrleons | ✅ | `graphorleons` | ✅ `graphorleons-cicd.yml` | ✅ | [events.alwayson.actor](https://events.alwayson.actor) | swedencentral, germanywestcentral |
@@ -61,14 +59,13 @@ A hands-on learning framework for senior software engineers: design, build, and 
 | Health model | ✅ | `Microsoft.CloudHealth` (preview), subscription-scoped discovery |
 | Workload Identity | ✅ | Per-app managed identity, federated credentials, RBAC |
 | cert-manager + external-dns | ✅ | Let's Encrypt TLS, auto DNS records in Azure DNS |
-| Native AOT | ✅ | PlayersOnLevel0, DarkUxChallenge (chiseled containers) |
+| Native AOT | ✅ | DarkUxChallenge (chiseled containers) |
 | Azure AI Services | ✅ | GPT-4.1, GPT-4.1-mini, GPT-5.4 deployments |
 
 ## CI/CD Pipeline
 
 | Workflow | Trigger | What it does |
 |----------|---------|-------------|
-| `level0-cicd.yml` | Push to `src/PlayersOnLevel0/**` | Build → TUnit tests (3x retry) → E2E → Docker build+push → Flux deploys |
 | `darkux-cicd.yml` | Push to `src/DarkUxChallenge/**` | Build → TUnit tests (3x retry) → E2E → Docker build+push → Flux deploys |
 | `helloagents-cicd.yml` | Push to `src/HelloAgents/**` | Build → TUnit tests (3x retry) → E2E → Docker build+push → Flux deploys |
 | `graphorleons-cicd.yml` | Push to `src/GraphOrleons/**` | Build → TUnit tests (3x retry) → E2E → Docker build+push → Flux deploys |
@@ -103,11 +100,6 @@ Key features: OIDC authentication (no secrets), multi-arch native builds (no QEM
 cd src/HelloAgents
 cd HelloAgents.Web && npm ci && cd ..
 aspire run --apphost HelloAgents.AppHost
-
-# Run PlayersOnLevel0
-cd src/PlayersOnLevel0
-cd PlayersOnLevel0.SPA.Web && npm ci && cd ..
-dotnet run --project PlayersOnLevel0.AppHost
 
 # Deploy to Azure
 azd auth login
@@ -239,7 +231,7 @@ All applications use the `Azure.Monitor.OpenTelemetry.AspNetCore` distro (1.4.0)
 | 1 | Verify App Insights traces, metrics, and logs flowing after ADR-0053 fix | All 4 deployed | 🔴 Critical |
 | 2 | Fix HelloAgents 403 on Storage Queue (per-stamp storage RBAC) | HelloAgents | 🔴 Critical |
 | 3 | Fix HelloAgents OpenAI 429 rate limits — increase `skuCapacity` or add retry/backoff | HelloAgents | 🟡 High |
-| 4 | Fix Level0 CrashLoopBackOff (one replica consistently failing) | PlayersOnLevel0 | 🟡 High |
+| 4 | ~~Fix Level0 CrashLoopBackOff~~ | Removed | — |
 | 5 | Update AMA Prometheus namespace regex to include all app namespaces | All | 🟡 High |
 
 ### Phase 2: Hardening

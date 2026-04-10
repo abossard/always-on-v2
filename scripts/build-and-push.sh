@@ -52,8 +52,6 @@ echo "🖥️  Platform: $PLATFORM"
 
 # ── Images to build (matches skaffold.yaml + CI workflows) ──
 IMAGES=(
-  "level0|src/PlayersOnLevel0|src/PlayersOnLevel0/PlayersOnLevel0.Api/Dockerfile"
-  "level0-web|src/PlayersOnLevel0/PlayersOnLevel0.SPA.Web|src/PlayersOnLevel0/PlayersOnLevel0.SPA.Web/Dockerfile"
   "darkux|src/DarkUxChallenge|src/DarkUxChallenge/DarkUxChallenge.Api/Dockerfile"
   "darkux-web|src/DarkUxChallenge/DarkUxChallenge.SPA.Web|src/DarkUxChallenge/DarkUxChallenge.SPA.Web/Dockerfile"
   "helloagents|src/HelloAgents|src/HelloAgents/HelloAgents.Api/Dockerfile"
@@ -84,7 +82,6 @@ if $PUSH; then
   echo ""
   echo "📝 Updating K8s manifests..."
   MANIFESTS=(
-    "level0|clusters/base/apps/level0/deployment.yaml"
     "darkux|clusters/base/apps/darkux/deployment.yaml"
     "helloagents|clusters/base/apps/helloagents/deployment.yaml"
     "helloorleons|clusters/base/apps/helloorleons/deployment.yaml"

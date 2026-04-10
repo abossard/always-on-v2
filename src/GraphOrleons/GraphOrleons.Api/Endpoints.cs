@@ -17,7 +17,7 @@ public static class EventEndpoints
               <p>API docs: <a href="/scalar/v1">/scalar/v1</a></p>
             </body></html>
             """, "text/html"));
-
+        // {tenant: "asd", component: "pod7", payload: { ... }}
         app.MapPost("/api/events", async (HttpRequest request, IGrainFactory grains) =>
         {
             if (request.ContentLength > 65_536)
