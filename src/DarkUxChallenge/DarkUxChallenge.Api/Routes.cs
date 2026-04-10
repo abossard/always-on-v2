@@ -70,50 +70,50 @@ public static class Routes
 
     // ── Helper methods (substitute path parameters) ──
 
-    public static string User(string userId) => UserTemplate.Replace("{userId}", userId);
-    public static string UserProgress(string userId) => UserProgressTemplate.Replace("{userId}", userId);
+    public static string User(string userId) => UserTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
+    public static string UserProgress(string userId) => UserProgressTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
 
-    public static string Level1Offer(string userId) => Level1OfferTemplate.Replace("{userId}", userId);
-    public static string Level1Respond(string userId) => Level1RespondTemplate.Replace("{userId}", userId);
+    public static string Level1Offer(string userId) => Level1OfferTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
+    public static string Level1Respond(string userId) => Level1RespondTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
 
-    public static string Subscribe(string userId) => SubscribeTemplate.Replace("{userId}", userId);
-    public static string CancelStep(string userId) => CancelStepTemplate.Replace("{userId}", userId);
-    public static string CancelConfirm(string userId) => CancelConfirmTemplate.Replace("{userId}", userId);
+    public static string Subscribe(string userId) => SubscribeTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
+    public static string CancelStep(string userId) => CancelStepTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
+    public static string CancelConfirm(string userId) => CancelConfirmTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
 
-    public static string TrialStart(string userId) => TrialStartTemplate.Replace("{userId}", userId);
-    public static string TrialStatus(string userId) => TrialStatusTemplate.Replace("{userId}", userId);
-    public static string TrialCancel(string userId) => TrialCancelTemplate.Replace("{userId}", userId);
+    public static string TrialStart(string userId) => TrialStartTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
+    public static string TrialStatus(string userId) => TrialStatusTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
+    public static string TrialCancel(string userId) => TrialCancelTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
 
-    public static string Level4Challenge(string userId) => Level4ChallengeTemplate.Replace("{userId}", userId);
-    public static string Level4Submit(string userId) => Level4SubmitTemplate.Replace("{userId}", userId);
+    public static string Level4Challenge(string userId) => Level4ChallengeTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
+    public static string Level4Submit(string userId) => Level4SubmitTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
 
-    public static string Level5Settings(string userId) => Level5SettingsTemplate.Replace("{userId}", userId);
+    public static string Level5Settings(string userId) => Level5SettingsTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
 
-    public static string Level6Cart(string userId) => Level6CartTemplate.Replace("{userId}", userId);
-    public static string Level6CartAdd(string userId) => Level6CartAddTemplate.Replace("{userId}", userId);
-    public static string Level6CartCheckout(string userId) => Level6CartCheckoutTemplate.Replace("{userId}", userId);
+    public static string Level6Cart(string userId) => Level6CartTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
+    public static string Level6CartAdd(string userId) => Level6CartAddTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
+    public static string Level6CartCheckout(string userId) => Level6CartCheckoutTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
     public static string Level6CartRemove(string userId, string itemId) =>
-        Level6CartRemoveTemplate.Replace("{userId}", userId).Replace("{itemId}", itemId);
+        Level6CartRemoveTemplate.Replace("{userId}", userId, StringComparison.Ordinal).Replace("{itemId}", itemId, StringComparison.Ordinal);
 
-    public static string Level7Page(string userId) => Level7PageTemplate.Replace("{userId}", userId);
-    public static string Level7Dismiss(string userId) => Level7DismissTemplate.Replace("{userId}", userId);
-    public static string Level7DismissPermanently(string userId) => Level7DismissPermanentlyTemplate.Replace("{userId}", userId);
+    public static string Level7Page(string userId) => Level7PageTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
+    public static string Level7Dismiss(string userId) => Level7DismissTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
+    public static string Level7DismissPermanently(string userId) => Level7DismissPermanentlyTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
 
-    public static string Level8Page(string userId) => Level8PageTemplate.Replace("{userId}", userId);
-    public static string Level8Action(string userId) => Level8ActionTemplate.Replace("{userId}", userId);
+    public static string Level8Page(string userId) => Level8PageTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
+    public static string Level8Action(string userId) => Level8ActionTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
 
-    public static string Level9Permissions(string userId) => Level9PermissionsTemplate.Replace("{userId}", userId);
+    public static string Level9Permissions(string userId) => Level9PermissionsTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
 
-    public static string Level10Offer(string userId) => Level10OfferTemplate.Replace("{userId}", userId);
-    public static string Level10Verify(string userId) => Level10VerifyTemplate.Replace("{userId}", userId);
-    public static string Level10Purchase(string userId) => Level10PurchaseTemplate.Replace("{userId}", userId);
+    public static string Level10Offer(string userId) => Level10OfferTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
+    public static string Level10Verify(string userId) => Level10VerifyTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
+    public static string Level10Purchase(string userId) => Level10PurchaseTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
 
-    public static string Level11Challenge(string userId) => Level11ChallengeTemplate.Replace("{userId}", userId);
-    public static string Level11Submit(string userId) => Level11SubmitTemplate.Replace("{userId}", userId);
+    public static string Level11Challenge(string userId) => Level11ChallengeTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
+    public static string Level11Submit(string userId) => Level11SubmitTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
 
-    public static string Level12Challenge(string userId) => Level12ChallengeTemplate.Replace("{userId}", userId);
-    public static string Level12Submit(string userId) => Level12SubmitTemplate.Replace("{userId}", userId);
+    public static string Level12Challenge(string userId) => Level12ChallengeTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
+    public static string Level12Submit(string userId) => Level12SubmitTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
 
-    public static string Level13Challenge(string userId) => Level13ChallengeTemplate.Replace("{userId}", userId);
-    public static string Level13Submit(string userId) => Level13SubmitTemplate.Replace("{userId}", userId);
+    public static string Level13Challenge(string userId) => Level13ChallengeTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
+    public static string Level13Submit(string userId) => Level13SubmitTemplate.Replace("{userId}", userId, StringComparison.Ordinal);
 }

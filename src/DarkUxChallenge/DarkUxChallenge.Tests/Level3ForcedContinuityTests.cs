@@ -7,7 +7,7 @@ namespace DarkUxChallenge.Tests;
 public abstract class Level3ForcedContinuityTests(DarkUxApi api)
 {
     [Test]
-    public async Task StartTrial_SetsTrialState()
+    public async Task StartTrialSetsTrialState()
     {
         var user = await api.CreateUser();
         var updated = await api.StartTrial(user.UserId, 7);
@@ -18,7 +18,7 @@ public abstract class Level3ForcedContinuityTests(DarkUxApi api)
     }
 
     [Test]
-    public async Task TrialStatus_ActiveTrial_ReportsTrialing()
+    public async Task TrialStatusActiveTrialReportsTrialing()
     {
         var user = await api.CreateUser();
         await api.StartTrial(user.UserId, 7);
@@ -31,7 +31,7 @@ public abstract class Level3ForcedContinuityTests(DarkUxApi api)
     }
 
     [Test]
-    public async Task CancelTrial_RecordsCompletion()
+    public async Task CancelTrialRecordsCompletion()
     {
         var user = await api.CreateUser();
         await api.StartTrial(user.UserId, 7);

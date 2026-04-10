@@ -7,7 +7,7 @@ namespace DarkUxChallenge.Tests;
 public abstract class Level9ZuckeringTests(DarkUxApi api)
 {
     [Test]
-    public async Task GetPermissions_ReturnsAllPermissions()
+    public async Task GetPermissionsReturnsAllPermissions()
     {
         var user = await api.CreateUser();
         var permissions = await api.GetPermissions(user.UserId);
@@ -17,7 +17,7 @@ public abstract class Level9ZuckeringTests(DarkUxApi api)
     }
 
     [Test]
-    public async Task GrantNone_MinimalCorrect()
+    public async Task GrantNoneMinimalCorrect()
     {
         var user = await api.CreateUser();
         var result = await api.GrantPermissions(user.UserId, []);
@@ -27,7 +27,7 @@ public abstract class Level9ZuckeringTests(DarkUxApi api)
     }
 
     [Test]
-    public async Task GrantAll_Excessive()
+    public async Task GrantAllExcessive()
     {
         var user = await api.CreateUser();
 

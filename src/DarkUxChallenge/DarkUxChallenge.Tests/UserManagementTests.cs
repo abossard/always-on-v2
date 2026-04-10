@@ -9,7 +9,7 @@ namespace DarkUxChallenge.Tests;
 public abstract class UserManagementTests(DarkUxApi api)
 {
     [Test]
-    public async Task CreateUser_ReturnsNewUser()
+    public async Task CreateUserReturnsNewUser()
     {
         var user = await api.CreateUser("TestUser");
 
@@ -19,14 +19,14 @@ public abstract class UserManagementTests(DarkUxApi api)
     }
 
     [Test]
-    public async Task CreateUser_DefaultName_IsAnonymous()
+    public async Task CreateUserDefaultNameIsAnonymous()
     {
         var user = await api.CreateUser();
         await Assert.That(user.DisplayName).IsEqualTo("Anonymous");
     }
 
     [Test]
-    public async Task GetUser_ExistingUser_ReturnsUser()
+    public async Task GetUserExistingUserReturnsUser()
     {
         var created = await api.CreateUser("GetTest");
         var fetched = await api.GetUser(created.UserId);
@@ -37,21 +37,21 @@ public abstract class UserManagementTests(DarkUxApi api)
     }
 
     [Test]
-    public async Task GetUser_NonExistent_Returns404()
+    public async Task GetUserNonExistentReturns404()
     {
-        var r = await api.Http.GetAsync(Routes.User(Guid.NewGuid().ToString()));
+        var r = await api.Http.GetAsync(new Uri(Routes.User(Guid.NewGuid().ToString()), UriKind.Relative));
         await Assert.That(r.StatusCode).IsEqualTo(HttpStatusCode.NotFound);
     }
 
     [Test]
-    public async Task GetUser_InvalidGuid_Returns400()
+    public async Task GetUserInvalidGuidReturns400()
     {
-        var r = await api.Http.GetAsync(Routes.User("not-a-guid"));
+        var r = await api.Http.GetAsync(new Uri(Routes.User("not-a-guid"), UriKind.Relative));
         await Assert.That(r.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
     }
 
     [Test]
-    public async Task GetProgress_NewUser_ReturnsEmpty()
+    public async Task GetProgressNewUserReturnsEmpty()
     {
         var user = await api.CreateUser();
         var completions = await api.GetProgress(user.UserId);

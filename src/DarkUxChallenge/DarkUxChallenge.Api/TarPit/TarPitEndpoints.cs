@@ -2,6 +2,7 @@
 // Each endpoint returns a never-ending JSON array via chunked transfer encoding.
 // Cap: 10 minutes or ~10MB per connection, slow drip (100-300ms between records).
 
+using System.Security.Cryptography;
 using System.Text;
 
 namespace DarkUxChallenge.Api.TarPit;
@@ -36,27 +37,27 @@ public static class TarPitEndpoints
         return app;
     }
 
-    private static IResult StreamUsers()
+    private static TarPitStreamResult StreamUsers()
     {
-        return new TarPitStreamResult((rng) => MarkovGenerator.GenerateUserRecord(rng));
+        return new TarPitStreamResult(() => MarkovGenerator.GenerateUserRecord());
     }
 
-    private static IResult StreamSecrets()
+    private static TarPitStreamResult StreamSecrets()
     {
-        return new TarPitStreamResult((rng) => MarkovGenerator.GenerateSecretRecord(rng));
+        return new TarPitStreamResult(() => MarkovGenerator.GenerateSecretRecord());
     }
 
-    private static IResult StreamBackup()
+    private static TarPitStreamResult StreamBackup()
     {
-        return new TarPitStreamResult((rng) => MarkovGenerator.GenerateBackupRow(rng));
+        return new TarPitStreamResult(() => MarkovGenerator.GenerateBackupRow());
     }
 
-    private static IResult StreamLogs()
+    private static TarPitStreamResult StreamLogs()
     {
-        return new TarPitStreamResult((rng) => MarkovGenerator.GenerateLogEntry(rng));
+        return new TarPitStreamResult(() => MarkovGenerator.GenerateLogEntry());
     }
 
-    private sealed class TarPitStreamResult(Func<Random, string> generator) : IResult
+    private sealed class TarPitStreamResult(Func<string> generator) : IResult
     {
         public async Task ExecuteAsync(HttpContext ctx)
         {
@@ -64,12 +65,11 @@ public static class TarPitEndpoints
         }
     }
 
-    private static async Task StreamInfiniteJson(HttpContext ctx, Func<Random, string> generator)
+    private static async Task StreamInfiniteJson(HttpContext ctx, Func<string> generator)
     {
         ctx.Response.ContentType = "application/json; charset=utf-8";
         ctx.Response.Headers["X-Tar-Pit"] = "true";
 
-        var rng = new Random();
         var startTime = DateTimeOffset.UtcNow;
         long totalBytes = 0;
         var first = true;
@@ -96,7 +96,7 @@ public static class TarPitEndpoints
                     break;
                 }
 
-                var record = generator(rng);
+                var record = generator();
                 var prefix = first ? "  " : ",\n  ";
                 first = false;
 
@@ -108,7 +108,7 @@ public static class TarPitEndpoints
                 await ctx.Response.Body.FlushAsync();
 
                 // Slow drip — maximize time wasted per byte
-                await Task.Delay(rng.Next(MinDelayMs, MaxDelayMs), ctx.RequestAborted);
+                await Task.Delay(RandomNumberGenerator.GetInt32(MinDelayMs, MaxDelayMs), ctx.RequestAborted);
             }
         }
         catch (OperationCanceledException)

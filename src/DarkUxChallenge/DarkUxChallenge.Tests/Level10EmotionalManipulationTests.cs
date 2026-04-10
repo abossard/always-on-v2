@@ -7,7 +7,7 @@ namespace DarkUxChallenge.Tests;
 public abstract class Level10EmotionalManipulationTests(DarkUxApi api)
 {
     [Test]
-    public async Task GetOffer_ReturnsOfferWithCountdownAndStock()
+    public async Task GetOfferReturnsOfferWithCountdownAndStock()
     {
         var user = await api.CreateUser();
         var offer = await api.GetUrgencyOffer(user.UserId);
@@ -19,7 +19,7 @@ public abstract class Level10EmotionalManipulationTests(DarkUxApi api)
     }
 
     [Test]
-    public async Task Verify_ReturnsAllFake()
+    public async Task VerifyReturnsAllFake()
     {
         var user = await api.CreateUser();
         // Must get offer first to generate it
@@ -34,7 +34,7 @@ public abstract class Level10EmotionalManipulationTests(DarkUxApi api)
     }
 
     [Test]
-    public async Task TwoOffers_HaveDifferentStockNumbers()
+    public async Task TwoOffersHaveDifferentStockNumbers()
     {
         var user1 = await api.CreateUser();
         var user2 = await api.CreateUser();

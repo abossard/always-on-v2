@@ -19,14 +19,14 @@ public class DarkUxApi(HttpClient http)
 
     public async Task<UserResponse> CreateUser(string? displayName = null)
     {
-        var r = await http.PostAsJsonAsync(Routes.Users, new { displayName });
+        var r = await http.PostAsJsonAsync(new Uri(Routes.Users, UriKind.Relative), new { displayName });
         r.EnsureSuccessStatusCode();
         return (await r.Content.ReadFromJsonAsync<UserResponse>(Json))!;
     }
 
     public async Task<UserResponse?> GetUser(string userId)
     {
-        var r = await http.GetAsync(Routes.User(userId));
+        var r = await http.GetAsync(new Uri(Routes.User(userId), UriKind.Relative));
         if (r.StatusCode == HttpStatusCode.NotFound) return null;
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<UserResponse>(Json);
@@ -34,7 +34,7 @@ public class DarkUxApi(HttpClient http)
 
     public async Task<List<LevelCompletionResponse>?> GetProgress(string userId)
     {
-        var r = await http.GetAsync(Routes.UserProgress(userId));
+        var r = await http.GetAsync(new Uri(Routes.UserProgress(userId), UriKind.Relative));
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<List<LevelCompletionResponse>>(Json);
     }
@@ -43,14 +43,14 @@ public class DarkUxApi(HttpClient http)
 
     public async Task<OfferResponse?> GetOffer(string userId)
     {
-        var r = await http.GetAsync(Routes.Level1Offer(userId));
+        var r = await http.GetAsync(new Uri(Routes.Level1Offer(userId), UriKind.Relative));
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<OfferResponse>(Json);
     }
 
     public async Task<UserResponse?> RespondToOffer(string userId, bool accepted)
     {
-        var r = await http.PostAsJsonAsync(Routes.Level1Respond(userId), new { accepted });
+        var r = await http.PostAsJsonAsync(new Uri(Routes.Level1Respond(userId), UriKind.Relative), new { accepted });
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<UserResponse>(Json);
     }
@@ -59,28 +59,28 @@ public class DarkUxApi(HttpClient http)
 
     public async Task<UserResponse?> Subscribe(string userId)
     {
-        var r = await http.PostAsync(Routes.Subscribe(userId), null);
+        var r = await http.PostAsync(new Uri(Routes.Subscribe(userId), UriKind.Relative), null);
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<UserResponse>(Json);
     }
 
     public async Task<CancelStepResponse?> GetCancelStep(string userId)
     {
-        var r = await http.GetAsync(Routes.CancelStep(userId));
+        var r = await http.GetAsync(new Uri(Routes.CancelStep(userId), UriKind.Relative));
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<CancelStepResponse>(Json);
     }
 
     public async Task<CancelStepResponse?> SubmitCancelStep(string userId, string selectedOption)
     {
-        var r = await http.PostAsJsonAsync(Routes.CancelStep(userId), new { selectedOption });
+        var r = await http.PostAsJsonAsync(new Uri(Routes.CancelStep(userId), UriKind.Relative), new { selectedOption });
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<CancelStepResponse>(Json);
     }
 
     public async Task<UserResponse?> ConfirmCancel(string userId)
     {
-        var r = await http.PostAsync(Routes.CancelConfirm(userId), null);
+        var r = await http.PostAsync(new Uri(Routes.CancelConfirm(userId), UriKind.Relative), null);
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<UserResponse>(Json);
     }
@@ -89,21 +89,21 @@ public class DarkUxApi(HttpClient http)
 
     public async Task<UserResponse?> StartTrial(string userId, int durationDays = 7)
     {
-        var r = await http.PostAsJsonAsync(Routes.TrialStart(userId), new { durationDays });
+        var r = await http.PostAsJsonAsync(new Uri(Routes.TrialStart(userId), UriKind.Relative), new { durationDays });
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<UserResponse>(Json);
     }
 
     public async Task<TrialStatusResponse?> GetTrialStatus(string userId)
     {
-        var r = await http.GetAsync(Routes.TrialStatus(userId));
+        var r = await http.GetAsync(new Uri(Routes.TrialStatus(userId), UriKind.Relative));
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<TrialStatusResponse>(Json);
     }
 
     public async Task<UserResponse?> CancelTrial(string userId)
     {
-        var r = await http.PostAsync(Routes.TrialCancel(userId), null);
+        var r = await http.PostAsync(new Uri(Routes.TrialCancel(userId), UriKind.Relative), null);
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<UserResponse>(Json);
     }
@@ -112,14 +112,14 @@ public class DarkUxApi(HttpClient http)
 
     public async Task<TrickWordingChallenge?> GetTrickWordingChallenge(string userId)
     {
-        var r = await http.GetAsync(Routes.Level4Challenge(userId));
+        var r = await http.GetAsync(new Uri(Routes.Level4Challenge(userId), UriKind.Relative));
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<TrickWordingChallenge>(Json);
     }
 
     public async Task<TrickWordingResult?> SubmitTrickWording(string userId, string[] selectedOptionIds)
     {
-        var r = await http.PostAsJsonAsync(Routes.Level4Submit(userId), new { selectedOptionIds });
+        var r = await http.PostAsJsonAsync(new Uri(Routes.Level4Submit(userId), UriKind.Relative), new { selectedOptionIds });
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<TrickWordingResult>(Json);
     }
@@ -128,7 +128,7 @@ public class DarkUxApi(HttpClient http)
 
     public async Task<SettingsResponse?> GetSettings(string userId)
     {
-        var r = await http.GetAsync(Routes.Level5Settings(userId));
+        var r = await http.GetAsync(new Uri(Routes.Level5Settings(userId), UriKind.Relative));
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<SettingsResponse>(Json);
     }
@@ -138,7 +138,7 @@ public class DarkUxApi(HttpClient http)
         bool locationTracking, bool pushNotifications)
     {
         var body = new { newsletterOptIn, shareDataWithPartners, locationTracking, pushNotifications };
-        var r = await http.PostAsJsonAsync(Routes.Level5Settings(userId), body);
+        var r = await http.PostAsJsonAsync(new Uri(Routes.Level5Settings(userId), UriKind.Relative), body);
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<SettingsResponse>(Json);
     }
@@ -147,28 +147,28 @@ public class DarkUxApi(HttpClient http)
 
     public async Task<CartResponse?> GetCart(string userId)
     {
-        var r = await http.GetAsync(Routes.Level6Cart(userId));
+        var r = await http.GetAsync(new Uri(Routes.Level6Cart(userId), UriKind.Relative));
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<CartResponse>(Json);
     }
 
     public async Task<CartResponse?> AddToCart(string userId, string itemId, string name, decimal price)
     {
-        var r = await http.PostAsJsonAsync(Routes.Level6CartAdd(userId), new { itemId, name, price });
+        var r = await http.PostAsJsonAsync(new Uri(Routes.Level6CartAdd(userId), UriKind.Relative), new { itemId, name, price });
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<CartResponse>(Json);
     }
 
     public async Task<CartResponse?> Checkout(string userId)
     {
-        var r = await http.PostAsync(Routes.Level6CartCheckout(userId), null);
+        var r = await http.PostAsync(new Uri(Routes.Level6CartCheckout(userId), UriKind.Relative), null);
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<CartResponse>(Json);
     }
 
     public async Task<CartResponse?> RemoveFromCart(string userId, string itemId)
     {
-        var r = await http.PostAsync(Routes.Level6CartRemove(userId, itemId), null);
+        var r = await http.PostAsync(new Uri(Routes.Level6CartRemove(userId, itemId), UriKind.Relative), null);
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<CartResponse>(Json);
     }
@@ -177,21 +177,21 @@ public class DarkUxApi(HttpClient http)
 
     public async Task<NagPageResponse?> GetNagPage(string userId)
     {
-        var r = await http.GetAsync(Routes.Level7Page(userId));
+        var r = await http.GetAsync(new Uri(Routes.Level7Page(userId), UriKind.Relative));
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<NagPageResponse>(Json);
     }
 
     public async Task<NagDismissResponse?> DismissNag(string userId)
     {
-        var r = await http.PostAsync(Routes.Level7Dismiss(userId), null);
+        var r = await http.PostAsync(new Uri(Routes.Level7Dismiss(userId), UriKind.Relative), null);
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<NagDismissResponse>(Json);
     }
 
     public async Task<NagDismissResponse?> DismissNagPermanently(string userId)
     {
-        var r = await http.PostAsync(Routes.Level7DismissPermanently(userId), null);
+        var r = await http.PostAsync(new Uri(Routes.Level7DismissPermanently(userId), UriKind.Relative), null);
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<NagDismissResponse>(Json);
     }
@@ -200,14 +200,14 @@ public class DarkUxApi(HttpClient http)
 
     public async Task<InterfaceTrap?> GetInterfacePage(string userId)
     {
-        var r = await http.GetAsync(Routes.Level8Page(userId));
+        var r = await http.GetAsync(new Uri(Routes.Level8Page(userId), UriKind.Relative));
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<InterfaceTrap>(Json);
     }
 
     public async Task<InterfaceActionResult?> SubmitInterfaceAction(string userId, string actionId)
     {
-        var r = await http.PostAsJsonAsync(Routes.Level8Action(userId), new { actionId });
+        var r = await http.PostAsJsonAsync(new Uri(Routes.Level8Action(userId), UriKind.Relative), new { actionId });
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<InterfaceActionResult>(Json);
     }
@@ -216,14 +216,14 @@ public class DarkUxApi(HttpClient http)
 
     public async Task<List<PermissionRequest>?> GetPermissions(string userId)
     {
-        var r = await http.GetAsync(Routes.Level9Permissions(userId));
+        var r = await http.GetAsync(new Uri(Routes.Level9Permissions(userId), UriKind.Relative));
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<List<PermissionRequest>>(Json);
     }
 
     public async Task<PermissionRevealResponse?> GrantPermissions(string userId, string[] grantedPermissionIds)
     {
-        var r = await http.PostAsJsonAsync(Routes.Level9Permissions(userId), new { grantedPermissionIds });
+        var r = await http.PostAsJsonAsync(new Uri(Routes.Level9Permissions(userId), UriKind.Relative), new { grantedPermissionIds });
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<PermissionRevealResponse>(Json);
     }
@@ -232,14 +232,14 @@ public class DarkUxApi(HttpClient http)
 
     public async Task<UrgencyOffer?> GetUrgencyOffer(string userId)
     {
-        var r = await http.GetAsync(Routes.Level10Offer(userId));
+        var r = await http.GetAsync(new Uri(Routes.Level10Offer(userId), UriKind.Relative));
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<UrgencyOffer>(Json);
     }
 
     public async Task<UrgencyVerifyResponse?> VerifyUrgency(string userId)
     {
-        var r = await http.GetAsync(Routes.Level10Verify(userId));
+        var r = await http.GetAsync(new Uri(Routes.Level10Verify(userId), UriKind.Relative));
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<UrgencyVerifyResponse>(Json);
     }
@@ -248,14 +248,14 @@ public class DarkUxApi(HttpClient http)
 
     public async Task<SpeedTrapChallengeResponse?> GetSpeedTrapChallenge(string userId)
     {
-        var r = await http.GetAsync(Routes.Level11Challenge(userId));
+        var r = await http.GetAsync(new Uri(Routes.Level11Challenge(userId), UriKind.Relative));
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<SpeedTrapChallengeResponse>(Json);
     }
 
     public async Task<SpeedTrapResult?> SubmitSpeedTrap(string userId, string challengeId, string answer)
     {
-        var r = await http.PostAsJsonAsync(Routes.Level11Submit(userId), new { challengeId, answer });
+        var r = await http.PostAsJsonAsync(new Uri(Routes.Level11Submit(userId), UriKind.Relative), new { challengeId, answer });
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<SpeedTrapResult>(Json);
     }
@@ -264,14 +264,14 @@ public class DarkUxApi(HttpClient http)
 
     public async Task<FlashRecallChallengeResponse?> GetFlashRecallChallenge(string userId)
     {
-        var r = await http.GetAsync(Routes.Level12Challenge(userId));
+        var r = await http.GetAsync(new Uri(Routes.Level12Challenge(userId), UriKind.Relative));
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<FlashRecallChallengeResponse>(Json);
     }
 
     public async Task<FlashRecallResult?> SubmitFlashRecall(string userId, string challengeId, string answer)
     {
-        var r = await http.PostAsJsonAsync(Routes.Level12Submit(userId), new { challengeId, answer });
+        var r = await http.PostAsJsonAsync(new Uri(Routes.Level12Submit(userId), UriKind.Relative), new { challengeId, answer });
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<FlashRecallResult>(Json);
     }
@@ -280,14 +280,14 @@ public class DarkUxApi(HttpClient http)
 
     public async Task<NeedleHaystackChallengeResponse?> GetNeedleHaystackChallenge(string userId)
     {
-        var r = await http.GetAsync(Routes.Level13Challenge(userId));
+        var r = await http.GetAsync(new Uri(Routes.Level13Challenge(userId), UriKind.Relative));
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<NeedleHaystackChallengeResponse>(Json);
     }
 
     public async Task<NeedleHaystackResult?> SubmitNeedleHaystack(string userId, string challengeId, string clauseId)
     {
-        var r = await http.PostAsJsonAsync(Routes.Level13Submit(userId), new { challengeId, clauseId });
+        var r = await http.PostAsJsonAsync(new Uri(Routes.Level13Submit(userId), UriKind.Relative), new { challengeId, clauseId });
         r.EnsureSuccessStatusCode();
         return await r.Content.ReadFromJsonAsync<NeedleHaystackResult>(Json);
     }

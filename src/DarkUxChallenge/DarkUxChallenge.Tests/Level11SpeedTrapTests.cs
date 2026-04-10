@@ -7,7 +7,7 @@ namespace DarkUxChallenge.Tests;
 public abstract class Level11SpeedTrapTests(DarkUxApi api)
 {
     [Test]
-    public async Task GetChallenge_ReturnsDeadlineAndAutomationHint()
+    public async Task GetChallengeReturnsDeadlineAndAutomationHint()
     {
         var user = await api.CreateUser();
 
@@ -22,7 +22,7 @@ public abstract class Level11SpeedTrapTests(DarkUxApi api)
     }
 
     [Test]
-    public async Task SubmitCorrectAnswer_CompletesLevel()
+    public async Task SubmitCorrectAnswerCompletesLevel()
     {
         var user = await api.CreateUser();
 
@@ -39,7 +39,7 @@ public abstract class Level11SpeedTrapTests(DarkUxApi api)
     }
 
     [Test]
-    public async Task SubmitWrongAnswer_FailsWithoutCompletion()
+    public async Task SubmitWrongAnswerFailsWithoutCompletion()
     {
         var user = await api.CreateUser();
 

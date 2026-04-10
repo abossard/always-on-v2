@@ -35,7 +35,7 @@ if (builder.Configuration.GetValue("TarPit:Enabled", defaultValue: false))
     app.MapTarPitLures();
 }
 
-app.Run();
+await app.RunAsync();
 
 namespace DarkUxChallenge.Api
 {

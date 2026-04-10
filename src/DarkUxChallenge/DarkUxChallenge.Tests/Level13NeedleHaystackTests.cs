@@ -7,7 +7,7 @@ namespace DarkUxChallenge.Tests;
 public abstract class Level13NeedleHaystackTests(DarkUxApi api)
 {
     [Test]
-    public async Task GetChallenge_ReturnsClausesAndHiddenCorrectId()
+    public async Task GetChallengeReturnsClausesAndHiddenCorrectId()
     {
         var user = await api.CreateUser();
 
@@ -20,7 +20,7 @@ public abstract class Level13NeedleHaystackTests(DarkUxApi api)
     }
 
     [Test]
-    public async Task SubmitCorrectClause_CompletesLevel()
+    public async Task SubmitCorrectClauseCompletesLevel()
     {
         var user = await api.CreateUser();
 

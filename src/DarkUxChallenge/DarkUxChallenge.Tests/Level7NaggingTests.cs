@@ -7,7 +7,7 @@ namespace DarkUxChallenge.Tests;
 public abstract class Level7NaggingTests(DarkUxApi api)
 {
     [Test]
-    public async Task GetPage_ShowsNagInitially()
+    public async Task GetPageShowsNagInitially()
     {
         var user = await api.CreateUser();
         var page = await api.GetNagPage(user.UserId);
@@ -19,7 +19,7 @@ public abstract class Level7NaggingTests(DarkUxApi api)
     }
 
     [Test]
-    public async Task Dismiss_IncrementsCounter_NagReturnsOnNextLoad()
+    public async Task DismissIncrementsCounterNagReturnsOnNextLoad()
     {
         var user = await api.CreateUser();
         var dismiss = await api.DismissNag(user.UserId);
@@ -37,7 +37,7 @@ public abstract class Level7NaggingTests(DarkUxApi api)
     }
 
     [Test]
-    public async Task DismissPermanently_StopsNag()
+    public async Task DismissPermanentlyStopsNag()
     {
         var user = await api.CreateUser();
         var dismiss = await api.DismissNagPermanently(user.UserId);

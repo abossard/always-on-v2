@@ -8,7 +8,7 @@ namespace DarkUxChallenge.Tests;
 public abstract class Level1ConfirmshamingTests(DarkUxApi api)
 {
     [Test]
-    public async Task GetOffer_ReturnsOfferWithManipulativeText()
+    public async Task GetOfferReturnsOfferWithManipulativeText()
     {
         var user = await api.CreateUser();
         var offer = await api.GetOffer(user.UserId);
@@ -22,7 +22,7 @@ public abstract class Level1ConfirmshamingTests(DarkUxApi api)
     }
 
     [Test]
-    public async Task RespondToOffer_Decline_RecordsCompletion()
+    public async Task RespondToOfferDeclineRecordsCompletion()
     {
         var user = await api.CreateUser();
         var updated = await api.RespondToOffer(user.UserId, accepted: false);
@@ -34,7 +34,7 @@ public abstract class Level1ConfirmshamingTests(DarkUxApi api)
     }
 
     [Test]
-    public async Task RespondToOffer_Accept_DoesNotRecordHumanSolve()
+    public async Task RespondToOfferAcceptDoesNotRecordHumanSolve()
     {
         var user = await api.CreateUser();
         var updated = await api.RespondToOffer(user.UserId, accepted: true);
@@ -45,9 +45,9 @@ public abstract class Level1ConfirmshamingTests(DarkUxApi api)
     }
 
     [Test]
-    public async Task GetOffer_NonExistentUser_Returns404()
+    public async Task GetOfferNonExistentUserReturns404()
     {
-        var r = await api.Http.GetAsync(Routes.Level1Offer(Guid.NewGuid().ToString()));
+        var r = await api.Http.GetAsync(new Uri(Routes.Level1Offer(Guid.NewGuid().ToString()), UriKind.Relative));
         await Assert.That(r.StatusCode).IsEqualTo(HttpStatusCode.NotFound);
     }
 }

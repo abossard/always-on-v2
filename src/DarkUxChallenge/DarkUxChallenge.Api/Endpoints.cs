@@ -2,7 +2,7 @@
 
 namespace DarkUxChallenge.Api;
 
-public static class Endpoints
+public static class DarkUxEndpoints
 {
     public static WebApplication MapDarkUxEndpoints(this WebApplication app)
     {

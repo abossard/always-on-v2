@@ -2,6 +2,8 @@
 // No infrastructure dependencies. Pure data + calculations.
 
 using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
+using System.Security.Cryptography;
 using System.Text.Json.Serialization;
 
 namespace DarkUxChallenge.Api;
@@ -389,7 +391,7 @@ public sealed record CancelStepResponse(
     string Step,
     string Title,
     string Description,
-    string[] Options,
+    IReadOnlyList<string> Options,
     string? HiddenAction)
 {
     public static CancelStepResponse ForStep(CancellationStep step) => step switch
@@ -627,15 +629,14 @@ public static class UrgencyGenerator
 {
     public static UrgencyOffer Generate()
     {
-        var rng = Random.Shared;
         return new UrgencyOffer
         {
             OfferId = Guid.NewGuid().ToString("N")[..8],
             ProductName = "Premium Lifetime Access",
             OriginalPrice = 299.99m,
-            OfferPrice = 49.99m + rng.Next(0, 50),
-            FakeItemsLeft = rng.Next(1, 5),
-            CountdownEnd = DateTimeOffset.UtcNow.AddMinutes(rng.Next(10, 30)),
+            OfferPrice = 49.99m + RandomNumberGenerator.GetInt32(0, 50),
+            FakeItemsLeft = RandomNumberGenerator.GetInt32(1, 5),
+            CountdownEnd = DateTimeOffset.UtcNow.AddMinutes(RandomNumberGenerator.GetInt32(10, 30)),
             GeneratedAt = DateTimeOffset.UtcNow
         };
     }
@@ -694,7 +695,7 @@ public static class SpeedTrapGenerator
 
     public static SpeedTrapSession Generate(UserId userId, DateTimeOffset now)
     {
-        var variant = Random.Shared.Next(4);
+        var variant = RandomNumberGenerator.GetInt32(4);
         return variant switch
         {
             0 => CreateMathTrap(now),
@@ -709,20 +710,20 @@ public static class SpeedTrapGenerator
 
     static SpeedTrapSession CreateMathTrap(DateTimeOffset now)
     {
-        var left = Random.Shared.Next(18, 67);
-        var right = Random.Shared.Next(11, 38);
+        var left = RandomNumberGenerator.GetInt32(18, 67);
+        var right = RandomNumberGenerator.GetInt32(11, 38);
         return CreateSession(
             $"What is {left} + {right}? Type digits only.",
-            (left + right).ToString(),
+            (left + right).ToString(CultureInfo.InvariantCulture),
             now);
     }
 
     static SpeedTrapSession CreateAnimalTrap(DateTimeOffset now)
     {
         var animals = new[] { "RAVEN", "OTTER", "PANDA", "LYNX", "FOX" };
-        var animal = animals[Random.Shared.Next(animals.Length)];
-        var prefix = Random.Shared.Next(100, 999);
-        var suffix = Random.Shared.Next(100, 999);
+        var animal = animals[RandomNumberGenerator.GetInt32(animals.Length)];
+        var prefix = RandomNumberGenerator.GetInt32(100, 999);
+        var suffix = RandomNumberGenerator.GetInt32(100, 999);
         return CreateSession(
             $"Type only the animal from this string: {prefix}-{animal}-{suffix}",
             animal,
@@ -731,7 +732,7 @@ public static class SpeedTrapGenerator
 
     static SpeedTrapSession CreateCodeTrap(DateTimeOffset now)
     {
-        var code = Random.Shared.Next(1000, 9999).ToString();
+        var code = RandomNumberGenerator.GetInt32(1000, 9999).ToString(CultureInfo.InvariantCulture);
         return CreateSession(
             $"Enter the 4-digit code hidden in this phrase: CORAL/{code}/GLASS",
             code,
@@ -741,7 +742,7 @@ public static class SpeedTrapGenerator
     static SpeedTrapSession CreateColorTrap(DateTimeOffset now)
     {
         var colors = new[] { "AMBER", "TEAL", "SCARLET", "INDIGO" };
-        var color = colors[Random.Shared.Next(colors.Length)];
+        var color = colors[RandomNumberGenerator.GetInt32(colors.Length)];
         return CreateSession(
             $"Type the color name only: SIGNAL<{color}>BLINK",
             color,
@@ -751,9 +752,9 @@ public static class SpeedTrapGenerator
     static SpeedTrapSession CreateSession(string prompt, string expectedAnswer, DateTimeOffset now)
     {
         var noise = NoiseVocabulary
-            .OrderBy(_ => Random.Shared.Next())
+            .OrderBy(_ => RandomNumberGenerator.GetInt32(int.MaxValue))
             .Take(6)
-            .Concat([expectedAnswer.Length.ToString()])
+            .Concat([expectedAnswer.Length.ToString(CultureInfo.InvariantCulture)])
             .ToArray();
 
         return new SpeedTrapSession
@@ -820,8 +821,8 @@ public static class FlashRecallGenerator
     public static FlashRecallSession Generate(UserId userId, DateTimeOffset now)
     {
         var prefix = Prefixes[Math.Abs(userId.Value.GetHashCode()) % Prefixes.Length];
-        var suffix = Suffixes[Random.Shared.Next(Suffixes.Length)];
-        var digits = Random.Shared.Next(10, 99);
+        var suffix = Suffixes[RandomNumberGenerator.GetInt32(Suffixes.Length)];
+        var digits = RandomNumberGenerator.GetInt32(10, 99);
         var answer = $"{prefix}-{digits}-{suffix}";
 
         return new FlashRecallSession
@@ -830,7 +831,7 @@ public static class FlashRecallGenerator
             Prompt = answer,
             ExpectedAnswer = answer,
             AutomationHint = answer,
-            NoiseWords = Noise.OrderBy(_ => Random.Shared.Next()).Take(6).ToArray(),
+            NoiseWords = Noise.OrderBy(_ => RandomNumberGenerator.GetInt32(int.MaxValue)).Take(6).ToArray(),
             IssuedAt = now,
             RevealUntil = now.AddMilliseconds(900),
             DeadlineAt = now.AddMilliseconds(4200)
@@ -893,7 +894,7 @@ public static class NeedleHaystackGenerator
     {
         var clauses = Clauses
             .Select((clause, index) => new NeedleClause($"clause-{index + 1}", clause.Title, clause.Body))
-            .OrderBy(_ => Random.Shared.Next())
+            .OrderBy(_ => RandomNumberGenerator.GetInt32(int.MaxValue))
             .ToList();
 
         var correct = clauses.Single(c => c.Title == "Protect your privacy");
@@ -986,6 +987,6 @@ public sealed record SaveResult(SaveOutcome Outcome, DarkUxUser? User = null, st
 [JsonSerializable(typeof(NeedleHaystackSubmission))]
 [JsonSerializable(typeof(NeedleHaystackResult))]
 [JsonSerializable(typeof(IReadOnlyList<string>))]
-internal partial class AppJsonContext : JsonSerializerContext;
+internal sealed partial class AppJsonContext : JsonSerializerContext;
 
 public sealed record ProblemResult(string Error, int Status);

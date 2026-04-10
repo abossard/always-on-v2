@@ -7,7 +7,7 @@ namespace DarkUxChallenge.Tests;
 public abstract class Level6BasketSneakingTests(DarkUxApi api)
 {
     [Test]
-    public async Task GetCart_InitiallyEmpty()
+    public async Task GetCartInitiallyEmpty()
     {
         var user = await api.CreateUser();
         var cart = await api.GetCart(user.UserId);
@@ -18,7 +18,7 @@ public abstract class Level6BasketSneakingTests(DarkUxApi api)
     }
 
     [Test]
-    public async Task AddToCart_AddsUserItem()
+    public async Task AddToCartAddsUserItem()
     {
         var user = await api.CreateUser();
         var cart = await api.AddToCart(user.UserId, "widget-1", "Widget", 19.99m);
@@ -30,7 +30,7 @@ public abstract class Level6BasketSneakingTests(DarkUxApi api)
     }
 
     [Test]
-    public async Task Checkout_SneaksExtraItems()
+    public async Task CheckoutSneaksExtraItems()
     {
         var user = await api.CreateUser();
         await api.AddToCart(user.UserId, "widget-1", "Widget", 19.99m);
@@ -43,7 +43,7 @@ public abstract class Level6BasketSneakingTests(DarkUxApi api)
     }
 
     [Test]
-    public async Task RemoveFromCart_RemovesSneakedItem()
+    public async Task RemoveFromCartRemovesSneakedItem()
     {
         var user = await api.CreateUser();
         await api.AddToCart(user.UserId, "widget-1", "Widget", 19.99m);

@@ -7,7 +7,7 @@ namespace DarkUxChallenge.Tests;
 public abstract class Level2RoachMotelTests(DarkUxApi api)
 {
     [Test]
-    public async Task Subscribe_OneClick_Succeeds()
+    public async Task SubscribeOneClickSucceeds()
     {
         var user = await api.CreateUser();
         var updated = await api.Subscribe(user.UserId);
@@ -17,7 +17,7 @@ public abstract class Level2RoachMotelTests(DarkUxApi api)
     }
 
     [Test]
-    public async Task Cancel_RequiresMultipleSteps()
+    public async Task CancelRequiresMultipleSteps()
     {
         var user = await api.CreateUser();
         // Subscribe first
@@ -42,7 +42,7 @@ public abstract class Level2RoachMotelTests(DarkUxApi api)
     }
 
     [Test]
-    public async Task Cancel_AcceptDiscount_StaysSubscribed()
+    public async Task CancelAcceptDiscountStaysSubscribed()
     {
         var user = await api.CreateUser();
         await api.Subscribe(user.UserId);

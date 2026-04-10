@@ -7,7 +7,7 @@ namespace DarkUxChallenge.Tests;
 public abstract class Level12FlashRecallTests(DarkUxApi api)
 {
     [Test]
-    public async Task GetChallenge_ReturnsRevealWindowAndHint()
+    public async Task GetChallengeReturnsRevealWindowAndHint()
     {
         var user = await api.CreateUser();
 
@@ -20,7 +20,7 @@ public abstract class Level12FlashRecallTests(DarkUxApi api)
     }
 
     [Test]
-    public async Task SubmitCorrectAnswer_CompletesLevel()
+    public async Task SubmitCorrectAnswerCompletesLevel()
     {
         var user = await api.CreateUser();
 

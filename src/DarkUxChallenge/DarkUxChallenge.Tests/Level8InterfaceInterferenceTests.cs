@@ -7,7 +7,7 @@ namespace DarkUxChallenge.Tests;
 public abstract class Level8InterfaceInterferenceTests(DarkUxApi api)
 {
     [Test]
-    public async Task GetPage_ReturnsActionsWithDecoyFlags()
+    public async Task GetPageReturnsActionsWithDecoyFlags()
     {
         var user = await api.CreateUser();
         var trap = await api.GetInterfacePage(user.UserId);
@@ -22,7 +22,7 @@ public abstract class Level8InterfaceInterferenceTests(DarkUxApi api)
     }
 
     [Test]
-    public async Task Submit_NonDecoy_IsCorrect()
+    public async Task SubmitNonDecoyIsCorrect()
     {
         var user = await api.CreateUser();
         var trap = await api.GetInterfacePage(user.UserId);
@@ -36,7 +36,7 @@ public abstract class Level8InterfaceInterferenceTests(DarkUxApi api)
     }
 
     [Test]
-    public async Task Submit_Decoy_IsNotCorrect()
+    public async Task SubmitDecoyIsNotCorrect()
     {
         var user = await api.CreateUser();
         var trap = await api.GetInterfacePage(user.UserId);

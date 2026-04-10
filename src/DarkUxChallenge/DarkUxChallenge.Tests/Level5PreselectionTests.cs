@@ -7,7 +7,7 @@ namespace DarkUxChallenge.Tests;
 public abstract class Level5PreselectionTests(DarkUxApi api)
 {
     [Test]
-    public async Task GetSettings_ReturnsAllDefaultsOn()
+    public async Task GetSettingsReturnsAllDefaultsOn()
     {
         var user = await api.CreateUser();
         var settings = await api.GetSettings(user.UserId);
@@ -20,7 +20,7 @@ public abstract class Level5PreselectionTests(DarkUxApi api)
     }
 
     [Test]
-    public async Task UpdateSettings_TurnAllOff_RecordsCompletion()
+    public async Task UpdateSettingsTurnAllOffRecordsCompletion()
     {
         var user = await api.CreateUser();
         var settings = await api.UpdateSettings(user.UserId,
@@ -36,7 +36,7 @@ public abstract class Level5PreselectionTests(DarkUxApi api)
     }
 
     [Test]
-    public async Task GetSettings_AfterUpdate_ReflectsChanges()
+    public async Task GetSettingsAfterUpdateReflectsChanges()
     {
         var user = await api.CreateUser();
         await api.UpdateSettings(user.UserId,

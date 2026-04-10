@@ -1,10 +1,11 @@
 // RateLimiting.cs — Token bucket rate limiter with fun 429 messages.
 
 using System.Collections.Concurrent;
+using System.Security.Cryptography;
 
 namespace DarkUxChallenge.Api;
 
-public static class RateLimiting
+public static class DarkUxRateLimiting
 {
     private static readonly ConcurrentDictionary<string, TokenBucket> Buckets = new();
 
@@ -29,7 +30,7 @@ public static class RateLimiting
             var path = ctx.Request.Path.Value ?? "";
 
             // Only rate-limit challenge API endpoints, not tar pits (let those run!)
-            if (!path.StartsWith("/api/levels/") && !path.StartsWith("/api/users/"))
+            if (!path.StartsWith("/api/levels/", StringComparison.Ordinal) && !path.StartsWith("/api/users/", StringComparison.Ordinal))
             {
                 await next();
                 return;
@@ -53,8 +54,7 @@ public static class RateLimiting
 
             ctx.Response.StatusCode = 429;
             ctx.Response.ContentType = "application/json";
-            var rng = new Random();
-            var message = FunnyMessages[rng.Next(FunnyMessages.Length)];
+            var message = FunnyMessages[RandomNumberGenerator.GetInt32(FunnyMessages.Length)];
             await ctx.Response.WriteAsync($$"""{"error":"rate_limited","message":"{{message}}","retryAfterSeconds":{{(int)(1.0 / refillPerSecond)}}}""");
         });
 

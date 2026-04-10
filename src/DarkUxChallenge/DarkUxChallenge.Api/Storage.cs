@@ -1,6 +1,7 @@
 // Storage.cs — Driven port (use-case oriented interface) + adapters (InMemory, CosmosDB).
 
 using System.Collections.Concurrent;
+using System.Globalization;
 using System.Net;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -30,7 +31,7 @@ public sealed class InMemoryUserStore : IUserStore
     public Task<DarkUxUser?> GetUser(UserId userId, CancellationToken ct = default)
     {
         if (_store.TryGetValue(userId.Value, out var entry))
-            return Task.FromResult<DarkUxUser?>(entry.Data with { ETag = entry.Version.ToString() });
+            return Task.FromResult<DarkUxUser?>(entry.Data with { ETag = entry.Version.ToString(CultureInfo.InvariantCulture) });
         return Task.FromResult<DarkUxUser?>(null);
     }
 
@@ -56,7 +57,7 @@ public sealed class InMemoryUserStore : IUserStore
             return Task.FromResult(new SaveResult(SaveOutcome.Conflict, Error: "ETag mismatch — another update occurred."));
 
         var newVersion = expectedVersion + 1;
-        var updated = user with { ETag = newVersion.ToString() };
+        var updated = user with { ETag = newVersion.ToString(CultureInfo.InvariantCulture) };
 
         if (_store.TryUpdate(key, (updated, newVersion), current))
             return Task.FromResult(new SaveResult(SaveOutcome.Success, updated));
@@ -361,7 +362,7 @@ internal sealed class CosmosNeedleClauseEntry
 [JsonSourceGenerationOptions(
     PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase,
     DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull)]
-internal partial class CosmosJsonContext : JsonSerializerContext;
+internal sealed partial class CosmosJsonContext : JsonSerializerContext;
 
 // ──────────────────────────────────────────────
 // DI registration
@@ -425,6 +426,7 @@ public static class StorageExtensions
             cosmosOpts.ContainerName,
             cosmosOpts.PartitionKeyPath);
 
-        app.Logger.LogInformation("Cosmos DB initialized: {Database}/{Container}", cosmosOpts.DatabaseName, cosmosOpts.ContainerName);
+        if (app.Logger.IsEnabled(LogLevel.Information))
+            app.Logger.LogInformation("Cosmos DB initialized: {Database}/{Container}", cosmosOpts.DatabaseName, cosmosOpts.ContainerName);
     }
 }

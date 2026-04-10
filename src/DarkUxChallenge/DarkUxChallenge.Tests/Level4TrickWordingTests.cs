@@ -8,7 +8,7 @@ namespace DarkUxChallenge.Tests;
 public abstract class Level4TrickWordingTests(DarkUxApi api)
 {
     [Test]
-    public async Task GetChallenge_ReturnsOptionsWithConfusingWording()
+    public async Task GetChallengeReturnsOptionsWithConfusingWording()
     {
         var user = await api.CreateUser();
         var challenge = await api.GetTrickWordingChallenge(user.UserId);
@@ -19,7 +19,7 @@ public abstract class Level4TrickWordingTests(DarkUxApi api)
     }
 
     [Test]
-    public async Task Submit_NoneSelected_AllCorrect()
+    public async Task SubmitNoneSelectedAllCorrect()
     {
         var user = await api.CreateUser();
         var result = await api.SubmitTrickWording(user.UserId, []);
@@ -29,7 +29,7 @@ public abstract class Level4TrickWordingTests(DarkUxApi api)
     }
 
     [Test]
-    public async Task Submit_AllSelected_ZeroCorrect()
+    public async Task SubmitAllSelectedZeroCorrect()
     {
         var user = await api.CreateUser();
 
@@ -43,9 +43,9 @@ public abstract class Level4TrickWordingTests(DarkUxApi api)
     }
 
     [Test]
-    public async Task GetChallenge_NonExistentUser_Returns404()
+    public async Task GetChallengeNonExistentUserReturns404()
     {
-        var r = await api.Http.GetAsync(Routes.Level4Challenge(Guid.NewGuid().ToString()));
+        var r = await api.Http.GetAsync(new Uri(Routes.Level4Challenge(Guid.NewGuid().ToString()), UriKind.Relative));
         await Assert.That(r.StatusCode).IsEqualTo(HttpStatusCode.NotFound);
     }
 }
