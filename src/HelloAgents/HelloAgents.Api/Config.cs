@@ -14,7 +14,8 @@ public sealed class CosmosDbConfig
 {
     public const string Section = "CosmosDb";
     public string DatabaseName { get; set; } = "helloagents";
-    public string ContainerName { get; set; } = "OrleansStorage";
+    public string ContainerName { get; set; } = "helloagents-storage";
+    public string ClusterContainerName { get; set; } = "helloagents-cluster";
 }
 
 public static class ConfigKeys

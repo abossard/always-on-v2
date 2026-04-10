@@ -14,6 +14,9 @@ builder.Services.Configure<GrainConfig>(builder.Configuration.GetSection(GrainCo
 // [RegisterProvider] assembly scanning which doesn't work with Orleans 10.0.1
 // (see ADR-0058). We configure providers manually instead.
 var cosmosConnectionString = builder.Configuration.GetConnectionString("cosmos");
+var cosmosDbName = builder.Configuration["CosmosDb__DatabaseName"] ?? "helloorleons";
+var cosmosStorageContainer = builder.Configuration["CosmosDb__ContainerName"] ?? "helloorleons-storage";
+var cosmosClusterContainer = builder.Configuration["CosmosDb__ClusterContainerName"] ?? "helloorleons-cluster";
 
 builder.Host.UseOrleans(silo =>
 {
@@ -32,8 +35,8 @@ builder.Host.UseOrleans(silo =>
 
         void ConfigureCosmos(Orleans.Persistence.Cosmos.CosmosGrainStorageOptions options)
         {
-            options.DatabaseName = "helloorleons";
-            options.ContainerName = "OrleansStorage";
+            options.DatabaseName = cosmosDbName;
+            options.ContainerName = cosmosStorageContainer;
             options.IsResourceCreationEnabled = true;
             if (hasAccountKey)
             {
@@ -59,8 +62,8 @@ builder.Host.UseOrleans(silo =>
         silo.AddCosmosGrainStorageAsDefault(o => ConfigureCosmos(o));
         silo.UseCosmosClustering(o =>
         {
-            o.DatabaseName = "helloorleons";
-            o.ContainerName = "OrleansCluster";
+            o.DatabaseName = cosmosDbName;
+            o.ContainerName = cosmosClusterContainer;
             o.IsResourceCreationEnabled = true;
             if (hasAccountKey)
             {

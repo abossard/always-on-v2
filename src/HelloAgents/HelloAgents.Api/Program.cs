@@ -82,7 +82,7 @@ builder.Host.UseOrleans(silo =>
         silo.UseCosmosClustering(options =>
         {
             options.DatabaseName = cosmosDb.DatabaseName;
-            options.ContainerName = "OrleansCluster";
+            options.ContainerName = cosmosDb.ClusterContainerName;
             options.IsResourceCreationEnabled = !isEmulator;
             if (isEmulator)
             {
