@@ -112,7 +112,7 @@ resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2025-04-15' = {
       for (region, i) in regions: {
         locationName: region.location
         failoverPriority: i
-        isZoneRedundant: false
+        isZoneRedundant: true
       }
     ]
     consistencyPolicy: {

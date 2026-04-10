@@ -1,11 +1,11 @@
 using 'main.bicep'
 
 // ── Stamp profiles ────────────────────────────────────────────────────────────
-var budgetStamp = {
-  aksNodeVmSize: 'Standard_B2ms'       // 2 vCPU / 8 GB
-  aksSystemNodeCount: 1
-  aksAvailabilityZones: []
-  aksTier: 'Free'
+var normalStamp = {
+  aksNodeVmSize: 'Standard_D4s_v5'     // 4 vCPU / 16 GB
+  aksSystemNodeCount: 3
+  aksAvailabilityZones: ['1', '2', '3']
+  aksTier: 'Standard'
   aksIngressType: 'External'           // public LB — reachable from Standard Front Door
 }
 
@@ -19,16 +19,32 @@ var productionStamp = {
 
 // ── Environment configurations ────────────────────────────────────────────────
 var dev = {
-  acrSku: 'Basic'                      // no geo-replication needed in dev
+  acrSku: 'Basic'
   frontDoorSku: 'Standard_AzureFrontDoor'
-  cosmosAutoscaleMaxThroughput: 1000    // keep aggregate per-database autoscale under the account cap in dev
+  cosmosAutoscaleMaxThroughput: 10000
   regions: [
     {
       key: 'swedencentral'
       location: 'swedencentral'
-      stampDefaults: budgetStamp
+      stampDefaults: normalStamp
       stamps: [
-        { key: '002' }
+        { key: '001' }
+      ]
+    }
+    {
+      key: 'eastus'
+      location: 'eastus'
+      stampDefaults: normalStamp
+      stamps: [
+        { key: '001' }
+      ]
+    }
+    {
+      key: 'southeastasia'
+      location: 'southeastasia'
+      stampDefaults: normalStamp
+      stamps: [
+        { key: '001' }
       ]
     }
   ]
