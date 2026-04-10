@@ -31,8 +31,11 @@ public sealed class CosmosGraphStore : IGraphStore
         var containerResponse = await db.CreateContainerIfNotExistsAsync(containerProperties);
         _container = containerResponse.Container;
 
-        _logger.LogInformation("CosmosGraphStore initialized: database={Database}, container={Container}",
-            _databaseName, _containerName);
+        if (_logger.IsEnabled(LogLevel.Information))
+        {
+            _logger.LogInformation("CosmosGraphStore initialized: database={Database}, container={Container}",
+                _databaseName, _containerName);
+        }
     }
 
     // ─── Graph Manifest ────────────────────────────────────────────────
@@ -216,6 +219,7 @@ public sealed class CosmosGraphStore : IGraphStore
 
     // ─── Helper types for projections ──────────────────────────────────
 
+    [System.Diagnostics.CodeAnalysis.SuppressMessage("Performance", "CA1812:Avoid uninstantiated internal classes", Justification = "Instantiated by System.Text.Json deserialization")]
     private sealed class IdOnly
     {
         [System.Text.Json.Serialization.JsonPropertyName("id")]

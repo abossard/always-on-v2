@@ -1,3 +1,5 @@
+using System.Collections.ObjectModel;
+
 namespace GraphOrleons.Api;
 
 public sealed class ComponentGrain(IGraphStore store, IEventArchive archive, ILogger<ComponentGrain> logger) : Grain, IComponentGrain
@@ -9,10 +11,10 @@ public sealed class ComponentGrain(IGraphStore store, IEventArchive archive, ILo
     readonly List<PayloadEntry> _history = new(10);
     bool _registered;
 
-    public override async Task OnActivateAsync(CancellationToken ct)
+    public override async Task OnActivateAsync(CancellationToken cancellationToken)
     {
         var key = this.GetPrimaryKeyString();
-        var sepIndex = key.IndexOf(':');
+        var sepIndex = key.IndexOf(':', StringComparison.Ordinal);
         _tenant = key[..sepIndex];
         _name = key[(sepIndex + 1)..];
 
@@ -55,11 +57,11 @@ public sealed class ComponentGrain(IGraphStore store, IEventArchive archive, ILo
             Name = _name,
             LatestPayloadJson = _latestPayloadJson,
             TotalCount = _totalCount,
-            History = _history.Select(h => new PayloadEntryData
+            History = new Collection<PayloadEntryData>(_history.Select(h => new PayloadEntryData
             {
                 ReceivedAt = h.ReceivedAt,
                 PayloadJson = h.PayloadJson
-            }).ToList()
+            }).ToList())
         };
         await store.SaveComponentStateAsync(_tenant, doc);
 
@@ -73,7 +75,7 @@ public sealed class ComponentGrain(IGraphStore store, IEventArchive archive, ILo
         {
             await archive.AppendEventAsync(_tenant, _name, payloadJson);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
         {
             logger.LogError(ex, "Event archival failed for {Tenant}:{Name}", _tenant, _name);
         }

@@ -10,14 +10,14 @@ public abstract class EventApiTests(HttpClient client)
     private readonly GraphOrleonsApi api = new(client);
 
     [Test]
-    public async Task Health_ReturnsOk()
+    public async Task HealthReturnsOk()
     {
-        var response = await client.GetAsync("/health");
+        var response = await client.GetAsync(new Uri("/health", UriKind.Relative));
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.OK);
     }
 
     [Test]
-    public async Task PostEvent_ValidPayload_ReturnsAccepted()
+    public async Task PostEventValidPayloadReturnsAccepted()
     {
         var response = await api.PostEventRaw("test-tenant", "test-comp", new { status = "ok" });
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.Accepted);
@@ -26,34 +26,34 @@ public abstract class EventApiTests(HttpClient client)
     [Test]
     [Arguments("", "comp", "Missing tenant")]
     [Arguments("t1", "", "Missing component")]
-    public async Task PostEvent_MissingRequiredFields_ReturnsBadRequest(
-        string tenant, string component, string reason)
+    public async Task PostEventMissingRequiredFieldsReturnsBadRequest(
+        string tenant, string component, string _)
     {
         var response = await api.PostEventRaw(tenant, component, new { x = 1 });
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
     }
 
     [Test]
-    public async Task PostEvent_InvalidJson_ReturnsBadRequest()
+    public async Task PostEventInvalidJsonReturnsBadRequest()
     {
-        var content = new StringContent("not json", Encoding.UTF8, "application/json");
-        var response = await client.PostAsync(Routes.Events, content);
+        using var content = new StringContent("not json", Encoding.UTF8, "application/json");
+        var response = await client.PostAsync(new Uri(Routes.Events, UriKind.Relative), content);
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
     }
 
     [Test]
-    public async Task PostEvent_TooLarge_ReturnsBadRequest()
+    public async Task PostEventTooLargeReturnsBadRequest()
     {
         var largePayload = new string('x', 70_000);
-        var content = new StringContent(
+        using var content = new StringContent(
             JsonSerializer.Serialize(new { tenant = "t", component = "c", payload = new { data = largePayload } }),
             Encoding.UTF8, "application/json");
-        var response = await client.PostAsync(Routes.Events, content);
+        var response = await client.PostAsync(new Uri(Routes.Events, UriKind.Relative), content);
         await Assert.That((int)response.StatusCode).IsGreaterThanOrEqualTo(400);
     }
 
     [Test]
-    public async Task GetTenants_AfterEvents_ReturnsTenantList()
+    public async Task GetTenantsAfterEventsReturnsTenantList()
     {
         var tenant = $"tenant-{Guid.NewGuid():N}";
         await api.PostEvent(tenant, "comp1", new { v = 1 });
@@ -62,7 +62,7 @@ public abstract class EventApiTests(HttpClient client)
     }
 
     [Test]
-    public async Task GetComponents_AfterEvents_ReturnsComponentList()
+    public async Task GetComponentsAfterEventsReturnsComponentList()
     {
         var tenant = $"tenant-{Guid.NewGuid():N}";
         await api.PostEvent(tenant, "svc-a", new { v = 1 });
@@ -78,7 +78,7 @@ public abstract class EventApiTests(HttpClient client)
     [Arguments(1)]
     [Arguments(5)]
     [Arguments(15)]
-    public async Task ComponentDetails_HistoryCappedAtTen(int eventCount)
+    public async Task ComponentDetailsHistoryCappedAtTen(int eventCount)
     {
         var tenant = $"tenant-{Guid.NewGuid():N}";
         var comp = $"comp-{Guid.NewGuid():N}";
@@ -98,7 +98,7 @@ public abstract class EventApiTests(HttpClient client)
     [Arguments("A/B", 2, 1)]
     [Arguments("A/B/C", 3, 2)]
     [Arguments("X/Y/Z/W", 4, 3)]
-    public async Task RelationshipEvent_CreatesGraphEdges(
+    public async Task RelationshipEventCreatesGraphEdges(
         string componentPath, int expectedNodes, int expectedEdges)
     {
         var tenant = $"tenant-{Guid.NewGuid():N}";
@@ -120,7 +120,7 @@ public abstract class EventApiTests(HttpClient client)
     [Arguments("None")]
     [Arguments("Partial")]
     [Arguments("Full")]
-    public async Task ModelGraph_ContainsImpactProperty(string impact)
+    public async Task ModelGraphContainsImpactProperty(string impact)
     {
         var tenant = $"tenant-{Guid.NewGuid():N}";
         await api.PostEvent(tenant, "src/dst", new { impact });
@@ -133,7 +133,7 @@ public abstract class EventApiTests(HttpClient client)
     }
 
     [Test]
-    public async Task MultiTenant_Isolation()
+    public async Task MultiTenantIsolation()
     {
         var t1 = $"tenant1-{Guid.NewGuid():N}";
         var t2 = $"tenant2-{Guid.NewGuid():N}";
@@ -153,7 +153,7 @@ public abstract class EventApiTests(HttpClient client)
     }
 
     [Test]
-    public async Task FullFlow_EventsToGraph()
+    public async Task FullFlowEventsToGraph()
     {
         var tenant = $"tenant-{Guid.NewGuid():N}";
 

@@ -10,7 +10,7 @@ public abstract class PersistenceTests(HttpClient client)
     [Test]
     [Arguments(1)]
     [Arguments(3)]
-    public async Task TenantDiscovery_ReturnsPersistedTenants(int tenantCount)
+    public async Task TenantDiscoveryReturnsPersistedTenants(int tenantCount)
     {
         var tenants = new List<string>();
         for (int i = 0; i < tenantCount; i++)
@@ -30,7 +30,7 @@ public abstract class PersistenceTests(HttpClient client)
     [Arguments(1)]
     [Arguments(5)]
     [Arguments(15)]
-    public async Task ComponentSnapshot_PersistedCorrectly(int eventCount)
+    public async Task ComponentSnapshotPersistedCorrectly(int eventCount)
     {
         var tenant = $"persist-comp-{Guid.NewGuid():N}";
         var comp = $"comp-{Guid.NewGuid():N}";
@@ -56,7 +56,7 @@ public abstract class PersistenceTests(HttpClient client)
     [Arguments("A/B", 2, 1)]
     [Arguments("A/B/C", 3, 2)]
     [Arguments("deep/path/with/many/levels", 5, 4)]
-    public async Task GraphState_Persisted(
+    public async Task GraphStatePersisted(
         string componentPath, int expectedNodes, int expectedEdges)
     {
         var tenant = $"persist-graph-{Guid.NewGuid():N}";
@@ -76,7 +76,7 @@ public abstract class PersistenceTests(HttpClient client)
     }
 
     [Test]
-    public async Task MultiTenant_GraphsPersistIsolated()
+    public async Task MultiTenantGraphsPersistIsolated()
     {
         var tenantA = $"iso-a-{Guid.NewGuid():N}";
         var tenantB = $"iso-b-{Guid.NewGuid():N}";
@@ -88,31 +88,31 @@ public abstract class PersistenceTests(HttpClient client)
         {
             var graph = await api.GetGraph(tenantA);
             return graph.GetProperty("nodes").EnumerateArray()
-                .Select(n => n.GetString()).ToList();
+                .Select(n => n.GetString()!).ToList();
         }).Eventually(assert => assert.Contains("svc-a"), timeout: TimeSpan.FromSeconds(10));
 
         await Assert.That(async () =>
         {
             var graph = await api.GetGraph(tenantA);
             return graph.GetProperty("nodes").EnumerateArray()
-                .Select(n => n.GetString()).ToList();
+                .Select(n => n.GetString()!).ToList();
         }).Eventually(assert => assert.Contains("db-a"), timeout: TimeSpan.FromSeconds(10));
 
         var graphAFinal = await api.GetGraph(tenantA);
         var nodesA = graphAFinal.GetProperty("nodes").EnumerateArray()
-            .Select(n => n.GetString()).ToList();
+            .Select(n => n.GetString()!).ToList();
         await Assert.That(nodesA!).DoesNotContain("svc-b");
 
         await Assert.That(async () =>
         {
             var graph = await api.GetGraph(tenantB);
             return graph.GetProperty("nodes").EnumerateArray()
-                .Select(n => n.GetString()).ToList();
+                .Select(n => n.GetString()!).ToList();
         }).Eventually(assert => assert.Contains("svc-b"), timeout: TimeSpan.FromSeconds(10));
 
         var graphBFinal = await api.GetGraph(tenantB);
         var nodesB = graphBFinal.GetProperty("nodes").EnumerateArray()
-            .Select(n => n.GetString()).ToList();
+            .Select(n => n.GetString()!).ToList();
         await Assert.That(nodesB!).DoesNotContain("svc-a");
     }
 
@@ -120,7 +120,7 @@ public abstract class PersistenceTests(HttpClient client)
     [Arguments("None")]
     [Arguments("Partial")]
     [Arguments("Full")]
-    public async Task EdgeImpact_PersistedCorrectly(string impact)
+    public async Task EdgeImpactPersistedCorrectly(string impact)
     {
         var tenant = $"impact-{Guid.NewGuid():N}";
         await api.PostEvent(tenant, "src/dst", new { impact });
@@ -135,7 +135,7 @@ public abstract class PersistenceTests(HttpClient client)
     [Test]
     [Arguments(10, 20)]
     [Arguments(50, 100)]
-    public async Task LargeGraph_ManyEdges(int nodeCount, int edgeCount)
+    public async Task LargeGraphManyEdges(int nodeCount, int edgeCount)
     {
         var tenant = $"large-{Guid.NewGuid():N}";
         for (int i = 0; i < edgeCount; i++)
@@ -157,7 +157,7 @@ public abstract class PersistenceTests(HttpClient client)
     }
 
     [Test]
-    public async Task MultipleModels_IndependentGraphs()
+    public async Task MultipleModelsIndependentGraphs()
     {
         var tenant = $"multi-model-{Guid.NewGuid():N}";
         await api.PostEvent(tenant, "web/api", new { impact = "Partial" });
@@ -166,7 +166,7 @@ public abstract class PersistenceTests(HttpClient client)
         {
             var models = await api.GetModels(tenant);
             return models.GetProperty("modelIds").EnumerateArray()
-                .Select(m => m.GetString()).ToList();
+                .Select(m => m.GetString()!).ToList();
         }).Eventually(assert => assert.Contains("default"), timeout: TimeSpan.FromSeconds(10));
 
         await Assert.That(async () =>

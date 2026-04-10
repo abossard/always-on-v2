@@ -1,13 +1,15 @@
+using System.Collections.ObjectModel;
+
 namespace GraphOrleons.Api;
 
-public sealed class TenantGrain(IGraphStore store, ILogger<TenantGrain> logger) : Grain, ITenantGrain
+public sealed class TenantGrain(IGraphStore store) : Grain, ITenantGrain
 {
     readonly HashSet<string> _components = [];
     readonly List<string> _modelIds = [];
     string? _activeModelId;
     string? _etag;
 
-    public override async Task OnActivateAsync(CancellationToken ct)
+    public override async Task OnActivateAsync(CancellationToken cancellationToken)
     {
         var tenantId = this.GetPrimaryKeyString();
         var (doc, etag) = await store.LoadTenantIndexAsync(tenantId);
@@ -53,8 +55,8 @@ public sealed class TenantGrain(IGraphStore store, ILogger<TenantGrain> logger) 
             _modelIds.ToList(),
             _activeModelId));
 
-    public Task<string[]> GetComponentNames() =>
-        Task.FromResult(_components.Order().ToArray());
+    public Task<IReadOnlyList<string>> GetComponentNames() =>
+        Task.FromResult<IReadOnlyList<string>>(_components.Order().ToArray());
 
     public async Task SetActiveModel(string modelId)
     {
@@ -69,8 +71,8 @@ public sealed class TenantGrain(IGraphStore store, ILogger<TenantGrain> logger) 
         var tenantId = this.GetPrimaryKeyString();
         var doc = new TenantIndexDocument
         {
-            Components = _components.Order().ToList(),
-            ModelIds = _modelIds.ToList(),
+            Components = new Collection<string>(_components.Order().ToList()),
+            ModelIds = new Collection<string>(_modelIds.ToList()),
             ActiveModelId = _activeModelId
         };
         _etag = await store.SaveTenantIndexAsync(tenantId, doc, _etag);

@@ -5,22 +5,19 @@ using Azure.Storage.Blobs.Specialized;
 
 namespace GraphOrleons.Api;
 
-public sealed class BlobEventArchive : IEventArchive
+public sealed class BlobEventArchive : IEventArchive, IDisposable
 {
     private readonly BlobServiceClient _blobServiceClient;
     private readonly string _containerName;
-    private readonly ILogger<BlobEventArchive> _logger;
     private readonly SemaphoreSlim _initLock = new(1, 1);
     private BlobContainerClient? _containerClient;
 
     public BlobEventArchive(
         BlobServiceClient blobServiceClient,
-        IConfiguration configuration,
-        ILogger<BlobEventArchive> logger)
+        IConfiguration configuration)
     {
         _blobServiceClient = blobServiceClient;
         _containerName = configuration["Storage:EventArchiveContainer"] ?? "graphorleans-events";
-        _logger = logger;
     }
 
     public async Task AppendEventAsync(string tenantId, string componentName, string payloadJson)
@@ -50,20 +47,26 @@ public sealed class BlobEventArchive : IEventArchive
         if (_containerClient is not null)
             return _containerClient;
 
-        await _initLock.WaitAsync();
+        await _initLock.WaitAsync().ConfigureAwait(false);
         try
         {
-            if (_containerClient is not null)
-                return _containerClient;
-
-            var client = _blobServiceClient.GetBlobContainerClient(_containerName);
-            await client.CreateIfNotExistsAsync();
-            _containerClient = client;
-            return client;
+#pragma warning disable CA1508 // Avoid dead conditional code — double-check pattern after async lock acquisition
+            _containerClient ??= await CreateContainerClientAsync().ConfigureAwait(false);
+#pragma warning restore CA1508
+            return _containerClient;
         }
         finally
         {
             _initLock.Release();
         }
     }
+
+    private async Task<BlobContainerClient> CreateContainerClientAsync()
+    {
+        var client = _blobServiceClient.GetBlobContainerClient(_containerName);
+        await client.CreateIfNotExistsAsync().ConfigureAwait(false);
+        return client;
+    }
+
+    public void Dispose() => _initLock.Dispose();
 }

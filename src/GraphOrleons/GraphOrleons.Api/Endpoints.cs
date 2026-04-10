@@ -35,7 +35,7 @@ public static class EventEndpoints
 
             var componentName = evt.Component;
             string? fullPath = null;
-            if (evt.Component.Contains('/'))
+            if (evt.Component.Contains('/', StringComparison.Ordinal))
             {
                 fullPath = evt.Component;
                 componentName = evt.Component.Split('/')[0];

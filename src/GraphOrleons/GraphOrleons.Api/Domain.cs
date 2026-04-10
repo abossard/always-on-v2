@@ -4,11 +4,7 @@ namespace GraphOrleons.Api;
 
 // --- API input (deserialized at API boundary, not sent to grains) ---
 
-[GenerateSerializer]
-public sealed record HealthEvent(
-    [property: Id(0)] string Tenant,
-    [property: Id(1)] string Component,
-    [property: Id(2)] JsonElement Payload);
+public sealed record HealthEvent(string Tenant, string Component, JsonElement Payload);
 
 // --- Enums ---
 
@@ -58,7 +54,7 @@ public interface IComponentGrain : IGrainWithStringKey
 public interface ITenantGrain : IGrainWithStringKey
 {
     Task<TenantOverview> GetOverview();
-    Task<string[]> GetComponentNames();
+    Task<IReadOnlyList<string>> GetComponentNames();
     Task SetActiveModel(string modelId);
     Task RegisterComponent(string componentName);
     Task ReceiveRelationship(string componentName, string componentPath, string payloadJson);

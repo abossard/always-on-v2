@@ -23,7 +23,7 @@ public class AspireFixture : IAsyncInitializer, IAsyncDisposable
             .CreateAsync<Projects.GraphOrleons_AppHost>();
 
         _app = await builder.BuildAsync();
-        var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
         await _app.StartAsync(cts.Token);
         await _app.ResourceNotifications
             .WaitForResourceHealthyAsync(ResourceNames.Api, cts.Token);
@@ -32,6 +32,7 @@ public class AspireFixture : IAsyncInitializer, IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        GC.SuppressFinalize(this);
         if (_app is null) return;
         await _app.StopAsync();
         await _app.DisposeAsync();

@@ -16,7 +16,7 @@ builder.AddAzureCosmosClient("cosmos", configureClientOptions: options =>
         PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
     };
 });
-builder.AddAzureBlobClient("blobs");
+builder.AddAzureBlobServiceClient("blobs");
 
 // Graph storage services
 builder.Services.AddSingleton<IGraphStore, CosmosGraphStore>();
@@ -45,8 +45,8 @@ builder.Host.UseOrleans(silo =>
     // AddOrleans().WithClustering() doesn't work with Orleans 10.0.1.
     if (!string.IsNullOrEmpty(cosmosConnectionString))
     {
-        var isEmulator = cosmosConnectionString.Contains("AccountKey=C2y6yDjf5");
-        var hasAccountKey = cosmosConnectionString.Contains("AccountKey=");
+        var isEmulator = cosmosConnectionString.Contains("AccountKey=C2y6yDjf5", StringComparison.Ordinal);
+        var hasAccountKey = cosmosConnectionString.Contains("AccountKey=", StringComparison.Ordinal);
 
         silo.UseCosmosClustering(o =>
         {
@@ -98,7 +98,7 @@ app.MapDefaultEndpoints();
 app.MapEventEndpoints();
 app.MapOrleansDashboard("/dashboard");
 
-app.Run();
+await app.RunAsync();
 
 namespace GraphOrleons.Api
 {

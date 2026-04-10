@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Text.Json;
 
 namespace GraphOrleons.Api;
@@ -15,10 +16,10 @@ public sealed class ModelGrain(IGraphStore store, ILogger<ModelGrain> logger) : 
     int _generation;
     string? _manifestEtag;
 
-    public override async Task OnActivateAsync(CancellationToken ct)
+    public override async Task OnActivateAsync(CancellationToken cancellationToken)
     {
         var key = this.GetPrimaryKeyString();
-        var sepIndex = key.IndexOf(':');
+        var sepIndex = key.IndexOf(':', StringComparison.Ordinal);
         _tenantId = key[..sepIndex];
         _modelId = key[(sepIndex + 1)..];
 
@@ -57,7 +58,7 @@ public sealed class ModelGrain(IGraphStore store, ILogger<ModelGrain> logger) : 
             if (doc.RootElement.TryGetProperty("impact", out var impactProp))
                 Enum.TryParse<Impact>(impactProp.GetString(), ignoreCase: true, out impact);
         }
-        catch { /* malformed JSON — keep default impact */ }
+        catch (System.Text.Json.JsonException) { /* malformed JSON — keep default impact */ }
 
         for (int i = 0; i < parts.Length; i++)
         {
@@ -68,7 +69,7 @@ public sealed class ModelGrain(IGraphStore store, ILogger<ModelGrain> logger) : 
                 _edges.RemoveAll(e => e.Source == edge.Source && e.Target == edge.Target);
                 _edges.Add(edge);
 
-                var bucketIndex = Math.Abs(edge.Source.GetHashCode()) % BucketCount;
+                var bucketIndex = Math.Abs(edge.Source.GetHashCode(StringComparison.Ordinal)) % BucketCount;
                 _dirtyBuckets.Add(bucketIndex);
             }
         }
@@ -84,7 +85,7 @@ public sealed class ModelGrain(IGraphStore store, ILogger<ModelGrain> logger) : 
             _edges.ToList()));
     }
 
-    private async Task FlushAsync(CancellationToken ct)
+    private async Task FlushAsync(CancellationToken cancellationToken)
     {
         if (_dirtyBuckets.Count == 0) return;
 
@@ -93,20 +94,20 @@ public sealed class ModelGrain(IGraphStore store, ILogger<ModelGrain> logger) : 
         var bucketDocs = new List<GraphBucketDocument>();
         foreach (var bi in _dirtyBuckets)
         {
-            var bucketEdges = _edges.Where(e => Math.Abs(e.Source.GetHashCode()) % BucketCount == bi).ToList();
+            var bucketEdges = _edges.Where(e => Math.Abs(e.Source.GetHashCode(StringComparison.Ordinal)) % BucketCount == bi).ToList();
             var bucketNodes = bucketEdges.SelectMany(e => new[] { e.Source, e.Target }).Distinct().Order().ToList();
 
             bucketDocs.Add(new GraphBucketDocument
             {
                 BucketIndex = bi,
                 Generation = newGeneration,
-                Nodes = bucketNodes,
-                Edges = bucketEdges.Select(e => new GraphEdgeData
+                Nodes = new Collection<string>(bucketNodes),
+                Edges = new Collection<GraphEdgeData>(bucketEdges.Select(e => new GraphEdgeData
                 {
                     Source = e.Source,
                     Target = e.Target,
                     Impact = e.Impact.ToString()
-                }).ToList()
+                }).ToList())
             });
         }
 
@@ -130,11 +131,11 @@ public sealed class ModelGrain(IGraphStore store, ILogger<ModelGrain> logger) : 
         _ = Task.Run(async () =>
         {
             try { await store.DeleteBucketsAsync(_tenantId, _modelId, oldGeneration); }
-            catch (Exception ex) { logger.LogError(ex, "GC failed for generation {Gen}", oldGeneration); }
+            catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException) { logger.LogError(ex, "GC failed for generation {Gen}", oldGeneration); }
         }, CancellationToken.None);
     }
 
-    public override async Task OnDeactivateAsync(DeactivationReason reason, CancellationToken ct)
+    public override async Task OnDeactivateAsync(DeactivationReason reason, CancellationToken cancellationToken)
     {
         await FlushAsync(CancellationToken.None);
     }

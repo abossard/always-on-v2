@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Text.Json.Serialization;
 
 namespace GraphOrleons.Api;
@@ -49,10 +50,10 @@ public sealed class TenantIndexDocument
     public string Type { get; set; } = "TenantIndex";
 
     [JsonPropertyName("components")]
-    public List<string> Components { get; set; } = [];
+    public Collection<string> Components { get; init; } = [];
 
     [JsonPropertyName("modelIds")]
-    public List<string> ModelIds { get; set; } = [];
+    public Collection<string> ModelIds { get; init; } = [];
 
     [JsonPropertyName("activeModelId")]
     public string? ActiveModelId { get; set; }
@@ -109,10 +110,10 @@ public sealed class GraphBucketDocument
     public int BucketIndex { get; set; }
 
     [JsonPropertyName("nodes")]
-    public List<string> Nodes { get; set; } = [];
+    public Collection<string> Nodes { get; init; } = [];
 
     [JsonPropertyName("edges")]
-    public List<GraphEdgeData> Edges { get; set; } = [];
+    public Collection<GraphEdgeData> Edges { get; init; } = [];
 }
 
 public sealed class GraphEdgeData
@@ -151,7 +152,7 @@ public sealed class ComponentStateDocument
     public int TotalCount { get; set; }
 
     [JsonPropertyName("history")]
-    public List<PayloadEntryData> History { get; set; } = [];
+    public Collection<PayloadEntryData> History { get; init; } = [];
 }
 
 public sealed class PayloadEntryData
