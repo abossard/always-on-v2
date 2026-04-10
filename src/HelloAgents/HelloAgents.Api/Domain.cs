@@ -75,7 +75,9 @@ public sealed class AgentGrainState
     [Id(0)] public string Name { get; set; } = "";
     [Id(1)] public string SystemPrompt { get; set; } = "";
     [Id(2)] public string AvatarEmoji { get; set; } = "🤖";
-    [Id(3)] public HashSet<string> GroupIds { get; init; } = [];
+#pragma warning disable CA2227 // Orleans grain state requires mutable setters for deserialization
+    [Id(3)] public HashSet<string> GroupIds { get; set; } = [];
+#pragma warning restore CA2227
     [Id(4)] public string ReflectionJournal { get; set; } = "";
     [Id(5)] public bool Initialized { get; set; }
 }
@@ -85,12 +87,14 @@ public sealed class ChatGroupGrainState
 {
     [Id(0)] public string Name { get; set; } = "";
     [Id(1)] public string Description { get; set; } = "";
-#pragma warning disable CA1002 // Orleans grain state requires mutable List<T> for Add/Remove operations
-    [Id(3)] public List<ChatMessageState> Messages { get; init; } = [];
-#pragma warning restore CA1002
+#pragma warning disable CA1002, CA2227 // Orleans grain state requires mutable List<T> with setters
+    [Id(3)] public List<ChatMessageState> Messages { get; set; } = [];
+#pragma warning restore CA1002, CA2227
     [Id(4)] public DateTimeOffset CreatedAt { get; set; }
     [Id(5)] public bool Initialized { get; set; }
-    [Id(6)] public Dictionary<string, AgentMemberInfo> Agents { get; init; } = [];
+#pragma warning disable CA2227 // Orleans grain state requires mutable setters for deserialization
+    [Id(6)] public Dictionary<string, AgentMemberInfo> Agents { get; set; } = [];
+#pragma warning restore CA2227
 }
 
 /// <summary>Agent membership info stored in group state, learned from stream events.</summary>
@@ -115,9 +119,9 @@ public sealed class LlmIntentGrainState
 {
     [Id(0)] public string AgentId { get; set; } = "";
     [Id(1)] public string GroupId { get; set; } = "";
-#pragma warning disable CA1002 // Orleans grain state requires mutable List<T> for Add/Remove operations
-    [Id(2)] public List<ChatMessageState> Context { get; init; } = [];
-#pragma warning restore CA1002
+#pragma warning disable CA1002, CA2227 // Orleans grain state requires mutable List<T> with setters
+    [Id(2)] public List<ChatMessageState> Context { get; set; } = [];
+#pragma warning restore CA1002, CA2227
     [Id(3)] public IntentType IntentType { get; set; }
     [Id(4)] public bool Completed { get; set; }
     [Id(5)] public DateTimeOffset CreatedAt { get; set; }
@@ -129,7 +133,9 @@ public sealed class LlmIntentGrainState
 [GenerateSerializer]
 public sealed class RegistryGrainState
 {
-    [Id(0)] public Dictionary<string, string> Entries { get; init; } = []; // id → name
+#pragma warning disable CA2227 // Orleans grain state requires mutable setters for deserialization
+    [Id(0)] public Dictionary<string, string> Entries { get; set; } = []; // id → name
+#pragma warning restore CA2227
 }
 
 // ─── API Request / Response DTOs ────────────────────────────
