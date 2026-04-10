@@ -14,14 +14,13 @@ public abstract class HelloApiTests(HttpClient client)
     }
 
     [Test]
-    public async Task RootPage_ReturnsHtml()
+    public async Task RootPage_RedirectsToScalar()
     {
         var response = await api.GetRoot();
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.OK);
 
         var content = await response.Content.ReadAsStringAsync();
-        await Assert.That(content).Contains("HelloOrleons");
-        await Assert.That(content).Contains("/hello/world");
+        await Assert.That(content).Contains("scalar");
     }
 
     [Test]

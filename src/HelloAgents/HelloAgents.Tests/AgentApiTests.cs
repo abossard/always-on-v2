@@ -16,14 +16,13 @@ public abstract class AgentApiTests(HttpClient client)
     }
 
     [Test]
-    public async Task RootPage_ReturnsHtml()
+    public async Task RootPage_RedirectsToScalar()
     {
         var response = await _api.GetRoot();
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.OK);
 
         var content = await response.Content.ReadAsStringAsync();
-        await Assert.That(content).Contains("HelloAgents");
-        await Assert.That(content).Contains("/api/groups");
+        await Assert.That(content).Contains("scalar");
     }
 
     [Test]
