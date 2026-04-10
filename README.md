@@ -7,11 +7,11 @@ A hands-on learning framework for senior software engineers: design, build, and 
 | Layer              | Technology                                                        |
 |--------------------|-------------------------------------------------------------------|
 | **Compute**        | Azure Kubernetes Service (AKS) — multi-stamp, Karpenter autoscale |
-| **Service Mesh**   | Istio (Gateway API, mTLS, traffic management)                     |
+| **Istio**   | Just for the Gateway API                     |
 | **GitOps**         | Flux v2 (image automation, postBuild substitution)                |
 | **Framework**      | .NET 10, Orleans (virtual actors), Aspire (local dev)             |
 | **Database**       | Azure Cosmos DB (NoSQL, multi-region writes, autoscale)           |
-| **Caching**        | Redis (Orleans clustering)                                        |
+| **Caching**        | None at the moment, Frontdoor                                                |
 | **AI**             | Azure OpenAI (GPT-4.1, GPT-4.1-mini, GPT-5.4)                   |
 | **Observability**  | Application Insights + OpenTelemetry + Prometheus                 |
 | **Ingress**        | Azure Front Door (Premium/Standard, WAF, custom domains)          |
