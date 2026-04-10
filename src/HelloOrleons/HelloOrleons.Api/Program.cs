@@ -30,8 +30,8 @@ builder.Host.UseOrleans(silo =>
 
     if (!string.IsNullOrEmpty(cosmosConnectionString))
     {
-        var isEmulator = cosmosConnectionString.Contains("AccountKey=C2y6yDjf5");
-        var hasAccountKey = cosmosConnectionString.Contains("AccountKey=");
+        var isEmulator = cosmosConnectionString.Contains("AccountKey=C2y6yDjf5", StringComparison.Ordinal);
+        var hasAccountKey = cosmosConnectionString.Contains("AccountKey=", StringComparison.Ordinal);
 
         void ConfigureCosmos(Orleans.Persistence.Cosmos.CosmosGrainStorageOptions options)
         {

@@ -7,14 +7,14 @@ public abstract class HelloApiTests(HttpClient client)
     private readonly HelloOrleonsApi api = new(client);
 
     [Test]
-    public async Task Health_ReturnsOk()
+    public async Task HealthReturnsOk()
     {
         var response = await api.GetHealth();
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.OK);
     }
 
     [Test]
-    public async Task RootPage_RedirectsToScalar()
+    public async Task RootPageRedirectsToScalar()
     {
         var response = await api.GetRoot();
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.OK);
@@ -24,7 +24,7 @@ public abstract class HelloApiTests(HttpClient client)
     }
 
     [Test]
-    public async Task SayHello_ReturnsNameWithCount()
+    public async Task SayHelloReturnsNameWithCount()
     {
         var name = $"test-{Guid.NewGuid():N}";
 
@@ -38,7 +38,7 @@ public abstract class HelloApiTests(HttpClient client)
     }
 
     [Test]
-    public async Task SayHello_DifferentNames_IndependentCounters()
+    public async Task SayHelloDifferentNamesIndependentCounters()
     {
         var name1 = $"alice-{Guid.NewGuid():N}";
         var name2 = $"bob-{Guid.NewGuid():N}";

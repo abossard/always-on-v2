@@ -17,7 +17,7 @@ public sealed class HelloGrain(
     long _inMemoryCount;
     bool _dirty;
 
-    public override Task OnActivateAsync(CancellationToken ct)
+    public override Task OnActivateAsync(CancellationToken cancellationToken)
     {
         _inMemoryCount = state.State.Count;
 
@@ -43,7 +43,7 @@ public sealed class HelloGrain(
         _dirty = false;
     }
 
-    public override async Task OnDeactivateAsync(DeactivationReason reason, CancellationToken ct)
+    public override async Task OnDeactivateAsync(DeactivationReason reason, CancellationToken cancellationToken)
     {
         await FlushAsync();
     }
