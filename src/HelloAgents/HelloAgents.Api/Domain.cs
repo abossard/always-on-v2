@@ -24,7 +24,7 @@ public sealed record AgentPersona(
     [property: Id(3)] string AvatarEmoji);
 
 [GenerateSerializer]
-public sealed record AgentInfo([property: Id(0)] string Id, [property: Id(1)] string Name, [property: Id(2)] string AvatarEmoji, [property: Id(3)] string[] GroupIds, [property: Id(4)] string ReflectionJournal);
+public sealed record AgentInfo([property: Id(0)] string Id, [property: Id(1)] string Name, [property: Id(2)] string AvatarEmoji, [property: Id(3)] IReadOnlyList<string> GroupIds, [property: Id(4)] string ReflectionJournal);
 
 [GenerateSerializer]
 public sealed record ChatGroupSummary([property: Id(0)] string Id, [property: Id(1)] string Name, [property: Id(2)] string Description, [property: Id(3)] int AgentCount, [property: Id(4)] int MessageCount, [property: Id(5)] DateTimeOffset CreatedAt);
@@ -34,8 +34,8 @@ public sealed record ChatGroupDetail(
     [property: Id(0)] string Id,
     [property: Id(1)] string Name,
     [property: Id(2)] string Description,
-    [property: Id(3)] AgentMemberInfo[] Agents,
-    [property: Id(4)] ChatMessage[] Messages,
+    [property: Id(3)] IReadOnlyList<AgentMemberInfo> Agents,
+    [property: Id(4)] IReadOnlyList<ChatMessage> Messages,
     [property: Id(5)] DateTimeOffset CreatedAt);
 
 [GenerateSerializer]
@@ -64,7 +64,7 @@ public sealed record IntentResult(
 public sealed record IntentRequest(
     [property: Id(0)] string AgentId,
     [property: Id(1)] string GroupId,
-    [property: Id(2)] List<ChatMessageState> Context,
+    [property: Id(2)] IReadOnlyList<ChatMessageState> Context,
     [property: Id(3)] IntentType IntentType);
 
 // ─── Grain State ────────────────────────────────────────────
@@ -75,7 +75,7 @@ public sealed class AgentGrainState
     [Id(0)] public string Name { get; set; } = "";
     [Id(1)] public string SystemPrompt { get; set; } = "";
     [Id(2)] public string AvatarEmoji { get; set; } = "🤖";
-    [Id(3)] public HashSet<string> GroupIds { get; set; } = [];
+    [Id(3)] public HashSet<string> GroupIds { get; init; } = [];
     [Id(4)] public string ReflectionJournal { get; set; } = "";
     [Id(5)] public bool Initialized { get; set; }
 }
@@ -85,10 +85,12 @@ public sealed class ChatGroupGrainState
 {
     [Id(0)] public string Name { get; set; } = "";
     [Id(1)] public string Description { get; set; } = "";
-    [Id(3)] public List<ChatMessageState> Messages { get; set; } = [];
+#pragma warning disable CA1002 // Orleans grain state requires mutable List<T> for Add/Remove operations
+    [Id(3)] public List<ChatMessageState> Messages { get; init; } = [];
+#pragma warning restore CA1002
     [Id(4)] public DateTimeOffset CreatedAt { get; set; }
     [Id(5)] public bool Initialized { get; set; }
-    [Id(6)] public Dictionary<string, AgentMemberInfo> Agents { get; set; } = [];
+    [Id(6)] public Dictionary<string, AgentMemberInfo> Agents { get; init; } = [];
 }
 
 /// <summary>Agent membership info stored in group state, learned from stream events.</summary>
@@ -113,7 +115,9 @@ public sealed class LlmIntentGrainState
 {
     [Id(0)] public string AgentId { get; set; } = "";
     [Id(1)] public string GroupId { get; set; } = "";
-    [Id(2)] public List<ChatMessageState> Context { get; set; } = [];
+#pragma warning disable CA1002 // Orleans grain state requires mutable List<T> for Add/Remove operations
+    [Id(2)] public List<ChatMessageState> Context { get; init; } = [];
+#pragma warning restore CA1002
     [Id(3)] public IntentType IntentType { get; set; }
     [Id(4)] public bool Completed { get; set; }
     [Id(5)] public DateTimeOffset CreatedAt { get; set; }
@@ -125,7 +129,7 @@ public sealed class LlmIntentGrainState
 [GenerateSerializer]
 public sealed class RegistryGrainState
 {
-    [Id(0)] public Dictionary<string, string> Entries { get; set; } = []; // id → name
+    [Id(0)] public Dictionary<string, string> Entries { get; init; } = []; // id → name
 }
 
 // ─── API Request / Response DTOs ────────────────────────────

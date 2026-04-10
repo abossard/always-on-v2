@@ -30,6 +30,7 @@ public class AspireFixture : IAsyncInitializer, IAsyncDisposable
 
     public async ValueTask DisposeAsync()
     {
+        GC.SuppressFinalize(this);
         if (_app is null) return;
         await _app.StopAsync();
         await _app.DisposeAsync();

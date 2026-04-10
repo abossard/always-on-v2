@@ -13,7 +13,7 @@ public sealed class AgentGrain(
     private readonly Dictionary<string, List<ChatMessageState>> _groupContexts = [];
     private readonly Dictionary<string, string> _pendingIntents = []; // groupId → intentId
 
-    public override async Task OnActivateAsync(CancellationToken ct)
+    public override async Task OnActivateAsync(CancellationToken cancellationToken)
     {
         var streamProvider = this.GetStreamProvider("ChatMessages");
 
@@ -34,10 +34,10 @@ public sealed class AgentGrain(
         foreach (var groupId in state.State.GroupIds)
             await SubscribeToGroupStream(streamProvider, groupId);
 
-        await base.OnActivateAsync(ct);
+        await base.OnActivateAsync(cancellationToken);
     }
 
-    public override async Task OnDeactivateAsync(DeactivationReason reason, CancellationToken ct)
+    public override async Task OnDeactivateAsync(DeactivationReason reason, CancellationToken cancellationToken)
     {
         // Kill all pending intent grains — orphan intents serve no purpose
         foreach (var (_, intentId) in _pendingIntents)
@@ -47,14 +47,16 @@ public sealed class AgentGrain(
                 var grain = GrainFactory.GetGrain<ILlmIntentGrain>(intentId);
                 _ = grain.CancelAsync();
             }
+#pragma warning disable CA1031 // Intentional: best-effort cleanup during deactivation must not throw
             catch (Exception ex)
+#pragma warning restore CA1031
             {
-                logger.LogDebug(ex, "Failed to cancel intent {IntentId} during deactivation", intentId);
+                logger.FailedToCancelIntent(ex, intentId);
             }
         }
         _pendingIntents.Clear();
 
-        await base.OnDeactivateAsync(reason, ct);
+        await base.OnDeactivateAsync(reason, cancellationToken);
     }
 
     private async Task SubscribeToGroupStream(IStreamProvider streamProvider, string groupId)
@@ -114,7 +116,7 @@ public sealed class AgentGrain(
         // Cancel existing pending intent for this group — agent needs a fresh answer
         if (_pendingIntents.TryGetValue(groupId, out var oldIntentId))
         {
-            logger.LogInformation("Agent {AgentName} cancelling stale intent {IntentId} for group {GroupId}",
+            logger.CancellingStaleIntent(
                 state.State.Name, oldIntentId, groupId);
             var oldGrain = GrainFactory.GetGrain<ILlmIntentGrain>(oldIntentId);
             _ = oldGrain.CancelAsync();
@@ -132,14 +134,14 @@ public sealed class AgentGrain(
             state.State.ReflectionJournal,
             state.State.AvatarEmoji);
 
-        logger.LogInformation("Agent {AgentName} spawning intent {IntentId} for group {GroupId}",
+        logger.SpawningIntent(
             state.State.Name, intentId, groupId);
 
         // Spawn the intent grain
         var intentGrain = GrainFactory.GetGrain<ILlmIntentGrain>(intentId);
-        intentGrain.ExecuteAsync(request, persona)
+        _ = intentGrain.ExecuteAsync(request, persona)
             .ContinueWith(t => logger.LogError(t.Exception, "Intent {IntentId} failed to start", intentId),
-                TaskContinuationOptions.OnlyOnFaulted);
+                CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
 
         // Track and publish "thinking" AFTER creating the intent
         _pendingIntents[groupId] = intentId;
@@ -203,7 +205,7 @@ public sealed class AgentGrain(
             return;
         }
 
-        logger.LogInformation("AgentGrain {AgentName} received {IntentType} result {IntentId} for group {GroupId} (failed={Failed})",
+        logger.ReceivedIntentResult(
             state.State.Name, result.IntentType, result.IntentId, result.GroupId, result.Failed);
 
         if (result.Failed)
@@ -257,16 +259,16 @@ public sealed class AgentGrain(
                 state.State.AvatarEmoji);
 
             var intentGrain = GrainFactory.GetGrain<ILlmIntentGrain>(reflectionIntentId);
-            intentGrain.ExecuteAsync(reflectionRequest, persona)
+            _ = intentGrain.ExecuteAsync(reflectionRequest, persona)
                 .ContinueWith(t => logger.LogError(t.Exception, "Reflection intent {IntentId} failed", reflectionIntentId),
-                    TaskContinuationOptions.OnlyOnFaulted);
+                    CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
         }
         else if (result.IntentType == IntentType.Reflection)
         {
             // Update reflection journal — internal, no group stream publish
             state.State.ReflectionJournal = result.Response;
             await state.WriteStateAsync();
-            logger.LogDebug("Agent {AgentName} updated reflection journal", state.State.Name);
+            logger.UpdatedReflectionJournal(state.State.Name);
         }
     }
 

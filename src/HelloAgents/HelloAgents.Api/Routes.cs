@@ -26,12 +26,12 @@ public static class Routes
     public const string Orchestrate = "/api/orchestrate";
 
     // Helper methods for parameterized routes
-    public static string GroupDetail(string id) => GroupDetailTemplate.Replace("{id}", id);
-    public static string AgentDetail(string id) => AgentDetailTemplate.Replace("{id}", id);
-    public static string GroupAgents(string groupId) => GroupAgentsTemplate.Replace("{groupId}", groupId);
+    public static string GroupDetail(string id) => GroupDetailTemplate.Replace("{id}", id, StringComparison.Ordinal);
+    public static string AgentDetail(string id) => AgentDetailTemplate.Replace("{id}", id, StringComparison.Ordinal);
+    public static string GroupAgents(string groupId) => GroupAgentsTemplate.Replace("{groupId}", groupId, StringComparison.Ordinal);
     public static string GroupAgentDetail(string groupId, string agentId) =>
-        GroupAgentDetailTemplate.Replace("{groupId}", groupId).Replace("{agentId}", agentId);
-    public static string GroupMessages(string groupId) => GroupMessagesTemplate.Replace("{id}", groupId);
-    public static string GroupDiscuss(string groupId) => GroupDiscussTemplate.Replace("{id}", groupId);
-    public static string GroupStream(string groupId) => GroupStreamTemplate.Replace("{id}", groupId);
+        GroupAgentDetailTemplate.Replace("{groupId}", groupId, StringComparison.Ordinal).Replace("{agentId}", agentId, StringComparison.Ordinal);
+    public static string GroupMessages(string groupId) => GroupMessagesTemplate.Replace("{id}", groupId, StringComparison.Ordinal);
+    public static string GroupDiscuss(string groupId) => GroupDiscussTemplate.Replace("{id}", groupId, StringComparison.Ordinal);
+    public static string GroupStream(string groupId) => GroupStreamTemplate.Replace("{id}", groupId, StringComparison.Ordinal);
 }

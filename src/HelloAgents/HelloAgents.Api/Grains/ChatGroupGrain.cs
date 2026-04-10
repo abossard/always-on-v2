@@ -10,7 +10,7 @@ public sealed class ChatGroupGrain(
     private IAsyncStream<ChatMessage>? _stream;
     private readonly Dictionary<string, ChatMessageState> _pendingMessages = [];
 
-    public override async Task OnActivateAsync(CancellationToken ct)
+    public override async Task OnActivateAsync(CancellationToken cancellationToken)
     {
         var streamProvider = this.GetStreamProvider("ChatMessages");
         _stream = streamProvider.GetStream<ChatMessage>(
@@ -27,7 +27,7 @@ public sealed class ChatGroupGrain(
             await _stream.SubscribeAsync(OnStreamEvent);
         }
 
-        await base.OnActivateAsync(ct);
+        await base.OnActivateAsync(cancellationToken);
     }
 
     /// <summary>Reactively handles all events on the group stream.</summary>
@@ -35,6 +35,8 @@ public sealed class ChatGroupGrain(
     {
         if (!state.State.Initialized)
             return;
+
+        var grainId = this.GetPrimaryKeyString();
 
         switch (msg.EventType)
         {
@@ -54,7 +56,7 @@ public sealed class ChatGroupGrain(
                     GroupId = msg.GroupId
                 });
                 await state.WriteStateAsync();
-                logger.LogInformation("{Emoji} {AgentName} joined group {GroupId}", msg.SenderEmoji, msg.SenderName, this.GetPrimaryKeyString());
+                logger.AgentJoinedGroup(msg.SenderEmoji, msg.SenderName, grainId);
                 break;
 
             case EventType.AgentLeft:
@@ -72,7 +74,7 @@ public sealed class ChatGroupGrain(
                     GroupId = msg.GroupId
                 });
                 await state.WriteStateAsync();
-                logger.LogInformation("{Emoji} {AgentName} left group {GroupId}", msg.SenderEmoji, msg.SenderName, this.GetPrimaryKeyString());
+                logger.AgentLeftGroup(msg.SenderEmoji, msg.SenderName, grainId);
                 break;
 
             case EventType.Message:

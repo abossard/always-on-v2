@@ -99,7 +99,7 @@ public sealed class OrchestratorService(
             e.Value.Equals(agentName, StringComparison.OrdinalIgnoreCase)).Key;
     }
 
-    private string GenerateId() => Guid.NewGuid().ToString("N")[..8];
+    private static string GenerateId() => Guid.NewGuid().ToString("N")[..8];
 
     private async Task<string> CreateAgentCoreAsync(string name, string personaDescription, string avatarEmoji)
     {
@@ -110,7 +110,7 @@ public sealed class OrchestratorService(
         var registry = grainFactory.GetGrain<IAgentRegistryGrain>("default");
         await registry.RegisterAsync(id, name);
 
-        logger.LogInformation("Orchestrator created agent '{Name}' with id {Id}", name, id);
+        logger.OrchestratorCreatedAgent(name, id);
         return id;
     }
 
@@ -135,7 +135,7 @@ public sealed class OrchestratorService(
         var groupRegistry = grainFactory.GetGrain<IGroupRegistryGrain>("default");
         await groupRegistry.RegisterAsync(groupId, groupName);
 
-        logger.LogInformation("Orchestrator created group '{Name}' with id {Id}", groupName, groupId);
+        logger.OrchestratorCreatedGroup(groupName, groupId);
 
         var agentNames = new List<string>();
         foreach (var spec in agents)
@@ -162,7 +162,7 @@ public sealed class OrchestratorService(
         var agentId = await CreateAgentCoreAsync(agentName, personaDescription, avatarEmoji);
         await AddAgentToGroupCoreAsync(agentId, groupId);
 
-        logger.LogInformation("Orchestrator created agent '{Name}' and added to group '{Group}'", agentName, groupName);
+        logger.OrchestratorCreatedAgentInGroup(agentName, groupName);
         return $"Created agent '{agentName}' {avatarEmoji} and added to group '{groupName}'.";
     }
 
@@ -181,7 +181,7 @@ public sealed class OrchestratorService(
 
         await AddAgentToGroupCoreAsync(agentId, groupId);
 
-        logger.LogInformation("Orchestrator added agent '{Agent}' to group '{Group}'", agentName, groupName);
+        logger.OrchestratorAddedAgentToGroup(agentName, groupName);
         return $"Added agent '{agentName}' to group '{groupName}'.";
     }
 
@@ -213,7 +213,7 @@ public sealed class OrchestratorService(
             return $"Error: group '{groupName}' not found.";
 
         await groupLifecycle.DeleteGroupAsync(groupId);
-        logger.LogInformation("Orchestrator deleted group '{Group}'", groupName);
+        logger.OrchestratorDeletedGroup(groupName);
         return $"Deleted group '{groupName}'.";
     }
 
@@ -226,7 +226,7 @@ public sealed class OrchestratorService(
 
         var deleted = await groupLifecycle.DeleteGroupsAsync(groups.Select(g => g.Id));
         var deletedNames = string.Join(", ", groups.Select(g => $"'{g.Name}'"));
-        logger.LogInformation("Orchestrator deleted all groups ({Count})", deleted);
+        logger.OrchestratorDeletedAllGroups(deleted);
         return $"Deleted {deleted} group(s): {deletedNames}.";
     }
 
@@ -253,7 +253,7 @@ public sealed class OrchestratorService(
 
         var keptNames = string.Join(", ", groups.TakeLast(keepCount).Select(g => $"'{g.Name}'"));
         var deletedNames = string.Join(", ", targets.Select(g => $"'{g.Name}'"));
-        logger.LogInformation("Orchestrator deleted {DeletedCount} groups and kept {KeepCount}", deleted, keepCount);
+        logger.OrchestratorDeletedAndKeptGroups(deleted, keepCount);
         return $"Deleted {deleted} older group(s): {deletedNames}. Kept the newest {keepCount}: {keptNames}.";
     }
 
@@ -270,14 +270,14 @@ public sealed class OrchestratorService(
         count = Math.Min(count, groups.Count);
         for (var i = groups.Count - 1; i > 0; i--)
         {
-            var j = Random.Shared.Next(i + 1);
+            var j = System.Security.Cryptography.RandomNumberGenerator.GetInt32(i + 1);
             (groups[i], groups[j]) = (groups[j], groups[i]);
         }
 
         var targets = groups.Take(count).ToList();
         var deleted = await groupLifecycle.DeleteGroupsAsync(targets.Select(g => g.Id));
         var deletedNames = string.Join(", ", targets.Select(g => $"'{g.Name}'"));
-        logger.LogInformation("Orchestrator deleted {DeletedCount} random groups", deleted);
+        logger.OrchestratorDeletedRandomGroups(deleted);
         return $"Deleted {deleted} random group(s): {deletedNames}.";
     }
 
@@ -306,7 +306,7 @@ public sealed class OrchestratorService(
             {
                 var grain = grainFactory.GetGrain<IAgentGrain>(id);
                 var info = await grain.GetInfoAsync();
-                lines.Add($"- {info.AvatarEmoji} {info.Name} (in {info.GroupIds.Length} groups)");
+                lines.Add($"- {info.AvatarEmoji} {info.Name} (in {info.GroupIds.Count} groups)");
             }
             catch (InvalidOperationException)
             {

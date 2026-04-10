@@ -39,7 +39,7 @@ public sealed class GroupLifecycleService(
                 g.Id,
                 g.Name,
                 g.Description,
-                g.Agents.Length,
+                g.Agents.Count,
                 g.Messages.Count(m => m.EventType == EventType.Message),
                 g.CreatedAt))
             .ToArray();
@@ -70,8 +70,7 @@ public sealed class GroupLifecycleService(
             }
             catch (InvalidOperationException ex)
             {
-                logger.LogDebug(ex,
-                    "Agent {AgentId} was already missing while deleting group {GroupId}",
+                logger.AgentMissingDuringGroupDelete(ex,
                     agent.Id,
                     groupId);
             }
@@ -81,11 +80,10 @@ public sealed class GroupLifecycleService(
         await groupGrain.DeleteAsync();
         await registry.UnregisterAsync(groupId);
 
-        logger.LogInformation(
-            "Deleted group '{GroupName}' ({GroupId}) and detached {AgentCount} agent(s)",
+        logger.GroupDeleted(
             group.Name,
             groupId,
-            group.Agents.Length);
+            group.Agents.Count);
 
         return true;
     }

@@ -9,14 +9,14 @@ public abstract class AgentApiTests(HttpClient client)
     private readonly HelloAgentsApi _api = new(client);
 
     [Test]
-    public async Task Health_ReturnsOk()
+    public async Task HealthReturnsOk()
     {
         var response = await _api.GetHealth();
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.OK);
     }
 
     [Test]
-    public async Task RootPage_RedirectsToScalar()
+    public async Task RootPageRedirectsToScalar()
     {
         var response = await _api.GetRoot();
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.OK);
@@ -26,7 +26,7 @@ public abstract class AgentApiTests(HttpClient client)
     }
 
     [Test]
-    public async Task CreateGroup_ReturnsCreated()
+    public async Task CreateGroupReturnsCreated()
     {
         var response = await _api.CreateGroupRaw("Test Group", "A test group");
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.Created);
@@ -37,21 +37,21 @@ public abstract class AgentApiTests(HttpClient client)
     }
 
     [Test]
-    public async Task CreateGroup_EmptyName_ReturnsBadRequest()
+    public async Task CreateGroupEmptyNameReturnsBadRequest()
     {
         var response = await _api.CreateGroupRaw("", "desc");
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
     }
 
     [Test]
-    public async Task ListGroups_ReturnsOk()
+    public async Task ListGroupsReturnsOk()
     {
         var response = await _api.ListGroupsRaw();
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.OK);
     }
 
     [Test]
-    public async Task CreateAgent_ReturnsCreated()
+    public async Task CreateAgentReturnsCreated()
     {
         var response = await _api.CreateAgentRaw("TestBot", "A test AI agent", "🤖");
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.Created);
@@ -62,21 +62,21 @@ public abstract class AgentApiTests(HttpClient client)
     }
 
     [Test]
-    public async Task CreateAgent_EmptyName_ReturnsBadRequest()
+    public async Task CreateAgentEmptyNameReturnsBadRequest()
     {
         var response = await _api.CreateAgentRaw("", "desc", "🤖");
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
     }
 
     [Test]
-    public async Task ListAgents_ReturnsOk()
+    public async Task ListAgentsReturnsOk()
     {
         var response = await _api.ListAgentsRaw();
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.OK);
     }
 
     [Test]
-    public async Task FullFlow_CreateGroupAndAgent_AddToGroup_SendMessage()
+    public async Task FullFlowCreateGroupAndAgentAddToGroupSendMessage()
     {
         var group = await _api.CreateGroup("Flow Test", "Integration test");
         var agent = await _api.CreateAgent("FlowBot", "A test bot", "🧪");
@@ -90,7 +90,7 @@ public abstract class AgentApiTests(HttpClient client)
         await Assert.That(async () =>
         {
             var state = await _api.GetGroup(group.Id);
-            return state.Agents.Any(a => a.Id == agent.Id) && state.Messages.Length >= 1;
+            return state.Agents.Any(a => a.Id == agent.Id) && state.Messages.Count >= 1;
         }).Eventually(
             assert => assert.IsTrue(),
             timeout: TimeSpan.FromSeconds(10)
@@ -98,7 +98,7 @@ public abstract class AgentApiTests(HttpClient client)
     }
 
     [Test]
-    public async Task DeleteGroup_RemovesMembershipFromAgents()
+    public async Task DeleteGroupRemovesMembershipFromAgents()
     {
         var group = await _api.CreateGroup("Delete Flow", "Delete integration test");
         var agent = await _api.CreateAgent("DetachBot", "A bot that should be detached", "🧹");
@@ -138,7 +138,7 @@ public abstract class AgentApiTests(HttpClient client)
     }
 
     [Test]
-    public async Task SendMessage_EmptyContent_ReturnsBadRequest()
+    public async Task SendMessageEmptyContentReturnsBadRequest()
     {
         var group = await _api.CreateGroup("Empty Msg Test", "test");
 
@@ -147,7 +147,7 @@ public abstract class AgentApiTests(HttpClient client)
     }
 
     [Test]
-    public async Task Orchestrate_EmptyMessage_ReturnsBadRequest()
+    public async Task OrchestrateEmptyMessageReturnsBadRequest()
     {
         var response = await _api.Orchestrate("");
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
@@ -155,8 +155,9 @@ public abstract class AgentApiTests(HttpClient client)
 
     [Test]
     [Timeout(30_000)]
-    public async Task Discussion_AgentRespondsWithStreamingContent()
+    public async Task DiscussionAgentRespondsWithStreamingContent(CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         var group = await _api.CreateGroup("StreamTest", "Streaming test");
         var agent = await _api.CreateAgent("StreamBot", "A streaming test bot", "🔄");
 

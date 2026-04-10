@@ -9,10 +9,10 @@ public class HelloAgentsApi(HttpClient http)
     // ─── Health / Root ───────────────────────────────────────
 
     public Task<HttpResponseMessage> GetRoot()
-        => http.GetAsync(Routes.Root);
+        => http.GetAsync(new Uri(Routes.Root, UriKind.Relative));
 
     public Task<HttpResponseMessage> GetHealth()
-        => http.GetAsync(Routes.Health);
+        => http.GetAsync(new Uri(Routes.Health, UriKind.Relative));
 
     // ─── Groups ──────────────────────────────────────────────
 
@@ -27,7 +27,7 @@ public class HelloAgentsApi(HttpClient http)
         => http.PostAsJsonAsync(Routes.Groups, new CreateGroupRequest(name, description));
 
     public Task<HttpResponseMessage> ListGroupsRaw()
-        => http.GetAsync(Routes.Groups);
+        => http.GetAsync(new Uri(Routes.Groups, UriKind.Relative));
 
     public async Task<ChatGroupDetail> GetGroup(string id)
     {
@@ -37,10 +37,10 @@ public class HelloAgentsApi(HttpClient http)
     }
 
     public Task<HttpResponseMessage> GetGroupRaw(string id)
-        => http.GetAsync(Routes.GroupDetail(id));
+        => http.GetAsync(new Uri(Routes.GroupDetail(id), UriKind.Relative));
 
     public Task<HttpResponseMessage> DeleteGroup(string id)
-        => http.DeleteAsync(Routes.GroupDetail(id));
+        => http.DeleteAsync(new Uri(Routes.GroupDetail(id), UriKind.Relative));
 
     // ─── Agents ──────────────────────────────────────────────
 
@@ -55,7 +55,7 @@ public class HelloAgentsApi(HttpClient http)
         => http.PostAsJsonAsync(Routes.Agents, new CreateAgentRequest(name, persona, emoji));
 
     public Task<HttpResponseMessage> ListAgentsRaw()
-        => http.GetAsync(Routes.Agents);
+        => http.GetAsync(new Uri(Routes.Agents, UriKind.Relative));
 
     public async Task<AgentInfo> GetAgent(string id)
     {
@@ -65,7 +65,7 @@ public class HelloAgentsApi(HttpClient http)
     }
 
     public Task<HttpResponseMessage> GetAgentRaw(string id)
-        => http.GetAsync(Routes.AgentDetail(id));
+        => http.GetAsync(new Uri(Routes.AgentDetail(id), UriKind.Relative));
 
     // ─── Membership ──────────────────────────────────────────
 
@@ -73,7 +73,7 @@ public class HelloAgentsApi(HttpClient http)
         => http.PostAsJsonAsync(Routes.GroupAgents(groupId), new AddAgentToGroupRequest(agentId));
 
     public Task<HttpResponseMessage> RemoveAgentFromGroup(string groupId, string agentId)
-        => http.DeleteAsync(Routes.GroupAgentDetail(groupId, agentId));
+        => http.DeleteAsync(new Uri(Routes.GroupAgentDetail(groupId, agentId), UriKind.Relative));
 
     // ─── Chat ────────────────────────────────────────────────
 

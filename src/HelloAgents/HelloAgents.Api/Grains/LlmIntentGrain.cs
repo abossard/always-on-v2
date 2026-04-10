@@ -23,7 +23,7 @@ public sealed class LlmIntentGrain(
     private int ChunkChars => configuration.GetValue(ConfigKeys.LlmStreamChunkChars, 50);
     private int ChunkIntervalMs => configuration.GetValue(ConfigKeys.LlmStreamChunkIntervalMs, 500);
 
-    public override async Task OnActivateAsync(CancellationToken ct)
+    public override async Task OnActivateAsync(CancellationToken cancellationToken)
     {
         if (!string.IsNullOrEmpty(state.State.AgentId) && !state.State.Completed)
         {
@@ -39,22 +39,24 @@ public sealed class LlmIntentGrain(
             // Staggered recovery from persisted schedule
             var delay = state.State.NextRetryAt.HasValue && state.State.NextRetryAt > DateTimeOffset.UtcNow
                 ? state.State.NextRetryAt.Value - DateTimeOffset.UtcNow
-                : TimeSpan.FromSeconds(2 + Random.Shared.NextDouble() * 30);
+                : TimeSpan.FromSeconds(2 + System.Security.Cryptography.RandomNumberGenerator.GetInt32(0, 30000) / 1000.0);
 
-            logger.LogInformation("LlmIntentGrain {IntentId} scheduling recovery in {Delay:F1}s (attempt {Retry})",
-                this.GetPrimaryKeyString(), delay.TotalSeconds, state.State.RetryCount);
+            var intentId = this.GetPrimaryKeyString();
+            logger.SchedulingRecovery(
+                intentId, delay.TotalSeconds, state.State.RetryCount);
 
             ScheduleRetryTimer(delay);
         }
 
-        await base.OnActivateAsync(ct);
+        await base.OnActivateAsync(cancellationToken);
     }
 
     public async Task ExecuteAsync(IntentRequest request, AgentPersona persona)
     {
         state.State.AgentId = request.AgentId;
         state.State.GroupId = request.GroupId;
-        state.State.Context = request.Context;
+        state.State.Context.Clear();
+        state.State.Context.AddRange(request.Context);
         state.State.IntentType = request.IntentType;
         state.State.Persona = persona;
         state.State.Completed = false;
@@ -106,14 +108,16 @@ public sealed class LlmIntentGrain(
             await PublishResult(new IntentResult(
                 state.State.GroupId, result, intentId, state.State.IntentType));
 
-            logger.LogInformation("LlmIntentGrain {IntentId} completed {IntentType} for agent {AgentId}",
+            logger.IntentCompleted(
                 intentId, state.State.IntentType, state.State.AgentId);
 
             state.State.Completed = true;
             await state.ClearStateAsync();
             DeactivateOnIdle();
         }
+#pragma warning disable CA1031 // Intentional: fallback behavior after LLM failure, retries handle specific errors
         catch (Exception ex)
+#pragma warning restore CA1031
         {
             state.State.RetryCount++;
 
@@ -127,7 +131,7 @@ public sealed class LlmIntentGrain(
 
             // Exponential backoff with full jitter: min(5 * 2^attempt, 55) + rand(0,5)
             var baseDelay = Math.Min(5 * Math.Pow(2, state.State.RetryCount - 1), 55);
-            var delay = TimeSpan.FromSeconds(baseDelay + Random.Shared.NextDouble() * 5);
+            var delay = TimeSpan.FromSeconds(baseDelay + System.Security.Cryptography.RandomNumberGenerator.GetInt32(0, 5000) / 1000.0);
 
             state.State.NextRetryAt = DateTimeOffset.UtcNow + delay;
             await state.WriteStateAsync();

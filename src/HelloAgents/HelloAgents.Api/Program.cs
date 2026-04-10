@@ -32,8 +32,8 @@ builder.Host.UseOrleans(silo =>
             "Set via Aspire WithReference(cosmos) or env var ConnectionStrings__cosmos=AccountEndpoint=https://...");
     }
 
-    var isEmulator = cosmosConnectionString?.Contains("AccountKey=C2y6yDjf5") == true;
-    var hasAccountKey = cosmosConnectionString?.Contains("AccountKey=") == true;
+    var isEmulator = cosmosConnectionString?.Contains("AccountKey=C2y6yDjf5", StringComparison.Ordinal) == true;
+    var hasAccountKey = cosmosConnectionString?.Contains("AccountKey=", StringComparison.Ordinal) == true;
 
     // Single config helper for all Cosmos grain storage registrations
     void ConfigureCosmos(Orleans.Persistence.Cosmos.CosmosGrainStorageOptions options)
@@ -182,7 +182,9 @@ else if (!string.IsNullOrWhiteSpace(openAiEndpoint))
 else
 {
     // Placeholder for tests — agents won't respond meaningfully
+#pragma warning disable CA2000 // NoOpChatClient lifetime managed by DI container
     builder.Services.TryAddSingleton<IChatClient>(new NoOpChatClient());
+#pragma warning restore CA2000
 }
 
 // AI orchestrator for natural language commands

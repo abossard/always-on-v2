@@ -4,7 +4,7 @@ using Orleans.Streams;
 
 namespace HelloAgents.Api;
 
-public static class Endpoints
+public static class AgentEndpoints
 {
     public static WebApplication MapAllEndpoints(this WebApplication app)
     {
