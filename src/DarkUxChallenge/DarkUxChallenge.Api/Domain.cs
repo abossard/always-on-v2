@@ -391,7 +391,9 @@ public sealed record CancelStepResponse(
     string Step,
     string Title,
     string Description,
-    IReadOnlyList<string> Options,
+#pragma warning disable CA1819 // AOT JSON source generator requires concrete array types
+    string[] Options,
+#pragma warning restore CA1819
     string? HiddenAction)
 {
     public static CancelStepResponse ForStep(CancellationStep step) => step switch
