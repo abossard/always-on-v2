@@ -204,7 +204,6 @@ module playerOnLevel0 'apps/level0/infra.bicep' = {
     baseName: baseName
     location: globalLocation
     cosmosAccountName: global.outputs.cosmosName
-    cosmosAutoscaleMaxThroughput: cosmosAutoscaleMaxThroughput
     appInsightsId: global.outputs.appInsightsId
   }
 }
@@ -220,7 +219,6 @@ module darkUxChallenge 'apps/darkux/infra.bicep' = {
     baseName: baseName
     location: globalLocation
     cosmosAccountName: global.outputs.cosmosName
-    cosmosAutoscaleMaxThroughput: cosmosAutoscaleMaxThroughput
     appInsightsId: global.outputs.appInsightsId
   }
 }
@@ -236,7 +234,6 @@ module helloOrleons 'apps/helloorleons/infra.bicep' = {
     baseName: baseName
     location: globalLocation
     cosmosAccountName: global.outputs.cosmosName
-    cosmosAutoscaleMaxThroughput: cosmosAutoscaleMaxThroughput
     appInsightsId: global.outputs.appInsightsId
   }
 }
@@ -252,7 +249,6 @@ module helloAgents 'apps/helloagents/infra.bicep' = {
     baseName: baseName
     location: globalLocation
     cosmosAccountName: global.outputs.cosmosName
-    cosmosAutoscaleMaxThroughput: cosmosAutoscaleMaxThroughput
     appInsightsId: global.outputs.appInsightsId
   }
 }
@@ -268,7 +264,6 @@ module graphOrleons 'apps/graphorleons/infra.bicep' = {
     baseName: baseName
     location: globalLocation
     cosmosAccountName: global.outputs.cosmosName
-    cosmosAutoscaleMaxThroughput: cosmosAutoscaleMaxThroughput
     appInsightsId: global.outputs.appInsightsId
   }
 }

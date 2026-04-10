@@ -16,12 +16,8 @@ import {
 import '@xyflow/react/dist/style.css';
 import type { GraphEdge, GraphSnapshot } from '../types';
 import {
-  demoScenarios,
   inferNodeGroup,
   type NodeGroup,
-  type ViewVariantDefinition,
-  type ViewVariantId,
-  viewVariants,
 } from '../topologyStudio';
 
 type Impact = GraphEdge['impact'];
@@ -150,14 +146,10 @@ const impactRank: Record<Impact, number> = {
 };
 
 const groupOrder: NodeGroup[] = ['Experience', 'Core', 'Data', 'Messaging', 'Operations'];
-const NODE_WIDTH = 244;
-const ATLAS_COLUMN_GAP = NODE_WIDTH + 72;
-const ATLAS_ROW_GAP = 126;
-const LANE_COLUMN_GAP = NODE_WIDTH + 52;
-const LANE_GROUP_GAP = 224;
-const LANE_ROW_GAP = 118;
-const ORBIT_DEPTH_GAP = 264;
-const ORBIT_ARC_SPACING = NODE_WIDTH * 0.64;
+const NODE_WIDTH = 208;
+const ORBIT_ROOT_RADIUS = 132;
+const ORBIT_DEPTH_GAP = 336;
+const ORBIT_ARC_SPACING = NODE_WIDTH + 92;
 
 function strongestImpact(left: Impact, right: Impact): Impact {
   return impactRank[left] >= impactRank[right] ? left : right;
@@ -186,7 +178,7 @@ function DependencyNode({ data, selected }: NodeProps<FlowNode>) {
   return (
     <div
       className={[
-        'topology-node-shell w-61 rounded-3xl border px-3.5 py-3 text-left backdrop-blur-xl transition-all duration-200',
+        'topology-node-shell w-52 rounded-[22px] border px-3 py-2.5 text-left backdrop-blur-xl transition-all duration-200',
         `topology-node-delay-${data.animationSlot}`,
         palette.shellClass,
         selected ? `${palette.selectedClass} -translate-y-1` : palette.idleClass,
@@ -201,10 +193,10 @@ function DependencyNode({ data, selected }: NodeProps<FlowNode>) {
         className={['h-3! w-3! border-2! border-slate-950!', palette.handleClass].join(' ')}
       />
 
-      <div className="flex items-start gap-2.5">
+      <div className="flex items-start gap-2">
         <div
           className={[
-            'flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border text-xs font-semibold',
+            'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border text-[11px] font-semibold',
             palette.iconClass,
             palette.iconSurfaceClass,
           ].join(' ')}
@@ -213,9 +205,9 @@ function DependencyNode({ data, selected }: NodeProps<FlowNode>) {
         </div>
 
         <div className="min-w-0 flex-1">
-          <div className="wrap-break-word text-sm font-semibold tracking-tight text-white">{data.label}</div>
-          <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[10px] uppercase tracking-[0.24em] text-slate-400">
-            <span className={['rounded-full border px-2 py-0.5 text-[9px]', groupPalette.chipClass].join(' ')}>
+          <div className="wrap-break-word text-[13px] font-semibold leading-5 tracking-tight text-white">{data.label}</div>
+          <div className="mt-1 flex flex-wrap items-center gap-1 text-[9px] uppercase tracking-[0.22em] text-slate-400">
+            <span className={['rounded-full border px-1.5 py-0.5 text-[8px]', groupPalette.chipClass].join(' ')}>
               {data.group}
             </span>
             <span>{data.isRoot ? 'Entry point' : `Depth ${data.layer + 1}`}</span>
@@ -223,19 +215,19 @@ function DependencyNode({ data, selected }: NodeProps<FlowNode>) {
         </div>
       </div>
 
-      <div className="mt-2.5 text-xs font-medium tracking-[0.18em] text-slate-300/90 uppercase">
+      <div className="mt-2 text-[11px] font-medium leading-4 text-slate-300/90">
         {data.descriptor}
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-1.5 text-[10px] text-slate-200">
-        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
-          {data.incomingCount} incoming
+      <div className="mt-2.5 flex flex-wrap items-center gap-1 text-[9px] text-slate-200">
+        <span className="rounded-full border border-white/10 bg-white/5 px-1.5 py-0.5">
+          {data.incomingCount} in
         </span>
-        <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
-          {data.outgoingCount} outgoing
+        <span className="rounded-full border border-white/10 bg-white/5 px-1.5 py-0.5">
+          {data.outgoingCount} out
         </span>
-        <span className={['ml-auto rounded-full px-2 py-0.5 font-medium', palette.badgeClass].join(' ')}>
-          {data.accent} impact
+        <span className={['ml-auto rounded-full px-1.5 py-0.5 font-medium', palette.badgeClass].join(' ')}>
+          {data.accent}
         </span>
       </div>
 
@@ -268,11 +260,7 @@ function buildNote(name: string, group: NodeGroup, incomingCount: number, outgoi
   return `${name} coordinates ${group.toLowerCase()} work between ${incomingCount} upstream and ${outgoingCount} downstream connection${outgoingCount === 1 ? '' : 's'}.`;
 }
 
-function getVariantById(variantId: ViewVariantId): ViewVariantDefinition {
-  return viewVariants.find((variant) => variant.id === variantId) ?? viewVariants[0];
-}
-
-function buildFlow(graph: GraphSnapshot, variantId: ViewVariantId): FlowModel {
+function buildFlow(graph: GraphSnapshot): FlowModel {
   const nodeNames = Array.from(
     new Set(graph.edges.flatMap((edge) => [edge.source, edge.target]).concat(graph.nodes)),
   );
@@ -356,67 +344,35 @@ function buildFlow(graph: GraphSnapshot, variantId: ViewVariantId): FlowModel {
     visit(name);
   }
 
-  const atlasLayers = new Map<number, string[]>();
-  const laneGroups = new Map<NodeGroup, string[]>();
   const orbitLayers = new Map<number, string[]>();
   const positions = new Map<string, { x: number; y: number }>();
 
   for (const name of ordered) {
     const depth = layer.get(name) ?? 0;
-    const group = inferNodeGroup(name);
 
-    atlasLayers.set(depth, [...(atlasLayers.get(depth) ?? []), name]);
-    laneGroups.set(group, [...(laneGroups.get(group) ?? []), name]);
     orbitLayers.set(depth, [...(orbitLayers.get(depth) ?? []), name]);
   }
 
-  if (variantId === 'atlas') {
-    for (const [depth, names] of [...atlasLayers.entries()].sort((left, right) => left[0] - right[0])) {
-      const groupHeight = (names.length - 1) * ATLAS_ROW_GAP;
-      names.forEach((name, index) => {
-        positions.set(name, {
-          x: depth * ATLAS_COLUMN_GAP,
-          y: index * ATLAS_ROW_GAP - groupHeight / 2,
-        });
-      });
-    }
-  } else if (variantId === 'lanes') {
-    groupOrder.forEach((group, groupIndex) => {
-      const names = [...(laneGroups.get(group) ?? [])].sort((left, right) => {
-        const layerDelta = (layer.get(left) ?? 0) - (layer.get(right) ?? 0);
-        if (layerDelta !== 0) {
-          return layerDelta;
-        }
+  for (const [depth, names] of [...orbitLayers.entries()].sort((left, right) => left[0] - right[0])) {
+    const orderedNames = [...names].sort((left, right) => left.localeCompare(right));
+    const minimumRadius = (orderedNames.length * ORBIT_ARC_SPACING) / (2 * Math.PI);
+    const radius = depth === 0
+      ? ORBIT_ROOT_RADIUS
+      : Math.max(depth * ORBIT_DEPTH_GAP, minimumRadius + (depth * 24));
 
-        return left.localeCompare(right);
-      });
+    orderedNames.forEach((name, index) => {
+      if (depth === 0 && orderedNames.length === 1) {
+        positions.set(name, { x: 0, y: 0 });
+        return;
+      }
 
-      names.forEach((name, index) => {
-        const laneOffset = groupIndex % 2 === 0 ? 0 : 28;
-        positions.set(name, {
-          x: ((layer.get(name) ?? 0) * LANE_COLUMN_GAP) + laneOffset,
-          y: (groupIndex * LANE_GROUP_GAP) + (index * LANE_ROW_GAP),
-        });
+      const angleOffset = orderedNames.length > 1 ? Math.PI / orderedNames.length : 0;
+      const angle = (-Math.PI / 2) + angleOffset + ((index / orderedNames.length) * Math.PI * 2);
+      positions.set(name, {
+        x: Math.cos(angle) * radius,
+        y: Math.sin(angle) * radius,
       });
     });
-  } else {
-    for (const [depth, names] of [...orbitLayers.entries()].sort((left, right) => left[0] - right[0])) {
-      const orderedNames = [...names].sort((left, right) => left.localeCompare(right));
-      const minimumRadius = (orderedNames.length * ORBIT_ARC_SPACING) / (2 * Math.PI);
-      const radius = depth === 0 ? 0 : Math.max(depth * ORBIT_DEPTH_GAP, minimumRadius);
-      orderedNames.forEach((name, index) => {
-        if (depth === 0 && orderedNames.length === 1) {
-          positions.set(name, { x: 0, y: 0 });
-          return;
-        }
-
-        const angle = (-Math.PI / 2) + ((index / orderedNames.length) * Math.PI * 2);
-        positions.set(name, {
-          x: Math.cos(angle) * (radius || 110),
-          y: Math.sin(angle) * (radius || 110),
-        });
-      });
-    }
   }
 
   const nodes: FlowNode[] = nodeNames.map((name, index) => {
@@ -499,58 +455,34 @@ function buildFlow(graph: GraphSnapshot, variantId: ViewVariantId): FlowModel {
       return (right.data.outgoingCount + right.data.incomingCount) - (left.data.outgoingCount + left.data.incomingCount);
     })[0]?.id ?? null;
 
-  const summary = variantId === 'atlas'
-    ? 'Atlas Tree keeps the primary request path readable by aligning dependency depth left to right.'
-    : variantId === 'lanes'
-      ? 'Swimlane Groups cluster nodes by domain ownership so cross-team dependencies become obvious.'
-      : 'Orbit Rings emphasize blast radius and fan-out by spacing each depth on a dedicated ring.';
+  const summary = 'Orbit view spreads each dependency depth across a wider ring so fan-out stays readable as the graph grows.';
 
   return { nodes, edges, roots, groups, maxDepth, focusNodeId, summary };
 }
 
 export function GraphView({ graph, selectedTenant }: Props) {
-  const [sourceMode, setSourceMode] = useState<'demo' | 'live'>(graph.edges.length > 0 ? 'live' : 'demo');
-  const [selectedScenarioId, setSelectedScenarioId] = useState<(typeof demoScenarios)[number]['id']>('checkout');
-  const [selectedVariantId, setSelectedVariantId] = useState<ViewVariantId>('atlas');
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!selectedTenant && graph.edges.length === 0) {
-      setSourceMode('demo');
-    }
-  }, [graph.edges.length, selectedTenant]);
-
-  const selectedScenario = useMemo(
-    () => demoScenarios.find((scenario) => scenario.id === selectedScenarioId) ?? demoScenarios[0],
-    [selectedScenarioId],
-  );
-
-  const usingLiveGraph = sourceMode === 'live' && graph.edges.length > 0;
-  const activeGraph = usingLiveGraph ? graph : selectedScenario.graph;
-  const activeVariant = getVariantById(selectedVariantId);
-  const flow = useMemo(() => buildFlow(activeGraph, selectedVariantId), [activeGraph, selectedVariantId]);
+  const flow = useMemo(() => buildFlow(graph), [graph]);
 
   useEffect(() => {
     setSelectedNodeId(flow.focusNodeId);
   }, [flow.focusNodeId]);
 
   const selectedNode = flow.nodes.find((node) => node.id === selectedNodeId) ?? null;
-  const liveUnavailable = sourceMode === 'live' && graph.edges.length === 0;
-  const sourceLabel = usingLiveGraph
-    ? (selectedTenant ? `Live tenant: ${selectedTenant}` : 'Live tenant')
-    : `Demo scene: ${selectedScenario.name}`;
+  const hasLiveTopology = graph.edges.length > 0 || graph.nodes.length > 0;
+  const sourceLabel = selectedTenant ? `Live tenant: ${selectedTenant}` : 'Live topology';
 
   return (
-    <div className="flex h-full min-h-215 flex-col gap-5" data-testid="topology-studio" data-view-variant={selectedVariantId} data-source-mode={sourceMode}>
+    <div className="flex h-full min-h-215 flex-col gap-5" data-testid="topology-studio" data-view-variant="orbit" data-source-mode="live">
       <section className="rounded-4xl border border-white/10 bg-slate-950/72 p-5 shadow-[0_28px_80px_rgba(2,6,23,0.32)] backdrop-blur-xl sm:p-6">
         <div className="flex flex-col gap-5 2xl:flex-row 2xl:items-start 2xl:justify-between">
           <div className="max-w-3xl">
-            <div className="text-[11px] uppercase tracking-[0.32em] text-slate-400">Topology studio</div>
+            <div className="text-[11px] uppercase tracking-[0.32em] text-slate-400">Live topology</div>
             <h2 className="mt-3 text-2xl font-semibold tracking-tight text-white sm:text-3xl">
-              Multiple visual trees, one deterministic comparison surface
+              Orbit view for the active tenant graph
             </h2>
             <p className="mt-3 text-sm leading-6 text-slate-300 sm:text-base">
-              Switch between layout variants, compare domain grouping behavior, and decide which tree tells the story best before committing to a production view.
+              The graph now stays on a single orbit layout, with wider rings and lighter nodes so the live dependency shape is easier to scan.
             </p>
           </div>
 
@@ -570,88 +502,30 @@ export function GraphView({ graph, selectedTenant }: Props) {
           </div>
         </div>
 
-        <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        <div className="mt-6 grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
           <div className="rounded-[28px] border border-white/10 bg-white/4 p-4">
             <div className="flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setSourceMode('demo')}
-                className={[
-                  'rounded-full border px-3 py-2 text-sm font-medium transition',
-                  sourceMode === 'demo'
-                    ? 'border-emerald-300/35 bg-emerald-400/14 text-emerald-100'
-                    : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/8',
-                ].join(' ')}
-                data-testid="source-mode-demo"
-              >
-                Demo scenarios
-              </button>
-              <button
-                type="button"
-                onClick={() => setSourceMode('live')}
-                className={[
-                  'rounded-full border px-3 py-2 text-sm font-medium transition',
-                  sourceMode === 'live'
-                    ? 'border-emerald-300/35 bg-emerald-400/14 text-emerald-100'
-                    : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/8',
-                ].join(' ')}
-                data-testid="source-mode-live"
-              >
-                Live tenant graph
-              </button>
+              <span className="rounded-full border border-emerald-300/28 bg-emerald-400/12 px-3 py-2 text-xs uppercase tracking-[0.24em] text-emerald-100">
+                Orbit layout
+              </span>
               <span className="rounded-full border border-white/10 bg-white/5 px-3 py-2 text-xs uppercase tracking-[0.24em] text-slate-400">
                 {sourceLabel}
               </span>
             </div>
 
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              {demoScenarios.map((scenario) => (
-                <button
-                  key={scenario.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedScenarioId(scenario.id);
-                    if (sourceMode !== 'live') {
-                      setSourceMode('demo');
-                    }
-                  }}
-                  className={[
-                    'rounded-3xl border px-4 py-4 text-left transition',
-                    selectedScenario.id === scenario.id
-                      ? 'border-emerald-300/28 bg-emerald-400/10 shadow-[0_14px_32px_rgba(16,185,129,0.08)]'
-                      : 'border-white/10 bg-slate-900/65 hover:border-white/18 hover:bg-white/7',
-                  ].join(' ')}
-                  data-testid={`scenario-${scenario.id}`}
-                >
-                  <div className="text-sm font-semibold text-white">{scenario.name}</div>
-                  <div className="mt-1 text-xs uppercase tracking-[0.24em] text-slate-500">{scenario.strapline}</div>
-                  <p className="mt-3 text-sm leading-6 text-slate-300">{scenario.description}</p>
-                </button>
-              ))}
+            <div className="mt-4 rounded-[22px] border border-white/10 bg-slate-900/65 p-4 text-sm leading-6 text-slate-300">
+              Only live graph data is shown here. Use the event tools to send or seed events, then refresh the tenant graph to see the orbit expand.
             </div>
           </div>
 
           <div className="rounded-[28px] border border-white/10 bg-white/4 p-4">
-            <div className="text-[11px] uppercase tracking-[0.26em] text-slate-400">View variants</div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              {viewVariants.map((variant) => (
-                <button
-                  key={variant.id}
-                  type="button"
-                  onClick={() => setSelectedVariantId(variant.id)}
-                  className={[
-                    'rounded-3xl border px-4 py-4 text-left transition',
-                    selectedVariantId === variant.id
-                      ? 'border-amber-300/28 bg-amber-400/10 shadow-[0_14px_32px_rgba(245,158,11,0.08)]'
-                      : 'border-white/10 bg-slate-900/65 hover:border-white/18 hover:bg-white/7',
-                  ].join(' ')}
-                  data-testid={`view-variant-${variant.id}`}
-                >
-                  <div className="text-sm font-semibold text-white">{variant.name}</div>
-                  <div className="mt-1 text-xs uppercase tracking-[0.24em] text-slate-500">{variant.strapline}</div>
-                  <p className="mt-3 text-sm leading-6 text-slate-300">{variant.description}</p>
-                </button>
-              ))}
+            <div className="text-[11px] uppercase tracking-[0.26em] text-slate-400">View behavior</div>
+            <div className="mt-3 text-lg font-semibold text-white">Orbit rings</div>
+            <p className="mt-3 text-sm leading-6 text-slate-300">
+              Each dependency depth stays on its own ring, which makes fan-out and blast radius easier to read without swapping to a second layout.
+            </p>
+            <div className="mt-4 rounded-[22px] border border-white/10 bg-slate-900/65 p-4 text-sm leading-6 text-slate-300">
+              Wider ring spacing and smaller node cards reduce overlap when the tenant graph grows denser.
             </div>
           </div>
         </div>
@@ -661,24 +535,24 @@ export function GraphView({ graph, selectedTenant }: Props) {
         <div className="relative min-h-155 overflow-hidden rounded-[34px] border border-white/10 bg-[linear-gradient(180deg,rgba(15,23,42,0.96),rgba(2,6,23,0.98))] shadow-[0_28px_80px_rgba(2,6,23,0.42)]">
           <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top_left,rgba(34,211,238,0.1),transparent_24%),radial-gradient(circle_at_bottom_right,rgba(251,113,133,0.12),transparent_28%)]" />
 
-          {liveUnavailable && (
+          {!hasLiveTopology && (
             <div className="absolute left-5 right-5 top-5 z-20 rounded-3xl border border-amber-300/25 bg-amber-400/10 px-4 py-3 text-sm text-amber-100">
-              No live topology has been loaded yet. Seed a deterministic scene from the event tools or stay on demo mode while you compare layouts.
+              No live topology has been loaded yet. Send or seed events from the event tools, then refresh the tenant graph to populate this orbit.
             </div>
           )}
 
           <div className="absolute inset-0 z-10 h-full w-full" data-testid="graph-canvas">
             <ReactFlow
-              key={`${sourceMode}-${selectedScenario.id}-${selectedVariantId}-${activeGraph.modelId}-${activeGraph.edges.length}`}
+              key={`${selectedTenant ?? 'live'}-${graph.modelId}-${graph.edges.length}`}
               nodes={flow.nodes}
               edges={flow.edges}
               nodeTypes={nodeTypes}
               fitView
-              fitViewOptions={{ padding: 0.2 }}
+              fitViewOptions={{ padding: 0.26 }}
               nodesDraggable={false}
               nodesConnectable={false}
               elementsSelectable
-              minZoom={0.28}
+              minZoom={0.2}
               defaultEdgeOptions={{ zIndex: 0 }}
               proOptions={{ hideAttribution: true }}
               colorMode="dark"
@@ -686,16 +560,16 @@ export function GraphView({ graph, selectedTenant }: Props) {
             >
               <Panel position="top-left">
                 <div className="rounded-2xl border border-white/10 bg-slate-950/84 px-4 py-3 shadow-[0_16px_40px_rgba(2,6,23,0.35)] backdrop-blur">
-                  <div className="text-[11px] uppercase tracking-[0.26em] text-slate-500">Current lens</div>
-                  <div className="mt-2 text-sm font-semibold text-white">{activeVariant.name}</div>
+                  <div className="text-[11px] uppercase tracking-[0.26em] text-slate-500">Current view</div>
+                  <div className="mt-2 text-sm font-semibold text-white">Orbit rings</div>
                   <p className="mt-1 max-w-xs text-xs leading-5 text-slate-300">{flow.summary}</p>
                 </div>
               </Panel>
 
               <Panel position="bottom-left">
                 <div className="rounded-2xl border border-white/10 bg-slate-950/82 px-4 py-3 text-xs text-slate-300 backdrop-blur">
-                  <div className="font-semibold text-white">{activeVariant.rhythm}</div>
-                  <div className="mt-1">{selectedScenario.focus}</div>
+                  <div className="font-semibold text-white">{sourceLabel}</div>
+                  <div className="mt-1">Depth stays on dedicated rings to keep hot spots visible.</div>
                 </div>
               </Panel>
 
@@ -722,14 +596,14 @@ export function GraphView({ graph, selectedTenant }: Props) {
 
         <aside className="flex flex-col gap-4" data-testid="comparison-sidebar">
           <section className="rounded-[28px] border border-white/10 bg-slate-950/72 p-5 shadow-[0_18px_56px_rgba(2,6,23,0.28)] backdrop-blur-xl">
-            <div className="text-[11px] uppercase tracking-[0.26em] text-slate-400">Comparison note</div>
-            <h3 className="mt-2 text-xl font-semibold text-white">{activeVariant.name}</h3>
-            <p className="mt-3 text-sm leading-6 text-slate-300">{activeVariant.description}</p>
-            <p className="mt-3 text-xs uppercase tracking-[0.24em] text-slate-500">Switch variants to compare the same topology through different layout lenses.</p>
+            <div className="text-[11px] uppercase tracking-[0.26em] text-slate-400">Orbit note</div>
+            <h3 className="mt-2 text-xl font-semibold text-white">Single live layout</h3>
+            <p className="mt-3 text-sm leading-6 text-slate-300">{flow.summary}</p>
+            <p className="mt-3 text-xs uppercase tracking-[0.24em] text-slate-500">This panel is focused on the active tenant graph only.</p>
             <div className="mt-4 rounded-[22px] border border-white/10 bg-white/4 p-4 text-sm leading-6 text-slate-300">
-              {usingLiveGraph
-                ? `This is the live graph for ${selectedTenant ?? 'the selected tenant'}. Switch variants to see the same live topology reorganized without changing the underlying data.`
-                : selectedScenario.focus}
+              {hasLiveTopology
+                ? `This is the live graph for ${selectedTenant ?? 'the selected tenant'}. Wider orbit spacing keeps dense downstream branches readable without switching away from the main view.`
+                : 'Once the selected tenant has events, the orbit will pin the busiest dependency near focus and spread the rest across depth rings.'}
             </div>
           </section>
 

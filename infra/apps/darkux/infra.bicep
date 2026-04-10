@@ -14,9 +14,6 @@ param location string
 @description('Cosmos DB account name (must exist).')
 param cosmosAccountName string
 
-@description('Cosmos DB autoscale max throughput (RU/s).')
-param cosmosAutoscaleMaxThroughput int
-
 @description('Application Insights resource ID (for RBAC).')
 param appInsightsId string
 
@@ -43,11 +40,6 @@ resource database 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2025-04-15
   properties: {
     resource: {
       id: 'darkuxchallenge'
-    }
-    options: {
-      autoscaleSettings: {
-        maxThroughput: cosmosAutoscaleMaxThroughput
-      }
     }
   }
 }

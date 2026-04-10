@@ -23,12 +23,12 @@ async function waitForTenant(page: Parameters<Parameters<typeof test.describe>[1
 }
 
 test.describe('GraphOrleons SPA', () => {
-  test('page loads with studio controls and informative panels', async ({ page }) => {
+  test('page loads with the live orbit view and informative panels', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('h1')).toContainText('GraphOrleons topology explorer');
     await expect(page.getByTestId('topology-studio')).toBeVisible();
-    await expect(page.getByTestId('source-mode-demo')).toBeVisible();
-    await expect(page.getByTestId('view-variant-atlas')).toBeVisible();
+    await expect(page.getByTestId('topology-studio')).toHaveAttribute('data-view-variant', 'orbit');
+    await expect(page.getByTestId('comparison-sidebar')).toContainText('Single live layout');
     await expect(page.getByTestId('selected-node-panel')).toContainText('Selected node');
   });
 
@@ -60,7 +60,7 @@ test.describe('GraphOrleons SPA', () => {
     await expect(page.locator(`text=web-svc`)).toBeVisible();
   });
 
-  test('visual variants can be compared after seeding a deterministic scenario', async ({ page }) => {
+  test('live orbit renders seeded topology and captures a screenshot', async ({ page }) => {
     const tenant = `compare-${Date.now()}`;
     await page.goto('/');
 
@@ -72,7 +72,6 @@ test.describe('GraphOrleons SPA', () => {
     await expect(page.getByTestId('event-status')).toContainText('Seeded Checkout Flow', { timeout: 15000 });
     await waitForTenant(page, tenant);
 
-    await page.getByTestId('source-mode-live').click();
     await page.getByTestId('tenant-selector').selectOption(tenant);
     await page.getByTestId('refresh-live').click();
     await expect(page.getByTestId('selected-node-panel')).toContainText('impact', { timeout: 15000 });
@@ -80,30 +79,12 @@ test.describe('GraphOrleons SPA', () => {
     const graphCanvas = page.getByTestId('graph-canvas');
     await expect(graphCanvas).toBeVisible();
 
-    const getCheckoutBox = async () => {
-      const box = await page.locator('[data-node-label="checkout-api"]').first().boundingBox();
-      expect(box).not.toBeNull();
-      return box!;
-    };
-
-    await page.getByTestId('view-variant-atlas').click();
-    await page.waitForTimeout(1200);
-    const atlasBox = await getCheckoutBox();
-    await graphCanvas.screenshot({ path: test.info().outputPath('atlas-live.png') });
-
-    await page.getByTestId('view-variant-lanes').click();
-    await page.waitForTimeout(1200);
-    const lanesBox = await getCheckoutBox();
-    await graphCanvas.screenshot({ path: test.info().outputPath('lanes-live.png') });
-
-    await page.getByTestId('view-variant-orbit').click();
-    await page.waitForTimeout(1200);
-    const orbitBox = await getCheckoutBox();
+    const orbitBox = await page.locator('[data-node-label="checkout-api"]').first().boundingBox();
+    expect(orbitBox).not.toBeNull();
+    expect(orbitBox!.width).toBeLessThan(230);
     await graphCanvas.screenshot({ path: test.info().outputPath('orbit-live.png') });
 
-    expect(Math.abs(atlasBox.y - lanesBox.y)).toBeGreaterThan(20);
-    expect(Math.abs(atlasBox.x - orbitBox.x) + Math.abs(atlasBox.y - orbitBox.y)).toBeGreaterThan(30);
-    await expect(page.getByTestId('comparison-sidebar')).toContainText('Switch variants');
+    await expect(page.getByTestId('comparison-sidebar')).toContainText('Wider orbit spacing');
   });
 
   test('component details show payload on click', async ({ page }) => {
@@ -121,20 +102,5 @@ test.describe('GraphOrleons SPA', () => {
 
     await expect(page.locator('text=Total events')).toBeVisible();
     await expect(page.locator('text=History (1)')).toBeVisible();
-  });
-
-  test('demo scenarios switch cleanly and produce screenshots', async ({ page }) => {
-    await page.goto('/');
-
-    await page.getByTestId('source-mode-demo').click();
-    await page.getByTestId('scenario-incident').click();
-    await page.getByTestId('view-variant-orbit').click();
-    await expect(page.getByTestId('group-summary-panel')).toContainText('Experience');
-    await page.getByTestId('graph-canvas').screenshot({ path: test.info().outputPath('incident-orbit-demo.png') });
-
-    await page.getByTestId('scenario-release').click();
-    await page.getByTestId('view-variant-lanes').click();
-    await expect(page.getByTestId('selected-node-panel')).toContainText('depth');
-    await page.getByTestId('graph-canvas').screenshot({ path: test.info().outputPath('release-lanes-demo.png') });
   });
 });
