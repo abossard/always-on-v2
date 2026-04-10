@@ -1,26 +1,45 @@
 namespace GraphOrleons.Api;
 
-public sealed class TenantGrain : Grain, ITenantGrain
+public sealed class TenantGrain(IGraphStore store, ILogger<TenantGrain> logger) : Grain, ITenantGrain
 {
     readonly HashSet<string> _components = [];
     readonly List<string> _modelIds = [];
     string? _activeModelId;
+    string? _etag;
 
-    public Task RegisterComponent(string componentName)
+    public override async Task OnActivateAsync(CancellationToken ct)
+    {
+        var tenantId = this.GetPrimaryKeyString();
+        var (doc, etag) = await store.LoadTenantIndexAsync(tenantId);
+        if (doc is not null)
+        {
+            foreach (var c in doc.Components) _components.Add(c);
+            _modelIds.AddRange(doc.ModelIds);
+            _activeModelId = doc.ActiveModelId;
+            _etag = etag;
+        }
+    }
+
+    public async Task RegisterComponent(string componentName)
     {
         _components.Add(componentName);
-        return Task.CompletedTask;
+        await SaveAsync();
     }
 
     public async Task ReceiveRelationship(string componentName, string componentPath, string payloadJson)
     {
-        _components.Add(componentName);
+        var added = _components.Add(componentName);
 
+        var modelChanged = false;
         if (_activeModelId is null)
         {
             _activeModelId = "default";
             _modelIds.Add(_activeModelId);
+            modelChanged = true;
         }
+
+        if (added || modelChanged)
+            await SaveAsync();
 
         var modelGrain = GrainFactory.GetGrain<IModelGrain>(
             $"{this.GetPrimaryKeyString()}:{_activeModelId}");
@@ -37,11 +56,24 @@ public sealed class TenantGrain : Grain, ITenantGrain
     public Task<string[]> GetComponentNames() =>
         Task.FromResult(_components.Order().ToArray());
 
-    public Task SetActiveModel(string modelId)
+    public async Task SetActiveModel(string modelId)
     {
         if (!_modelIds.Contains(modelId))
             _modelIds.Add(modelId);
         _activeModelId = modelId;
-        return Task.CompletedTask;
+        await SaveAsync();
+    }
+
+    private async Task SaveAsync()
+    {
+        var tenantId = this.GetPrimaryKeyString();
+        var doc = new TenantIndexDocument
+        {
+            Components = _components.Order().ToList(),
+            ModelIds = _modelIds.ToList(),
+            ActiveModelId = _activeModelId
+        };
+        _etag = await store.SaveTenantIndexAsync(tenantId, doc, _etag);
+        await store.RegisterTenantAsync(tenantId);
     }
 }

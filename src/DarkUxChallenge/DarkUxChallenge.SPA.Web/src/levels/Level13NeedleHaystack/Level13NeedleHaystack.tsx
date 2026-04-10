@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api, type NeedleHaystackChallenge, type NeedleHaystackResult } from '../../api/client';
+import { seasonWithHomoglyphs, watermarkText } from '../../components/antibot/Homoglyphs';
 
 function shuffleClauses<T>(clauses: T[]) {
   return [...clauses].sort(() => Math.random() - 0.5);
@@ -99,6 +100,7 @@ export function Level13NeedleHaystack() {
 
       <div
         data-testid="level13-challenge"
+        data-copy-trap="true"
         data-challenge-id={challenge.challengeId}
         data-correct-clause-id={challenge.automationHint}
         style={{ background: '#17172b', border: '2px solid #e94560', borderRadius: '18px', padding: '1.5rem' }}
@@ -129,8 +131,8 @@ export function Level13NeedleHaystack() {
                   transform: isCorrect ? 'scale(0.98)' : 'scale(1)',
                 }}
               >
-                <div style={{ fontWeight: 'bold', marginBottom: '0.35rem', color: isCorrect ? '#94a3b8' : '#fff' }}>{clause.title}</div>
-                <div style={{ color: isCorrect ? '#64748b' : '#b8b8c7', lineHeight: 1.55, fontSize: '0.95rem' }}>{clause.body}</div>
+                <div style={{ fontWeight: 'bold', marginBottom: '0.35rem', color: isCorrect ? '#94a3b8' : '#fff' }}>{seasonWithHomoglyphs(clause.title, 0.2)}</div>
+                <div style={{ color: isCorrect ? '#64748b' : '#b8b8c7', lineHeight: 1.55, fontSize: '0.95rem' }}>{watermarkText(seasonWithHomoglyphs(clause.body, 0.15), userId)}</div>
               </button>
             );
           })}

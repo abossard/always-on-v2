@@ -1,24 +1,15 @@
-using System.Collections.Concurrent;
 using System.Text.Json;
 
 namespace GraphOrleons.Api;
 
 public static class EventEndpoints
 {
-    static readonly ConcurrentDictionary<string, byte> KnownTenants = new();
-
     public static WebApplication MapEventEndpoints(this WebApplication app)
     {
-        app.MapGet("/", () => Results.Content("""
-            <!DOCTYPE html>
-            <html><head><title>GraphOrleons</title></head>
-            <body>
-              <h1>GraphOrleons — Graph Health Event Engine</h1>
-              <p>API docs: <a href="/scalar/v1">/scalar/v1</a></p>
-            </body></html>
-            """, "text/html"));
+        app.MapGet("/", () => Results.Redirect("/scalar/v1"))
+            .ExcludeFromDescription();
         // {tenant: "asd", component: "pod7", payload: { ... }}
-        app.MapPost("/api/events", async (HttpRequest request, IGrainFactory grains) =>
+        app.MapPost(Routes.Events, async (HttpRequest request, IGrainFactory grains) =>
         {
             if (request.ContentLength > 65_536)
                 return Results.BadRequest(new { error = "Request body exceeds 64KB limit." });
@@ -42,8 +33,6 @@ public static class EventEndpoints
             if (evt.Payload.ValueKind == JsonValueKind.Undefined)
                 return Results.BadRequest(new { error = "Payload must be valid JSON." });
 
-            KnownTenants.TryAdd(evt.Tenant, 0);
-
             var componentName = evt.Component;
             string? fullPath = null;
             if (evt.Component.Contains('/'))
@@ -58,17 +47,20 @@ public static class EventEndpoints
             return Results.Accepted();
         });
 
-        app.MapGet("/api/tenants", () =>
-            Results.Ok(KnownTenants.Keys.Order().ToArray()));
+        app.MapGet(Routes.Tenants, async (IGraphStore store) =>
+        {
+            var tenants = await store.GetRegisteredTenantIdsAsync();
+            return Results.Ok(tenants.Order().ToArray());
+        });
 
-        app.MapGet("/api/tenants/{tenantId}/components", async (string tenantId, IGrainFactory grains) =>
+        app.MapGet(Routes.TenantComponentsTemplate, async (string tenantId, IGrainFactory grains) =>
         {
             var tenant = grains.GetGrain<ITenantGrain>(tenantId);
             var names = await tenant.GetComponentNames();
             return Results.Ok(names);
         });
 
-        app.MapGet("/api/tenants/{tenantId}/components/{componentName}",
+        app.MapGet(Routes.ComponentDetailTemplate,
             async (string tenantId, string componentName, IGrainFactory grains) =>
         {
             var grain = grains.GetGrain<IComponentGrain>($"{tenantId}:{componentName}");
@@ -76,14 +68,14 @@ public static class EventEndpoints
             return Results.Ok(snapshot);
         });
 
-        app.MapGet("/api/tenants/{tenantId}/models", async (string tenantId, IGrainFactory grains) =>
+        app.MapGet(Routes.TenantModelsTemplate, async (string tenantId, IGrainFactory grains) =>
         {
             var tenant = grains.GetGrain<ITenantGrain>(tenantId);
             var overview = await tenant.GetOverview();
             return Results.Ok(new { overview.ModelIds, overview.ActiveModelId });
         });
 
-        app.MapGet("/api/tenants/{tenantId}/models/active/graph",
+        app.MapGet(Routes.TenantGraphTemplate,
             async (string tenantId, IGrainFactory grains) =>
         {
             var tenant = grains.GetGrain<ITenantGrain>(tenantId);

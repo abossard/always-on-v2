@@ -8,30 +8,8 @@ public static class Endpoints
 {
     public static WebApplication MapAllEndpoints(this WebApplication app)
     {
-        app.MapGet("/", () => Results.Content("""
-            <!DOCTYPE html>
-            <html><head><title>HelloAgents</title></head>
-            <body>
-              <h1>HelloAgents — Multi-Agent Chat Groups</h1>
-              <p>Create chat groups, add AI agents with distinct personas, and watch them discuss.</p>
-              <h2>API Endpoints</h2>
-              <ul>
-                <li><code>POST /api/groups</code> — Create a chat group</li>
-                <li><code>GET /api/groups</code> — List all groups</li>
-                <li><code>GET /api/groups/{id}</code> — Get group details + messages</li>
-                <li><code>DELETE /api/groups/{id}</code> — Delete a group</li>
-                <li><code>POST /api/agents</code> — Create an AI agent</li>
-                <li><code>GET /api/agents</code> — List all agents</li>
-                <li><code>GET /api/agents/{id}</code> — Get agent details</li>
-                <li><code>POST /api/groups/{id}/agents</code> — Add agent to group</li>
-                <li><code>DELETE /api/groups/{id}/agents/{agentId}</code> — Remove agent</li>
-                <li><code>POST /api/groups/{id}/messages</code> — Send a message</li>
-                <li><code>POST /api/groups/{id}/discuss</code> — Trigger agent discussion</li>
-                <li><code>GET /api/groups/{id}/stream</code> — SSE message stream</li>
-                <li><code>POST /api/orchestrate</code> — Natural language commands</li>
-              </ul>
-            </body></html>
-            """, "text/html"));
+        app.MapGet(Routes.Root, () => Results.Redirect("/scalar/v1"))
+            .ExcludeFromDescription();
 
         app.MapGroupEndpoints();
         app.MapAgentEndpoints();
@@ -45,7 +23,7 @@ public static class Endpoints
 
     private static void MapGroupEndpoints(this WebApplication app)
     {
-        app.MapPost("/api/groups", async (CreateGroupRequest request, IGrainFactory grains) =>
+        app.MapPost(Routes.Groups, async (CreateGroupRequest request, IGrainFactory grains) =>
         {
             if (string.IsNullOrWhiteSpace(request.Name))
                 return Results.BadRequest("Name is required.");
@@ -58,16 +36,16 @@ public static class Endpoints
             await registry.RegisterAsync(id, request.Name);
 
             var state = await grain.GetStateAsync();
-            return Results.Created($"/api/groups/{id}", state);
+            return Results.Created(Routes.GroupDetail(id), state);
         });
 
-        app.MapGet("/api/groups", async (GroupLifecycleService groupLifecycle) =>
+        app.MapGet(Routes.Groups, async (GroupLifecycleService groupLifecycle) =>
         {
             var summaries = await groupLifecycle.ListGroupSummariesAsync();
             return Results.Ok(summaries);
         });
 
-        app.MapGet("/api/groups/{id}", async (string id, IGrainFactory grains) =>
+        app.MapGet(Routes.GroupDetailTemplate, async (string id, IGrainFactory grains) =>
         {
             try
             {
@@ -80,7 +58,7 @@ public static class Endpoints
             }
         });
 
-        app.MapDelete("/api/groups/{id}", async (string id, GroupLifecycleService groupLifecycle) =>
+        app.MapDelete(Routes.GroupDetailTemplate, async (string id, GroupLifecycleService groupLifecycle) =>
         {
             await groupLifecycle.DeleteGroupAsync(id);
             return Results.NoContent();
@@ -91,7 +69,7 @@ public static class Endpoints
 
     private static void MapAgentEndpoints(this WebApplication app)
     {
-        app.MapPost("/api/agents", async (CreateAgentRequest request, IGrainFactory grains) =>
+        app.MapPost(Routes.Agents, async (CreateAgentRequest request, IGrainFactory grains) =>
         {
             if (string.IsNullOrWhiteSpace(request.Name))
                 return Results.BadRequest("Name is required.");
@@ -109,10 +87,10 @@ public static class Endpoints
             await registry.RegisterAsync(id, request.Name);
 
             var info = await grain.GetInfoAsync();
-            return Results.Created($"/api/agents/{id}", info);
+            return Results.Created(Routes.AgentDetail(id), info);
         });
 
-        app.MapGet("/api/agents", async (IGrainFactory grains, ILogger<Program> logger) =>
+        app.MapGet(Routes.Agents, async (IGrainFactory grains, ILogger<Program> logger) =>
         {
             var registry = grains.GetGrain<IAgentRegistryGrain>("default");
             var entries = await registry.ListAsync();
@@ -135,7 +113,7 @@ public static class Endpoints
             return Results.Ok(agents);
         });
 
-        app.MapGet("/api/agents/{id}", async (string id, IGrainFactory grains) =>
+        app.MapGet(Routes.AgentDetailTemplate, async (string id, IGrainFactory grains) =>
         {
             try
             {
@@ -148,7 +126,7 @@ public static class Endpoints
             }
         });
 
-        app.MapDelete("/api/agents/{id}", async (string id, IGrainFactory grains) =>
+        app.MapDelete(Routes.AgentDetailTemplate, async (string id, IGrainFactory grains) =>
         {
             var grain = grains.GetGrain<IAgentGrain>(id);
             await grain.DeleteAsync();
@@ -161,7 +139,7 @@ public static class Endpoints
 
         // ─── Membership (stream-driven) ───────────────────
 
-        app.MapPost("/api/groups/{groupId}/agents", async (string groupId, AddAgentToGroupRequest request, IGrainFactory grains) =>
+        app.MapPost(Routes.GroupAgentsTemplate, async (string groupId, AddAgentToGroupRequest request, IGrainFactory grains) =>
         {
             if (string.IsNullOrWhiteSpace(request.AgentId))
                 return Results.BadRequest("AgentId is required.");
@@ -174,7 +152,7 @@ public static class Endpoints
             return Results.Ok();
         });
 
-        app.MapDelete("/api/groups/{groupId}/agents/{agentId}", async (string groupId, string agentId, IGrainFactory grains) =>
+        app.MapDelete(Routes.GroupAgentDetailTemplate, async (string groupId, string agentId, IGrainFactory grains) =>
         {
             var agentGrain = grains.GetGrain<IAgentGrain>(agentId);
             await agentGrain.LeaveGroupAsync(groupId);
@@ -188,7 +166,7 @@ public static class Endpoints
     private static void MapChatEndpoints(this WebApplication app)
     {
         // Publish user message directly to the group stream
-        app.MapPost("/api/groups/{id}/messages", async (string id, SendMessageRequest request, IClusterClient clusterClient) =>
+        app.MapPost(Routes.GroupMessagesTemplate, async (string id, SendMessageRequest request, IClusterClient clusterClient) =>
         {
             if (string.IsNullOrWhiteSpace(request.Content))
                 return Results.BadRequest("Content is required.");
@@ -211,7 +189,7 @@ public static class Endpoints
         });
 
         // Publish a system message that triggers autonomous agent discussion
-        app.MapPost("/api/groups/{id}/discuss", async (string id, DiscussRequest? request, IClusterClient clusterClient) =>
+        app.MapPost(Routes.GroupDiscussTemplate, async (string id, DiscussRequest? request, IClusterClient clusterClient) =>
         {
             var streamProvider = clusterClient.GetStreamProvider("ChatMessages");
             var stream = streamProvider.GetStream<ChatMessage>(
@@ -232,7 +210,7 @@ public static class Endpoints
         });
 
         // SSE endpoint — subscribes to the group stream
-        app.MapGet("/api/groups/{id}/stream", async (string id, HttpContext context, IClusterClient clusterClient) =>
+        app.MapGet(Routes.GroupStreamTemplate, async (string id, HttpContext context, IClusterClient clusterClient) =>
         {
             context.Response.ContentType = "text/event-stream";
             context.Response.Headers.CacheControl = "no-cache";
@@ -278,7 +256,7 @@ public static class Endpoints
 
     private static void MapOrchestratorEndpoints(this WebApplication app)
     {
-        app.MapPost("/api/orchestrate", async (OrchestrateRequest request, HttpContext context) =>
+        app.MapPost(Routes.Orchestrate, async (OrchestrateRequest request, HttpContext context) =>
         {
             if (string.IsNullOrWhiteSpace(request.Message))
                 return Results.BadRequest("Message is required.");

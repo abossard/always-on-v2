@@ -1,23 +1,16 @@
 // Level5PreselectionTests.cs — Preselection dark pattern tests.
 
-using System.Net;
-using System.Net.Http.Json;
-using System.Text.Json;
 using DarkUxChallenge.Api;
 
 namespace DarkUxChallenge.Tests;
 
-public abstract class Level5PreselectionTests(HttpClient client)
+public abstract class Level5PreselectionTests(DarkUxApi api)
 {
-    static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
-
     [Test]
     public async Task GetSettings_ReturnsAllDefaultsOn()
     {
-        var user = await Api.CreateUser(client);
-        var r = await client.GetAsync($"/api/levels/5/settings/{user.UserId}");
-        r.EnsureSuccessStatusCode();
-        var settings = await r.Content.ReadFromJsonAsync<SettingsResponse>(Json);
+        var user = await api.CreateUser();
+        var settings = await api.GetSettings(user.UserId);
 
         await Assert.That(settings).IsNotNull();
         await Assert.That(settings!.NewsletterOptIn).IsTrue();
@@ -29,17 +22,10 @@ public abstract class Level5PreselectionTests(HttpClient client)
     [Test]
     public async Task UpdateSettings_TurnAllOff_RecordsCompletion()
     {
-        var user = await Api.CreateUser(client);
-        var body = new
-        {
-            newsletterOptIn = false,
-            shareDataWithPartners = false,
-            locationTracking = false,
-            pushNotifications = false
-        };
-        var r = await client.PostAsJsonAsync($"/api/levels/5/settings/{user.UserId}", body);
-        r.EnsureSuccessStatusCode();
-        var settings = await r.Content.ReadFromJsonAsync<SettingsResponse>(Json);
+        var user = await api.CreateUser();
+        var settings = await api.UpdateSettings(user.UserId,
+            newsletterOptIn: false, shareDataWithPartners: false,
+            locationTracking: false, pushNotifications: false);
 
         await Assert.That(settings).IsNotNull();
         await Assert.That(settings!.NewsletterOptIn).IsFalse();
@@ -52,19 +38,12 @@ public abstract class Level5PreselectionTests(HttpClient client)
     [Test]
     public async Task GetSettings_AfterUpdate_ReflectsChanges()
     {
-        var user = await Api.CreateUser(client);
-        var body = new
-        {
-            newsletterOptIn = false,
-            shareDataWithPartners = false,
-            locationTracking = false,
-            pushNotifications = false
-        };
-        await client.PostAsJsonAsync($"/api/levels/5/settings/{user.UserId}", body);
+        var user = await api.CreateUser();
+        await api.UpdateSettings(user.UserId,
+            newsletterOptIn: false, shareDataWithPartners: false,
+            locationTracking: false, pushNotifications: false);
 
-        var r = await client.GetAsync($"/api/levels/5/settings/{user.UserId}");
-        r.EnsureSuccessStatusCode();
-        var settings = await r.Content.ReadFromJsonAsync<SettingsResponse>(Json);
+        var settings = await api.GetSettings(user.UserId);
 
         await Assert.That(settings).IsNotNull();
         await Assert.That(settings!.NewsletterOptIn).IsFalse();

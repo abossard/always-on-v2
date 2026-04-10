@@ -18,7 +18,7 @@ param domainName string
 @description('App name (used for Azure resource naming: origin group, route).')
 param appName string
 
-@description('Subdomain for this app (e.g. level0 → level0.alwayson.actor).')
+@description('Subdomain for this app (e.g. darkux → darkux.alwayson.actor).')
 param subdomain string
 
 @description('All stamps: array of { regionKey, stampKey, location }.')

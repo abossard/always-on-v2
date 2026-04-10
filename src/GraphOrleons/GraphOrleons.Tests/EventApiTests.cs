@@ -1,12 +1,14 @@
 using System.Net;
-using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using GraphOrleons.Api;
 
 namespace GraphOrleons.Tests;
 
 public abstract class EventApiTests(HttpClient client)
 {
+    private readonly GraphOrleonsApi api = new(client);
+
     [Test]
     public async Task Health_ReturnsOk()
     {
@@ -17,12 +19,7 @@ public abstract class EventApiTests(HttpClient client)
     [Test]
     public async Task PostEvent_ValidPayload_ReturnsAccepted()
     {
-        var response = await client.PostAsJsonAsync("/api/events", new
-        {
-            tenant = "test-tenant",
-            component = "test-comp",
-            payload = new { status = "ok" }
-        });
+        var response = await api.PostEventRaw("test-tenant", "test-comp", new { status = "ok" });
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.Accepted);
     }
 
@@ -32,12 +29,7 @@ public abstract class EventApiTests(HttpClient client)
     public async Task PostEvent_MissingRequiredFields_ReturnsBadRequest(
         string tenant, string component, string reason)
     {
-        var response = await client.PostAsJsonAsync("/api/events", new
-        {
-            tenant,
-            component,
-            payload = new { x = 1 }
-        });
+        var response = await api.PostEventRaw(tenant, component, new { x = 1 });
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
     }
 
@@ -45,18 +37,18 @@ public abstract class EventApiTests(HttpClient client)
     public async Task PostEvent_InvalidJson_ReturnsBadRequest()
     {
         var content = new StringContent("not json", Encoding.UTF8, "application/json");
-        var response = await client.PostAsync("/api/events", content);
+        var response = await client.PostAsync(Routes.Events, content);
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
     }
 
     [Test]
     public async Task PostEvent_TooLarge_ReturnsBadRequest()
     {
-        var largePayload = new string('x', 70_000); // > 64KB
+        var largePayload = new string('x', 70_000);
         var content = new StringContent(
             JsonSerializer.Serialize(new { tenant = "t", component = "c", payload = new { data = largePayload } }),
             Encoding.UTF8, "application/json");
-        var response = await client.PostAsync("/api/events", content);
+        var response = await client.PostAsync(Routes.Events, content);
         await Assert.That((int)response.StatusCode).IsGreaterThanOrEqualTo(400);
     }
 
@@ -64,31 +56,22 @@ public abstract class EventApiTests(HttpClient client)
     public async Task GetTenants_AfterEvents_ReturnsTenantList()
     {
         var tenant = $"tenant-{Guid.NewGuid():N}";
-        await client.PostAsJsonAsync("/api/events", new
-        {
-            tenant,
-            component = "comp1",
-            payload = new { v = 1 }
-        });
-        await Task.Delay(500);
-
-        var tenants = await client.GetFromJsonAsync<string[]>("/api/tenants");
-        await Assert.That(tenants).IsNotNull();
-        await Assert.That(tenants!).Contains(tenant);
+        await api.PostEvent(tenant, "comp1", new { v = 1 });
+        await Assert.That(() => api.GetTenants())
+            .Eventually(assert => assert.Contains(tenant), timeout: TimeSpan.FromSeconds(10));
     }
 
     [Test]
     public async Task GetComponents_AfterEvents_ReturnsComponentList()
     {
         var tenant = $"tenant-{Guid.NewGuid():N}";
-        await client.PostAsJsonAsync("/api/events", new { tenant, component = "svc-a", payload = new { v = 1 } });
-        await client.PostAsJsonAsync("/api/events", new { tenant, component = "svc-b", payload = new { v = 2 } });
-        await Task.Delay(1000);
-
-        var components = await client.GetFromJsonAsync<string[]>(
-            $"/api/tenants/{tenant}/components");
-        await Assert.That(components).IsNotNull();
-        await Assert.That(components!.Length).IsGreaterThanOrEqualTo(2);
+        await api.PostEvent(tenant, "svc-a", new { v = 1 });
+        await api.PostEvent(tenant, "svc-b", new { v = 2 });
+        await Assert.That(async () =>
+        {
+            var components = await api.GetComponents(tenant);
+            return components?.Length ?? 0;
+        }).Eventually(assert => assert.IsGreaterThanOrEqualTo(2), timeout: TimeSpan.FromSeconds(10));
     }
 
     [Test]
@@ -100,17 +83,9 @@ public abstract class EventApiTests(HttpClient client)
         var tenant = $"tenant-{Guid.NewGuid():N}";
         var comp = $"comp-{Guid.NewGuid():N}";
         for (int i = 0; i < eventCount; i++)
-        {
-            await client.PostAsJsonAsync("/api/events", new
-            {
-                tenant,
-                component = comp,
-                payload = new { seq = i }
-            });
-        }
+            await api.PostEvent(tenant, comp, new { seq = i });
 
-        var details = await client.GetFromJsonAsync<JsonElement>(
-            $"/api/tenants/{tenant}/components/{comp}");
+        var details = await api.GetComponentDetail(tenant, comp);
         var count = details.GetProperty("totalCount").GetInt32();
         var historyLen = details.GetProperty("history").GetArrayLength();
 
@@ -127,21 +102,18 @@ public abstract class EventApiTests(HttpClient client)
         string componentPath, int expectedNodes, int expectedEdges)
     {
         var tenant = $"tenant-{Guid.NewGuid():N}";
-        await client.PostAsJsonAsync("/api/events", new
+        await api.PostEvent(tenant, componentPath, new { impact = "Partial" });
+        await Assert.That(async () =>
         {
-            tenant,
-            component = componentPath,
-            payload = new { impact = "Partial" }
-        });
-        await Task.Delay(1500);
+            var graph = await api.GetGraph(tenant);
+            return graph.GetProperty("nodes").GetArrayLength();
+        }).Eventually(assert => assert.IsEqualTo(expectedNodes), timeout: TimeSpan.FromSeconds(10));
 
-        var graph = await client.GetFromJsonAsync<JsonElement>(
-            $"/api/tenants/{tenant}/models/active/graph");
-        var nodes = graph.GetProperty("nodes").GetArrayLength();
-        var edges = graph.GetProperty("edges").GetArrayLength();
-
-        await Assert.That(nodes).IsEqualTo(expectedNodes);
-        await Assert.That(edges).IsEqualTo(expectedEdges);
+        await Assert.That(async () =>
+        {
+            var graph = await api.GetGraph(tenant);
+            return graph.GetProperty("edges").GetArrayLength();
+        }).Eventually(assert => assert.IsEqualTo(expectedEdges), timeout: TimeSpan.FromSeconds(10));
     }
 
     [Test]
@@ -151,38 +123,33 @@ public abstract class EventApiTests(HttpClient client)
     public async Task ModelGraph_ContainsImpactProperty(string impact)
     {
         var tenant = $"tenant-{Guid.NewGuid():N}";
-        await client.PostAsJsonAsync("/api/events", new
+        await api.PostEvent(tenant, "src/dst", new { impact });
+        await Assert.That(async () =>
         {
-            tenant,
-            component = "src/dst",
-            payload = new { impact }
-        });
-        await Task.Delay(1500);
-
-        var graph = await client.GetFromJsonAsync<JsonElement>(
-            $"/api/tenants/{tenant}/models/active/graph");
-        var edge = graph.GetProperty("edges")[0];
-        var edgeImpact = edge.GetProperty("impact").GetString();
-        await Assert.That(edgeImpact).IsEqualTo(impact);
+            var graph = await api.GetGraph(tenant);
+            var edge = graph.GetProperty("edges")[0];
+            return edge.GetProperty("impact").GetString();
+        }).Eventually(assert => assert.IsEqualTo(impact), timeout: TimeSpan.FromSeconds(10));
     }
 
     [Test]
     public async Task MultiTenant_Isolation()
     {
-        var tenant1 = $"tenant1-{Guid.NewGuid():N}";
-        var tenant2 = $"tenant2-{Guid.NewGuid():N}";
+        var t1 = $"tenant1-{Guid.NewGuid():N}";
+        var t2 = $"tenant2-{Guid.NewGuid():N}";
 
-        await client.PostAsJsonAsync("/api/events", new { tenant = tenant1, component = "only-in-t1", payload = new { v = 1 } });
-        await client.PostAsJsonAsync("/api/events", new { tenant = tenant2, component = "only-in-t2", payload = new { v = 2 } });
-        await Task.Delay(1000);
+        await api.PostEvent(t1, "only-in-t1", new { v = 1 });
+        await api.PostEvent(t2, "only-in-t2", new { v = 2 });
 
-        var t1Components = await client.GetFromJsonAsync<string[]>($"/api/tenants/{tenant1}/components");
-        var t2Components = await client.GetFromJsonAsync<string[]>($"/api/tenants/{tenant2}/components");
+        await Assert.That(() => api.GetComponents(t1))
+            .Eventually(assert => assert.Contains("only-in-t1"), timeout: TimeSpan.FromSeconds(10));
+        var t1Comps = await api.GetComponents(t1);
+        await Assert.That(t1Comps!).DoesNotContain("only-in-t2");
 
-        await Assert.That(t1Components).Contains("only-in-t1");
-        await Assert.That(t1Components!).DoesNotContain("only-in-t2");
-        await Assert.That(t2Components).Contains("only-in-t2");
-        await Assert.That(t2Components!).DoesNotContain("only-in-t1");
+        await Assert.That(() => api.GetComponents(t2))
+            .Eventually(assert => assert.Contains("only-in-t2"), timeout: TimeSpan.FromSeconds(10));
+        var t2Comps = await api.GetComponents(t2);
+        await Assert.That(t2Comps!).DoesNotContain("only-in-t1");
     }
 
     [Test]
@@ -190,25 +157,29 @@ public abstract class EventApiTests(HttpClient client)
     {
         var tenant = $"tenant-{Guid.NewGuid():N}";
 
-        // Send component events
-        await client.PostAsJsonAsync("/api/events", new { tenant, component = "web", payload = new { status = "ok" } });
-        await client.PostAsJsonAsync("/api/events", new { tenant, component = "db", payload = new { status = "ok" } });
+        await api.PostEvent(tenant, "web", new { status = "ok" });
+        await api.PostEvent(tenant, "db", new { status = "ok" });
+        await api.PostEvent(tenant, "web/db", new { impact = "Full" });
 
-        // Send relationship event
-        await client.PostAsJsonAsync("/api/events", new { tenant, component = "web/db", payload = new { impact = "Full" } });
-        await Task.Delay(1500);
+        await Assert.That(() => api.GetTenants())
+            .Eventually(assert => assert.Contains(tenant), timeout: TimeSpan.FromSeconds(10));
 
-        // Verify tenant exists
-        var tenants = await client.GetFromJsonAsync<string[]>("/api/tenants");
-        await Assert.That(tenants!).Contains(tenant);
+        await Assert.That(async () =>
+        {
+            var comps = await api.GetComponents(tenant);
+            return comps?.Length ?? 0;
+        }).Eventually(assert => assert.IsGreaterThanOrEqualTo(2), timeout: TimeSpan.FromSeconds(10));
 
-        // Verify components
-        var components = await client.GetFromJsonAsync<string[]>($"/api/tenants/{tenant}/components");
-        await Assert.That(components!.Length).IsGreaterThanOrEqualTo(2);
+        await Assert.That(async () =>
+        {
+            var graph = await api.GetGraph(tenant);
+            return graph.GetProperty("nodes").GetArrayLength();
+        }).Eventually(assert => assert.IsGreaterThanOrEqualTo(2), timeout: TimeSpan.FromSeconds(10));
 
-        // Verify graph
-        var graph = await client.GetFromJsonAsync<JsonElement>($"/api/tenants/{tenant}/models/active/graph");
-        await Assert.That(graph.GetProperty("nodes").GetArrayLength()).IsGreaterThanOrEqualTo(2);
-        await Assert.That(graph.GetProperty("edges").GetArrayLength()).IsGreaterThanOrEqualTo(1);
+        await Assert.That(async () =>
+        {
+            var graph = await api.GetGraph(tenant);
+            return graph.GetProperty("edges").GetArrayLength();
+        }).Eventually(assert => assert.IsGreaterThanOrEqualTo(1), timeout: TimeSpan.FromSeconds(10));
     }
 }

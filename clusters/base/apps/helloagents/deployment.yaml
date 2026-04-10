@@ -70,6 +70,8 @@ spec:
               value: ${HELLOAGENTS_COSMOS_DATABASE}
             - name: CosmosDb__ContainerName
               value: ${HELLOAGENTS_COSMOS_CONTAINER}
+            - name: CosmosDb__ClusterContainerName
+              value: ${HELLOAGENTS_COSMOS_CLUSTER_CONTAINER}
             - name: ConnectionStrings__cosmos
               value: "AccountEndpoint=${COSMOS_ENDPOINT}"
             - name: ORLEANS_CLUSTERING

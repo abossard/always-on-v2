@@ -4,21 +4,25 @@ var builder = DistributedApplication.CreateBuilder(args);
 
 #pragma warning disable ASPIRECOSMOSDB001
 var cosmos = builder.AddAzureCosmosDB(ResourceNames.CosmosDb)
-    .RunAsPreviewEmulator(emulator =>
-    {
-        emulator.WithLifetime(ContainerLifetime.Persistent);
-        emulator.WithDataVolume();
-    });
+    .RunAsPreviewEmulator();
 #pragma warning restore ASPIRECOSMOSDB001
 
 var db = cosmos.AddCosmosDatabase(ResourceNames.Database);
 db.AddContainer(ResourceNames.ClusterContainer, "/ClusterId");
+// Models container created by CosmosGraphStore.InitializeAsync() with hierarchical PK
+
+// Azure Blob Storage for event archival (Azurite emulator for local dev)
+var storage = builder.AddAzureStorage(ResourceNames.Storage)
+    .RunAsEmulator();
+var blobs = storage.AddBlobs(ResourceNames.Blobs);
 
 // Orleans providers are configured explicitly in the API project.
 // Aspire auto-config via AddOrleans().WithClustering() doesn't work with Orleans 10.0.1.
 var api = builder.AddProject<Projects.GraphOrleons_Api>(ResourceNames.Api)
     .WithReference(cosmos)
     .WaitFor(cosmos)
+    .WithReference(blobs)
+    .WaitFor(storage)
     .WithExternalHttpEndpoints()
     .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development");
 

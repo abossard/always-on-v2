@@ -1,6 +1,6 @@
 # Architecture Decision Records
 
-This directory contains all Architecture Decision Records (ADRs) for the AlwaysOn v2 Player Progression API.
+This directory contains all Architecture Decision Records (ADRs) for the AlwaysOn v2 platform.
 
 ## Category Legend
 
@@ -43,7 +43,7 @@ This directory contains all Architecture Decision Records (ADRs) for the AlwaysO
 | [ADR-0024](0024-data-access-patterns-UI.md) | Data Access Patterns | Proposed | UI |
 | [ADR-0025](0025-deployment-strategy-UNI.md) | Deployment Strategy | Proposed | UNI |
 | [ADR-0026](0026-rate-limiting-UI.md) | Rate Limiting | Proposed | UI |
-| [ADR-0027](0027-playeronlevel0-lightweight-api-DI.md) | PlayersOnLevel0 Lightweight API | Accepted | DI |
+| [ADR-0027](0027-playeronlevel0-lightweight-api-DI.md) | Lightweight API Pattern | Accepted | DI |
 | [ADR-0028](0028-multi-tenancy-DNI.md) | Multi-Tenancy | Proposed | DNI |
 | [ADR-0029](0029-config-management-UI.md) | Config Management | Proposed | UI |
 | [ADR-0030](0030-service-identity-wiring-UI.md) | Service Identity Wiring | Proposed | UI |
@@ -57,19 +57,27 @@ This directory contains all Architecture Decision Records (ADRs) for the AlwaysO
 | [ADR-0038](0038-idempotent-finite-state-machines-DI.md) | Idempotent Finite State Machines | Accepted | DI |
 | [ADR-0039](0039-matrix-testing-DI.md) | Matrix Testing | Accepted | DI |
 | [ADR-0040](0040-orleans-ingress-DI.md) | Orleans Ingress | Accepted | DI |
-| [ADR-0041](0041-global-application-frontdoor-ingress-DI.md) | Global Application — Front Door as Multi-Silo Ingress | Accepted | DI |
-| [ADR-0042](0042-level0-integration-only-testing-DI.md) | Level0 Integration-Only Testing | Accepted | DI |
-| [ADR-0043](0043-accessibility-first-e2e-selectors-DI.md) | Accessibility-First Selectors for E2E Testing | Accepted | DI |
-| [ADR-0044](0044-command-stream-storage-port-UNI.md) | Command Stream Storage Port for Click Processing | Proposed | UNI |
-| [ADR-0045](0045-event-reactors-for-achievements-UNI.md) | Event Reactors for Achievement Evaluation | Proposed | UNI |
-| [ADR-0046](0046-native-aot-for-level0-api-DI.md) | Native AOT for PlayersOnLevel0 API | Accepted | DI |
+| [ADR-0041](0041-global-application-frontdoor-ingress-DI.md) | Global Application — Front Door Ingress | Accepted | DI |
+| [ADR-0042](0042-level0-integration-only-testing-DI.md) | Integration-Only Testing | Accepted | DI |
+| [ADR-0043](0043-accessibility-first-e2e-selectors-DI.md) | Accessibility-First E2E Selectors | Accepted | DI |
+| [ADR-0044](0044-command-stream-storage-port-UNI.md) | Command Stream Storage Port | Proposed | UNI |
+| [ADR-0045](0045-event-reactors-for-achievements-UNI.md) | Event Reactors for Achievements | Proposed | UNI |
+| [ADR-0046](0046-native-aot-for-level0-api-DI.md) | Native AOT for .NET APIs | Accepted | DI |
 | [ADR-0047](0047-flux-variable-substitution-conventions-DI.md) | Flux Variable Substitution Conventions | Accepted | DI |
 | [ADR-0048](0048-ci-driven-image-tag-updates-DI.md) | CI-Driven Image Tag Updates | Accepted | DI |
-| [ADR-0049](0049-playersonorleons-minimal-orleans-alternative-DI.md) | PlayersOnOrleans — Minimal Orleans Alternative | Accepted | DI |
-| [ADR-0050](0050-per-app-istio-gateways-DI.md) | Per-App Istio Gateways for Traffic Isolation | Accepted | DI |
-| [ADR-0051](0051-cicd-infrastructure-deployment-lessons-DarkUX.md) | CI/CD and Infrastructure Deployment Lessons | Accepted | DarkUX |
+| [ADR-0049](0049-playersonorleons-minimal-orleans-alternative-DI.md) | PlayersOnOrleons — Minimal Orleans Alternative | Accepted | DI |
+| [ADR-0050](0050-per-app-istio-gateways-DI.md) | Per-App Istio Gateways | Accepted | DI |
+| [ADR-0051](0051-cicd-infrastructure-deployment-lessons-DarkUX.md) | CI/CD Deployment Lessons | Accepted | DI |
 | [ADR-0052](0052-blue-green-stamp-lifecycle-DI.md) | Blue/Green Stamp Lifecycle | Accepted | DI |
-| [ADR-0053](0053-direct-azure-monitor-otel-exporters-DI.md) | Direct Azure Monitor OTEL Exporters for Trace Telemetry | Accepted | DI |
+| [ADR-0053](0053-direct-azure-monitor-otel-exporters-DI.md) | OpenTelemetry & Azure Monitor Configuration | Accepted | DI |
+| [ADR-0054](0054-cosmos-emulator-https-protocol-aspire-13-2.md) | Cosmos Emulator Dev Cert Trust (Aspire 13.2) | Accepted | DI |
+| [ADR-0055](0055-playersonorleons-shared-backend-abstraction.md) | Shared Backend Abstraction | Proposed | UNI |
+| [ADR-0056](0056-helloorleons-write-behind-high-performance.md) | HelloOrleons Write-Behind Counter | Proposed | UNI |
+| [ADR-0057](0057-node-memory-pressure-karpenter-low-memory-sku.md) | Node Memory Pressure — Karpenter SKU | Open | UI |
+| [ADR-0058](0058-orleans-explicit-provider-config-DI.md) | Orleans Explicit Provider Config | Accepted | DI |
+| [ADR-0059](0059-orleans-cosmos-aspire-known-issues-DI.md) | Orleans/Cosmos/Aspire Known Issues | Accepted | DI |
+| [ADR-0060](0060-console-log-level-warning-only-DI.md) | Console Log Level — Warning Only | Accepted | DI |
+| [ADR-0060](0060-prometheus-scraping-strategy-UI.md) | Prometheus Scraping Strategy | Proposed | UI |
 
 ## Format
 

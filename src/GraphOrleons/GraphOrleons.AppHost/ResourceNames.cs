@@ -8,4 +8,7 @@ public static class ResourceNames
     public const string Database = "graphorleons";
     public const string ClusterContainer = "OrleansCluster";
     public const string Cluster = "cluster";
+    public const string ModelsContainer = "models";
+    public const string Storage = "storage";
+    public const string Blobs = "blobs";
 }

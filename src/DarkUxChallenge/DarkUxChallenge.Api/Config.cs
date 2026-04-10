@@ -26,8 +26,8 @@ public sealed class CosmosOptions
 {
     public const string Section = "CosmosDb";
     public string Endpoint { get; set; } = "";
-    public string DatabaseName { get; set; } = "darkuxchallenge";
-    public string ContainerName { get; set; } = "users";
+    public string DatabaseName { get; set; } = "app-db";
+    public string ContainerName { get; set; } = "darkux-users";
     public string PartitionKeyPath { get; set; } = "/userId";
     public bool InitializeOnStartup { get; set; }
 }

@@ -238,38 +238,5 @@ namespace HelloAgents.Api
         public object? GetService(Type serviceType, object? serviceKey = null) => null;
     }
 
-    /// <summary>Mock streaming chat client for testing. Yields tokens with short delays.</summary>
-    public sealed class MockStreamingChatClient : IChatClient
-    {
-        private static readonly string[] Tokens = ["Hello ", "from ", "the ", "streaming ", "mock ", "client! ", "This ", "is ", "a ", "test."];
 
-        public void Dispose() { }
-
-        public async Task<ChatResponse> GetResponseAsync(
-            IEnumerable<Microsoft.Extensions.AI.ChatMessage> messages, ChatOptions? options = null,
-            CancellationToken cancellationToken = default)
-        {
-            var text = new System.Text.StringBuilder();
-            await foreach (var update in GetStreamingResponseAsync(messages, options, cancellationToken))
-                text.Append(update.Text);
-            return new ChatResponse(new Microsoft.Extensions.AI.ChatMessage(ChatRole.Assistant, text.ToString()));
-        }
-
-        public async IAsyncEnumerable<ChatResponseUpdate> GetStreamingResponseAsync(
-            IEnumerable<Microsoft.Extensions.AI.ChatMessage> messages, ChatOptions? options = null,
-            [System.Runtime.CompilerServices.EnumeratorCancellation] CancellationToken cancellationToken = default)
-        {
-            foreach (var token in Tokens)
-            {
-                await Task.Delay(10, cancellationToken);
-                yield return new ChatResponseUpdate
-                {
-                    Role = ChatRole.Assistant,
-                    Contents = [new TextContent(token)]
-                };
-            }
-        }
-
-        public object? GetService(Type serviceType, object? serviceKey = null) => null;
-    }
 }

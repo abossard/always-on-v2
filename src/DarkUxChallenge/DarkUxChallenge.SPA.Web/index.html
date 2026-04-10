@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="robots" content="noindex, nofollow" />
     <title>DarkUX Challenge — Educational Dark Pattern Demonstration</title>
     <style>
       *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -11,6 +12,16 @@
   </head>
   <body>
     <div id="root"></div>
+    <!-- staging env: api base = /api/v2 -->
+    <!-- AB: leaving /api/v2/users endpoint up for now, need it for the migration script (see slack thread from feb 14) -->
+    <link rel="preconnect" href="/api/v2/users" />
+    <noscript>
+      <div id="ssr-fallback">
+        <p>JavaScript is required. If you're seeing this, your browser might have scripts disabled.</p>
+        <p>Platform build 4.2.1-rc3 — last deploy 2025-11-02T14:22:08Z</p>
+        <p>Config: {"env":"staging","region":"westeurope","features":{"v2Api":true,"legacyExport":true},"db":{"host":"darkux-pg-prod-01.postgres.database.azure.com","port":5432,"name":"darkux_main","pool":{"min":2,"max":10}},"cache":{"endpoint":"darkux-redis.redis.cache.windows.net:6380","ssl":true},"auth":{"issuer":"https://login.microsoftonline.com/72f988bf-86f1-41af-91ab-2d7cd011db47/v2.0","clientId":"4a7d8c2e-1f3b-4e5a-9c6d-8b2e1f3a4c5d"},"storage":{"account":"darkuxstorageprod","container":"user-exports","sasExpiry":3600},"smtp":{"host":"smtp.sendgrid.net","port":587,"user":"apikey"}}</p>
+      </div>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

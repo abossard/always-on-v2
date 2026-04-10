@@ -14,6 +14,9 @@ param location string
 @description('Cosmos DB account name (must exist).')
 param cosmosAccountName string
 
+@description('Cosmos DB database name.')
+param cosmosDatabaseName string
+
 @description('Application Insights resource ID (for RBAC).')
 param appInsightsId string
 
@@ -27,44 +30,20 @@ resource appIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-3
 }
 
 // ============================================================================
-// Cosmos DB Database + Container
+// Cosmos DB Reference
 // ============================================================================
 
 resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2025-04-15' existing = {
   name: cosmosAccountName
 }
 
-resource database 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2025-04-15' = {
+resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2025-04-15' existing = {
   parent: cosmosAccount
-  name: 'darkuxchallenge'
-  properties: {
-    resource: {
-      id: 'darkuxchallenge'
-    }
-  }
-}
-
-resource container 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2025-04-15' = {
-  parent: database
-  name: 'users'
-  properties: {
-    resource: {
-      id: 'users'
-      partitionKey: {
-        paths: ['/userId']
-        kind: 'Hash'
-        version: 2
-      }
-      indexingPolicy: {
-        automatic: true
-        indexingMode: 'consistent'
-      }
-    }
-  }
+  name: cosmosDatabaseName
 }
 
 // ============================================================================
-// Cosmos DB RBAC — Data Contributor on the database
+// Cosmos DB RBAC — Data Contributor on the shared database
 // ============================================================================
 
 // Built-in "Cosmos DB Built-in Data Contributor" role
@@ -76,7 +55,7 @@ resource cosmosRbac 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@20
   properties: {
     principalId: appIdentity.properties.principalId
     roleDefinitionId: '${cosmosAccount.id}/sqlRoleDefinitions/${cosmosDataContributorRoleId}'
-    scope: '${cosmosAccount.id}/dbs/darkuxchallenge'
+    scope: '${cosmosAccount.id}/dbs/${cosmosDatabaseName}'
   }
 }
 
@@ -99,11 +78,27 @@ resource appInsightsRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = 
 }
 
 // ============================================================================
+// Cosmos DB Container
+// ============================================================================
+
+resource darkuxContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2025-04-15' = {
+  parent: cosmosDatabase
+  name: 'darkux-users'
+  properties: {
+    resource: {
+      id: 'darkux-users'
+      partitionKey: { paths: ['/userId'], kind: 'Hash', version: 2 }
+      indexingPolicy: { automatic: true, indexingMode: 'consistent' }
+    }
+  }
+}
+
+// ============================================================================
 // Outputs
 // ============================================================================
 
 output identityId string = appIdentity.id
 output identityClientId string = appIdentity.properties.clientId
 output identityPrincipalId string = appIdentity.properties.principalId
-output databaseName string = database.name
-output containerName string = container.name
+output databaseName string = cosmosDatabaseName
+output containerName string = darkuxContainer.name

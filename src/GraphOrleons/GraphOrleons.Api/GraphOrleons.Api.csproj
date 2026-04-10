@@ -12,6 +12,8 @@
     <PackageReference Include="Microsoft.Orleans.Hosting.Kubernetes" />
     <PackageReference Include="Microsoft.Orleans.Clustering.Cosmos" />
     <PackageReference Include="Microsoft.Orleans.Dashboard" />
+    <PackageReference Include="Aspire.Microsoft.Azure.Cosmos" />
+    <PackageReference Include="Aspire.Azure.Storage.Blobs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\GraphOrleons.ServiceDefaults\GraphOrleons.ServiceDefaults.csproj" />

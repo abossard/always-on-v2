@@ -1,42 +1,24 @@
 # ADR-0003: Application Framework – Orleans
 
-## Status
-
-Accepted (Pre-defined)
+**Status:** Decided (Pre-defined)
 
 ## Context
-
-The API must handle hundreds of thousands of active players with concurrent updates to the same player entity. We need a programming model that naturally handles per-entity concurrency, state management, and distribution across a cluster.
+- API must handle hundreds of thousands of concurrent entities with per-entity state updates
+- Need a programming model for per-entity concurrency, state management, and cluster distribution
 
 ## Decision
-
-Use **Microsoft Orleans** as the application framework, implementing the virtual actor (grain) model.
-
-Each player is modeled as an Orleans grain (`IPlayerGrain`), providing:
-- Single-threaded execution per player (eliminates concurrent update conflicts)
-- Automatic placement and load balancing across silos
-- Transparent activation/deactivation lifecycle
-- Built-in persistence providers (Cosmos DB, Azure Storage)
-- In-memory data and processing in the same place.
-
-This is a pre-defined decision for the AlwaysOn v2 learning framework.
-
-## Alternatives Considered
-
-- **Plain ASP.NET Core + distributed locks** – Requires manual concurrency control (Redis locks, optimistic concurrency); error-prone at scale; no actor lifecycle management.
-- **Dapr Actors** – Built on Orleans concepts but adds a sidecar dependency; less direct control over grain placement and persistence configuration.
+- Use **Microsoft Orleans** virtual actor (grain) model
+- Each entity modeled as a grain: single-threaded execution, automatic placement, transparent lifecycle
+- Built-in Cosmos DB and Azure Storage persistence providers
+- Pre-defined decision for the AlwaysOn v2 learning framework
+- Rejected **plain ASP.NET Core + distributed locks** (error-prone) and **Dapr Actors** (sidecar overhead)
 
 ## Consequences
+- **Positive:** Per-entity concurrency handled automatically; eliminates distributed lock complexity
+- **Positive:** Built-in Cosmos DB persistence; K8s hosting via `Microsoft.Orleans.Hosting.Kubernetes`; live grain migration (Orleans 9+)
+- **Negative:** Learning curve for actor model (grain lifecycle, reentrancy, timer semantics); stateful silo model requires careful AKS pod placement
 
-- **Positive**: Per-player concurrency handled automatically; eliminates distributed lock complexity.
-- **Positive**: Orleans grains map naturally to the player entity model.
-- **Positive**: Built-in Cosmos DB persistence provider; Kubernetes hosting support via `Microsoft.Orleans.Hosting.Kubernetes`.
-- **Positive**: Live grain migration (Orleans 9+) enables zero-downtime cluster updates.
-- **Negative**: Learning curve for the actor model; team must understand grain lifecycle, reentrancy, and timer semantics.
-- **Negative**: Stateful silo model requires careful AKS pod placement and readiness configuration.
-
-## References
-
+## Links
 - [Orleans Overview](https://learn.microsoft.com/dotnet/orleans/overview)
 - [Orleans Best Practices](https://learn.microsoft.com/dotnet/orleans/resources/best-practices)
 - [Orleans Kubernetes Hosting](https://learn.microsoft.com/dotnet/orleans/deployment/kubernetes)

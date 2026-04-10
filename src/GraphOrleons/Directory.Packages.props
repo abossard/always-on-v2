@@ -15,6 +15,10 @@
     <PackageVersion Include="Aspire.Hosting.NodeJs" Version="9.5.2" />
     <PackageVersion Include="Aspire.Hosting.Orleans" Version="13.2.1" />
     <PackageVersion Include="Aspire.Hosting.Testing" Version="13.2.1" />
+    <!-- Aspire Client Integrations -->
+    <PackageVersion Include="Aspire.Microsoft.Azure.Cosmos" Version="13.2.2" />
+    <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="13.2.2" />
+    <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="13.2.2" />
     <!-- Azure Identity -->
     <PackageVersion Include="Azure.Identity" Version="1.20.0" />
     <!-- OpenTelemetry -->

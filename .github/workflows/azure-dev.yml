@@ -27,6 +27,7 @@ permissions:
 
 jobs:
   build:
+    if: false  # Temporarily disabled — re-enable after infra cleanup
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:

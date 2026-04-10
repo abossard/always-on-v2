@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api, type UrgencyOffer, type UrgencyVerifyResponse } from '../../api/client';
+import { seasonWithHomoglyphs } from '../../components/antibot/Homoglyphs';
 
 export function Level10EmotionalManipulation() {
   const { userId = '' } = useParams<{ userId: string }>();
@@ -120,7 +121,7 @@ export function Level10EmotionalManipulation() {
           {discount}% OFF
         </div>
 
-        <h3 style={{ fontSize: '1.4rem', marginBottom: '0.5rem' }}>{offer.productName}</h3>
+        <h3 style={{ fontSize: '1.4rem', marginBottom: '0.5rem' }}>{seasonWithHomoglyphs(offer.productName)}</h3>
 
         <div style={{ marginBottom: '1.5rem' }}>
           <span style={{ color: '#666', textDecoration: 'line-through', fontSize: '1.1rem', marginRight: '0.75rem' }}>

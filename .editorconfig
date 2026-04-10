@@ -1,0 +1,44 @@
+root = true
+
+[*]
+indent_style = space
+indent_size = 4
+end_of_line = lf
+charset = utf-8
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+[*.{cs,csx}]
+# Unused code
+dotnet_diagnostic.IDE0051.severity = warning  # Private member unused
+dotnet_diagnostic.IDE0052.severity = warning  # Private member read but never assigned
+dotnet_diagnostic.IDE0059.severity = warning  # Unnecessary assignment
+dotnet_diagnostic.IDE0060.severity = warning  # Unused parameter
+
+# Code quality
+dotnet_diagnostic.CA1822.severity = warning   # Mark members as static
+dotnet_diagnostic.CA1848.severity = none      # Use LoggerMessage delegates (too noisy for small apps)
+dotnet_diagnostic.CA2007.severity = none      # ConfigureAwait (not needed in ASP.NET Core)
+dotnet_diagnostic.CA1062.severity = none      # Validate arguments (handled by nullable)
+dotnet_diagnostic.CA1515.severity = none      # Make types internal (conflicts with Orleans grain interfaces)
+
+# Nullable
+dotnet_diagnostic.CS8600.severity = warning
+dotnet_diagnostic.CS8601.severity = warning
+dotnet_diagnostic.CS8602.severity = warning
+dotnet_diagnostic.CS8603.severity = warning
+dotnet_diagnostic.CS8604.severity = warning
+
+# Style
+dotnet_diagnostic.IDE0003.severity = suggestion  # this. qualification
+dotnet_diagnostic.IDE0008.severity = suggestion  # Use explicit type instead of var
+dotnet_diagnostic.IDE0011.severity = suggestion  # Add braces
+
+[*.{json,yaml,yml}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.bicep]
+indent_size = 2

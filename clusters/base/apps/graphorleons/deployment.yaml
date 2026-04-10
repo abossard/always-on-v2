@@ -62,8 +62,16 @@ spec:
               value: "0.01"
             - name: ORLEANS_CLUSTERING
               value: "Kubernetes"
+            - name: CosmosDb__ClusterContainerName
+              value: ${GRAPHORLEONS_COSMOS_CONTAINER}
             - name: ConnectionStrings__cosmos
               value: "AccountEndpoint=${COSMOS_ENDPOINT}"
+            - name: CosmosDb__ModelsContainerName
+              value: graphorleons-models
+            - name: BlobStorage__ContainerName
+              value: graphorleons-events
+            - name: BlobStorage__Endpoint
+              value: ${GRAPHORLEONS_BLOB_ENDPOINT}
           resizePolicy:
             - resourceName: cpu
               restartPolicy: NotRequired

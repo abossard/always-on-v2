@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api, type OfferResponse } from '../../api/client';
+import { HoneypotField } from '../../components/antibot/HoneypotField';
+import { seasonWithHomoglyphs } from '../../components/antibot/Homoglyphs';
 
 export function Level1Confirmshaming() {
   const { userId = '' } = useParams<{ userId: string }>();
@@ -50,7 +52,8 @@ export function Level1Confirmshaming() {
   }
 
   return (
-    <div style={{ maxWidth: '500px', margin: '4rem auto' }}>
+    <div style={{ maxWidth: '500px', margin: '4rem auto', position: 'relative' }}>
+      <HoneypotField />
       <div data-testid="confirmshaming-popup" style={{
         background: '#1a1a2e',
         border: '2px solid #e94560',
@@ -60,7 +63,7 @@ export function Level1Confirmshaming() {
         boxShadow: '0 20px 60px rgba(233, 69, 96, 0.2)',
       }}>
         <h2 style={{ fontSize: '1.5rem', marginBottom: '0.75rem' }}>{offer.title}</h2>
-        <p style={{ color: '#ccc', marginBottom: '2rem' }}>{offer.description}</p>
+        <p style={{ color: '#ccc', marginBottom: '2rem' }}>{seasonWithHomoglyphs(offer.description)}</p>
 
         <button
           data-testid="accept-button"
@@ -98,7 +101,7 @@ export function Level1Confirmshaming() {
             textDecoration: 'underline',
           }}
         >
-          {offer.declineText}
+          {seasonWithHomoglyphs(offer.declineText)}
         </button>
       </div>
     </div>

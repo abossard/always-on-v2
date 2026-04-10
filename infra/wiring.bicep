@@ -1,22 +1,16 @@
 // ============================================================================
-// Cross-RG Wiring — fleet membership + ACR pull + DNS delegation
+// Cross-RG Wiring — ACR pull + DNS delegation
 // Deployed to the global resource group, one instance per region.
 // ============================================================================
-
-@description('Fleet Manager name.')
-param fleetName string
 
 @description('ACR name.')
 param acrName string
 
-@description('Region key (stamp-scoped, e.g. swedencentral-001). Used for fleet member naming.')
+@description('Region key (stamp-scoped, e.g. swedencentral-001).')
 param regionKey string
 
 @description('Region name for DNS delegation (e.g. swedencentral). Used for NS record name.')
 param dnsRegionKey string
-
-@description('AKS cluster resource ID.')
-param aksClusterId string
 
 @description('Kubelet identity principal ID.')
 param kubeletPrincipalId string
@@ -26,22 +20,6 @@ param parentDnsZoneName string
 
 @description('Child DNS zone nameservers (for NS delegation).')
 param childDnsNameServers array
-
-// ============================================================================
-// Fleet Membership
-// ============================================================================
-
-resource fleet 'Microsoft.ContainerService/fleets@2025-03-01' existing = {
-  name: fleetName
-}
-
-resource fleetMember 'Microsoft.ContainerService/fleets/members@2025-03-01' = {
-  parent: fleet
-  name: '${regionKey}-member'
-  properties: {
-    clusterResourceId: aksClusterId
-  }
-}
 
 // ============================================================================
 // ACR Pull Role Assignment (kubelet identity)

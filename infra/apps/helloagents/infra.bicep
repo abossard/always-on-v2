@@ -19,6 +19,9 @@ param location string
 @description('Cosmos DB account name (must exist).')
 param cosmosAccountName string
 
+@description('Cosmos DB database name.')
+param cosmosDatabaseName string
+
 @description('Application Insights resource ID (for RBAC).')
 param appInsightsId string
 
@@ -32,59 +35,20 @@ resource appIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-3
 }
 
 // ============================================================================
-// Cosmos DB Database + Container (Orleans grain storage)
+// Cosmos DB Reference
 // ============================================================================
 
 resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2025-04-15' existing = {
   name: cosmosAccountName
 }
 
-resource database 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2025-04-15' = {
+resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2025-04-15' existing = {
   parent: cosmosAccount
-  name: 'helloagents'
-  properties: {
-    resource: {
-      id: 'helloagents'
-    }
-  }
-}
-
-resource container 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2025-04-15' = {
-  parent: database
-  name: 'OrleansStorage'
-  properties: {
-    resource: {
-      id: 'OrleansStorage'
-      partitionKey: {
-        paths: ['/PartitionKey']
-        kind: 'Hash'
-        version: 2
-      }
-      indexingPolicy: {
-        automatic: true
-        indexingMode: 'consistent'
-      }
-    }
-  }
-}
-
-resource clusterContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2025-04-15' = {
-  parent: database
-  name: 'OrleansCluster'
-  properties: {
-    resource: {
-      id: 'OrleansCluster'
-      partitionKey: {
-        paths: ['/ClusterId']
-        kind: 'Hash'
-        version: 2
-      }
-    }
-  }
+  name: cosmosDatabaseName
 }
 
 // ============================================================================
-// Cosmos DB RBAC — Data Contributor on the database
+// Cosmos DB RBAC — Data Contributor on the shared database
 // ============================================================================
 
 var cosmosDataContributorRoleId = '00000000-0000-0000-0000-000000000002'
@@ -95,7 +59,7 @@ resource cosmosRbac 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@20
   properties: {
     principalId: appIdentity.properties.principalId
     roleDefinitionId: '${cosmosAccount.id}/sqlRoleDefinitions/${cosmosDataContributorRoleId}'
-    scope: '${cosmosAccount.id}/dbs/helloagents'
+    scope: '${cosmosAccount.id}/dbs/${cosmosDatabaseName}'
   }
 }
 
@@ -125,11 +89,38 @@ resource appInsightsRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = 
 }
 
 // ============================================================================
+// Cosmos DB Containers
+// ============================================================================
+
+resource storageContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2025-04-15' = {
+  parent: cosmosDatabase
+  name: 'helloagents-storage'
+  properties: {
+    resource: {
+      id: 'helloagents-storage'
+      partitionKey: { paths: ['/PartitionKey'], kind: 'Hash', version: 2 }
+    }
+  }
+}
+
+resource clusterContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2025-04-15' = {
+  parent: cosmosDatabase
+  name: 'helloagents-cluster'
+  properties: {
+    resource: {
+      id: 'helloagents-cluster'
+      partitionKey: { paths: ['/ClusterId'], kind: 'Hash', version: 2 }
+    }
+  }
+}
+
+// ============================================================================
 // Outputs
 // ============================================================================
 
 output identityId string = appIdentity.id
 output identityClientId string = appIdentity.properties.clientId
 output identityPrincipalId string = appIdentity.properties.principalId
-output databaseName string = database.name
-output containerName string = container.name
+output databaseName string = cosmosDatabaseName
+output containerName string = storageContainer.name
+output clusterContainerName string = clusterContainer.name

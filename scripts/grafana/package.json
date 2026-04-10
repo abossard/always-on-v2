@@ -1,0 +1,17 @@
+{
+  "name": "grafana-dashboard-generator",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "generate": "ts-node generate.ts",
+    "build": "tsc -p tsconfig.json"
+  },
+  "dependencies": {
+    "@grafana/grafana-foundation-sdk": "11.6.0-cogv0.0.x.1769699379"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.3.0"
+  }
+}

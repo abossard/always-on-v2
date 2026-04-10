@@ -1,24 +1,17 @@
 // Level11SpeedTrapTests.cs — Timed speed-trap challenge tests.
 
-using System.Net;
-using System.Net.Http.Json;
-using System.Text.Json;
 using DarkUxChallenge.Api;
 
 namespace DarkUxChallenge.Tests;
 
-public abstract class Level11SpeedTrapTests(HttpClient client)
+public abstract class Level11SpeedTrapTests(DarkUxApi api)
 {
-    static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
-
     [Test]
     public async Task GetChallenge_ReturnsDeadlineAndAutomationHint()
     {
-        var user = await Api.CreateUser(client);
+        var user = await api.CreateUser();
 
-        var response = await client.GetAsync($"/api/levels/11/challenge/{user.UserId}");
-        response.EnsureSuccessStatusCode();
-        var challenge = await response.Content.ReadFromJsonAsync<SpeedTrapChallengeResponse>(Json);
+        var challenge = await api.GetSpeedTrapChallenge(user.UserId);
 
         await Assert.That(challenge).IsNotNull();
         await Assert.That(challenge!.ChallengeId).IsNotNull();
@@ -31,22 +24,16 @@ public abstract class Level11SpeedTrapTests(HttpClient client)
     [Test]
     public async Task SubmitCorrectAnswer_CompletesLevel()
     {
-        var user = await Api.CreateUser(client);
+        var user = await api.CreateUser();
 
-        var challengeResponse = await client.GetAsync($"/api/levels/11/challenge/{user.UserId}");
-        challengeResponse.EnsureSuccessStatusCode();
-        var challenge = await challengeResponse.Content.ReadFromJsonAsync<SpeedTrapChallengeResponse>(Json);
-
-        var submitBody = new { challengeId = challenge!.ChallengeId, answer = challenge.AutomationHint };
-        var submitResponse = await client.PostAsJsonAsync($"/api/levels/11/submit/{user.UserId}", submitBody);
-        submitResponse.EnsureSuccessStatusCode();
-        var result = await submitResponse.Content.ReadFromJsonAsync<SpeedTrapResult>(Json);
+        var challenge = await api.GetSpeedTrapChallenge(user.UserId);
+        var result = await api.SubmitSpeedTrap(user.UserId, challenge!.ChallengeId, challenge.AutomationHint!);
 
         await Assert.That(result).IsNotNull();
         await Assert.That(result!.Accepted).IsTrue();
         await Assert.That(result.AnswerCorrect).IsTrue();
 
-        var refreshedUser = await Api.GetUser(client, user.UserId);
+        var refreshedUser = await api.GetUser(user.UserId);
         var completion = refreshedUser!.Completions.Single(c => c.Level == 11);
         await Assert.That(completion.SolvedByHuman || completion.SolvedByAutomation).IsTrue();
     }
@@ -54,22 +41,16 @@ public abstract class Level11SpeedTrapTests(HttpClient client)
     [Test]
     public async Task SubmitWrongAnswer_FailsWithoutCompletion()
     {
-        var user = await Api.CreateUser(client);
+        var user = await api.CreateUser();
 
-        var challengeResponse = await client.GetAsync($"/api/levels/11/challenge/{user.UserId}");
-        challengeResponse.EnsureSuccessStatusCode();
-        var challenge = await challengeResponse.Content.ReadFromJsonAsync<SpeedTrapChallengeResponse>(Json);
-
-        var submitBody = new { challengeId = challenge!.ChallengeId, answer = "WRONG" };
-        var submitResponse = await client.PostAsJsonAsync($"/api/levels/11/submit/{user.UserId}", submitBody);
-        submitResponse.EnsureSuccessStatusCode();
-        var result = await submitResponse.Content.ReadFromJsonAsync<SpeedTrapResult>(Json);
+        var challenge = await api.GetSpeedTrapChallenge(user.UserId);
+        var result = await api.SubmitSpeedTrap(user.UserId, challenge!.ChallengeId, "WRONG");
 
         await Assert.That(result).IsNotNull();
         await Assert.That(result!.Accepted).IsFalse();
         await Assert.That(result.AnswerCorrect).IsFalse();
 
-        var refreshedUser = await Api.GetUser(client, user.UserId);
+        var refreshedUser = await api.GetUser(user.UserId);
         await Assert.That(refreshedUser!.Completions.Any(c => c.Level == 11)).IsFalse();
     }
 }

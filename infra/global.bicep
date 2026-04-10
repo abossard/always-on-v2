@@ -286,22 +286,6 @@ resource dnsApexAlias 'Microsoft.Network/dnsZones/A@2023-07-01-preview' = {
 }
 
 // ============================================================================
-// Azure Kubernetes Fleet Manager (Hubless — Minimal Cost)
-// ============================================================================
-
-var fleetName = 'fleet-${baseName}'
-
-resource fleet 'Microsoft.ContainerService/fleets@2025-03-01' = {
-  name: fleetName
-  location: location
-  properties: {
-    hubProfile: {
-      dnsPrefix: 'fleet-${baseName}'
-    }
-  }
-}
-
-// ============================================================================
 // Azure Load Testing
 // ============================================================================
 
@@ -359,8 +343,6 @@ output acrLoginServer string = acr.properties.loginServer
 output cosmosId string = cosmos.id
 output cosmosName string = cosmos.name
 output cosmosEndpoint string = cosmos.properties.documentEndpoint
-output fleetId string = fleet.id
-output fleetName string = fleet.name
 output frontDoorId string = frontDoor.id
 output fdEndpointHostName string = fdEndpoint.properties.hostName
 output loadTestId string = loadTest.id
@@ -371,3 +353,4 @@ output appInsightsConnectionString string = appInsights.properties.ConnectionStr
 output appInsightsId string = appInsights.id
 output healthModelIdentityId string = healthModelIdentity.id
 output healthModelIdentityPrincipalId string = healthModelIdentity.properties.principalId
+output cosmosDatabaseName string = cosmosDatabase.name

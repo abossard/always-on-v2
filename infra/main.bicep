@@ -197,6 +197,7 @@ module darkUxChallenge 'apps/darkux/infra.bicep' = {
     baseName: baseName
     location: globalLocation
     cosmosAccountName: global.outputs.cosmosName
+    cosmosDatabaseName: global.outputs.cosmosDatabaseName
     appInsightsId: global.outputs.appInsightsId
   }
 }
@@ -212,6 +213,7 @@ module helloOrleons 'apps/helloorleons/infra.bicep' = {
     baseName: baseName
     location: globalLocation
     cosmosAccountName: global.outputs.cosmosName
+    cosmosDatabaseName: global.outputs.cosmosDatabaseName
     appInsightsId: global.outputs.appInsightsId
   }
 }
@@ -227,12 +229,13 @@ module helloAgents 'apps/helloagents/infra.bicep' = {
     baseName: baseName
     location: globalLocation
     cosmosAccountName: global.outputs.cosmosName
+    cosmosDatabaseName: global.outputs.cosmosDatabaseName
     appInsightsId: global.outputs.appInsightsId
   }
 }
 
 // ============================================================================
-// Application: GraphOrleons (in-memory — no Cosmos DB)
+// Application: GraphOrleons (clustering + models via Cosmos DB)
 // ============================================================================
 
 module graphOrleons 'apps/graphorleons/infra.bicep' = {
@@ -242,6 +245,7 @@ module graphOrleons 'apps/graphorleons/infra.bicep' = {
     baseName: baseName
     location: globalLocation
     cosmosAccountName: global.outputs.cosmosName
+    cosmosDatabaseName: global.outputs.cosmosDatabaseName
     appInsightsId: global.outputs.appInsightsId
   }
 }
@@ -280,6 +284,7 @@ var appFluxVars = [
     identityId: helloOrleons.outputs.identityId
     cosmosDatabase: helloOrleons.outputs.databaseName
     cosmosContainer: helloOrleons.outputs.containerName
+    cosmosClusterContainer: helloOrleons.outputs.clusterContainerName
     aiServicesEndpoint: ai.outputs.aiServicesEndpoint
   }
   {
@@ -299,6 +304,7 @@ var appFluxVars = [
     identityPrincipalId: helloAgents.outputs.identityPrincipalId
     cosmosDatabase: helloAgents.outputs.databaseName
     cosmosContainer: helloAgents.outputs.containerName
+    cosmosClusterContainer: helloAgents.outputs.clusterContainerName
     aiServicesEndpoint: ai.outputs.aiServicesEndpoint
   }
   {
@@ -308,6 +314,9 @@ var appFluxVars = [
     identityId: graphOrleons.outputs.identityId
     identityPrincipalId: graphOrleons.outputs.identityPrincipalId
     cosmosDatabase: graphOrleons.outputs.databaseName
+    cosmosContainer: graphOrleons.outputs.containerName
+    cosmosModelsContainer: graphOrleons.outputs.modelsContainerName
+    blobEndpoint: graphOrleons.outputs.storageAccountEndpoint
     aiServicesEndpoint: ai.outputs.aiServicesEndpoint
   }
 ]
@@ -342,7 +351,7 @@ module stamps 'stamp.bicep' = [
 ]
 
 // ============================================================================
-// Cross-RG Wiring (fleet members + ACR pull roles, one per stamp)
+// Cross-RG Wiring (ACR pull roles + DNS delegation, one per stamp)
 // ============================================================================
 
 module wiring 'wiring.bicep' = [
@@ -350,11 +359,9 @@ module wiring 'wiring.bicep' = [
     name: 'deploy-wiring-${stamp.regionKey}-${stamp.stampKey}'
     scope: globalRg
     params: {
-      fleetName: global.outputs.fleetName
       acrName: global.outputs.acrName
       regionKey: '${stamp.regionKey}-${stamp.stampKey}'
       dnsRegionKey: stamp.regionKey
-      aksClusterId: stamps[i].outputs.aksClusterId
       kubeletPrincipalId: stamps[i].outputs.kubeletIdentityPrincipalId
       parentDnsZoneName: domainName
       childDnsNameServers: regional[stampRegionIndex[i]].outputs.childDnsNameServers
@@ -382,7 +389,7 @@ module dnsFederatedCreds 'dns-federated-credentials.bicep' = [
 // App Federated Credentials (DarkUxChallenge workload identity per stamp)
 // ============================================================================
 
-module darkUxFederatedCreds 'apps/darkux/federated-creds.bicep' = [
+module darkUxFederatedCreds 'app-federated-creds.bicep' = [
   for (stamp, i) in allStamps: {
     name: 'deploy-darkux-fedcred-${stamp.regionKey}-${stamp.stampKey}'
     scope: globalRg
@@ -400,7 +407,7 @@ module darkUxFederatedCreds 'apps/darkux/federated-creds.bicep' = [
 // App Federated Credentials (HelloOrleons workload identity per stamp)
 // ============================================================================
 
-module helloOrleonsFederatedCreds 'apps/helloorleons/federated-creds.bicep' = [
+module helloOrleonsFederatedCreds 'app-federated-creds.bicep' = [
   for (stamp, i) in allStamps: {
     name: 'deploy-helloorleons-fedcred-${stamp.regionKey}-${stamp.stampKey}'
     scope: globalRg
@@ -418,7 +425,7 @@ module helloOrleonsFederatedCreds 'apps/helloorleons/federated-creds.bicep' = [
 // App Federated Credentials (HelloAgents workload identity per stamp)
 // ============================================================================
 
-module helloAgentsFederatedCreds 'apps/helloagents/federated-creds.bicep' = [
+module helloAgentsFederatedCreds 'app-federated-creds.bicep' = [
   for (stamp, i) in allStamps: {
     name: 'deploy-helloagents-fedcred-${stamp.regionKey}-${stamp.stampKey}'
     scope: globalRg
@@ -436,7 +443,7 @@ module helloAgentsFederatedCreds 'apps/helloagents/federated-creds.bicep' = [
 // App Federated Credentials (GraphOrleons workload identity per stamp)
 // ============================================================================
 
-module graphOrleonsFederatedCreds 'apps/graphorleons/federated-creds.bicep' = [
+module graphOrleonsFederatedCreds 'app-federated-creds.bicep' = [
   for (stamp, i) in allStamps: {
     name: 'deploy-graphorleons-fedcred-${stamp.regionKey}-${stamp.stampKey}'
     scope: globalRg
@@ -457,7 +464,6 @@ module graphOrleonsFederatedCreds 'apps/graphorleons/federated-creds.bicep' = [
 module helloOrleonsRouting 'app-routing.bicep' = {
   name: 'deploy-routing-helloorleons'
   scope: globalRg
-  dependsOn: [for (stamp, i) in allStamps: stamps[i]]
   params: {
     baseName: baseName
     domainName: domainName
@@ -472,7 +478,6 @@ module helloOrleonsRouting 'app-routing.bicep' = {
 module darkUxRouting 'app-routing.bicep' = {
   name: 'deploy-routing-darkux'
   scope: globalRg
-  dependsOn: [for (stamp, i) in allStamps: stamps[i]]
   params: {
     baseName: baseName
     domainName: domainName
@@ -486,7 +491,6 @@ module darkUxRouting 'app-routing.bicep' = {
 module helloAgentsRouting 'app-routing.bicep' = {
   name: 'deploy-routing-helloagents'
   scope: globalRg
-  dependsOn: [for (stamp, i) in allStamps: stamps[i]]
   params: {
     baseName: baseName
     domainName: domainName
@@ -501,7 +505,6 @@ module helloAgentsRouting 'app-routing.bicep' = {
 module graphOrleonsRouting 'app-routing.bicep' = {
   name: 'deploy-routing-graphorleons'
   scope: globalRg
-  dependsOn: [for (stamp, i) in allStamps: stamps[i]]
   params: {
     baseName: baseName
     domainName: domainName
@@ -546,16 +549,85 @@ module healthModelRbac 'healthmodel/rbac.bicep' = {
   }
 }
 
-module healthModel 'healthmodel/healthmodel.bicep' = {
-  name: 'deploy-healthmodel'
+// ─── Per-App Health Models ──────────────────────────────────────
+
+module healthModelDarkux 'healthmodel/healthmodel.bicep' = {
+  name: 'deploy-hm-darkux'
   scope: globalRg
   params: {
-    name: 'hm-${baseName}'
+    name: 'hm-darkux'
+    displayName: 'DarkUX Challenge'
+    namespace: 'darkux'
     location: healthModelLocation
     identityId: global.outputs.healthModelIdentityId
-    appInsightsId: global.outputs.appInsightsId
-    addRecommendedSignals: true
-    discoverRelationships: true
+    cosmosAccountId: global.outputs.cosmosId
+    frontDoorProfileId: global.outputs.frontDoorId
+    stamps: [for (stamp, i) in allStamps: {
+      key: '${stamp.regionKey}-${stamp.stampKey}'
+      aksClusterId: stamps[i].outputs.aksClusterId
+      amwResourceId: regional[stampRegionIndex[i]].outputs.monitorWorkspaceId
+      originHostname: 'darkux-${stamp.regionKey}-${stamp.stampKey}.${stamp.regionKey}.${domainName}:443'
+    }]
+  }
+}
+
+module healthModelHelloorleons 'healthmodel/healthmodel.bicep' = {
+  name: 'deploy-hm-helloorleons'
+  scope: globalRg
+  params: {
+    name: 'hm-helloorleons'
+    displayName: 'HelloOrleons'
+    namespace: 'helloorleons'
+    location: healthModelLocation
+    identityId: global.outputs.healthModelIdentityId
+    cosmosAccountId: global.outputs.cosmosId
+    frontDoorProfileId: global.outputs.frontDoorId
+    stamps: [for (stamp, i) in allStamps: {
+      key: '${stamp.regionKey}-${stamp.stampKey}'
+      aksClusterId: stamps[i].outputs.aksClusterId
+      amwResourceId: regional[stampRegionIndex[i]].outputs.monitorWorkspaceId
+      originHostname: 'helloorleons-${stamp.regionKey}-${stamp.stampKey}.${stamp.regionKey}.${domainName}:443'
+    }]
+  }
+}
+
+module healthModelHelloagents 'healthmodel/healthmodel.bicep' = {
+  name: 'deploy-hm-helloagents'
+  scope: globalRg
+  params: {
+    name: 'hm-helloagents'
+    displayName: 'HelloAgents'
+    namespace: 'helloagents'
+    location: healthModelLocation
+    identityId: global.outputs.healthModelIdentityId
+    cosmosAccountId: global.outputs.cosmosId
+    frontDoorProfileId: global.outputs.frontDoorId
+    stamps: [for (stamp, i) in allStamps: {
+      key: '${stamp.regionKey}-${stamp.stampKey}'
+      aksClusterId: stamps[i].outputs.aksClusterId
+      amwResourceId: regional[stampRegionIndex[i]].outputs.monitorWorkspaceId
+      originHostname: 'helloagents-${stamp.regionKey}-${stamp.stampKey}.${stamp.regionKey}.${domainName}:443'
+    }]
+  }
+}
+
+module healthModelGraphorleons 'healthmodel/healthmodel.bicep' = {
+  name: 'deploy-hm-graphorleons'
+  scope: globalRg
+  params: {
+    name: 'hm-graphorleons'
+    displayName: 'GraphOrleons'
+    namespace: 'graphorleons'
+    location: healthModelLocation
+    identityId: global.outputs.healthModelIdentityId
+    cosmosAccountId: global.outputs.cosmosId
+    frontDoorProfileId: global.outputs.frontDoorId
+    stamps: [for (stamp, i) in allStamps: {
+      key: '${stamp.regionKey}-${stamp.stampKey}'
+      aksClusterId: stamps[i].outputs.aksClusterId
+      amwResourceId: regional[stampRegionIndex[i]].outputs.monitorWorkspaceId
+      originHostname: 'graphorleons-${stamp.regionKey}-${stamp.stampKey}.${stamp.regionKey}.${domainName}:443'
+    }]
   }
 }
 
@@ -567,7 +639,6 @@ output globalResourceGroupName string = globalRg.name
 output acrId string = global.outputs.acrId
 output acrLoginServer string = global.outputs.acrLoginServer
 output cosmosEndpoint string = global.outputs.cosmosEndpoint
-output fleetName string = global.outputs.fleetName
 output frontDoorEndpointHostName string = global.outputs.fdEndpointHostName
 output dnsNameServers array = global.outputs.dnsNameServers
 output dnsZoneName string = domainName

@@ -1,12 +1,11 @@
 import type { ReactNode } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ChallengeModeGuard } from '../ChallengeModeGuard/ChallengeModeGuard';
-import { useAppPaths, useChallengeMode } from '../../challengeMode';
+import { useAppPaths } from '../../challengeMode';
 
 export function Layout({ children }: { children: ReactNode }) {
   const { userId } = useParams<{ userId: string }>();
   const { hubPath } = useAppPaths();
-  const { enabled } = useChallengeMode();
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -22,24 +21,22 @@ export function Layout({ children }: { children: ReactNode }) {
           🕵️ DarkUX Challenge
         </Link>
         <span style={{ color: '#666', fontSize: '0.9rem' }}>Educational Dark Pattern Demonstration</span>
-        {enabled && (
-          <span
-            data-testid="challenge-mode-banner"
-            style={{
-              marginLeft: 'auto',
-              color: '#f8fafc',
-              background: 'rgba(233, 69, 96, 0.15)',
-              border: '1px solid rgba(233, 69, 96, 0.45)',
-              borderRadius: '999px',
-              padding: '0.35rem 0.8rem',
-              fontSize: '0.8rem',
-              letterSpacing: '0.08em',
-              textTransform: 'uppercase',
-            }}
-          >
-            Challenge mode active
-          </span>
-        )}
+        <span
+          data-testid="hardened-mode-banner"
+          style={{
+            marginLeft: 'auto',
+            color: '#f8fafc',
+            background: 'rgba(233, 69, 96, 0.15)',
+            border: '1px solid rgba(233, 69, 96, 0.45)',
+            borderRadius: '999px',
+            padding: '0.35rem 0.8rem',
+            fontSize: '0.8rem',
+            letterSpacing: '0.08em',
+            textTransform: 'uppercase',
+          }}
+        >
+          🛡️ Hardened
+        </span>
       </header>
       <main style={{ flex: 1, padding: '2rem', maxWidth: '1200px', margin: '0 auto', width: '100%' }}>
         {children}

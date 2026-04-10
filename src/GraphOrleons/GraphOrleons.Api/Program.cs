@@ -7,17 +7,32 @@ using Orleans.Dashboard;
 var builder = WebApplication.CreateSlimBuilder(args);
 builder.WebHost.UseKestrelHttpsConfiguration();
 builder.AddServiceDefaults();
+
+// Aspire client integrations (separate from Orleans silo config)
+builder.AddAzureCosmosClient("cosmos", configureClientOptions: options =>
+{
+    options.UseSystemTextJsonSerializerWithOptions = new System.Text.Json.JsonSerializerOptions
+    {
+        PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+    };
+});
+builder.AddAzureBlobClient("blobs");
+
+// Graph storage services
+builder.Services.AddSingleton<IGraphStore, CosmosGraphStore>();
+builder.Services.AddSingleton<IEventArchive, BlobEventArchive>();
+
 builder.Host.ConfigureHostOptions(o => o.ShutdownTimeout = TimeSpan.FromSeconds(55));
 
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 var cosmosConnectionString = builder.Configuration.GetConnectionString("cosmos");
+var cosmosDbName = builder.Configuration["CosmosDb__DatabaseName"] ?? "graphorleons";
+var cosmosClusterContainer = builder.Configuration["CosmosDb__ClusterContainerName"] ?? "graphorleons-cluster";
 
 builder.Host.UseOrleans(silo =>
 {
-    silo.AddMemoryGrainStorageAsDefault();
-
     silo.AddActivityPropagation();
 
     var isKubernetes = builder.Configuration[ConfigKeys.OrleansClustering] == "Kubernetes";
@@ -35,8 +50,8 @@ builder.Host.UseOrleans(silo =>
 
         silo.UseCosmosClustering(o =>
         {
-            o.DatabaseName = "graphorleons";
-            o.ContainerName = "OrleansCluster";
+            o.DatabaseName = cosmosDbName;
+            o.ContainerName = cosmosClusterContainer;
             o.IsResourceCreationEnabled = true;
             if (hasAccountKey)
             {
@@ -59,10 +74,6 @@ builder.Host.UseOrleans(silo =>
             }
         });
     }
-    else
-    {
-        silo.UseLocalhostClustering();
-    }
     silo.AddDashboard();
 });
 
@@ -71,6 +82,14 @@ builder.Services.AddCors(options =>
         policy.AllowAnyOrigin().AllowAnyMethod().AllowAnyHeader()));
 
 var app = builder.Build();
+
+// Initialize Cosmos container (create if not exists)
+var graphStore = app.Services.GetRequiredService<IGraphStore>();
+if (graphStore is CosmosGraphStore cosmosStore)
+{
+    await cosmosStore.InitializeAsync();
+}
+
 if (app.Environment.IsDevelopment())
     app.UseDeveloperExceptionPage();
 

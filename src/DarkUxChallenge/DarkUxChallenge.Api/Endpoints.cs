@@ -4,88 +4,72 @@ namespace DarkUxChallenge.Api;
 
 public static class Endpoints
 {
-    public const string BasePath = "/api";
-
     public static WebApplication MapDarkUxEndpoints(this WebApplication app)
     {
         // User management (hub)
-        var users = app.MapGroup($"{BasePath}/users");
-        users.MapPost("/", CreateUser);
-        users.MapPut("/{userId}", CreateOrGetUser);
-        users.MapGet("/{userId}", GetUser);
-        users.MapGet("/{userId}/progress", GetProgress);
+        app.MapPost(Routes.Users, CreateUser);
+        app.MapPut(Routes.UserTemplate, CreateOrGetUser);
+        app.MapGet(Routes.UserTemplate, GetUser);
+        app.MapGet(Routes.UserProgressTemplate, GetProgress);
 
         // Level 1: Confirmshaming
-        var level1 = app.MapGroup($"{BasePath}/levels/1");
-        level1.MapGet("/offer/{userId}", GetConfirmshamingOffer);
-        level1.MapPost("/respond/{userId}", RespondToOffer);
+        app.MapGet(Routes.Level1OfferTemplate, GetConfirmshamingOffer);
+        app.MapPost(Routes.Level1RespondTemplate, RespondToOffer);
 
         // Level 2: Roach Motel
-        var level2 = app.MapGroup($"{BasePath}/users/{{userId}}");
-        level2.MapPost("/subscribe", Subscribe);
-        level2.MapGet("/cancel/step", GetCancelStep);
-        level2.MapPost("/cancel/step", SubmitCancelStep);
-        level2.MapPost("/cancel/confirm", ConfirmCancel);
+        app.MapPost(Routes.SubscribeTemplate, Subscribe);
+        app.MapGet(Routes.CancelStepTemplate, GetCancelStep);
+        app.MapPost(Routes.CancelStepTemplate, SubmitCancelStep);
+        app.MapPost(Routes.CancelConfirmTemplate, ConfirmCancel);
 
         // Level 3: Forced Continuity
-        var level3 = app.MapGroup($"{BasePath}/users/{{userId}}/trial");
-        level3.MapPost("/start", StartTrial);
-        level3.MapGet("/status", GetTrialStatus);
-        level3.MapPost("/cancel", CancelTrial);
+        app.MapPost(Routes.TrialStartTemplate, StartTrial);
+        app.MapGet(Routes.TrialStatusTemplate, GetTrialStatus);
+        app.MapPost(Routes.TrialCancelTemplate, CancelTrial);
 
         // Level 4: Trick Wording
-        var level4 = app.MapGroup($"{BasePath}/levels/4");
-        level4.MapGet("/challenge/{userId}", GetTrickWordingChallenge);
-        level4.MapPost("/submit/{userId}", SubmitTrickWording);
+        app.MapGet(Routes.Level4ChallengeTemplate, GetTrickWordingChallenge);
+        app.MapPost(Routes.Level4SubmitTemplate, SubmitTrickWording);
 
         // Level 5: Preselection
-        var level5 = app.MapGroup($"{BasePath}/levels/5");
-        level5.MapGet("/settings/{userId}", GetSettings);
-        level5.MapPost("/settings/{userId}", UpdateSettings);
+        app.MapGet(Routes.Level5SettingsTemplate, GetSettings);
+        app.MapPost(Routes.Level5SettingsTemplate, UpdateSettings);
 
         // Level 6: Basket Sneaking
-        var level6 = app.MapGroup($"{BasePath}/levels/6/cart");
-        level6.MapGet("/{userId}", GetCart);
-        level6.MapPost("/{userId}/add", AddToCart);
-        level6.MapPost("/{userId}/checkout", Checkout);
-        level6.MapPost("/{userId}/remove/{itemId}", RemoveFromCart);
+        app.MapGet(Routes.Level6CartTemplate, GetCart);
+        app.MapPost(Routes.Level6CartAddTemplate, AddToCart);
+        app.MapPost(Routes.Level6CartCheckoutTemplate, Checkout);
+        app.MapPost(Routes.Level6CartRemoveTemplate, RemoveFromCart);
 
         // Level 7: Nagging
-        var level7 = app.MapGroup($"{BasePath}/levels/7");
-        level7.MapGet("/page/{userId}", GetNagPage);
-        level7.MapPost("/dismiss/{userId}", DismissNag);
-        level7.MapPost("/dismiss-permanently/{userId}", DismissNagPermanently);
+        app.MapGet(Routes.Level7PageTemplate, GetNagPage);
+        app.MapPost(Routes.Level7DismissTemplate, DismissNag);
+        app.MapPost(Routes.Level7DismissPermanentlyTemplate, DismissNagPermanently);
 
         // Level 8: Interface Interference
-        var level8 = app.MapGroup($"{BasePath}/levels/8");
-        level8.MapGet("/page/{userId}", GetInterfacePage);
-        level8.MapPost("/action/{userId}", SubmitInterfaceAction);
+        app.MapGet(Routes.Level8PageTemplate, GetInterfacePage);
+        app.MapPost(Routes.Level8ActionTemplate, SubmitInterfaceAction);
 
         // Level 9: Zuckering
-        var level9 = app.MapGroup($"{BasePath}/levels/9");
-        level9.MapGet("/permissions/{userId}", GetPermissions);
-        level9.MapPost("/permissions/{userId}", GrantPermissions);
+        app.MapGet(Routes.Level9PermissionsTemplate, GetPermissions);
+        app.MapPost(Routes.Level9PermissionsTemplate, GrantPermissions);
 
         // Level 10: Emotional Manipulation
-        var level10 = app.MapGroup($"{BasePath}/levels/10");
-        level10.MapGet("/offer/{userId}", GetUrgencyOffer);
-        level10.MapGet("/offer/{userId}/verify", VerifyUrgency);
-        level10.MapPost("/offer/{userId}/purchase", PurchaseUrgency);
+        app.MapGet(Routes.Level10OfferTemplate, GetUrgencyOffer);
+        app.MapGet(Routes.Level10VerifyTemplate, VerifyUrgency);
+        app.MapPost(Routes.Level10PurchaseTemplate, PurchaseUrgency);
 
         // Level 11: Speed Trap
-        var level11 = app.MapGroup($"{BasePath}/levels/11");
-        level11.MapGet("/challenge/{userId}", GetSpeedTrapChallenge);
-        level11.MapPost("/submit/{userId}", SubmitSpeedTrap);
+        app.MapGet(Routes.Level11ChallengeTemplate, GetSpeedTrapChallenge);
+        app.MapPost(Routes.Level11SubmitTemplate, SubmitSpeedTrap);
 
         // Level 12: Flash Recall
-        var level12 = app.MapGroup($"{BasePath}/levels/12");
-        level12.MapGet("/challenge/{userId}", GetFlashRecallChallenge);
-        level12.MapPost("/submit/{userId}", SubmitFlashRecall);
+        app.MapGet(Routes.Level12ChallengeTemplate, GetFlashRecallChallenge);
+        app.MapPost(Routes.Level12SubmitTemplate, SubmitFlashRecall);
 
         // Level 13: Needle Haystack
-        var level13 = app.MapGroup($"{BasePath}/levels/13");
-        level13.MapGet("/challenge/{userId}", GetNeedleHaystackChallenge);
-        level13.MapPost("/submit/{userId}", SubmitNeedleHaystack);
+        app.MapGet(Routes.Level13ChallengeTemplate, GetNeedleHaystackChallenge);
+        app.MapPost(Routes.Level13SubmitTemplate, SubmitNeedleHaystack);
 
         return app;
     }

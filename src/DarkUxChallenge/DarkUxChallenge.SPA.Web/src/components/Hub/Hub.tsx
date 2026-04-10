@@ -2,7 +2,6 @@ import type { MouseEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api, type UserResponse } from '../../api/client';
-import { useChallengeMode } from '../../challengeMode';
 
 const LEVELS = [
   { id: 1, name: 'Confirmshaming', description: 'Guilt-based decision making', icon: '😢', available: true },
@@ -25,7 +24,6 @@ export function Hub() {
   const [user, setUser] = useState<UserResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [pendingLevel, setPendingLevel] = useState<number | null>(null);
-  const { enabled: challengeModeEnabled } = useChallengeMode();
 
   useEffect(() => {
     if (!userId) return;
@@ -35,9 +33,7 @@ export function Hub() {
   }, [userId]);
 
   useEffect(() => {
-    if (!challengeModeEnabled || pendingLevel === null) {
-      return;
-    }
+    if (pendingLevel === null) return;
 
     const timerId = window.setTimeout(() => {
       setPendingLevel(null);
@@ -46,13 +42,9 @@ export function Hub() {
     return () => {
       window.clearTimeout(timerId);
     };
-  }, [challengeModeEnabled, pendingLevel]);
+  }, [pendingLevel]);
 
   function handleLevelClick(event: MouseEvent<HTMLAnchorElement>, levelId: number) {
-    if (!challengeModeEnabled) {
-      return;
-    }
-
     if (pendingLevel !== levelId) {
       event.preventDefault();
       setPendingLevel(levelId);
@@ -74,21 +66,19 @@ export function Hub() {
         <p style={{ color: '#999' }}>
           Experience each dark pattern firsthand, then learn how Playwright automation defeats flows that are intentionally hostile to humans.
         </p>
-        {challengeModeEnabled && (
-          <div
-            data-testid="challenge-mode-hub-note"
-            style={{
-              marginTop: '1rem',
-              padding: '0.85rem 1rem',
-              borderRadius: '10px',
-              border: '1px solid rgba(245, 158, 11, 0.45)',
-              background: 'rgba(245, 158, 11, 0.08)',
-              color: '#f8fafc',
-            }}
-          >
-            Challenge mode adds a second confirmation click on each level card after the route briefing is dismissed.
-          </div>
-        )}
+        <div
+          data-testid="hardened-hub-note"
+          style={{
+            marginTop: '1rem',
+            padding: '0.85rem 1rem',
+            borderRadius: '10px',
+            border: '1px solid rgba(245, 158, 11, 0.45)',
+            background: 'rgba(245, 158, 11, 0.08)',
+            color: '#f8fafc',
+          }}
+        >
+          🛡️ Hardened mode is active. Double-click level cards, dismiss route briefings, and watch out for traps.
+        </div>
       </div>
 
       {/* Progress summary */}
@@ -191,7 +181,7 @@ export function Hub() {
                     fontSize: '0.9rem',
                   }}
                 >
-                  {challengeModeEnabled && pendingLevel === level.id
+                  {pendingLevel === level.id
                     ? 'Confirm entry →'
                     : completion
                       ? 'Replay'

@@ -24,23 +24,7 @@ createRoot(document.getElementById('root')!).render(
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<WelcomePage />} />
-        <Route path="/:userId" element={<ChallengeModeProvider enabled={false}><App /></ChallengeModeProvider>}>
-          <Route index element={<Hub />} />
-          <Route path="levels/1" element={<Level1Confirmshaming />} />
-          <Route path="levels/2" element={<Level2RoachMotel />} />
-          <Route path="levels/3" element={<Level3ForcedContinuity />} />
-          <Route path="levels/4" element={<Level4TrickWording />} />
-          <Route path="levels/5" element={<Level5Preselection />} />
-          <Route path="levels/6" element={<Level6BasketSneaking />} />
-          <Route path="levels/7" element={<Level7Nagging />} />
-          <Route path="levels/8" element={<Level8InterfaceInterference />} />
-          <Route path="levels/9" element={<Level9Zuckering />} />
-          <Route path="levels/10" element={<Level10EmotionalManipulation />} />
-          <Route path="levels/11" element={<Level11SpeedTrap />} />
-          <Route path="levels/12" element={<Level12FlashRecall />} />
-          <Route path="levels/13" element={<Level13NeedleHaystack />} />
-        </Route>
-        <Route path="/challenge/:userId" element={<ChallengeModeProvider enabled><App /></ChallengeModeProvider>}>
+        <Route path="/:userId" element={<ChallengeModeProvider enabled><App /></ChallengeModeProvider>}>
           <Route index element={<Hub />} />
           <Route path="levels/1" element={<Level1Confirmshaming />} />
           <Route path="levels/2" element={<Level2RoachMotel />} />

@@ -1,23 +1,17 @@
 // Level12FlashRecallTests.cs — Flash recall challenge tests.
 
-using System.Net.Http.Json;
-using System.Text.Json;
 using DarkUxChallenge.Api;
 
 namespace DarkUxChallenge.Tests;
 
-public abstract class Level12FlashRecallTests(HttpClient client)
+public abstract class Level12FlashRecallTests(DarkUxApi api)
 {
-    static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
-
     [Test]
     public async Task GetChallenge_ReturnsRevealWindowAndHint()
     {
-        var user = await Api.CreateUser(client);
+        var user = await api.CreateUser();
 
-        var response = await client.GetAsync($"/api/levels/12/challenge/{user.UserId}");
-        response.EnsureSuccessStatusCode();
-        var challenge = await response.Content.ReadFromJsonAsync<FlashRecallChallengeResponse>(Json);
+        var challenge = await api.GetFlashRecallChallenge(user.UserId);
 
         await Assert.That(challenge).IsNotNull();
         await Assert.That(challenge!.RevealMs).IsGreaterThan(0);
@@ -28,17 +22,10 @@ public abstract class Level12FlashRecallTests(HttpClient client)
     [Test]
     public async Task SubmitCorrectAnswer_CompletesLevel()
     {
-        var user = await Api.CreateUser(client);
+        var user = await api.CreateUser();
 
-        var challengeResponse = await client.GetAsync($"/api/levels/12/challenge/{user.UserId}");
-        challengeResponse.EnsureSuccessStatusCode();
-        var challenge = await challengeResponse.Content.ReadFromJsonAsync<FlashRecallChallengeResponse>(Json);
-
-        var submitResponse = await client.PostAsJsonAsync(
-            $"/api/levels/12/submit/{user.UserId}",
-            new { challengeId = challenge!.ChallengeId, answer = challenge.AutomationHint });
-        submitResponse.EnsureSuccessStatusCode();
-        var result = await submitResponse.Content.ReadFromJsonAsync<FlashRecallResult>(Json);
+        var challenge = await api.GetFlashRecallChallenge(user.UserId);
+        var result = await api.SubmitFlashRecall(user.UserId, challenge!.ChallengeId, challenge.AutomationHint!);
 
         await Assert.That(result).IsNotNull();
         await Assert.That(result!.Accepted).IsTrue();

@@ -1,23 +1,24 @@
 using System.Net;
 using System.Net.Http.Json;
-using System.Text.Json;
 using HelloAgents.Api;
 
 namespace HelloAgents.Tests;
 
 public abstract class AgentApiTests(HttpClient client)
 {
+    private readonly HelloAgentsApi _api = new(client);
+
     [Test]
     public async Task Health_ReturnsOk()
     {
-        var response = await client.GetAsync("/health");
+        var response = await _api.GetHealth();
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.OK);
     }
 
     [Test]
     public async Task RootPage_ReturnsHtml()
     {
-        var response = await client.GetAsync("/");
+        var response = await _api.GetRoot();
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.OK);
 
         var content = await response.Content.ReadAsStringAsync();
@@ -28,8 +29,7 @@ public abstract class AgentApiTests(HttpClient client)
     [Test]
     public async Task CreateGroup_ReturnsCreated()
     {
-        var response = await client.PostAsJsonAsync("/api/groups",
-            new CreateGroupRequest("Test Group", "A test group"));
+        var response = await _api.CreateGroupRaw("Test Group", "A test group");
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.Created);
 
         var group = await response.Content.ReadFromJsonAsync<ChatGroupDetail>();
@@ -40,23 +40,21 @@ public abstract class AgentApiTests(HttpClient client)
     [Test]
     public async Task CreateGroup_EmptyName_ReturnsBadRequest()
     {
-        var response = await client.PostAsJsonAsync("/api/groups",
-            new CreateGroupRequest("", "desc"));
+        var response = await _api.CreateGroupRaw("", "desc");
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
     }
 
     [Test]
     public async Task ListGroups_ReturnsOk()
     {
-        var response = await client.GetAsync("/api/groups");
+        var response = await _api.ListGroupsRaw();
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.OK);
     }
 
     [Test]
     public async Task CreateAgent_ReturnsCreated()
     {
-        var response = await client.PostAsJsonAsync("/api/agents",
-            new CreateAgentRequest("TestBot", "A test AI agent", "🤖"));
+        var response = await _api.CreateAgentRaw("TestBot", "A test AI agent", "🤖");
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.Created);
 
         var agent = await response.Content.ReadFromJsonAsync<AgentInfo>();
@@ -67,110 +65,92 @@ public abstract class AgentApiTests(HttpClient client)
     [Test]
     public async Task CreateAgent_EmptyName_ReturnsBadRequest()
     {
-        var response = await client.PostAsJsonAsync("/api/agents",
-            new CreateAgentRequest("", "desc", "🤖"));
+        var response = await _api.CreateAgentRaw("", "desc", "🤖");
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
     }
 
     [Test]
     public async Task ListAgents_ReturnsOk()
     {
-        var response = await client.GetAsync("/api/agents");
+        var response = await _api.ListAgentsRaw();
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.OK);
     }
 
     [Test]
     public async Task FullFlow_CreateGroupAndAgent_AddToGroup_SendMessage()
     {
-        // Create group
-        var groupResponse = await client.PostAsJsonAsync("/api/groups",
-            new CreateGroupRequest("Flow Test", "Integration test"));
-        var group = await groupResponse.Content.ReadFromJsonAsync<ChatGroupDetail>();
-        await Assert.That(group).IsNotNull();
+        var group = await _api.CreateGroup("Flow Test", "Integration test");
+        var agent = await _api.CreateAgent("FlowBot", "A test bot", "🧪");
 
-        // Create agent
-        var agentResponse = await client.PostAsJsonAsync("/api/agents",
-            new CreateAgentRequest("FlowBot", "A test bot", "🧪"));
-        var agent = await agentResponse.Content.ReadFromJsonAsync<AgentInfo>();
-        await Assert.That(agent).IsNotNull();
-
-        // Add agent to group (stream-driven: agent publishes AgentJoined)
-        var addResponse = await client.PostAsJsonAsync($"/api/groups/{group!.Id}/agents",
-            new AddAgentToGroupRequest(agent!.Id));
+        var addResponse = await _api.AddAgentToGroup(group.Id, agent.Id);
         await Assert.That(addResponse.StatusCode).IsEqualTo(HttpStatusCode.OK);
 
-        // Give the stream event time to propagate to the group grain
-        await Task.Delay(500);
-
-        // Send a message (published directly to stream)
-        var msgResponse = await client.PostAsJsonAsync($"/api/groups/{group.Id}/messages",
-            new SendMessageRequest("TestUser", "Hello agents!"));
+        var msgResponse = await _api.SendMessage(group.Id, "TestUser", "Hello agents!");
         await Assert.That(msgResponse.StatusCode).IsEqualTo(HttpStatusCode.OK);
 
-        // Give the stream event time to propagate
-        await Task.Delay(500);
-
-        // Verify group state — agent is in Agents array and messages include join + user message
-        var stateResponse = await client.GetAsync($"/api/groups/{group.Id}");
-        var state = await stateResponse.Content.ReadFromJsonAsync<ChatGroupDetail>();
-        await Assert.That(state).IsNotNull();
-        await Assert.That(state!.Agents.Any(a => a.Id == agent.Id)).IsTrue();
-        await Assert.That(state.Messages.Length).IsGreaterThanOrEqualTo(1);
+        await Assert.That(async () =>
+        {
+            var state = await _api.GetGroup(group.Id);
+            return state.Agents.Any(a => a.Id == agent.Id) && state.Messages.Length >= 1;
+        }).Eventually(
+            assert => assert.IsTrue(),
+            timeout: TimeSpan.FromSeconds(10)
+        );
     }
 
     [Test]
     public async Task DeleteGroup_RemovesMembershipFromAgents()
     {
-        var groupResponse = await client.PostAsJsonAsync("/api/groups",
-            new CreateGroupRequest("Delete Flow", "Delete integration test"));
-        var group = await groupResponse.Content.ReadFromJsonAsync<ChatGroupDetail>();
-        await Assert.That(group).IsNotNull();
+        var group = await _api.CreateGroup("Delete Flow", "Delete integration test");
+        var agent = await _api.CreateAgent("DetachBot", "A bot that should be detached", "🧹");
 
-        var agentResponse = await client.PostAsJsonAsync("/api/agents",
-            new CreateAgentRequest("DetachBot", "A bot that should be detached", "🧹"));
-        var agent = await agentResponse.Content.ReadFromJsonAsync<AgentInfo>();
-        await Assert.That(agent).IsNotNull();
-
-        var addResponse = await client.PostAsJsonAsync($"/api/groups/{group!.Id}/agents",
-            new AddAgentToGroupRequest(agent!.Id));
+        var addResponse = await _api.AddAgentToGroup(group.Id, agent.Id);
         await Assert.That(addResponse.StatusCode).IsEqualTo(HttpStatusCode.OK);
 
-        await Task.Delay(500);
+        await Assert.That(async () =>
+        {
+            var state = await _api.GetGroup(group.Id);
+            return state.Agents.Any(a => a.Id == agent.Id);
+        }).Eventually(
+            assert => assert.IsTrue(),
+            timeout: TimeSpan.FromSeconds(10)
+        );
 
-        var deleteResponse = await client.DeleteAsync($"/api/groups/{group.Id}");
+        var deleteResponse = await _api.DeleteGroup(group.Id);
         await Assert.That(deleteResponse.StatusCode).IsEqualTo(HttpStatusCode.NoContent);
 
-        await Task.Delay(500);
+        await Assert.That(async () =>
+        {
+            var resp = await _api.GetGroupRaw(group.Id);
+            return resp.StatusCode;
+        }).Eventually(
+            assert => assert.IsEqualTo(HttpStatusCode.NotFound),
+            timeout: TimeSpan.FromSeconds(10)
+        );
 
-        var deletedGroupResponse = await client.GetAsync($"/api/groups/{group.Id}");
-        await Assert.That(deletedGroupResponse.StatusCode).IsEqualTo(HttpStatusCode.NotFound);
-
-        var updatedAgentResponse = await client.GetAsync($"/api/agents/{agent.Id}");
-        await Assert.That(updatedAgentResponse.StatusCode).IsEqualTo(HttpStatusCode.OK);
-
-        var updatedAgent = await updatedAgentResponse.Content.ReadFromJsonAsync<AgentInfo>();
-        await Assert.That(updatedAgent).IsNotNull();
-        await Assert.That(updatedAgent!.GroupIds.Contains(group.Id)).IsFalse();
+        await Assert.That(async () =>
+        {
+            var updatedAgent = await _api.GetAgent(agent.Id);
+            return updatedAgent.GroupIds.Contains(group.Id);
+        }).Eventually(
+            assert => assert.IsFalse(),
+            timeout: TimeSpan.FromSeconds(10)
+        );
     }
 
     [Test]
     public async Task SendMessage_EmptyContent_ReturnsBadRequest()
     {
-        // Create group first
-        var groupResponse = await client.PostAsJsonAsync("/api/groups",
-            new CreateGroupRequest("Empty Msg Test", "test"));
-        var group = await groupResponse.Content.ReadFromJsonAsync<ChatGroupDetail>();
+        var group = await _api.CreateGroup("Empty Msg Test", "test");
 
-        var response = await client.PostAsJsonAsync($"/api/groups/{group!.Id}/messages",
-            new SendMessageRequest("User", ""));
+        var response = await _api.SendMessage(group.Id, "User", "");
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
     }
 
     [Test]
     public async Task Orchestrate_EmptyMessage_ReturnsBadRequest()
     {
-        var response = await client.PostAsJsonAsync("/api/orchestrate",
-            new OrchestrateRequest(""));
+        var response = await _api.Orchestrate("");
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
     }
 
@@ -178,49 +158,28 @@ public abstract class AgentApiTests(HttpClient client)
     [Timeout(30_000)]
     public async Task Discussion_AgentRespondsWithStreamingContent()
     {
-        // Create group
-        var groupResponse = await client.PostAsJsonAsync("/api/groups",
-            new CreateGroupRequest("StreamTest", "Streaming test"));
-        var group = await groupResponse.Content.ReadFromJsonAsync<ChatGroupDetail>();
-        await Assert.That(group).IsNotNull();
+        var group = await _api.CreateGroup("StreamTest", "Streaming test");
+        var agent = await _api.CreateAgent("StreamBot", "A streaming test bot", "🔄");
 
-        // Create agent
-        var agentResponse = await client.PostAsJsonAsync("/api/agents",
-            new CreateAgentRequest("StreamBot", "A streaming test bot", "🔄"));
-        var agent = await agentResponse.Content.ReadFromJsonAsync<AgentInfo>();
-        await Assert.That(agent).IsNotNull();
+        await _api.AddAgentToGroup(group.Id, agent.Id);
+        await _api.SendMessage(group.Id, "Tester", "Tell me something");
 
-        // Add agent to group
-        await client.PostAsJsonAsync($"/api/groups/{group!.Id}/agents",
-            new AddAgentToGroupRequest(agent!.Id));
-        await Task.Delay(500);
-
-        // Send a message to trigger agent response
-        await client.PostAsJsonAsync($"/api/groups/{group.Id}/messages",
-            new SendMessageRequest("Tester", "Tell me something"));
-
-        // Wait for the agent to process (streaming + Orleans stream propagation)
-        // The MockStreamingChatClient yields tokens quickly, but Orleans needs time
-        ChatGroupDetail? state = null;
-        for (int i = 0; i < 20; i++)
+        await Assert.That(async () =>
         {
-            await Task.Delay(500);
-            var stateResponse = await client.GetAsync($"/api/groups/{group.Id}");
-            state = await stateResponse.Content.ReadFromJsonAsync<ChatGroupDetail>();
-            // Look for an agent message (from MockStreamingChatClient)
-            if (state?.Messages.Any(m => m.SenderType == SenderType.Agent && m.EventType == EventType.Message) == true)
-                break;
-        }
+            var s = await _api.GetGroup(group.Id);
+            return s.Messages.Any(m => m.SenderType == SenderType.Agent && m.EventType == EventType.Message);
+        }).Eventually(
+            assert => assert.IsTrue(),
+            timeout: TimeSpan.FromSeconds(10)
+        );
 
-        await Assert.That(state).IsNotNull();
+        var state = await _api.GetGroup(group.Id);
 
-        // Verify: agent responded with non-empty content
-        var agentMessage = state!.Messages.FirstOrDefault(m =>
+        var agentMessage = state.Messages.FirstOrDefault(m =>
             m.SenderType == SenderType.Agent && m.EventType == EventType.Message);
         await Assert.That(agentMessage).IsNotNull();
         await Assert.That(agentMessage!.Content).IsNotEmpty();
 
-        // Verify: Thinking and Streaming events are NOT persisted in group state
         var persistedThinking = state.Messages.Where(m => m.EventType == EventType.Thinking).ToList();
         var persistedStreaming = state.Messages.Where(m => m.EventType == EventType.Streaming).ToList();
         await Assert.That(persistedThinking.Count).IsEqualTo(0);

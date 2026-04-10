@@ -6,6 +6,20 @@ function shuffleActions<T>(items: T[]) {
   return [...items].sort(() => Math.random() - 0.5);
 }
 
+/**
+ * Renders text via a dynamically injected CSS ::after rule.
+ * The text won't appear in element.innerText or element.textContent.
+ */
+function CssContentLabel({ text }: { text: string }) {
+  const id = `css-label-${text.replace(/\W/g, '').slice(0, 12)}-${Math.random().toString(36).slice(2, 6)}`;
+
+  return (
+    <span className={id}>
+      <style>{`.${id}::after { content: "${text.replace(/"/g, '\\"')}"; }`}</style>
+    </span>
+  );
+}
+
 const WEIGHT_STYLES: Record<string, React.CSSProperties> = {
   prominent: {
     padding: '1.25rem 2rem',
@@ -151,24 +165,30 @@ export function Level8InterfaceInterference() {
         }}>
           Visual priority keeps shifting. Automation can ignore the motion and read the attributes.
         </div>
-        {displayActions.map(action => (
-          <button
-            key={action.id}
-            data-testid={`action-${action.id}`}
-            data-is-decoy={String(action.isDecoy)}
-            onClick={() => handleAction(action.id)}
-            style={{
-              ...(WEIGHT_STYLES[action.visualWeight] || WEIGHT_STYLES.medium),
-              cursor: 'pointer',
-              width: action.visualWeight === 'prominent' ? '100%' : 'auto',
-              opacity: action.isDecoy ? 1 : pulse ? 0.5 : 0.35,
-              transform: action.isDecoy ? 'none' : pulse ? 'translateX(10px)' : 'translateX(-10px)',
-              transition: 'transform 0.2s ease, opacity 0.2s ease',
-            }}
-          >
-            {action.label}
-          </button>
-        ))}
+        {displayActions.map((action, i) => {
+          // For decoy buttons, render label via CSS ::before (invisible to innerText/textContent)
+          const cssLabel = action.isDecoy ? `css-decoy-label-${i}` : '';
+          return (
+            <button
+              key={action.id}
+              data-testid={`action-${action.id}`}
+              data-is-decoy={String(action.isDecoy)}
+              className={cssLabel}
+              onClick={() => handleAction(action.id)}
+              style={{
+                ...(WEIGHT_STYLES[action.visualWeight] || WEIGHT_STYLES.medium),
+                cursor: 'pointer',
+                width: action.visualWeight === 'prominent' ? '100%' : 'auto',
+                opacity: action.isDecoy ? 1 : pulse ? 0.5 : 0.35,
+                transform: action.isDecoy ? 'none' : pulse ? 'translateX(10px)' : 'translateX(-10px)',
+                transition: 'transform 0.2s ease, opacity 0.2s ease',
+              }}
+            >
+              {action.isDecoy ? '' : action.label}
+              {action.isDecoy && <CssContentLabel text={action.label} />}
+            </button>
+          );
+        })}
       </div>
     </div>
   );

@@ -53,3 +53,6 @@ dist/assets/*
 
 # Compiled ARM templates (use .bicep source only)
 infra/**/*.json
+
+tmp.*scripts/grafana/node_modules/
+node_modules/

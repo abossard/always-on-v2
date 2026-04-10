@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { api, type SpeedTrapChallenge, type SpeedTrapResult } from '../../api/client';
+import { useTypingCadence } from '../../hooks/useTypingCadence';
 
 function shuffleTokens(tokens: string[]) {
   return [...tokens].sort(() => Math.random() - 0.5);
@@ -14,7 +15,9 @@ export function Level11SpeedTrap() {
   const [remainingMs, setRemainingMs] = useState(0);
   const [noiseTokens, setNoiseTokens] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [typingSuspicious, setTypingSuspicious] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const { recordKeystroke, getPattern, reset: resetTyping } = useTypingCadence();
 
   async function loadChallenge() {
     if (!userId) return;
@@ -22,6 +25,8 @@ export function Level11SpeedTrap() {
     setChallenge(next);
     setResult(null);
     setAnswer('');
+    setTypingSuspicious(false);
+    resetTyping();
     setRemainingMs(Math.max(0, new Date(next.deadlineAt).getTime() - Date.now()));
     setNoiseTokens(shuffleTokens(next.noiseTokens));
   }
@@ -35,8 +40,17 @@ export function Level11SpeedTrap() {
 
     inputRef.current?.focus();
 
+    // Time-warped countdown: visual timer runs at variable speed
+    // (sometimes faster, sometimes slower — never matches real server time)
+    let warpedRemaining = Math.max(0, new Date(challenge.deadlineAt).getTime() - Date.now());
     const countdownTimer = setInterval(() => {
-      setRemainingMs(Math.max(0, new Date(challenge.deadlineAt).getTime() - Date.now()));
+      const realRemaining = Math.max(0, new Date(challenge.deadlineAt).getTime() - Date.now());
+      // Warp factor: oscillates between 0.5x and 2x speed
+      const warpFactor = 1 + 0.7 * Math.sin(Date.now() / 400);
+      warpedRemaining = Math.max(0, warpedRemaining - 50 * warpFactor);
+      // Gradually pull warped toward real to prevent total desync
+      warpedRemaining = warpedRemaining * 0.95 + realRemaining * 0.05;
+      setRemainingMs(Math.max(0, Math.round(warpedRemaining)));
     }, 50);
 
     const noiseTimer = setInterval(() => {
@@ -52,6 +66,8 @@ export function Level11SpeedTrap() {
   async function submit() {
     if (!challenge || !answer.trim() || submitting) return;
     setSubmitting(true);
+    const pattern = getPattern();
+    if (pattern.isSuspicious) setTypingSuspicious(true);
     try {
       const next = await api.submitSpeedTrap(userId, challenge.challengeId, answer);
       setResult(next);
@@ -79,6 +95,19 @@ export function Level11SpeedTrap() {
             ? `Solved in ${result.elapsedMs}ms via ${result.solvedBy}.`
             : `Expected answer: ${result.expectedAnswer}. Elapsed time: ${result.elapsedMs}ms.`}
         </p>
+        {typingSuspicious && (
+          <div data-testid="typing-suspicious" style={{
+            padding: '0.6rem 1rem',
+            marginBottom: '1rem',
+            borderRadius: '8px',
+            background: 'rgba(245, 158, 11, 0.15)',
+            border: '1px solid #f59e0b',
+            color: '#f59e0b',
+            fontSize: '0.9rem',
+          }}>
+            🤖 Suspicious typing detected — uniform keystroke intervals suggest automation
+          </div>
+        )}
 
         <div style={{
           background: '#1a1a2e',
@@ -132,6 +161,7 @@ export function Level11SpeedTrap() {
 
       <div
         data-testid="level11-challenge"
+        data-copy-trap="true"
         data-challenge-id={challenge.challengeId}
         data-answer-key={challenge.automationHint}
         data-deadline-at={challenge.deadlineAt}
@@ -219,6 +249,7 @@ export function Level11SpeedTrap() {
               data-testid="speed-answer-input"
               value={answer}
               onChange={(event) => setAnswer(event.target.value)}
+              onKeyDown={() => recordKeystroke()}
               disabled={expired || submitting}
               autoComplete="off"
               spellCheck={false}

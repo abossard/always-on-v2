@@ -30,7 +30,6 @@ resource certManagerFederatedCred 'Microsoft.ManagedIdentity/userAssignedIdentit
 resource externalDnsFederatedCred 'Microsoft.ManagedIdentity/userAssignedIdentities/federatedIdentityCredentials@2023-01-31' = {
   parent: identity
   name: 'external-dns-${stampName}'
-  dependsOn: [ certManagerFederatedCred ]
   properties: {
     issuer: oidcIssuerUrl
     subject: 'system:serviceaccount:external-dns:external-dns-external-dns'

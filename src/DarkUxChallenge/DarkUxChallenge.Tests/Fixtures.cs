@@ -1,44 +1,12 @@
 // Fixtures.cs — Shared test infrastructure for all DarkUxChallenge test suites.
-// Fixtures provide an HttpClient. Tests don't know what's behind it.
+// Fixtures provide an HttpClient and typed API client. Tests don't know what's behind it.
 
-using System.Net;
-using System.Net.Http.Json;
-using System.Text.Json;
 using Aspire.Hosting;
 using Aspire.Hosting.Testing;
-using DarkUxChallenge.Api;
 using DarkUxChallenge.AppHost;
 using TUnit.Core.Interfaces;
 
 namespace DarkUxChallenge.Tests;
-
-// ──────────────────────────────────────────────
-// Shared HTTP helpers
-// ──────────────────────────────────────────────
-
-static class Api
-{
-    static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
-
-    public static async Task<UserResponse> CreateUser(HttpClient c, string? displayName = null)
-    {
-        var body = new { displayName };
-        var r = await c.PostAsJsonAsync("/api/users", body);
-        r.EnsureSuccessStatusCode();
-        return (await r.Content.ReadFromJsonAsync<UserResponse>(Json))!;
-    }
-
-    public static async Task<UserResponse?> GetUser(HttpClient c, string userId)
-    {
-        var r = await c.GetAsync($"/api/users/{userId}");
-        if (r.StatusCode == HttpStatusCode.NotFound) return null;
-        r.EnsureSuccessStatusCode();
-        return await r.Content.ReadFromJsonAsync<UserResponse>(Json);
-    }
-
-    public static async Task<HttpStatusCode> PostStatus(HttpClient c, string path, object body)
-        => (await c.PostAsJsonAsync(path, body)).StatusCode;
-}
 
 // ──────────────────────────────────────────────
 // Aspire fixture (Cosmos emulator, needs Docker)
@@ -48,6 +16,7 @@ public class AspireFixture : IAsyncInitializer, IAsyncDisposable
 {
     DistributedApplication? _app;
     public HttpClient Client { get; private set; } = null!;
+    public DarkUxApi Api { get; private set; } = null!;
 
     public async Task InitializeAsync()
     {
@@ -58,6 +27,7 @@ public class AspireFixture : IAsyncInitializer, IAsyncDisposable
         await _app.StartAsync();
         await _app.ResourceNotifications.WaitForResourceHealthyAsync(ResourceNames.Api);
         Client = _app.CreateHttpClient(ResourceNames.Api);
+        Api = new DarkUxApi(Client);
     }
 
     public async ValueTask DisposeAsync()

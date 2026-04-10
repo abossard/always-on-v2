@@ -1,0 +1,21 @@
+<Project>
+  <PropertyGroup>
+    <!-- Enable all .NET analyzers at Recommended level -->
+    <AnalysisLevel>latest-All</AnalysisLevel>
+    <AnalysisMode>Recommended</AnalysisMode>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+
+    <!-- Treat specific warnings as errors -->
+    <WarningsAsErrors>
+      CS0168;CS0169;CS0219;CS0414;CS8600;CS8601;CS8602;CS8603;CS8604;CS8618;CS8625
+    </WarningsAsErrors>
+    <!--
+      CS0168 - Variable declared but never used
+      CS0169 - Field never used
+      CS0219 - Variable assigned but never used
+      CS0414 - Field assigned but never used
+      CS8600-CS8625 - Nullable reference type warnings
+    -->
+  </PropertyGroup>
+</Project>

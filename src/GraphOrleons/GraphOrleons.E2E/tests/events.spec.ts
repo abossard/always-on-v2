@@ -23,12 +23,12 @@ async function waitForTenant(page: Parameters<Parameters<typeof test.describe>[1
 }
 
 test.describe('GraphOrleons SPA', () => {
-  test('page loads with the live orbit view and informative panels', async ({ page }) => {
+  test('page loads with the live dependency tree and informative panels', async ({ page }) => {
     await page.goto('/');
     await expect(page.locator('h1')).toContainText('GraphOrleons topology explorer');
     await expect(page.getByTestId('topology-studio')).toBeVisible();
-    await expect(page.getByTestId('topology-studio')).toHaveAttribute('data-view-variant', 'orbit');
-    await expect(page.getByTestId('comparison-sidebar')).toContainText('Single live layout');
+    await expect(page.getByTestId('topology-studio')).toHaveAttribute('data-view-variant', 'atlas');
+    await expect(page.getByTestId('comparison-sidebar')).toContainText('How to read this');
     await expect(page.getByTestId('selected-node-panel')).toContainText('Selected node');
   });
 
@@ -60,7 +60,7 @@ test.describe('GraphOrleons SPA', () => {
     await expect(page.locator(`text=web-svc`)).toBeVisible();
   });
 
-  test('live orbit renders seeded topology and captures a screenshot', async ({ page }) => {
+  test('live tree renders seeded topology and captures a screenshot', async ({ page }) => {
     const tenant = `compare-${Date.now()}`;
     await page.goto('/');
 
@@ -82,9 +82,9 @@ test.describe('GraphOrleons SPA', () => {
     const orbitBox = await page.locator('[data-node-label="checkout-api"]').first().boundingBox();
     expect(orbitBox).not.toBeNull();
     expect(orbitBox!.width).toBeLessThan(230);
-    await graphCanvas.screenshot({ path: test.info().outputPath('orbit-live.png') });
+    await graphCanvas.screenshot({ path: test.info().outputPath('atlas-live.png') });
 
-    await expect(page.getByTestId('comparison-sidebar')).toContainText('Wider orbit spacing');
+    await expect(page.getByTestId('comparison-sidebar')).toContainText('shared dependenc');
   });
 
   test('component details show payload on click', async ({ page }) => {

@@ -8,9 +8,9 @@ name: App Build & Push (Reusable)
 #     build-push:
 #       uses: ./.github/workflows/app-build-push.yml
 #       with:
-#         app_name: level0
-#         bake_source: src/PlayersOnLevel0
-#         deploy_manifest: clusters/base/apps/level0/deployment.yaml
+#         app_name: darkux
+#         bake_source: src/DarkUxChallenge
+#         deploy_manifest: clusters/base/apps/darkux/deployment.yaml
 #       secrets: inherit
 
 on:

@@ -1,0 +1,13 @@
+version: v0.1
+testId: darkux-load-test
+displayName: DarkUxChallenge Load Test
+description: 200 users exercising user creation, level progression, and read-heavy challenge flows for 60s
+testType: Locust
+testPlan: locustfile.py
+engineInstances: 1
+failureCriteria:
+  - avg(response_time_ms) > 500
+  - percentage(error) > 5
+autoStop:
+  errorPercentage: 90
+  timeWindow: 30

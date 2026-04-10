@@ -1,23 +1,17 @@
 // Level1ConfirmshamingTests.cs — Confirmshaming dark pattern tests.
 
 using System.Net;
-using System.Net.Http.Json;
-using System.Text.Json;
 using DarkUxChallenge.Api;
 
 namespace DarkUxChallenge.Tests;
 
-public abstract class Level1ConfirmshamingTests(HttpClient client)
+public abstract class Level1ConfirmshamingTests(DarkUxApi api)
 {
-    static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
-
     [Test]
     public async Task GetOffer_ReturnsOfferWithManipulativeText()
     {
-        var user = await Api.CreateUser(client);
-        var r = await client.GetAsync($"/api/levels/1/offer/{user.UserId}");
-        r.EnsureSuccessStatusCode();
-        var offer = await r.Content.ReadFromJsonAsync<OfferResponse>(Json);
+        var user = await api.CreateUser();
+        var offer = await api.GetOffer(user.UserId);
 
         await Assert.That(offer).IsNotNull();
         await Assert.That(offer!.OfferId).IsNotNull();
@@ -30,11 +24,8 @@ public abstract class Level1ConfirmshamingTests(HttpClient client)
     [Test]
     public async Task RespondToOffer_Decline_RecordsCompletion()
     {
-        var user = await Api.CreateUser(client);
-        var body = new { accepted = false };
-        var r = await client.PostAsJsonAsync($"/api/levels/1/respond/{user.UserId}", body);
-        r.EnsureSuccessStatusCode();
-        var updated = await r.Content.ReadFromJsonAsync<UserResponse>(Json);
+        var user = await api.CreateUser();
+        var updated = await api.RespondToOffer(user.UserId, accepted: false);
 
         await Assert.That(updated).IsNotNull();
         await Assert.That(updated!.Completions.Count).IsEqualTo(1);
@@ -45,11 +36,8 @@ public abstract class Level1ConfirmshamingTests(HttpClient client)
     [Test]
     public async Task RespondToOffer_Accept_DoesNotRecordHumanSolve()
     {
-        var user = await Api.CreateUser(client);
-        var body = new { accepted = true };
-        var r = await client.PostAsJsonAsync($"/api/levels/1/respond/{user.UserId}", body);
-        r.EnsureSuccessStatusCode();
-        var updated = await r.Content.ReadFromJsonAsync<UserResponse>(Json);
+        var user = await api.CreateUser();
+        var updated = await api.RespondToOffer(user.UserId, accepted: true);
 
         await Assert.That(updated).IsNotNull();
         await Assert.That(updated!.Completions.Count).IsEqualTo(1);
@@ -59,7 +47,7 @@ public abstract class Level1ConfirmshamingTests(HttpClient client)
     [Test]
     public async Task GetOffer_NonExistentUser_Returns404()
     {
-        var r = await client.GetAsync($"/api/levels/1/offer/{Guid.NewGuid()}");
+        var r = await api.Http.GetAsync(Routes.Level1Offer(Guid.NewGuid().ToString()));
         await Assert.That(r.StatusCode).IsEqualTo(HttpStatusCode.NotFound);
     }
 }

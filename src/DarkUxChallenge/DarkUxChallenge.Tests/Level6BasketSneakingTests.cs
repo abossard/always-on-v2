@@ -1,23 +1,16 @@
 // Level6BasketSneakingTests.cs — Basket Sneaking dark pattern tests.
 
-using System.Net;
-using System.Net.Http.Json;
-using System.Text.Json;
 using DarkUxChallenge.Api;
 
 namespace DarkUxChallenge.Tests;
 
-public abstract class Level6BasketSneakingTests(HttpClient client)
+public abstract class Level6BasketSneakingTests(DarkUxApi api)
 {
-    static readonly JsonSerializerOptions Json = new() { PropertyNameCaseInsensitive = true };
-
     [Test]
     public async Task GetCart_InitiallyEmpty()
     {
-        var user = await Api.CreateUser(client);
-        var r = await client.GetAsync($"/api/levels/6/cart/{user.UserId}");
-        r.EnsureSuccessStatusCode();
-        var cart = await r.Content.ReadFromJsonAsync<CartResponse>(Json);
+        var user = await api.CreateUser();
+        var cart = await api.GetCart(user.UserId);
 
         await Assert.That(cart).IsNotNull();
         await Assert.That(cart!.Items.Count).IsEqualTo(0);
@@ -27,11 +20,8 @@ public abstract class Level6BasketSneakingTests(HttpClient client)
     [Test]
     public async Task AddToCart_AddsUserItem()
     {
-        var user = await Api.CreateUser(client);
-        var body = new { itemId = "widget-1", name = "Widget", price = 19.99m };
-        var r = await client.PostAsJsonAsync($"/api/levels/6/cart/{user.UserId}/add", body);
-        r.EnsureSuccessStatusCode();
-        var cart = await r.Content.ReadFromJsonAsync<CartResponse>(Json);
+        var user = await api.CreateUser();
+        var cart = await api.AddToCart(user.UserId, "widget-1", "Widget", 19.99m);
 
         await Assert.That(cart).IsNotNull();
         await Assert.That(cart!.Items.Count).IsEqualTo(1);
@@ -42,13 +32,10 @@ public abstract class Level6BasketSneakingTests(HttpClient client)
     [Test]
     public async Task Checkout_SneaksExtraItems()
     {
-        var user = await Api.CreateUser(client);
-        var addBody = new { itemId = "widget-1", name = "Widget", price = 19.99m };
-        await client.PostAsJsonAsync($"/api/levels/6/cart/{user.UserId}/add", addBody);
+        var user = await api.CreateUser();
+        await api.AddToCart(user.UserId, "widget-1", "Widget", 19.99m);
 
-        var r = await client.PostAsync($"/api/levels/6/cart/{user.UserId}/checkout", null);
-        r.EnsureSuccessStatusCode();
-        var cart = await r.Content.ReadFromJsonAsync<CartResponse>(Json);
+        var cart = await api.Checkout(user.UserId);
 
         await Assert.That(cart).IsNotNull();
         await Assert.That(cart!.Items.Count).IsGreaterThan(1);
@@ -58,15 +45,12 @@ public abstract class Level6BasketSneakingTests(HttpClient client)
     [Test]
     public async Task RemoveFromCart_RemovesSneakedItem()
     {
-        var user = await Api.CreateUser(client);
-        var addBody = new { itemId = "widget-1", name = "Widget", price = 19.99m };
-        await client.PostAsJsonAsync($"/api/levels/6/cart/{user.UserId}/add", addBody);
-        await client.PostAsync($"/api/levels/6/cart/{user.UserId}/checkout", null);
+        var user = await api.CreateUser();
+        await api.AddToCart(user.UserId, "widget-1", "Widget", 19.99m);
+        await api.Checkout(user.UserId);
 
         // Remove a sneaked item (insurance-1 is one of the sneakable items)
-        var r = await client.PostAsync($"/api/levels/6/cart/{user.UserId}/remove/insurance-1", null);
-        r.EnsureSuccessStatusCode();
-        var cart = await r.Content.ReadFromJsonAsync<CartResponse>(Json);
+        var cart = await api.RemoveFromCart(user.UserId, "insurance-1");
 
         await Assert.That(cart).IsNotNull();
         var removed = cart!.Items.Any(i => i.Id == "insurance-1");
