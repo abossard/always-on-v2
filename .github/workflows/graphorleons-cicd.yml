@@ -166,7 +166,7 @@ jobs:
   load-test:
     name: Azure Load Test
     needs: [docker-build-push]
-    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    if: false  # disabled — clusters torn down
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
