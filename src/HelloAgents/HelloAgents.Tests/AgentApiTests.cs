@@ -90,7 +90,7 @@ public abstract class AgentApiTests(HttpClient client)
         await Assert.That(async () =>
         {
             var state = await _api.GetGroup(group.Id);
-            return state.Agents.Any(a => a.Id == agent.Id) && state.Messages.Count >= 1;
+            return state.Agents.Any(a => a.Id == agent.Id) && state.Messages.Length >= 1;
         }).Eventually(
             assert => assert.IsTrue(),
             timeout: TimeSpan.FromSeconds(10)

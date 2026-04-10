@@ -23,20 +23,24 @@ public sealed record AgentPersona(
     [property: Id(2)] string ReflectionJournal,
     [property: Id(3)] string AvatarEmoji);
 
+#pragma warning disable CA1819 // Orleans [GenerateSerializer] records require concrete array types
 [GenerateSerializer]
-public sealed record AgentInfo([property: Id(0)] string Id, [property: Id(1)] string Name, [property: Id(2)] string AvatarEmoji, [property: Id(3)] IReadOnlyList<string> GroupIds, [property: Id(4)] string ReflectionJournal);
+public sealed record AgentInfo([property: Id(0)] string Id, [property: Id(1)] string Name, [property: Id(2)] string AvatarEmoji, [property: Id(3)] string[] GroupIds, [property: Id(4)] string ReflectionJournal);
+#pragma warning restore CA1819
 
 [GenerateSerializer]
 public sealed record ChatGroupSummary([property: Id(0)] string Id, [property: Id(1)] string Name, [property: Id(2)] string Description, [property: Id(3)] int AgentCount, [property: Id(4)] int MessageCount, [property: Id(5)] DateTimeOffset CreatedAt);
 
+#pragma warning disable CA1819 // Orleans [GenerateSerializer] records require concrete array types
 [GenerateSerializer]
 public sealed record ChatGroupDetail(
     [property: Id(0)] string Id,
     [property: Id(1)] string Name,
     [property: Id(2)] string Description,
-    [property: Id(3)] IReadOnlyList<AgentMemberInfo> Agents,
-    [property: Id(4)] IReadOnlyList<ChatMessage> Messages,
+    [property: Id(3)] AgentMemberInfo[] Agents,
+    [property: Id(4)] ChatMessage[] Messages,
     [property: Id(5)] DateTimeOffset CreatedAt);
+#pragma warning restore CA1819
 
 [GenerateSerializer]
 public sealed record ChatMessage(
@@ -61,11 +65,13 @@ public sealed record IntentResult(
 
 /// <summary>Request passed to LlmIntentGrain.ExecuteAsync.</summary>
 [GenerateSerializer]
+#pragma warning disable CA1002 // Orleans [GenerateSerializer] records require concrete List<T>
 public sealed record IntentRequest(
     [property: Id(0)] string AgentId,
     [property: Id(1)] string GroupId,
-    [property: Id(2)] IReadOnlyList<ChatMessageState> Context,
+    [property: Id(2)] List<ChatMessageState> Context,
     [property: Id(3)] IntentType IntentType);
+#pragma warning restore CA1002
 
 // ─── Grain State ────────────────────────────────────────────
 

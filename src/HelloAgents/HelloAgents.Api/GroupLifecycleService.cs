@@ -39,7 +39,7 @@ public sealed class GroupLifecycleService(
                 g.Id,
                 g.Name,
                 g.Description,
-                g.Agents.Count,
+                g.Agents.Length,
                 g.Messages.Count(m => m.EventType == EventType.Message),
                 g.CreatedAt))
             .ToArray();
@@ -83,7 +83,7 @@ public sealed class GroupLifecycleService(
         logger.GroupDeleted(
             group.Name,
             groupId,
-            group.Agents.Count);
+            group.Agents.Length);
 
         return true;
     }

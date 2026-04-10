@@ -306,7 +306,7 @@ public sealed class OrchestratorService(
             {
                 var grain = grainFactory.GetGrain<IAgentGrain>(id);
                 var info = await grain.GetInfoAsync();
-                lines.Add($"- {info.AvatarEmoji} {info.Name} (in {info.GroupIds.Count} groups)");
+                lines.Add($"- {info.AvatarEmoji} {info.Name} (in {info.GroupIds.Length} groups)");
             }
             catch (InvalidOperationException)
             {
