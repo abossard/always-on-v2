@@ -74,8 +74,6 @@ spec:
               value: ${HELLOAGENTS_COSMOS_CLUSTER_CONTAINER}
             - name: ConnectionStrings__cosmos
               value: "AccountEndpoint=${COSMOS_ENDPOINT}"
-            - name: ORLEANS_CLUSTERING
-              value: "Kubernetes"
             - name: ConnectionStrings__queuestorage
               value: ${HELLOAGENTS_STORAGE_QUEUE_ENDPOINT}
           resizePolicy:

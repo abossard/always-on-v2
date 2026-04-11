@@ -1,13 +1,11 @@
 namespace HelloAgents.Api;
 
-public enum StorageProvider { InMemory, CosmosDb }
-
-public enum ClusteringProvider { Localhost, Kubernetes }
+public enum StorageProvider { CosmosDb }
 
 public sealed class StorageConfig
 {
     public const string Section = "Storage";
-    public StorageProvider Provider { get; set; } = StorageProvider.InMemory;
+    public StorageProvider Provider { get; set; } = StorageProvider.CosmosDb;
 }
 
 public sealed class CosmosDbConfig
@@ -20,7 +18,6 @@ public sealed class CosmosDbConfig
 
 public static class ConfigKeys
 {
-    public const string OrleansClustering = "ORLEANS_CLUSTERING";
     public const string AzureOpenAiEndpoint = "AZURE_OPENAI_ENDPOINT";
     public const string AzureOpenAiDeployment = "AZURE_OPENAI_DEPLOYMENT_NAME";
     public const string OpenAiEndpoint = "OPENAI_ENDPOINT";

@@ -7,11 +7,7 @@ var builder = DistributedApplication.CreateBuilder(args);
 
 #pragma warning disable ASPIRECOSMOSDB001
 var cosmos = builder.AddAzureCosmosDB(ResourceNames.CosmosDb)
-    .RunAsPreviewEmulator(emulator =>
-    {
-        emulator.WithLifetime(ContainerLifetime.Persistent);
-        emulator.WithDataVolume();
-    });
+    .RunAsPreviewEmulator();
 #pragma warning restore ASPIRECOSMOSDB001
 
 var db = cosmos.AddCosmosDatabase(ResourceNames.Database);
@@ -20,11 +16,7 @@ db.AddContainer(ResourceNames.ClusterContainer, "/ClusterId");
 
 // Azure Queue Storage for Orleans Streams (cross-silo SSE)
 var storage = builder.AddAzureStorage("storage")
-    .RunAsEmulator(emulator =>
-    {
-        emulator.WithLifetime(ContainerLifetime.Persistent);
-        emulator.WithDataVolume();
-    });
+    .RunAsEmulator();
 var queues = storage.AddQueues("queuestorage");
 
 var api = builder.AddProject<Projects.HelloAgents_Api>(ResourceNames.Api)

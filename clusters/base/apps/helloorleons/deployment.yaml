@@ -64,8 +64,6 @@ spec:
               value: ${AI_SERVICES_ENDPOINT}
             - name: AI__ModelName
               value: ${AI_MODEL_GPT41}
-            - name: ORLEANS_CLUSTERING
-              value: "Kubernetes"
             - name: CosmosDb__DatabaseName
               value: ${HELLOORLEONS_COSMOS_DATABASE}
             - name: CosmosDb__ContainerName

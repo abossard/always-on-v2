@@ -6,8 +6,3 @@ public sealed class GrainConfig
     public int FlushIntervalSeconds { get; set; } = 30;
     public int ArchivalIntervalSeconds { get; set; } = 30;
 }
-
-public static class ConfigKeys
-{
-    public const string OrleansClustering = "ORLEANS_CLUSTERING";
-}

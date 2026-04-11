@@ -60,8 +60,6 @@ spec:
               value: "parentbased_traceidratio"
             - name: OTEL_TRACES_SAMPLER_ARG
               value: "0.01"
-            - name: ORLEANS_CLUSTERING
-              value: "Kubernetes"
             - name: CosmosDb__ClusterContainerName
               value: ${GRAPHORLEONS_COSMOS_CONTAINER}
             - name: ConnectionStrings__cosmos

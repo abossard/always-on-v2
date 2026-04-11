@@ -18,79 +18,77 @@ var cosmosDbName = builder.Configuration["CosmosDb__DatabaseName"] ?? "helloorle
 var cosmosStorageContainer = builder.Configuration["CosmosDb__ContainerName"] ?? "helloorleons-storage";
 var cosmosClusterContainer = builder.Configuration["CosmosDb__ClusterContainerName"] ?? "helloorleons-cluster";
 
+if (string.IsNullOrEmpty(cosmosConnectionString))
+{
+    throw new InvalidOperationException(
+        "ConnectionStrings:cosmos is required. Cosmos DB is the only supported provider for Orleans clustering and grain storage.");
+}
+
 builder.Host.UseOrleans(silo =>
 {
     silo.AddActivityPropagation();
 
-    var isKubernetes = builder.Configuration["ORLEANS_CLUSTERING"] == "Kubernetes";
+    var isKubernetes = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("KUBERNETES_SERVICE_HOST"));
     if (isKubernetes)
     {
         silo.UseKubernetesHosting();
     }
 
-    if (!string.IsNullOrEmpty(cosmosConnectionString))
-    {
-        var isEmulator = cosmosConnectionString.Contains("AccountKey=C2y6yDjf5", StringComparison.Ordinal);
-        var hasAccountKey = cosmosConnectionString.Contains("AccountKey=", StringComparison.Ordinal);
+    var isEmulator = cosmosConnectionString.Contains("AccountKey=C2y6yDjf5", StringComparison.Ordinal);
+    var hasAccountKey = cosmosConnectionString.Contains("AccountKey=", StringComparison.Ordinal);
 
-        void ConfigureCosmos(Orleans.Persistence.Cosmos.CosmosGrainStorageOptions options)
+    void ConfigureCosmos(Orleans.Persistence.Cosmos.CosmosGrainStorageOptions options)
+    {
+        options.DatabaseName = cosmosDbName;
+        options.ContainerName = cosmosStorageContainer;
+        options.IsResourceCreationEnabled = true;
+        if (hasAccountKey)
         {
-            options.DatabaseName = cosmosDbName;
-            options.ContainerName = cosmosStorageContainer;
-            options.IsResourceCreationEnabled = true;
-            if (hasAccountKey)
+            options.ConfigureCosmosClient(cosmosConnectionString);
+            if (isEmulator)
             {
-                options.ConfigureCosmosClient(cosmosConnectionString);
-                if (isEmulator)
+                options.ClientOptions = new CosmosClientOptions
                 {
-                    options.ClientOptions = new CosmosClientOptions
-                    {
-                        ConnectionMode = ConnectionMode.Gateway,
-                        LimitToEndpoint = true
-                    };
-                }
-            }
-            else
-            {
-                var endpoint = cosmosConnectionString
-                    .Replace("AccountEndpoint=", "", StringComparison.OrdinalIgnoreCase)
-                    .TrimEnd(';');
-                options.ConfigureCosmosClient(endpoint, new DefaultAzureCredential());
+                    ConnectionMode = ConnectionMode.Gateway,
+                    LimitToEndpoint = true
+                };
             }
         }
-
-        silo.AddCosmosGrainStorageAsDefault(o => ConfigureCosmos(o));
-        silo.UseCosmosClustering(o =>
+        else
         {
-            o.DatabaseName = cosmosDbName;
-            o.ContainerName = cosmosClusterContainer;
-            o.IsResourceCreationEnabled = true;
-            if (hasAccountKey)
-            {
-                o.ConfigureCosmosClient(cosmosConnectionString);
-                if (isEmulator)
-                {
-                    o.ClientOptions = new CosmosClientOptions
-                    {
-                        ConnectionMode = ConnectionMode.Gateway,
-                        LimitToEndpoint = true
-                    };
-                }
-            }
-            else
-            {
-                var endpoint = cosmosConnectionString
-                    .Replace("AccountEndpoint=", "", StringComparison.OrdinalIgnoreCase)
-                    .TrimEnd(';');
-                o.ConfigureCosmosClient(endpoint, new DefaultAzureCredential());
-            }
-        });
+            var endpoint = cosmosConnectionString
+                .Replace("AccountEndpoint=", "", StringComparison.OrdinalIgnoreCase)
+                .TrimEnd(';');
+            options.ConfigureCosmosClient(endpoint, new DefaultAzureCredential());
+        }
     }
-    else
+
+    silo.AddCosmosGrainStorageAsDefault(o => ConfigureCosmos(o));
+    silo.UseCosmosClustering(o =>
     {
-        silo.UseLocalhostClustering();
-        silo.AddMemoryGrainStorageAsDefault();
-    }
+        o.DatabaseName = cosmosDbName;
+        o.ContainerName = cosmosClusterContainer;
+        o.IsResourceCreationEnabled = true;
+        if (hasAccountKey)
+        {
+            o.ConfigureCosmosClient(cosmosConnectionString);
+            if (isEmulator)
+            {
+                o.ClientOptions = new CosmosClientOptions
+                {
+                    ConnectionMode = ConnectionMode.Gateway,
+                    LimitToEndpoint = true
+                };
+            }
+        }
+        else
+        {
+            var endpoint = cosmosConnectionString
+                .Replace("AccountEndpoint=", "", StringComparison.OrdinalIgnoreCase)
+                .TrimEnd(';');
+            o.ConfigureCosmosClient(endpoint, new DefaultAzureCredential());
+        }
+    });
 });
 
 var app = builder.Build();
