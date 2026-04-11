@@ -13,6 +13,24 @@ builder.WebHost.UseKestrelHttpsConfiguration();
 builder.AddServiceDefaults();
 builder.Host.ConfigureHostOptions(o => o.ShutdownTimeout = TimeSpan.FromSeconds(55));
 
+// Cosmos connection — crash early if missing
+var cosmosConnectionString = builder.Configuration.GetConnectionString("cosmos");
+if (string.IsNullOrEmpty(cosmosConnectionString))
+{
+    throw new InvalidOperationException(
+        "ConnectionStrings:cosmos is required. Set via Aspire WithReference(cosmos) or env var ConnectionStrings__cosmos.");
+}
+
+// Single CosmosClient — Aspire handles emulator keys AND managed identity transparently.
+builder.AddAzureCosmosClient("cosmos", configureClientOptions: options =>
+{
+    if (cosmosConnectionString.Contains("AccountKey=C2y6yDjf5", StringComparison.Ordinal))
+    {
+        options.ConnectionMode = Microsoft.Azure.Cosmos.ConnectionMode.Gateway;
+        options.LimitToEndpoint = true;
+    }
+});
+
 // Orleans silo with Cosmos persistence and Dashboard
 builder.Host.UseOrleans(silo =>
 {
@@ -20,99 +38,42 @@ builder.Host.UseOrleans(silo =>
 
     silo.AddActivityPropagation();
 
-    // Cosmos connection string — used for grain storage AND clustering
-    var cosmosConnectionString = builder.Configuration.GetConnectionString("cosmos");
-    if (string.IsNullOrEmpty(cosmosConnectionString))
-    {
-        throw new InvalidOperationException(
-            "ConnectionStrings:cosmos is required. " +
-            "Set via Aspire WithReference(cosmos) or env var ConnectionStrings__cosmos=AccountEndpoint=https://...");
-    }
-
-    var isEmulator = cosmosConnectionString?.Contains("AccountKey=C2y6yDjf5", StringComparison.Ordinal) == true;
-    var hasAccountKey = cosmosConnectionString?.Contains("AccountKey=", StringComparison.Ordinal) == true;
-
-    // Single config helper for all Cosmos grain storage registrations
-    void ConfigureCosmos(Orleans.Persistence.Cosmos.CosmosGrainStorageOptions options)
-    {
-        if (hasAccountKey)
-        {
-            options.ConfigureCosmosClient(cosmosConnectionString!);
-            if (isEmulator)
-            {
-                options.ClientOptions = new Microsoft.Azure.Cosmos.CosmosClientOptions
-                {
-                    ConnectionMode = Microsoft.Azure.Cosmos.ConnectionMode.Gateway,
-                    LimitToEndpoint = true
-                };
-            }
-        }
-        else
-        {
-            // Endpoint-only (e.g. "AccountEndpoint=https://cosmos-xxx.documents.azure.com:443/")
-            var endpoint = cosmosConnectionString!
-                .Replace("AccountEndpoint=", "", StringComparison.OrdinalIgnoreCase)
-                .TrimEnd(';');
-            options.ConfigureCosmosClient(endpoint, new DefaultAzureCredential());
-        }
-
-        options.DatabaseName = cosmosDb.DatabaseName;
-        options.ContainerName = cosmosDb.ContainerName;
-        // Emulator: Aspire AppHost creates DB/containers — skip to avoid 503 race with pgcosmos boot.
-        // Production: Orleans creates if missing (safety net; Bicep is primary owner).
-        options.IsResourceCreationEnabled = !isEmulator;
-    }
-
-    silo.AddCosmosGrainStorage("Default", ConfigureCosmos);
-
-    // Clustering: always Cosmos DB; optionally enable Kubernetes hosting
     var isKubernetes = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("KUBERNETES_SERVICE_HOST"));
     if (isKubernetes)
     {
         silo.UseKubernetesHosting();
     }
-    silo.UseCosmosClustering(options =>
+
+    silo.AddCosmosGrainStorage("Default", o =>
     {
-        options.DatabaseName = cosmosDb.DatabaseName;
-        options.ContainerName = cosmosDb.ClusterContainerName;
-        options.IsResourceCreationEnabled = !isEmulator;
-        if (isEmulator)
-        {
-            options.ClientOptions = new Microsoft.Azure.Cosmos.CosmosClientOptions
-            {
-                ConnectionMode = Microsoft.Azure.Cosmos.ConnectionMode.Gateway,
-                LimitToEndpoint = true,
-            };
-        }
-        if (hasAccountKey)
-        {
-            options.ConfigureCosmosClient(cosmosConnectionString!);
-        }
-        else
-        {
-            var endpoint = cosmosConnectionString!
-                .Replace("AccountEndpoint=", "", StringComparison.OrdinalIgnoreCase)
-                .TrimEnd(';');
-            options.ConfigureCosmosClient(endpoint, new DefaultAzureCredential());
-        }
+        o.DatabaseName = cosmosDb.DatabaseName;
+        o.ContainerName = cosmosDb.ContainerName;
+        o.IsResourceCreationEnabled = true;
+        o.ConfigureCosmosClient(sp => new ValueTask<Microsoft.Azure.Cosmos.CosmosClient>(sp.GetRequiredService<Microsoft.Azure.Cosmos.CosmosClient>()));
+    });
+
+    silo.UseCosmosClustering(o =>
+    {
+        o.DatabaseName = cosmosDb.DatabaseName;
+        o.ContainerName = cosmosDb.ClusterContainerName;
+        o.IsResourceCreationEnabled = true;
+        o.ConfigureCosmosClient(sp => new ValueTask<Microsoft.Azure.Cosmos.CosmosClient>(sp.GetRequiredService<Microsoft.Azure.Cosmos.CosmosClient>()));
     });
 
     silo.AddDashboard();
 
-    // Orleans Streams for cross-silo SSE message delivery
+    // Streams
     var queueStorageConnection = builder.Configuration.GetConnectionString("queuestorage");
     if (string.IsNullOrWhiteSpace(queueStorageConnection))
     {
         throw new InvalidOperationException(
-            "ConnectionStrings:queuestorage is required. " +
-            "Set via Aspire WithReference(queuestorage) or env var ConnectionStrings__queuestorage.");
+            "ConnectionStrings:queuestorage is required. Set via Aspire WithReference(queuestorage) or env var ConnectionStrings__queuestorage.");
     }
 
     silo.AddAzureQueueStreams("ChatMessages", optionsBuilder =>
     {
         optionsBuilder.Configure(options =>
         {
-            // Aspire injects a full connection string (Azurite) or an endpoint URI (production)
             if (queueStorageConnection!.StartsWith("http", StringComparison.OrdinalIgnoreCase))
             {
                 options.QueueServiceClient = new Azure.Storage.Queues.QueueServiceClient(
@@ -125,8 +86,13 @@ builder.Host.UseOrleans(silo =>
         });
     });
 
-    // Persistent PubSub store so subscriptions survive silo restarts
-    silo.AddCosmosGrainStorage("PubSubStore", ConfigureCosmos);
+    silo.AddCosmosGrainStorage("PubSubStore", o =>
+    {
+        o.DatabaseName = cosmosDb.DatabaseName;
+        o.ContainerName = cosmosDb.ContainerName;
+        o.IsResourceCreationEnabled = true;
+        o.ConfigureCosmosClient(sp => new ValueTask<Microsoft.Azure.Cosmos.CosmosClient>(sp.GetRequiredService<Microsoft.Azure.Cosmos.CosmosClient>()));
+    });
 });
 
 // Azure OpenAI chat client for agent responses

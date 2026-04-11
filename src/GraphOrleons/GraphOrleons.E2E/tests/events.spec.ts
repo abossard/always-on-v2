@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const apiUrl = process.env.API_URL || 'http://localhost:5201';
+const apiUrl = process.env.services__api__http__0 || 'http://localhost:5201';
 
 async function postEvent(event: { tenant: string; component: string; payload: Record<string, unknown> }) {
   const response = await fetch(`${apiUrl}/api/events`, {

@@ -6,11 +6,11 @@ test.describe('HelloOrleons API', () => {
     expect(response.status()).toBe(200);
   });
 
-  test('root page returns HTML @smoke', async ({ request }) => {
-    const response = await request.get('/');
+  test('root page returns Scalar API docs @smoke', async ({ request }) => {
+    const response = await request.get('/scalar/v1');
     expect(response.status()).toBe(200);
     const body = await response.text();
-    expect(body).toContain('HelloOrleons');
+    expect(body).toContain('scalar');
   });
 
   test('say hello returns name and count', async ({ request }) => {

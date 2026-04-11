@@ -28,7 +28,7 @@ public sealed class ComponentGrain(
 
         var streamProvider = this.GetStreamProvider(StreamConstants.ProviderName);
         _tenantStream = streamProvider.GetStream<TenantStreamEvent>(
-            StreamConstants.TenantStreamNamespace, _tenant);
+            StreamId.Create(StreamConstants.TenantStreamNamespace, _tenant));
 
         var flushInterval = TimeSpan.FromSeconds(grainConfig.Value.FlushIntervalSeconds);
         this.RegisterGrainTimer(FlushStateAsync, new GrainTimerCreationOptions

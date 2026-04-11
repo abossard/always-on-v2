@@ -42,7 +42,7 @@ public sealed class ModelGrain(
 
         var streamProvider = this.GetStreamProvider(StreamConstants.ProviderName);
         _tenantStream = streamProvider.GetStream<TenantStreamEvent>(
-            StreamConstants.TenantStreamNamespace, _tenantId);
+            StreamId.Create(StreamConstants.TenantStreamNamespace, _tenantId));
 
         var interval = TimeSpan.FromSeconds(grainConfig.Value.FlushIntervalSeconds);
         this.RegisterGrainTimer(FlushAsync, new GrainTimerCreationOptions

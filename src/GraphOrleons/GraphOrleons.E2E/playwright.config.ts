@@ -18,7 +18,7 @@ export default defineConfig({
       name: 'local',
       use: {
         ...devices['Desktop Chrome'],
-        baseURL: process.env.WEB_URL || 'http://localhost:4300',
+        baseURL: process.env.services__web__http__0 || 'http://localhost:4300',
       },
     },
     {

@@ -153,30 +153,40 @@ public static class EventEndpoints
             await WriteSseEvent(ctx.Response, "ready", "{}", ct);
 
             // 2) Subscribe to Orleans tenant stream
-            var streamProvider = client.GetStreamProvider(StreamConstants.ProviderName);
-            var stream = streamProvider.GetStream<TenantStreamEvent>(StreamConstants.TenantStreamNamespace, tenantId);
-            var handle = await stream.SubscribeAsync((evt, _) =>
+            StreamSubscriptionHandle<TenantStreamEvent>? handle = null;
+            try
             {
-                string eventType;
-                string data;
-                if (evt.EventType == TenantEventType.ModelUpdated && evt.Graph is not null)
+                var streamProvider = client.GetStreamProvider(StreamConstants.ProviderName);
+                var stream = streamProvider.GetStream<TenantStreamEvent>(StreamId.Create(StreamConstants.TenantStreamNamespace, tenantId));
+                handle = await stream.SubscribeAsync((evt, _) =>
                 {
-                    eventType = "model";
-                    data = JsonSerializer.Serialize(evt.Graph, jsonOpts);
-                }
-                else
-                {
-                    eventType = "component";
-                    data = JsonSerializer.Serialize(new
+                    string eventType;
+                    string data;
+                    if (evt.EventType == TenantEventType.ModelUpdated && evt.Graph is not null)
                     {
-                        Name = evt.ComponentName,
-                        Properties = evt.Properties?.Select(kvp => new { Name = kvp.Key, kvp.Value.Value, kvp.Value.LastUpdated })
-                            .OrderBy(p => p.Name).ToList()
-                    }, jsonOpts);
-                }
-                channel.Writer.TryWrite($"event: {eventType}\ndata: {data}\n\n");
-                return Task.CompletedTask;
-            });
+                        eventType = "model";
+                        data = JsonSerializer.Serialize(evt.Graph, jsonOpts);
+                    }
+                    else
+                    {
+                        eventType = "component";
+                        data = JsonSerializer.Serialize(new
+                        {
+                            Name = evt.ComponentName,
+                            Properties = evt.Properties?.Select(kvp => new { Name = kvp.Key, kvp.Value.Value, kvp.Value.LastUpdated })
+                                .OrderBy(p => p.Name).ToList()
+                        }, jsonOpts);
+                    }
+                    channel.Writer.TryWrite($"event: {eventType}\ndata: {data}\n\n");
+                    return Task.CompletedTask;
+                });
+            }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                var errorMsg = $"Stream subscription failed: {ex.GetType().Name}: {ex.Message}";
+                await WriteSseEvent(ctx.Response, "error", System.Text.Json.JsonSerializer.Serialize(errorMsg), ct);
+                return;
+            }
 
             try
             {
@@ -189,7 +199,8 @@ public static class EventEndpoints
             catch (OperationCanceledException) { /* client disconnected */ }
             finally
             {
-                await handle.UnsubscribeAsync();
+                if (handle is not null)
+                    await handle.UnsubscribeAsync();
             }
         });
 

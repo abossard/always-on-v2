@@ -1,5 +1,4 @@
 using System.Text.Json.Serialization;
-using Azure.Identity;
 using GraphOrleons.Api;
 using Microsoft.Azure.Cosmos;
 using Orleans.Dashboard;
@@ -15,6 +14,12 @@ builder.AddAzureCosmosClient("cosmos", configureClientOptions: options =>
     {
         PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
     };
+    var connStr = builder.Configuration.GetConnectionString("cosmos") ?? "";
+    if (connStr.Contains("AccountKey=C2y6yDjf5", StringComparison.Ordinal))
+    {
+        options.ConnectionMode = ConnectionMode.Gateway;
+        options.LimitToEndpoint = true;
+    }
 });
 builder.AddAzureBlobServiceClient("blobs");
 
@@ -36,61 +41,25 @@ if (string.IsNullOrEmpty(cosmosConnectionString))
 
 var cosmosDbName = builder.Configuration["CosmosDb__DatabaseName"] ?? "graphorleans";
 var cosmosClusterContainer = builder.Configuration["CosmosDb__ClusterContainerName"] ?? "graphorleans-cluster";
-
 var isEmulator = cosmosConnectionString.Contains("AccountKey=C2y6yDjf5", StringComparison.Ordinal);
+
+// Orleans needs its own CosmosClient — the Aspire DI client uses camelCase JSON
+// which breaks Orleans internal types (PubSubPublisherState).
 var hasAccountKey = cosmosConnectionString.Contains("AccountKey=", StringComparison.Ordinal);
-
-void ConfigureCosmos(Orleans.Clustering.Cosmos.CosmosOptions o, string containerName)
+var orleansCosmosClientOptions = new CosmosClientOptions();
+if (isEmulator)
 {
-    o.DatabaseName = cosmosDbName;
-    o.ContainerName = containerName;
-    o.IsResourceCreationEnabled = true;
-    if (hasAccountKey)
-    {
-        o.ConfigureCosmosClient(cosmosConnectionString);
-        if (isEmulator)
-        {
-            o.ClientOptions = new CosmosClientOptions
-            {
-                ConnectionMode = ConnectionMode.Gateway,
-                LimitToEndpoint = true
-            };
-        }
-    }
-    else
-    {
-        var endpoint = cosmosConnectionString
-            .Replace("AccountEndpoint=", "", StringComparison.OrdinalIgnoreCase)
-            .TrimEnd(';');
-        o.ConfigureCosmosClient(endpoint, new DefaultAzureCredential());
-    }
+    orleansCosmosClientOptions.ConnectionMode = ConnectionMode.Gateway;
+    orleansCosmosClientOptions.LimitToEndpoint = true;
 }
-
-void ConfigureCosmosGrainStorage(Orleans.Persistence.Cosmos.CosmosGrainStorageOptions o, string containerName)
-{
-    o.DatabaseName = cosmosDbName;
-    o.ContainerName = containerName;
-    o.IsResourceCreationEnabled = true;
-    if (hasAccountKey)
-    {
-        o.ConfigureCosmosClient(cosmosConnectionString);
-        if (isEmulator)
-        {
-            o.ClientOptions = new CosmosClientOptions
-            {
-                ConnectionMode = ConnectionMode.Gateway,
-                LimitToEndpoint = true
-            };
-        }
-    }
-    else
-    {
-        var endpoint = cosmosConnectionString
-            .Replace("AccountEndpoint=", "", StringComparison.OrdinalIgnoreCase)
-            .TrimEnd(';');
-        o.ConfigureCosmosClient(endpoint, new DefaultAzureCredential());
-    }
-}
+#pragma warning disable CA2000 // CosmosClient lifetime is managed by Orleans (process-scoped singleton)
+CosmosClient orleansCosmosClient = hasAccountKey
+    ? new CosmosClient(cosmosConnectionString, orleansCosmosClientOptions)
+    : new CosmosClient(
+        cosmosConnectionString.Replace("AccountEndpoint=", "", StringComparison.OrdinalIgnoreCase).TrimEnd(';'),
+        new Azure.Identity.DefaultAzureCredential(),
+        orleansCosmosClientOptions);
+#pragma warning restore CA2000
 
 builder.Host.UseOrleans(silo =>
 {
@@ -102,9 +71,13 @@ builder.Host.UseOrleans(silo =>
         silo.UseKubernetesHosting();
     }
 
-    // Explicit Orleans clustering config — Aspire auto-config via
-    // AddOrleans().WithClustering() doesn't work with Orleans 10.0.1.
-    silo.UseCosmosClustering(o => ConfigureCosmos(o, cosmosClusterContainer));
+    silo.UseCosmosClustering(o =>
+    {
+        o.DatabaseName = cosmosDbName;
+        o.ContainerName = cosmosClusterContainer;
+        o.IsResourceCreationEnabled = true;
+        o.ConfigureCosmosClient(_ => new ValueTask<CosmosClient>(orleansCosmosClient));
+    });
     silo.AddDashboard();
 
     // Stream provider — Azure Queue Storage
@@ -121,10 +94,21 @@ builder.Host.UseOrleans(silo =>
         }));
     });
 
-    silo.AddCosmosGrainStorage("PubSubStore", o => ConfigureCosmosGrainStorage(o, "graphorleans-pubsub"));
+    silo.AddCosmosGrainStorage("PubSubStore", o =>
+    {
+        o.DatabaseName = cosmosDbName;
+        o.ContainerName = "graphorleans-pubsub";
+        o.IsResourceCreationEnabled = true;
+        o.ConfigureCosmosClient(_ => new ValueTask<CosmosClient>(orleansCosmosClient));
+    });
 
-    // Grain state persistence — Cosmos DB
-    silo.AddCosmosGrainStorage(StreamConstants.GrainStoreName, o => ConfigureCosmosGrainStorage(o, "graphorleans-grainstate"));
+    silo.AddCosmosGrainStorage(StreamConstants.GrainStoreName, o =>
+    {
+        o.DatabaseName = cosmosDbName;
+        o.ContainerName = "graphorleans-grainstate";
+        o.IsResourceCreationEnabled = true;
+        o.ConfigureCosmosClient(_ => new ValueTask<CosmosClient>(orleansCosmosClient));
+    });
 });
 
 builder.Services.AddCors(options =>
