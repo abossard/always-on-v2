@@ -104,4 +104,34 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
       },
     ],
   },
+
+  // ── Azure Event Hubs ──────────────────────────────────────────────
+  {
+    key: 'eventhubs',
+    displayName: 'Event Hubs',
+    enableParam: 'usesEventHubs',
+    enableDescription: 'Whether this app uses Azure Event Hubs',
+    parentKey: 'root',
+    icon: 'SystemComponent',
+    scope: { kind: 'global' },
+    bindings: [
+      {
+        type: 'azureResource',
+        resourceIdExpr: 'eventHubsNamespaceId',
+        signals: [
+          signals.eventHubAvailability(),
+          signals.eventHubThrottled(),
+          signals.eventHubServerErrors(),
+        ],
+      },
+    ],
+    params: [
+      {
+        name: 'eventHubsNamespaceId',
+        type: 'string',
+        description: 'Event Hubs namespace resource ID (required if usesEventHubs)',
+        defaultValue: "''",
+      },
+    ],
+  },
 ] as const;

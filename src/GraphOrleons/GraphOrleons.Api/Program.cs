@@ -21,11 +21,12 @@ builder.AddAzureCosmosClient("cosmos", configureClientOptions: options =>
         options.LimitToEndpoint = true;
     }
 });
-builder.AddAzureBlobServiceClient("blobs");
+
+// Event Hub for event archivalbuilder.AddAzureEventHubProducerClient("graphorleons-events");
 
 // Graph storage services
 builder.Services.AddSingleton<IGraphStore, CosmosGraphStore>();
-builder.Services.AddSingleton<IEventArchive, BlobEventArchive>();
+builder.Services.AddSingleton<IEventArchive, EventHubEventArchive>();
 
 // Grain config
 builder.Services.Configure<GrainConfig>(builder.Configuration.GetSection(GrainConfig.Section));

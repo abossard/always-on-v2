@@ -817,3 +817,90 @@ export function blobErrorsTimeseries(config: PlatformConfig, storageAccount: str
     .span(12)
     .height(8);
 }
+
+// ── Event Hubs panels ───────────────────────────────────────────────
+
+export function eventHubIncomingMessagesTimeseries(config: PlatformConfig): TimeseriesPanelBuilder {
+  return defaultTimeseries()
+    .title('Event Hub — Incoming Messages')
+    .datasource(AZURE_DS)
+    .thresholds(defaultThresholds())
+    .withTarget(
+      azureMonitorTarget(
+        'A', config,
+        'microsoft.eventhub/namespaces', 'IncomingMessages', 'Total',
+        config.resources.eventHubsNamespace!, 'swedencentral',
+        [],
+      ),
+    )
+    .span(12)
+    .height(8);
+}
+
+export function eventHubOutgoingMessagesTimeseries(config: PlatformConfig): TimeseriesPanelBuilder {
+  return defaultTimeseries()
+    .title('Event Hub — Outgoing Messages')
+    .datasource(AZURE_DS)
+    .thresholds(defaultThresholds())
+    .withTarget(
+      azureMonitorTarget(
+        'A', config,
+        'microsoft.eventhub/namespaces', 'OutgoingMessages', 'Total',
+        config.resources.eventHubsNamespace!, 'swedencentral',
+        [],
+      ),
+    )
+    .span(12)
+    .height(8);
+}
+
+export function eventHubThrottledTimeseries(config: PlatformConfig): TimeseriesPanelBuilder {
+  return defaultTimeseries()
+    .title('Event Hub — Throttled Requests')
+    .datasource(AZURE_DS)
+    .thresholds(failureThresholds())
+    .withTarget(
+      azureMonitorTarget(
+        'A', config,
+        'microsoft.eventhub/namespaces', 'ThrottledRequests', 'Total',
+        config.resources.eventHubsNamespace!, 'swedencentral',
+        [],
+      ),
+    )
+    .span(8)
+    .height(8);
+}
+
+export function eventHubServerErrorsTimeseries(config: PlatformConfig): TimeseriesPanelBuilder {
+  return defaultTimeseries()
+    .title('Event Hub — Server Errors')
+    .datasource(AZURE_DS)
+    .thresholds(failureThresholds())
+    .withTarget(
+      azureMonitorTarget(
+        'A', config,
+        'microsoft.eventhub/namespaces', 'ServerErrors', 'Total',
+        config.resources.eventHubsNamespace!, 'swedencentral',
+        [],
+      ),
+    )
+    .span(8)
+    .height(8);
+}
+
+export function eventHubCapturedMessagesTimeseries(config: PlatformConfig): TimeseriesPanelBuilder {
+  return defaultTimeseries()
+    .title('Event Hub — Captured Messages')
+    .datasource(AZURE_DS)
+    .thresholds(defaultThresholds())
+    .withTarget(
+      azureMonitorTarget(
+        'A', config,
+        'microsoft.eventhub/namespaces', 'CapturedMessages', 'Total',
+        config.resources.eventHubsNamespace!, 'swedencentral',
+        [],
+      ),
+    )
+    .span(8)
+    .height(8);
+}

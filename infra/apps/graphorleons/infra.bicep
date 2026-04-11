@@ -26,9 +26,6 @@ param cosmosDatabaseName string
 @description('Application Insights resource ID (for RBAC).')
 param appInsightsId string
 
-@description('Storage account name for event archival.')
-param storageAccountName string = ''
-
 // ============================================================================
 // Managed Identity for GraphOrleons
 // ============================================================================
@@ -131,29 +128,6 @@ resource modelsContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/con
 }
 
 // ============================================================================
-// Storage Account RBAC — Blob Data Contributor for event archival
-// ============================================================================
-
-resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' existing = if (!empty(storageAccountName)) {
-  name: storageAccountName
-}
-
-var storageBlobContributorRoleId = 'ba92f5b4-2d11-453d-a403-e96b0029c9fe'
-
-resource storageRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(storageAccountName)) {
-  name: guid(storageAccount.id, appIdentity.id, storageBlobContributorRoleId)
-  scope: storageAccount
-  properties: {
-    principalId: appIdentity.properties.principalId
-    roleDefinitionId: subscriptionResourceId(
-      'Microsoft.Authorization/roleDefinitions',
-      storageBlobContributorRoleId
-    )
-    principalType: 'ServicePrincipal'
-  }
-}
-
-// ============================================================================
 // Outputs
 // ============================================================================
 
@@ -163,5 +137,3 @@ output identityPrincipalId string = appIdentity.properties.principalId
 output databaseName string = cosmosDatabaseName
 output containerName string = clusterContainer.name
 output modelsContainerName string = modelsContainer.name
-output storageAccountEndpoint string = !empty(storageAccountName) ? storageAccount.properties.primaryEndpoints.blob : ''
-output storageAccountId string = !empty(storageAccountName) ? storageAccount.id : ''

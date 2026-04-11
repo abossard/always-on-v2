@@ -6,9 +6,6 @@
 @description('ACR name.')
 param acrName string
 
-@description('Region key (stamp-scoped, e.g. swedencentral-001).')
-param regionKey string
-
 @description('Region name for DNS delegation (e.g. swedencentral). Used for NS record name.')
 param dnsRegionKey string
 

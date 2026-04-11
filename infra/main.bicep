@@ -268,6 +268,23 @@ module regional 'region.bicep' = [
 ]
 
 // ============================================================================
+// Event Hubs — Premium namespace with geo-data-replication + Capture
+// ============================================================================
+
+module eventHubs 'eventhubs.bicep' = {
+  name: 'deploy-eventhubs'
+  scope: globalRg
+  params: {
+    baseName: baseName
+    location: globalLocation
+    secondaryLocations: filter(map(regions, r => r.location), loc => loc != globalLocation)
+    captureStorageAccountId: regional[0].outputs.captureStorageId
+    captureStorageAccountName: regional[0].outputs.captureStorageName
+    senderPrincipalId: graphOrleons.outputs.identityPrincipalId
+  }
+}
+
+// ============================================================================
 // Stamp Resources (one AKS per stamp)
 // ============================================================================
 
@@ -316,8 +333,8 @@ var appFluxVars = [
     cosmosDatabase: graphOrleons.outputs.databaseName
     cosmosContainer: graphOrleons.outputs.containerName
     cosmosModelsContainer: graphOrleons.outputs.modelsContainerName
-    blobEndpoint: graphOrleons.outputs.storageAccountEndpoint
     aiServicesEndpoint: ai.outputs.aiServicesEndpoint
+    eventHubEndpoint: eventHubs.outputs.namespaceFqdn
   }
 ]
 
@@ -360,7 +377,6 @@ module wiring 'wiring.bicep' = [
     scope: globalRg
     params: {
       acrName: global.outputs.acrName
-      regionKey: '${stamp.regionKey}-${stamp.stampKey}'
       dnsRegionKey: stamp.regionKey
       kubeletPrincipalId: stamps[i].outputs.kubeletIdentityPrincipalId
       parentDnsZoneName: domainName
@@ -626,8 +642,8 @@ module healthModelGraphorleons 'healthmodel/healthmodel.bicep' = {
     identityId: global.outputs.healthModelIdentityId
     cosmosAccountId: global.outputs.cosmosId
     frontDoorProfileId: global.outputs.frontDoorId
-    usesBlobs: true
-    blobStorageAccountId: graphOrleons.outputs.storageAccountId
+    usesEventHubs: true
+    eventHubsNamespaceId: eventHubs.outputs.namespaceId
     stamps: [for (stamp, i) in allStamps: {
       key: '${stamp.regionKey}-${stamp.stampKey}'
       aksClusterId: stamps[i].outputs.aksClusterId

@@ -14,12 +14,14 @@ export interface AppConfig {
   usesAI: boolean;
   usesQueues: boolean;
   usesBlobs: boolean;
+  usesEventHubs: boolean;
 }
 
 export interface ResourceConfig {
   cosmosAccount: string;
   frontDoorProfile: string;
   aiServicesAccount: string;
+  eventHubsNamespace?: string;
 }
 
 export interface PlatformConfig {

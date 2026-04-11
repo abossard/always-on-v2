@@ -49,6 +49,12 @@ param usesBlobs bool = false
 @description('Storage account resource ID for Blob Storage (required if usesBlobs)')
 param blobStorageAccountId string = ''
 
+@description('Whether this app uses Azure Event Hubs')
+param usesEventHubs bool = false
+
+@description('Event Hubs namespace resource ID (required if usesEventHubs)')
+param eventHubsNamespaceId string = ''
+
 // ─── Variables ───────────────────────────────────────────────────────
 
 var identityName = last(split(identityId, '/'))
@@ -57,6 +63,7 @@ var authSettingName = toLower(identityName)
 
 // ─── Health Model + Auth ─────────────────────────────────────────────
 
+#disable-next-line BCP081
 resource hm 'Microsoft.CloudHealth/healthmodels@2026-01-01-preview' = {
   name: name
   location: location
@@ -69,6 +76,7 @@ resource hm 'Microsoft.CloudHealth/healthmodels@2026-01-01-preview' = {
   properties: {}
 }
 
+#disable-next-line BCP081
 resource auth 'Microsoft.CloudHealth/healthmodels/authenticationsettings@2026-01-01-preview' = {
   parent: hm
   name: authSettingName
@@ -81,6 +89,7 @@ resource auth 'Microsoft.CloudHealth/healthmodels/authenticationsettings@2026-01
 
 // ─── Root Entity ─────────────────────────────────────────────────────
 
+#disable-next-line BCP081
 resource root 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = {
   parent: hm
   name: name
@@ -100,6 +109,7 @@ resource root 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' =
 
 // ─── Category Entities ───────────────────────────────────────────────
 
+#disable-next-line BCP081
 resource failuresEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = {
   parent: hm
   name: guid(name, 'failures')
@@ -117,6 +127,7 @@ resource failuresEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-
   }
 }
 
+#disable-next-line BCP081
 resource latencyEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = {
   parent: hm
   name: guid(name, 'latency')
@@ -134,6 +145,7 @@ resource latencyEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-p
   }
 }
 
+#disable-next-line BCP081
 resource relRootFailures 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = {
   parent: hm
   name: guid(name, 'root-failures')
@@ -143,6 +155,7 @@ resource relRootFailures 'Microsoft.CloudHealth/healthmodels/relationships@2026-
   }
 }
 
+#disable-next-line BCP081
 resource relRootLatency 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = {
   parent: hm
   name: guid(name, 'root-latency')
@@ -154,6 +167,7 @@ resource relRootLatency 'Microsoft.CloudHealth/healthmodels/relationships@2026-0
 
 // ─── Signal Definitions: per-stamp FD OriginLatency ──────────────────
 
+#disable-next-line BCP081
 resource originLatencyDef 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = [
   for (stamp, i) in stamps: {
     parent: hm
@@ -189,6 +203,7 @@ resource originLatencyDef 'Microsoft.CloudHealth/healthmodels/signaldefinitions@
 
 // Each entity has at most one azureResource + one azureMonitorWorkspace group.
 
+#disable-next-line BCP081
 resource stampAksFailures 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = [
   for (stamp, i) in stamps: {
     parent: hm
@@ -239,6 +254,7 @@ resource stampAksFailures 'Microsoft.CloudHealth/healthmodels/entities@2026-01-0
   }
 ]
 
+#disable-next-line BCP081
 resource stampPromFailures 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = [
   for (stamp, i) in stamps: {
     parent: hm
@@ -342,6 +358,7 @@ resource stampPromFailures 'Microsoft.CloudHealth/healthmodels/entities@2026-01-
   }
 ]
 
+#disable-next-line BCP081
 resource stampFdFailures 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = [
   for (stamp, i) in stamps: {
     parent: hm
@@ -413,6 +430,7 @@ resource stampFdFailures 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01
   }
 ]
 
+#disable-next-line BCP081
 resource stampCosmosFailures 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = [
   for (stamp, i) in stamps: {
     parent: hm
@@ -484,6 +502,7 @@ resource stampCosmosFailures 'Microsoft.CloudHealth/healthmodels/entities@2026-0
   }
 ]
 
+#disable-next-line BCP081
 resource rel_stampAksFailures 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
   for (stamp, i) in stamps: {
     parent: hm
@@ -495,6 +514,7 @@ resource rel_stampAksFailures 'Microsoft.CloudHealth/healthmodels/relationships@
   }
 ]
 
+#disable-next-line BCP081
 resource rel_stampPromFailures 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
   for (stamp, i) in stamps: {
     parent: hm
@@ -506,6 +526,7 @@ resource rel_stampPromFailures 'Microsoft.CloudHealth/healthmodels/relationships
   }
 ]
 
+#disable-next-line BCP081
 resource rel_stampFdFailures 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
   for (stamp, i) in stamps: {
     parent: hm
@@ -517,6 +538,7 @@ resource rel_stampFdFailures 'Microsoft.CloudHealth/healthmodels/relationships@2
   }
 ]
 
+#disable-next-line BCP081
 resource rel_stampCosmosFailures 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
   for (stamp, i) in stamps: {
     parent: hm
@@ -532,6 +554,7 @@ resource rel_stampCosmosFailures 'Microsoft.CloudHealth/healthmodels/relationshi
 
 // Split by resource type: FrontDoor, Cosmos, Prometheus.
 
+#disable-next-line BCP081
 resource stampFdLatency 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = [
   for (stamp, i) in stamps: {
     parent: hm
@@ -586,6 +609,7 @@ resource stampFdLatency 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-
   }
 ]
 
+#disable-next-line BCP081
 resource stampCosmosLatency 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = [
   for (stamp, i) in stamps: {
     parent: hm
@@ -657,6 +681,7 @@ resource stampCosmosLatency 'Microsoft.CloudHealth/healthmodels/entities@2026-01
   }
 ]
 
+#disable-next-line BCP081
 resource stampPromLatency 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = [
   for (stamp, i) in stamps: {
     parent: hm
@@ -817,6 +842,7 @@ resource stampPromLatency 'Microsoft.CloudHealth/healthmodels/entities@2026-01-0
   }
 ]
 
+#disable-next-line BCP081
 resource rel_stampFdLatency 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
   for (stamp, i) in stamps: {
     parent: hm
@@ -828,6 +854,7 @@ resource rel_stampFdLatency 'Microsoft.CloudHealth/healthmodels/relationships@20
   }
 ]
 
+#disable-next-line BCP081
 resource rel_stampCosmosLatency 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
   for (stamp, i) in stamps: {
     parent: hm
@@ -839,6 +866,7 @@ resource rel_stampCosmosLatency 'Microsoft.CloudHealth/healthmodels/relationship
   }
 ]
 
+#disable-next-line BCP081
 resource rel_stampPromLatency 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
   for (stamp, i) in stamps: {
     parent: hm
@@ -854,6 +882,7 @@ resource rel_stampPromLatency 'Microsoft.CloudHealth/healthmodels/relationships@
 
 // Generated from groups.ts — add new features there, not here.
 
+#disable-next-line BCP081
 resource queuesEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = if (usesQueues) {
   parent: hm
   name: guid(name, 'queues')
@@ -944,6 +973,7 @@ resource queuesEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-pr
   }
 }
 
+#disable-next-line BCP081
 resource rel_queues 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = if (usesQueues) {
   parent: hm
   name: guid(name, 'rel-queues')
@@ -953,6 +983,7 @@ resource rel_queues 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01
   }
 }
 
+#disable-next-line BCP081
 resource aiEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = if (usesAI) {
   parent: hm
   name: guid(name, 'ai')
@@ -1064,6 +1095,7 @@ resource aiEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-previe
   }
 }
 
+#disable-next-line BCP081
 resource rel_ai 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = if (usesAI) {
   parent: hm
   name: guid(name, 'rel-ai')
@@ -1073,6 +1105,7 @@ resource rel_ai 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-pre
   }
 }
 
+#disable-next-line BCP081
 resource blobsEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = if (usesBlobs) {
   parent: hm
   name: guid(name, 'blobs')
@@ -1163,12 +1196,112 @@ resource blobsEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-pre
   }
 }
 
+#disable-next-line BCP081
 resource rel_blobs 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = if (usesBlobs) {
   parent: hm
   name: guid(name, 'rel-blobs')
   properties: {
     parentEntityName: root.name
     childEntityName: blobsEntity.name
+  }
+}
+
+#disable-next-line BCP081
+resource eventhubsEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = if (usesEventHubs) {
+  parent: hm
+  name: guid(name, 'eventhubs')
+  properties: {
+    displayName: 'Event Hubs'
+    canvasPosition: {
+      x: json('1400')
+      y: json('200')
+    }
+    icon: {
+      iconName: 'SystemComponent'
+    }
+    impact: 'Standard'
+    tags: {}
+    signalGroups: {
+      azureResource: {
+        authenticationSetting: auth.name
+        azureResourceId: eventHubsNamespaceId
+        signals: [
+          {
+            signalKind: 'AzureResourceMetric'
+            displayName: 'Event Hub Availability'
+            refreshInterval: 'PT5M'
+            dataUnit: 'Count'
+            name: guid(name, 'eventhubs-event-hub-availability')
+            evaluationRules: {
+              degradedRule: {
+                operator: 'LessThan'
+                threshold: json('1')
+              }
+              unhealthyRule: {
+                operator: 'LessThan'
+                threshold: json('0')
+              }
+            }
+            metricNamespace: 'microsoft.eventhub/namespaces'
+            metricName: 'NamespaceActiveConnections'
+            timeGrain: 'PT5M'
+            aggregationType: 'Average'
+          }
+          {
+            signalKind: 'AzureResourceMetric'
+            displayName: 'Event Hub Throttled'
+            refreshInterval: 'PT5M'
+            dataUnit: 'Count'
+            name: guid(name, 'eventhubs-event-hub-throttled')
+            evaluationRules: {
+              degradedRule: {
+                operator: 'GreaterThan'
+                threshold: json('5')
+              }
+              unhealthyRule: {
+                operator: 'GreaterThan'
+                threshold: json('50')
+              }
+            }
+            metricNamespace: 'microsoft.eventhub/namespaces'
+            metricName: 'ThrottledRequests'
+            timeGrain: 'PT5M'
+            aggregationType: 'Total'
+          }
+          {
+            signalKind: 'AzureResourceMetric'
+            displayName: 'Event Hub Server Errors'
+            refreshInterval: 'PT5M'
+            dataUnit: 'Count'
+            name: guid(name, 'eventhubs-event-hub-server-errors')
+            evaluationRules: {
+              degradedRule: {
+                operator: 'GreaterThan'
+                threshold: json('1')
+              }
+              unhealthyRule: {
+                operator: 'GreaterThan'
+                threshold: json('10')
+              }
+            }
+            metricNamespace: 'microsoft.eventhub/namespaces'
+            metricName: 'ServerErrors'
+            timeGrain: 'PT5M'
+            aggregationType: 'Total'
+          }
+        ]
+      }
+    }
+  }
+}
+
+#disable-next-line BCP081
+resource rel_eventhubs 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = if (usesEventHubs) {
+  parent: hm
+  name: guid(name, 'rel-eventhubs')
+  properties: {
+    parentEntityName: root.name
+    childEntityName: eventhubsEntity.name
   }
 }
 

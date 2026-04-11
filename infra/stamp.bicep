@@ -149,6 +149,7 @@ resource prometheusDcr 'Microsoft.Insights/dataCollectionRules@2023-03-11' = {
 // AKS Managed Cluster
 // ============================================================================
 
+#disable-next-line BCP081
 resource aksCluster 'Microsoft.ContainerService/managedClusters@2025-10-01' = {
   name: 'aks-${baseName}-${stampName}'
   location: location
@@ -450,7 +451,7 @@ var graphorleonsFluxVars = length(appFluxVars) > 3 && appFluxVars[3].name == 'gr
   GRAPHORLEONS_COSMOS_DATABASE: appFluxVars[3].cosmosDatabase
   GRAPHORLEONS_COSMOS_CONTAINER: appFluxVars[3].cosmosContainer
   GRAPHORLEONS_COSMOS_MODELS_CONTAINER: appFluxVars[3].cosmosModelsContainer
-  GRAPHORLEONS_BLOB_ENDPOINT: appFluxVars[3].blobEndpoint
+  GRAPHORLEONS_EVENTHUB_ENDPOINT: appFluxVars[3].eventHubEndpoint
   GRAPHORLEONS_DNS_LABEL: 'graphorleons-${stampName}'
   GRAPHORLEONS_GATEWAY_HOSTNAME: 'graphorleons-${stampName}.${dnsZoneName}'
 } : {}

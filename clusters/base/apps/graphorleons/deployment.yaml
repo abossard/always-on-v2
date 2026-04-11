@@ -66,10 +66,8 @@ spec:
               value: "AccountEndpoint=${COSMOS_ENDPOINT}"
             - name: CosmosDb__ModelsContainerName
               value: graphorleons-models
-            - name: BlobStorage__ContainerName
-              value: graphorleons-events
-            - name: BlobStorage__Endpoint
-              value: ${GRAPHORLEONS_BLOB_ENDPOINT}
+            - name: ConnectionStrings__graphorleons-events
+              value: ${GRAPHORLEONS_EVENTHUB_ENDPOINT}
           resizePolicy:
             - resourceName: cpu
               restartPolicy: NotRequired

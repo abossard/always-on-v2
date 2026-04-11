@@ -81,6 +81,32 @@ resource certManagerDnsRole 'Microsoft.Authorization/roleAssignments@2022-04-01'
 }
 
 // ============================================================================
+// ADLS Gen2 Storage — Event Hub Capture destination (per-region)
+// ============================================================================
+
+var captureStorageName = replace('stadls${take(baseName, 8)}${take(regionKey, 8)}', '-', '')
+var captureStorageNameSafe = length(captureStorageName) > 24 ? substring(captureStorageName, 0, 24) : captureStorageName
+
+resource captureStorage 'Microsoft.Storage/storageAccounts@2025-01-01' = {
+  name: captureStorageNameSafe
+  location: location
+  kind: 'StorageV2'
+  sku: { name: 'Standard_ZRS' }
+  properties: {
+    isHnsEnabled: true
+    accessTier: 'Hot'
+    allowBlobPublicAccess: false
+    minimumTlsVersion: 'TLS1_2'
+    supportsHttpsTrafficOnly: true
+  }
+}
+
+resource captureContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2025-01-01' = {
+  name: '${captureStorage.name}/default/graph-events-archive'
+  properties: {}
+}
+
+// ============================================================================
 // Outputs
 // ============================================================================
 
@@ -90,3 +116,5 @@ output childDnsZoneName string = childDnsZone.name
 output childDnsNameServers array = childDnsZone.properties.nameServers
 output certManagerIdentityClientId string = certManagerIdentity.properties.clientId
 output certManagerIdentityId string = certManagerIdentity.id
+output captureStorageId string = captureStorage.id
+output captureStorageName string = captureStorage.name

@@ -2390,31 +2390,34 @@
       "id": 0,
       "panels": [
         {
-          "type": "stat",
+          "type": "timeseries",
           "transparent": false,
           "repeatDirection": "h",
-          "title": "Blob Availability % — swedencentral",
-          "datasource": {
-            "uid": "${datasource}",
-            "type": "grafana-azure-monitor-datasource"
-          },
           "fieldConfig": {
             "defaults": {
-              "unit": "percent",
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "drawStyle": "line",
+                "gradientMode": "opacity",
+                "spanNulls": false,
+                "axisBorderShow": false,
+                "lineInterpolation": "smooth",
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   {
-                    "color": "red",
+                    "color": "green",
                     "value": null
                   },
                   {
-                    "color": "yellow",
-                    "value": 99
-                  },
-                  {
-                    "color": "green",
-                    "value": 99.9
+                    "color": "red",
+                    "value": 80
                   }
                 ]
               }
@@ -2422,20 +2425,21 @@
             "overrides": []
           },
           "options": {
-            "graphMode": "none",
-            "colorMode": "background",
-            "justifyMode": "auto",
-            "textMode": "auto",
-            "wideLayout": true,
-            "showPercentChange": false,
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "values": false
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true,
+              "calcs": []
             },
-            "percentChangeColorMode": "standard",
-            "orientation": "auto"
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "title": "Event Hub — Incoming Messages",
+          "datasource": {
+            "uid": "${datasource}",
+            "type": "grafana-azure-monitor-datasource"
           },
           "targets": [
             {
@@ -2443,16 +2447,16 @@
               "queryType": "Azure Monitor",
               "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
               "azureMonitor": {
-                "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
-                "metricName": "Availability",
-                "aggregation": "Average",
+                "metricNamespace": "microsoft.eventhub/namespaces",
+                "metricName": "IncomingMessages",
+                "aggregation": "Total",
                 "timeGrain": "auto",
                 "resources": [
                   {
                     "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-swedencentral-001",
-                    "resourceName": "sthaalwayonswe001/default",
-                    "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
+                    "resourceGroup": "rg-alwayson-global",
+                    "resourceName": "evh-graphorleons-alwayson",
+                    "metricNamespace": "microsoft.eventhub/namespaces",
                     "region": "swedencentral"
                   }
                 ],
@@ -2461,8 +2465,8 @@
             }
           ],
           "gridPos": {
-            "h": 4,
-            "w": 8,
+            "h": 8,
+            "w": 12,
             "x": 0,
             "y": 82
           }
@@ -2514,7 +2518,7 @@
               "sort": "desc"
             }
           },
-          "title": "Blob TPS by API — swedencentral",
+          "title": "Event Hub — Outgoing Messages",
           "datasource": {
             "uid": "${datasource}",
             "type": "grafana-azure-monitor-datasource"
@@ -2525,33 +2529,27 @@
               "queryType": "Azure Monitor",
               "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
               "azureMonitor": {
-                "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
-                "metricName": "Transactions",
+                "metricNamespace": "microsoft.eventhub/namespaces",
+                "metricName": "OutgoingMessages",
                 "aggregation": "Total",
                 "timeGrain": "auto",
                 "resources": [
                   {
                     "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-swedencentral-001",
-                    "resourceName": "sthaalwayonswe001/default",
-                    "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
+                    "resourceGroup": "rg-alwayson-global",
+                    "resourceName": "evh-graphorleons-alwayson",
+                    "metricNamespace": "microsoft.eventhub/namespaces",
                     "region": "swedencentral"
                   }
                 ],
-                "dimensionFilters": [
-                  {
-                    "dimension": "ApiName",
-                    "operator": "eq",
-                    "filters": []
-                  }
-                ]
+                "dimensionFilters": []
               }
             }
           ],
           "gridPos": {
             "h": 8,
             "w": 12,
-            "x": 8,
+            "x": 12,
             "y": 82
           }
         },
@@ -2574,7 +2572,6 @@
                   "mode": "off"
                 }
               },
-              "unit": "ms",
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
@@ -2583,8 +2580,12 @@
                     "value": null
                   },
                   {
+                    "color": "yellow",
+                    "value": 1
+                  },
+                  {
                     "color": "red",
-                    "value": 80
+                    "value": 5
                   }
                 ]
               }
@@ -2603,7 +2604,7 @@
               "sort": "desc"
             }
           },
-          "title": "Blob E2E Latency — swedencentral",
+          "title": "Event Hub — Throttled Requests",
           "datasource": {
             "uid": "${datasource}",
             "type": "grafana-azure-monitor-datasource"
@@ -2614,122 +2615,113 @@
               "queryType": "Azure Monitor",
               "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
               "azureMonitor": {
-                "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
-                "metricName": "SuccessE2ELatency",
-                "aggregation": "Average",
+                "metricNamespace": "microsoft.eventhub/namespaces",
+                "metricName": "ThrottledRequests",
+                "aggregation": "Total",
                 "timeGrain": "auto",
                 "resources": [
                   {
                     "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-swedencentral-001",
-                    "resourceName": "sthaalwayonswe001/default",
-                    "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
+                    "resourceGroup": "rg-alwayson-global",
+                    "resourceName": "evh-graphorleons-alwayson",
+                    "metricNamespace": "microsoft.eventhub/namespaces",
                     "region": "swedencentral"
                   }
                 ],
-                "dimensionFilters": [
-                  {
-                    "dimension": "ApiName",
-                    "operator": "eq",
-                    "filters": []
-                  }
-                ]
+                "dimensionFilters": []
               }
             }
           ],
           "gridPos": {
             "h": 8,
-            "w": 12,
-            "x": 20,
-            "y": 82
-          }
-        },
-        {
-          "type": "timeseries",
-          "transparent": false,
-          "repeatDirection": "h",
-          "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "lineWidth": 1,
-                "fillOpacity": 10,
-                "showPoints": "never",
-                "drawStyle": "line",
-                "gradientMode": "opacity",
-                "spanNulls": false,
-                "axisBorderShow": false,
-                "lineInterpolation": "smooth",
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "unit": "ms",
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "legend": {
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true,
-              "calcs": []
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc"
-            }
-          },
-          "title": "Blob Server Latency — swedencentral",
-          "datasource": {
-            "uid": "${datasource}",
-            "type": "grafana-azure-monitor-datasource"
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "queryType": "Azure Monitor",
-              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-              "azureMonitor": {
-                "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
-                "metricName": "SuccessServerLatency",
-                "aggregation": "Average",
-                "timeGrain": "auto",
-                "resources": [
-                  {
-                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-swedencentral-001",
-                    "resourceName": "sthaalwayonswe001/default",
-                    "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
-                    "region": "swedencentral"
-                  }
-                ],
-                "dimensionFilters": [
-                  {
-                    "dimension": "ApiName",
-                    "operator": "eq",
-                    "filters": []
-                  }
-                ]
-              }
-            }
-          ],
-          "gridPos": {
-            "h": 8,
-            "w": 12,
+            "w": 8,
             "x": 0,
+            "y": 90
+          }
+        },
+        {
+          "type": "timeseries",
+          "transparent": false,
+          "repeatDirection": "h",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "drawStyle": "line",
+                "gradientMode": "opacity",
+                "spanNulls": false,
+                "axisBorderShow": false,
+                "lineInterpolation": "smooth",
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 1
+                  },
+                  {
+                    "color": "red",
+                    "value": 5
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true,
+              "calcs": []
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "title": "Event Hub — Server Errors",
+          "datasource": {
+            "uid": "${datasource}",
+            "type": "grafana-azure-monitor-datasource"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "queryType": "Azure Monitor",
+              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+              "azureMonitor": {
+                "metricNamespace": "microsoft.eventhub/namespaces",
+                "metricName": "ServerErrors",
+                "aggregation": "Total",
+                "timeGrain": "auto",
+                "resources": [
+                  {
+                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+                    "resourceGroup": "rg-alwayson-global",
+                    "resourceName": "evh-graphorleons-alwayson",
+                    "metricNamespace": "microsoft.eventhub/namespaces",
+                    "region": "swedencentral"
+                  }
+                ],
+                "dimensionFilters": []
+              }
+            }
+          ],
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 8,
             "y": 90
           }
         },
@@ -2780,7 +2772,7 @@
               "sort": "desc"
             }
           },
-          "title": "Blob Errors — swedencentral",
+          "title": "Event Hub — Captured Messages",
           "datasource": {
             "uid": "${datasource}",
             "type": "grafana-azure-monitor-datasource"
@@ -2791,914 +2783,32 @@
               "queryType": "Azure Monitor",
               "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
               "azureMonitor": {
-                "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
-                "metricName": "Transactions",
+                "metricNamespace": "microsoft.eventhub/namespaces",
+                "metricName": "CapturedMessages",
                 "aggregation": "Total",
                 "timeGrain": "auto",
                 "resources": [
                   {
                     "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-swedencentral-001",
-                    "resourceName": "sthaalwayonswe001/default",
-                    "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
+                    "resourceGroup": "rg-alwayson-global",
+                    "resourceName": "evh-graphorleons-alwayson",
+                    "metricNamespace": "microsoft.eventhub/namespaces",
                     "region": "swedencentral"
                   }
                 ],
-                "dimensionFilters": [
-                  {
-                    "dimension": "ResponseType",
-                    "operator": "eq",
-                    "filters": [
-                      "ClientOtherError",
-                      "ServerOtherError",
-                      "ClientThrottlingError"
-                    ]
-                  }
-                ]
+                "dimensionFilters": []
               }
             }
           ],
           "gridPos": {
             "h": 8,
-            "w": 12,
-            "x": 12,
+            "w": 8,
+            "x": 16,
             "y": 90
-          }
-        },
-        {
-          "type": "stat",
-          "transparent": false,
-          "repeatDirection": "h",
-          "title": "Blob Availability % — eastus",
-          "datasource": {
-            "uid": "${datasource}",
-            "type": "grafana-azure-monitor-datasource"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "unit": "percent",
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "red",
-                    "value": null
-                  },
-                  {
-                    "color": "yellow",
-                    "value": 99
-                  },
-                  {
-                    "color": "green",
-                    "value": 99.9
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "graphMode": "none",
-            "colorMode": "background",
-            "justifyMode": "auto",
-            "textMode": "auto",
-            "wideLayout": true,
-            "showPercentChange": false,
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "values": false
-            },
-            "percentChangeColorMode": "standard",
-            "orientation": "auto"
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "queryType": "Azure Monitor",
-              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-              "azureMonitor": {
-                "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
-                "metricName": "Availability",
-                "aggregation": "Average",
-                "timeGrain": "auto",
-                "resources": [
-                  {
-                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-eastus-001",
-                    "resourceName": "sthaalwayoneas001/default",
-                    "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
-                    "region": "eastus"
-                  }
-                ],
-                "dimensionFilters": []
-              }
-            }
-          ],
-          "gridPos": {
-            "h": 4,
-            "w": 8,
-            "x": 0,
-            "y": 98
-          }
-        },
-        {
-          "type": "timeseries",
-          "transparent": false,
-          "repeatDirection": "h",
-          "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "lineWidth": 1,
-                "fillOpacity": 10,
-                "showPoints": "never",
-                "drawStyle": "line",
-                "gradientMode": "opacity",
-                "spanNulls": false,
-                "axisBorderShow": false,
-                "lineInterpolation": "smooth",
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "legend": {
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true,
-              "calcs": []
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc"
-            }
-          },
-          "title": "Blob TPS by API — eastus",
-          "datasource": {
-            "uid": "${datasource}",
-            "type": "grafana-azure-monitor-datasource"
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "queryType": "Azure Monitor",
-              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-              "azureMonitor": {
-                "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
-                "metricName": "Transactions",
-                "aggregation": "Total",
-                "timeGrain": "auto",
-                "resources": [
-                  {
-                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-eastus-001",
-                    "resourceName": "sthaalwayoneas001/default",
-                    "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
-                    "region": "eastus"
-                  }
-                ],
-                "dimensionFilters": [
-                  {
-                    "dimension": "ApiName",
-                    "operator": "eq",
-                    "filters": []
-                  }
-                ]
-              }
-            }
-          ],
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 8,
-            "y": 98
-          }
-        },
-        {
-          "type": "timeseries",
-          "transparent": false,
-          "repeatDirection": "h",
-          "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "lineWidth": 1,
-                "fillOpacity": 10,
-                "showPoints": "never",
-                "drawStyle": "line",
-                "gradientMode": "opacity",
-                "spanNulls": false,
-                "axisBorderShow": false,
-                "lineInterpolation": "smooth",
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "unit": "ms",
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "legend": {
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true,
-              "calcs": []
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc"
-            }
-          },
-          "title": "Blob E2E Latency — eastus",
-          "datasource": {
-            "uid": "${datasource}",
-            "type": "grafana-azure-monitor-datasource"
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "queryType": "Azure Monitor",
-              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-              "azureMonitor": {
-                "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
-                "metricName": "SuccessE2ELatency",
-                "aggregation": "Average",
-                "timeGrain": "auto",
-                "resources": [
-                  {
-                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-eastus-001",
-                    "resourceName": "sthaalwayoneas001/default",
-                    "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
-                    "region": "eastus"
-                  }
-                ],
-                "dimensionFilters": [
-                  {
-                    "dimension": "ApiName",
-                    "operator": "eq",
-                    "filters": []
-                  }
-                ]
-              }
-            }
-          ],
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 20,
-            "y": 98
-          }
-        },
-        {
-          "type": "timeseries",
-          "transparent": false,
-          "repeatDirection": "h",
-          "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "lineWidth": 1,
-                "fillOpacity": 10,
-                "showPoints": "never",
-                "drawStyle": "line",
-                "gradientMode": "opacity",
-                "spanNulls": false,
-                "axisBorderShow": false,
-                "lineInterpolation": "smooth",
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "unit": "ms",
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "legend": {
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true,
-              "calcs": []
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc"
-            }
-          },
-          "title": "Blob Server Latency — eastus",
-          "datasource": {
-            "uid": "${datasource}",
-            "type": "grafana-azure-monitor-datasource"
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "queryType": "Azure Monitor",
-              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-              "azureMonitor": {
-                "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
-                "metricName": "SuccessServerLatency",
-                "aggregation": "Average",
-                "timeGrain": "auto",
-                "resources": [
-                  {
-                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-eastus-001",
-                    "resourceName": "sthaalwayoneas001/default",
-                    "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
-                    "region": "eastus"
-                  }
-                ],
-                "dimensionFilters": [
-                  {
-                    "dimension": "ApiName",
-                    "operator": "eq",
-                    "filters": []
-                  }
-                ]
-              }
-            }
-          ],
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 0,
-            "y": 106
-          }
-        },
-        {
-          "type": "timeseries",
-          "transparent": false,
-          "repeatDirection": "h",
-          "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "lineWidth": 1,
-                "fillOpacity": 10,
-                "showPoints": "never",
-                "drawStyle": "line",
-                "gradientMode": "opacity",
-                "spanNulls": false,
-                "axisBorderShow": false,
-                "lineInterpolation": "smooth",
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "legend": {
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true,
-              "calcs": []
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc"
-            }
-          },
-          "title": "Blob Errors — eastus",
-          "datasource": {
-            "uid": "${datasource}",
-            "type": "grafana-azure-monitor-datasource"
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "queryType": "Azure Monitor",
-              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-              "azureMonitor": {
-                "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
-                "metricName": "Transactions",
-                "aggregation": "Total",
-                "timeGrain": "auto",
-                "resources": [
-                  {
-                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-eastus-001",
-                    "resourceName": "sthaalwayoneas001/default",
-                    "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
-                    "region": "eastus"
-                  }
-                ],
-                "dimensionFilters": [
-                  {
-                    "dimension": "ResponseType",
-                    "operator": "eq",
-                    "filters": [
-                      "ClientOtherError",
-                      "ServerOtherError",
-                      "ClientThrottlingError"
-                    ]
-                  }
-                ]
-              }
-            }
-          ],
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 106
-          }
-        },
-        {
-          "type": "stat",
-          "transparent": false,
-          "repeatDirection": "h",
-          "title": "Blob Availability % — southeastasia",
-          "datasource": {
-            "uid": "${datasource}",
-            "type": "grafana-azure-monitor-datasource"
-          },
-          "fieldConfig": {
-            "defaults": {
-              "unit": "percent",
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "red",
-                    "value": null
-                  },
-                  {
-                    "color": "yellow",
-                    "value": 99
-                  },
-                  {
-                    "color": "green",
-                    "value": 99.9
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "graphMode": "none",
-            "colorMode": "background",
-            "justifyMode": "auto",
-            "textMode": "auto",
-            "wideLayout": true,
-            "showPercentChange": false,
-            "reduceOptions": {
-              "calcs": [
-                "lastNotNull"
-              ],
-              "values": false
-            },
-            "percentChangeColorMode": "standard",
-            "orientation": "auto"
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "queryType": "Azure Monitor",
-              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-              "azureMonitor": {
-                "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
-                "metricName": "Availability",
-                "aggregation": "Average",
-                "timeGrain": "auto",
-                "resources": [
-                  {
-                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-southeastasia-001",
-                    "resourceName": "sthaalwayonsou001/default",
-                    "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
-                    "region": "southeastasia"
-                  }
-                ],
-                "dimensionFilters": []
-              }
-            }
-          ],
-          "gridPos": {
-            "h": 4,
-            "w": 8,
-            "x": 0,
-            "y": 114
-          }
-        },
-        {
-          "type": "timeseries",
-          "transparent": false,
-          "repeatDirection": "h",
-          "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "lineWidth": 1,
-                "fillOpacity": 10,
-                "showPoints": "never",
-                "drawStyle": "line",
-                "gradientMode": "opacity",
-                "spanNulls": false,
-                "axisBorderShow": false,
-                "lineInterpolation": "smooth",
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "legend": {
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true,
-              "calcs": []
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc"
-            }
-          },
-          "title": "Blob TPS by API — southeastasia",
-          "datasource": {
-            "uid": "${datasource}",
-            "type": "grafana-azure-monitor-datasource"
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "queryType": "Azure Monitor",
-              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-              "azureMonitor": {
-                "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
-                "metricName": "Transactions",
-                "aggregation": "Total",
-                "timeGrain": "auto",
-                "resources": [
-                  {
-                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-southeastasia-001",
-                    "resourceName": "sthaalwayonsou001/default",
-                    "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
-                    "region": "southeastasia"
-                  }
-                ],
-                "dimensionFilters": [
-                  {
-                    "dimension": "ApiName",
-                    "operator": "eq",
-                    "filters": []
-                  }
-                ]
-              }
-            }
-          ],
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 8,
-            "y": 114
-          }
-        },
-        {
-          "type": "timeseries",
-          "transparent": false,
-          "repeatDirection": "h",
-          "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "lineWidth": 1,
-                "fillOpacity": 10,
-                "showPoints": "never",
-                "drawStyle": "line",
-                "gradientMode": "opacity",
-                "spanNulls": false,
-                "axisBorderShow": false,
-                "lineInterpolation": "smooth",
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "unit": "ms",
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "legend": {
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true,
-              "calcs": []
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc"
-            }
-          },
-          "title": "Blob E2E Latency — southeastasia",
-          "datasource": {
-            "uid": "${datasource}",
-            "type": "grafana-azure-monitor-datasource"
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "queryType": "Azure Monitor",
-              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-              "azureMonitor": {
-                "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
-                "metricName": "SuccessE2ELatency",
-                "aggregation": "Average",
-                "timeGrain": "auto",
-                "resources": [
-                  {
-                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-southeastasia-001",
-                    "resourceName": "sthaalwayonsou001/default",
-                    "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
-                    "region": "southeastasia"
-                  }
-                ],
-                "dimensionFilters": [
-                  {
-                    "dimension": "ApiName",
-                    "operator": "eq",
-                    "filters": []
-                  }
-                ]
-              }
-            }
-          ],
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 20,
-            "y": 114
-          }
-        },
-        {
-          "type": "timeseries",
-          "transparent": false,
-          "repeatDirection": "h",
-          "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "lineWidth": 1,
-                "fillOpacity": 10,
-                "showPoints": "never",
-                "drawStyle": "line",
-                "gradientMode": "opacity",
-                "spanNulls": false,
-                "axisBorderShow": false,
-                "lineInterpolation": "smooth",
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "unit": "ms",
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "legend": {
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true,
-              "calcs": []
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc"
-            }
-          },
-          "title": "Blob Server Latency — southeastasia",
-          "datasource": {
-            "uid": "${datasource}",
-            "type": "grafana-azure-monitor-datasource"
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "queryType": "Azure Monitor",
-              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-              "azureMonitor": {
-                "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
-                "metricName": "SuccessServerLatency",
-                "aggregation": "Average",
-                "timeGrain": "auto",
-                "resources": [
-                  {
-                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-southeastasia-001",
-                    "resourceName": "sthaalwayonsou001/default",
-                    "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
-                    "region": "southeastasia"
-                  }
-                ],
-                "dimensionFilters": [
-                  {
-                    "dimension": "ApiName",
-                    "operator": "eq",
-                    "filters": []
-                  }
-                ]
-              }
-            }
-          ],
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 0,
-            "y": 122
-          }
-        },
-        {
-          "type": "timeseries",
-          "transparent": false,
-          "repeatDirection": "h",
-          "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "lineWidth": 1,
-                "fillOpacity": 10,
-                "showPoints": "never",
-                "drawStyle": "line",
-                "gradientMode": "opacity",
-                "spanNulls": false,
-                "axisBorderShow": false,
-                "lineInterpolation": "smooth",
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "legend": {
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true,
-              "calcs": []
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc"
-            }
-          },
-          "title": "Blob Errors — southeastasia",
-          "datasource": {
-            "uid": "${datasource}",
-            "type": "grafana-azure-monitor-datasource"
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "queryType": "Azure Monitor",
-              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-              "azureMonitor": {
-                "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
-                "metricName": "Transactions",
-                "aggregation": "Total",
-                "timeGrain": "auto",
-                "resources": [
-                  {
-                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-southeastasia-001",
-                    "resourceName": "sthaalwayonsou001/default",
-                    "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
-                    "region": "southeastasia"
-                  }
-                ],
-                "dimensionFilters": [
-                  {
-                    "dimension": "ResponseType",
-                    "operator": "eq",
-                    "filters": [
-                      "ClientOtherError",
-                      "ServerOtherError",
-                      "ClientThrottlingError"
-                    ]
-                  }
-                ]
-              }
-            }
-          ],
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 12,
-            "y": 122
           }
         }
       ],
-      "title": "📦 Blob Storage",
+      "title": "📡 Event Hubs",
       "gridPos": {
         "x": 0,
         "y": 81,

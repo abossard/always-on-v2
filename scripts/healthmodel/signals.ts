@@ -490,6 +490,52 @@ export function blobTransactionErrors(): AzureResourceSignalDef {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// Azure Resource Signals — Event Hubs
+// ═══════════════════════════════════════════════════════════════════
+
+export function eventHubAvailability(): AzureResourceSignalDef {
+  return {
+    signalKind: 'AzureResourceMetric',
+    metricNamespace: 'microsoft.eventhub/namespaces',
+    metricName: 'NamespaceActiveConnections',
+    timeGrain: 'PT5M',
+    aggregationType: 'Average',
+    displayName: 'Event Hub Availability',
+    refreshInterval: 'PT5M',
+    dataUnit: 'Count',
+    threshold: { direction: 'lower-is-worse', degraded: 1, unhealthy: 0 },
+  };
+}
+
+export function eventHubThrottled(): AzureResourceSignalDef {
+  return {
+    signalKind: 'AzureResourceMetric',
+    metricNamespace: 'microsoft.eventhub/namespaces',
+    metricName: 'ThrottledRequests',
+    timeGrain: 'PT5M',
+    aggregationType: 'Total',
+    displayName: 'Event Hub Throttled',
+    refreshInterval: 'PT5M',
+    dataUnit: 'Count',
+    threshold: { direction: 'higher-is-worse', degraded: 5, unhealthy: 50 },
+  };
+}
+
+export function eventHubServerErrors(): AzureResourceSignalDef {
+  return {
+    signalKind: 'AzureResourceMetric',
+    metricNamespace: 'microsoft.eventhub/namespaces',
+    metricName: 'ServerErrors',
+    timeGrain: 'PT5M',
+    aggregationType: 'Total',
+    displayName: 'Event Hub Server Errors',
+    refreshInterval: 'PT5M',
+    dataUnit: 'Count',
+    threshold: { direction: 'higher-is-worse', degraded: 1, unhealthy: 10 },
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // Signal Collections — grouped for entity composition
 // ═══════════════════════════════════════════════════════════════════
 

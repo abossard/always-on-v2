@@ -10,6 +10,7 @@ public static class ResourceNames
     public const string Cluster = "cluster";
     public const string ModelsContainer = "models";
     public const string Storage = "storage";
-    public const string Blobs = "blobs";
     public const string Queues = "queues";
+    public const string EventHubs = "eventhubs";
+    public const string GraphEventsHub = "graphorleons-events";
 }

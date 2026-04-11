@@ -286,6 +286,7 @@ export interface AppConfig {
   usesAI: boolean;
   usesQueues: boolean;
   usesBlobs: boolean;
+  usesEventHubs: boolean;
   queueNames?: string[];
 }
 
@@ -294,6 +295,7 @@ export interface ResourceConfig {
   frontDoorProfile: string;
   aiServicesAccount: string;
   storageAccount?: string;
+  eventHubsNamespace?: string;
 }
 
 export interface PlatformConfig {

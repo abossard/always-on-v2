@@ -135,5 +135,19 @@ export function buildAppDashboard(app: AppConfig, config: PlatformConfig): objec
     builder = builder.withRow(blobRow);
   }
 
+  // ── Event Hubs row (conditional) ──────────────────────────────
+  if (app.usesEventHubs && config.resources.eventHubsNamespace) {
+    builder = builder
+      .withRow(
+        new RowBuilder('📡 Event Hubs')
+          .collapsed(true)
+          .withPanel(panels.eventHubIncomingMessagesTimeseries(config))
+          .withPanel(panels.eventHubOutgoingMessagesTimeseries(config))
+          .withPanel(panels.eventHubThrottledTimeseries(config))
+          .withPanel(panels.eventHubServerErrorsTimeseries(config))
+          .withPanel(panels.eventHubCapturedMessagesTimeseries(config)),
+      );
+  }
+
   return builder.build();
 }
