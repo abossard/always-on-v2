@@ -11,4 +11,5 @@ public static class ResourceNames
     public const string ModelsContainer = "models";
     public const string Storage = "storage";
     public const string Blobs = "blobs";
+    public const string Queues = "queues";
 }

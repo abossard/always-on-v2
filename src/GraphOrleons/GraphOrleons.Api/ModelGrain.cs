@@ -1,5 +1,6 @@
 using System.Collections.ObjectModel;
 using System.Text.Json;
+using Orleans.Streams;
 
 namespace GraphOrleons.Api;
 
@@ -15,6 +16,7 @@ public sealed class ModelGrain(IGraphStore store, ILogger<ModelGrain> logger) : 
     string _modelId = "";
     int _generation;
     string? _manifestEtag;
+    IAsyncStream<TenantStreamEvent>? _tenantStream;
 
     public override async Task OnActivateAsync(CancellationToken cancellationToken)
     {
@@ -39,6 +41,11 @@ public sealed class ModelGrain(IGraphStore store, ILogger<ModelGrain> logger) : 
             }
         }
 
+        // Set up tenant stream for model change notifications
+        var streamProvider = this.GetStreamProvider(StreamConstants.ProviderName);
+        _tenantStream = streamProvider.GetStream<TenantStreamEvent>(
+            StreamConstants.TenantStreamNamespace, _tenantId);
+
         this.RegisterGrainTimer(FlushAsync, new GrainTimerCreationOptions
         {
             DueTime = TimeSpan.FromSeconds(30),
@@ -46,10 +53,10 @@ public sealed class ModelGrain(IGraphStore store, ILogger<ModelGrain> logger) : 
         });
     }
 
-    public Task AddRelationships(string componentPath, string payloadJson)
+    public async Task AddRelationships(string componentPath, string payloadJson)
     {
         var parts = componentPath.Split('/');
-        if (parts.Length < 2) return Task.CompletedTask;
+        if (parts.Length < 2) return;
 
         var impact = Impact.None;
         try
@@ -60,13 +67,23 @@ public sealed class ModelGrain(IGraphStore store, ILogger<ModelGrain> logger) : 
         }
         catch (System.Text.Json.JsonException) { /* malformed JSON — keep default impact */ }
 
+        bool changed = false;
         for (int i = 0; i < parts.Length; i++)
         {
-            _nodes.Add(parts[i]);
+            if (_nodes.Add(parts[i])) changed = true;
             if (i < parts.Length - 1)
             {
                 var edge = new GraphEdge(parts[i], parts[i + 1], impact);
-                _edges.RemoveAll(e => e.Source == edge.Source && e.Target == edge.Target);
+                var existing = _edges.FindIndex(e => e.Source == edge.Source && e.Target == edge.Target);
+                if (existing >= 0)
+                {
+                    if (_edges[existing].Impact != edge.Impact) changed = true;
+                    _edges.RemoveAt(existing);
+                }
+                else
+                {
+                    changed = true;
+                }
                 _edges.Add(edge);
 
                 var bucketIndex = Math.Abs(edge.Source.GetHashCode(StringComparison.Ordinal)) % BucketCount;
@@ -74,7 +91,13 @@ public sealed class ModelGrain(IGraphStore store, ILogger<ModelGrain> logger) : 
             }
         }
 
-        return Task.CompletedTask;
+        // Publish model update to tenant stream on effective change
+        if (changed && _tenantStream is not null)
+        {
+            var graph = new GraphSnapshot(_modelId, _nodes.Order().ToList(), _edges.ToList());
+            await _tenantStream.OnNextAsync(new TenantStreamEvent(
+                _tenantId, TenantEventType.ModelUpdated, "", null, graph));
+        }
     }
 
     public Task<GraphSnapshot> GetGraph()

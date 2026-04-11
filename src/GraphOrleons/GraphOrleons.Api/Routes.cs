@@ -8,6 +8,9 @@ public static class Routes
     public const string ComponentDetailTemplate = "/api/tenants/{tenantId}/components/{componentName}";
     public const string TenantModelsTemplate = "/api/tenants/{tenantId}/models";
     public const string TenantGraphTemplate = "/api/tenants/{tenantId}/models/active/graph";
+    public const string TenantStreamTemplate = "/api/tenants/{tenantId}/stream";
+
+    public static string TenantStream(string tenant) => TenantStreamTemplate.Replace("{tenantId}", tenant, StringComparison.Ordinal);
 
     public static string TenantComponents(string tenant) => TenantComponentsTemplate.Replace("{tenantId}", tenant, StringComparison.Ordinal);
     public static string ComponentDetail(string tenant, string component) =>

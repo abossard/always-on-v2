@@ -15,6 +15,7 @@ db.AddContainer(ResourceNames.ClusterContainer, "/ClusterId");
 var storage = builder.AddAzureStorage(ResourceNames.Storage)
     .RunAsEmulator();
 var blobs = storage.AddBlobs(ResourceNames.Blobs);
+var queues = storage.AddQueues(ResourceNames.Queues);
 
 // Orleans providers are configured explicitly in the API project.
 // Aspire auto-config via AddOrleans().WithClustering() doesn't work with Orleans 10.0.1.
@@ -22,6 +23,7 @@ var api = builder.AddProject<Projects.GraphOrleons_Api>(ResourceNames.Api)
     .WithReference(cosmos)
     .WaitFor(cosmos)
     .WithReference(blobs)
+    .WithReference(queues)
     .WaitFor(storage)
     .WithExternalHttpEndpoints()
     .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development");

@@ -1,15 +1,24 @@
 using System.Collections.ObjectModel;
+using System.Text.Json;
+using Microsoft.Extensions.Options;
+using Orleans.Streams;
 
 namespace GraphOrleons.Api;
 
-public sealed class ComponentGrain(IGraphStore store, IEventArchive archive, ILogger<ComponentGrain> logger) : Grain, IComponentGrain
+public sealed class ComponentGrain(
+    IGraphStore store,
+    IEventArchive archive,
+    IOptions<GrainConfig> grainConfig,
+    ILogger<ComponentGrain> logger) : Grain, IComponentGrain
 {
     string _name = "";
     string _tenant = "";
-    string? _latestPayloadJson;
+    readonly Dictionary<string, MergedProperty> _properties = new();
     int _totalCount;
-    readonly List<PayloadEntry> _history = new(10);
+    DateTimeOffset _lastEffectiveUpdate;
     bool _registered;
+    bool _dirty;
+    IAsyncStream<TenantStreamEvent>? _tenantStream;
 
     public override async Task OnActivateAsync(CancellationToken cancellationToken)
     {
@@ -21,20 +30,33 @@ public sealed class ComponentGrain(IGraphStore store, IEventArchive archive, ILo
         var doc = await store.LoadComponentStateAsync(_tenant, _name);
         if (doc is not null)
         {
-            _latestPayloadJson = doc.LatestPayloadJson;
             _totalCount = doc.TotalCount;
             _registered = true;
-            _history.Clear();
-            _history.AddRange(doc.History.Select(h => new PayloadEntry(h.ReceivedAt, h.PayloadJson)));
+            _lastEffectiveUpdate = doc.LastEffectiveUpdate;
+            _properties.Clear();
+            foreach (var p in doc.Properties)
+                _properties[p.Name] = new MergedProperty { Value = p.Value, LastUpdated = p.LastUpdated };
         }
+
+        // Set up tenant stream
+        var streamProvider = this.GetStreamProvider(StreamConstants.ProviderName);
+        _tenantStream = streamProvider.GetStream<TenantStreamEvent>(
+            StreamConstants.TenantStreamNamespace, _tenant);
+
+        var interval = TimeSpan.FromSeconds(grainConfig.Value.FlushIntervalSeconds);
+        this.RegisterGrainTimer(FlushAsync, new GrainTimerCreationOptions
+        {
+            DueTime = interval,
+            Period = interval
+        });
     }
 
     public async Task ReceiveEvent(string tenant, string payloadJson, string? fullComponentPath)
     {
-        _latestPayloadJson = payloadJson;
         _totalCount++;
-        _history.Add(new PayloadEntry(DateTimeOffset.UtcNow, payloadJson));
-        if (_history.Count > 10) _history.RemoveAt(0);
+
+        var now = DateTimeOffset.UtcNow;
+        bool effectiveChange = ComponentMerge.MergePayload(_properties, payloadJson, now);
 
         var tenantGrain = GrainFactory.GetGrain<ITenantGrain>(_tenant);
 
@@ -48,24 +70,22 @@ public sealed class ComponentGrain(IGraphStore store, IEventArchive archive, ILo
         {
             await tenantGrain.ReceiveRelationship(_name, fullComponentPath, payloadJson);
         }
-        //TODO: this will produce too many Cosmos DB Writes....
 
-        // Persist component state — let errors bubble up
-        var doc = new ComponentStateDocument
+        if (effectiveChange)
         {
-            Id = $"comp:{_name}",
-            Name = _name,
-            LatestPayloadJson = _latestPayloadJson,
-            TotalCount = _totalCount,
-            History = new Collection<PayloadEntryData>(_history.Select(h => new PayloadEntryData
-            {
-                ReceivedAt = h.ReceivedAt,
-                PayloadJson = h.PayloadJson
-            }).ToList())
-        };
-        await store.SaveComponentStateAsync(_tenant, doc);
+            _lastEffectiveUpdate = now;
+            _dirty = true;
 
-        // Fire-and-forget archival — failures log at ERROR
+            // Publish to tenant stream
+            if (_tenantStream is not null)
+            {
+                await _tenantStream.OnNextAsync(new TenantStreamEvent(
+                    _tenant, TenantEventType.ComponentUpdated, _name,
+                    new Dictionary<string, MergedProperty>(_properties), null));
+            }
+        }
+
+        // Fire-and-forget archival
         _ = ArchiveEventAsync(payloadJson);
     }
 
@@ -81,6 +101,37 @@ public sealed class ComponentGrain(IGraphStore store, IEventArchive archive, ILo
         }
     }
 
+    async Task FlushAsync(CancellationToken cancellationToken)
+    {
+        if (!_dirty) return;
+
+        var doc = new ComponentStateDocument
+        {
+            Id = $"comp:{_name}",
+            Name = _name,
+            TotalCount = _totalCount,
+            LastEffectiveUpdate = _lastEffectiveUpdate,
+            Properties = new Collection<PropertyData>(
+                _properties.Select(kvp => new PropertyData
+                {
+                    Name = kvp.Key,
+                    Value = kvp.Value.Value,
+                    LastUpdated = kvp.Value.LastUpdated
+                }).ToList())
+        };
+        await store.SaveComponentStateAsync(_tenant, doc);
+        _dirty = false;
+    }
+
+    public override async Task OnDeactivateAsync(DeactivationReason reason, CancellationToken cancellationToken)
+    {
+        await FlushAsync(CancellationToken.None);
+    }
+
     public Task<ComponentSnapshot> GetSnapshot() =>
-        Task.FromResult(new ComponentSnapshot(_name, _latestPayloadJson, _totalCount, _history.ToList()));
+        Task.FromResult(new ComponentSnapshot(
+            _name,
+            new Dictionary<string, MergedProperty>(_properties),
+            _totalCount,
+            _lastEffectiveUpdate));
 }

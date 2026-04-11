@@ -46,9 +46,9 @@ public abstract class PersistenceTests(HttpClient client)
         await Assert.That(async () =>
         {
             var details = await api.GetComponentDetail(tenant, comp);
-            return details.GetProperty("history").GetArrayLength();
+            return details.GetProperty("properties").GetArrayLength();
         }).Eventually(
-            assert => assert.IsEqualTo(Math.Min(eventCount, 10)),
+            assert => assert.IsGreaterThan(0),
             timeout: TimeSpan.FromSeconds(10));
     }
 

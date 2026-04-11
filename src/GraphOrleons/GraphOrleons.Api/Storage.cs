@@ -145,23 +145,26 @@ public sealed class ComponentStateDocument
     [JsonPropertyName("name")]
     public string Name { get; set; } = "";
 
-    [JsonPropertyName("latestPayloadJson")]
-    public string? LatestPayloadJson { get; set; }
-
     [JsonPropertyName("totalCount")]
     public int TotalCount { get; set; }
 
-    [JsonPropertyName("history")]
-    public Collection<PayloadEntryData> History { get; init; } = [];
+    [JsonPropertyName("lastEffectiveUpdate")]
+    public DateTimeOffset LastEffectiveUpdate { get; set; }
+
+    [JsonPropertyName("properties")]
+    public Collection<PropertyData> Properties { get; init; } = [];
 }
 
-public sealed class PayloadEntryData
+public sealed class PropertyData
 {
-    [JsonPropertyName("receivedAt")]
-    public DateTimeOffset ReceivedAt { get; set; }
+    [JsonPropertyName("name")]
+    public string Name { get; set; } = "";
 
-    [JsonPropertyName("payloadJson")]
-    public string PayloadJson { get; set; } = "";
+    [JsonPropertyName("value")]
+    public string Value { get; set; } = "";
+
+    [JsonPropertyName("lastUpdated")]
+    public DateTimeOffset LastUpdated { get; set; }
 }
 
 public sealed class TenantRegistrationDocument

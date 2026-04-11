@@ -22,6 +22,9 @@ builder.AddAzureBlobServiceClient("blobs");
 builder.Services.AddSingleton<IGraphStore, CosmosGraphStore>();
 builder.Services.AddSingleton<IEventArchive, BlobEventArchive>();
 
+// Grain config
+builder.Services.Configure<GrainConfig>(builder.Configuration.GetSection(GrainConfig.Section));
+
 builder.Host.ConfigureHostOptions(o => o.ShutdownTimeout = TimeSpan.FromSeconds(55));
 
 builder.Services.ConfigureHttpJsonOptions(options =>
@@ -75,6 +78,25 @@ builder.Host.UseOrleans(silo =>
         });
     }
     silo.AddDashboard();
+
+    // Stream provider — Azure Queue Storage when connection string available, memory fallback
+    var queueConnStr = builder.Configuration.GetConnectionString("queues");
+    if (!string.IsNullOrEmpty(queueConnStr))
+    {
+        silo.AddAzureQueueStreams(StreamConstants.ProviderName, ob =>
+        {
+            ob.ConfigureAzureQueue(q => q.Configure(o =>
+            {
+                o.QueueServiceClient = new Azure.Storage.Queues.QueueServiceClient(queueConnStr);
+                o.QueueNames = ["tenant-stream-0", "tenant-stream-1", "tenant-stream-2", "tenant-stream-3"];
+            }));
+        });
+    }
+    else
+    {
+        silo.AddMemoryStreams(StreamConstants.ProviderName);
+    }
+    silo.AddMemoryGrainStorage("PubSubStore");
 });
 
 builder.Services.AddCors(options =>

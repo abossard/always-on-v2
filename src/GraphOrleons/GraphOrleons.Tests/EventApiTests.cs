@@ -78,20 +78,19 @@ public abstract class EventApiTests(HttpClient client)
     [Arguments(1)]
     [Arguments(5)]
     [Arguments(15)]
-    public async Task ComponentDetailsHistoryCappedAtTen(int eventCount)
+    public async Task ComponentDetailsShowsMergedProperties(int eventCount)
     {
         var tenant = $"tenant-{Guid.NewGuid():N}";
         var comp = $"comp-{Guid.NewGuid():N}";
         for (int i = 0; i < eventCount; i++)
-            await api.PostEvent(tenant, comp, new { seq = i });
+            await api.PostEvent(tenant, comp, new { seq = i, stable = "same" });
 
         var details = await api.GetComponentDetail(tenant, comp);
         var count = details.GetProperty("totalCount").GetInt32();
-        var historyLen = details.GetProperty("history").GetArrayLength();
-
         await Assert.That(count).IsEqualTo(eventCount);
-        await Assert.That(historyLen).IsLessThanOrEqualTo(10);
-        await Assert.That(historyLen).IsEqualTo(Math.Min(eventCount, 10));
+
+        var props = details.GetProperty("properties");
+        await Assert.That(props.GetArrayLength()).IsGreaterThan(0);
     }
 
     [Test]

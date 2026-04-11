@@ -1,0 +1,15 @@
+{
+  "name": "healthmodel-bicep-generator",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "generate": "ts-node generate.ts",
+    "test": "ts-node generate.ts --test",
+    "build": "tsc -p tsconfig.json"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "ts-node": "^10.9.0",
+    "typescript": "^5.3.0"
+  }
+}

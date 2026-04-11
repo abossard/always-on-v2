@@ -4,6 +4,7 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Orleans -->
+    <PackageVersion Include="Aspire.Azure.Storage.Queues" Version="13.2.2" />
     <PackageVersion Include="Microsoft.Orleans.Sdk" Version="10.0.1" />
     <PackageVersion Include="Microsoft.Orleans.Server" Version="10.0.1" />
     <PackageVersion Include="Microsoft.Orleans.Streaming" Version="10.0.1" />
@@ -23,6 +24,7 @@
     <PackageVersion Include="Azure.Identity" Version="1.20.0" />
     <!-- OpenTelemetry -->
     <PackageVersion Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.4.0" />
+    <PackageVersion Include="Microsoft.Orleans.Streaming.AzureStorage" Version="10.0.1" />
     <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.1" />
     <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.15.1" />
     <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.15.1" />

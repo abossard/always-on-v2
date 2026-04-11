@@ -4,16 +4,17 @@ export interface HealthEvent {
   payload: Record<string, unknown>;
 }
 
-export interface PayloadEntry {
-  receivedAt: string;
-  payload: Record<string, unknown>;
+export interface MergedProperty {
+  name: string;
+  value: string;
+  lastUpdated: string;
 }
 
 export interface ComponentSnapshot {
   name: string;
-  latestPayload: Record<string, unknown> | null;
   totalCount: number;
-  history: PayloadEntry[];
+  lastEffectiveUpdate: string;
+  properties: MergedProperty[];
 }
 
 export interface GraphEdge {

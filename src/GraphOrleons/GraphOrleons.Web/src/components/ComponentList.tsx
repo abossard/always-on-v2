@@ -17,32 +17,24 @@ export function ComponentList({ tenantId, components }: Props) {
   };
 
   if (!tenantId) return (
-    <div className="rounded-[26px] border border-dashed border-white/10 bg-white/3 p-5 text-sm text-slate-400">
-      Choose a live tenant to inspect emitted component payloads and event history.
+    <div className="rounded-xl border border-dashed border-white/10 bg-white/3 p-5 text-sm text-slate-400" data-testid="component-list-empty">
+      Choose a tenant to inspect instrument properties.
     </div>
   );
 
   return (
     <div className="flex h-full min-h-0 flex-col" data-testid="component-list-panel">
-      <div className="flex items-end justify-between gap-3">
-        <div>
-          <div className="text-[11px] uppercase tracking-[0.26em] text-slate-400">Component explorer</div>
-          <h2 className="mt-2 text-xl font-semibold text-white">Components ({components.length})</h2>
-        </div>
-        <span className="rounded-full border border-emerald-400/20 bg-emerald-400/10 px-2.5 py-1 text-xs text-emerald-200">
-          {tenantId}
-        </span>
-      </div>
+      <h2 className="text-lg font-semibold text-white">Instruments ({components.length})</h2>
 
-      <ul className="mt-4 flex-1 space-y-2 overflow-auto pr-1">
+      <ul className="mt-3 flex-1 space-y-1 overflow-auto">
         {components.map(c => (
           <li key={c}>
             <button
               onClick={() => handleClick(c)}
-              className={`w-full rounded-2xl border px-3 py-3 text-left text-sm transition ${
+              className={`w-full rounded-lg border px-3 py-2 text-left text-sm transition ${
                 selected?.name === c
-                  ? 'border-emerald-300/35 bg-emerald-400/12 text-white shadow-[0_10px_24px_rgba(16,185,129,0.12)]'
-                  : 'border-white/8 bg-white/4 text-slate-300 hover:border-white/16 hover:bg-white/7'
+                  ? 'border-emerald-300/35 bg-emerald-400/12 text-white'
+                  : 'border-white/8 bg-white/4 text-slate-300 hover:bg-white/7'
               }`}
             >
               {c}
@@ -50,35 +42,35 @@ export function ComponentList({ tenantId, components }: Props) {
           </li>
         ))}
       </ul>
+
       {selected && (
-        <div className="mt-4 rounded-[26px] border border-white/10 bg-slate-900/80 p-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h3 className="text-lg font-semibold text-emerald-300">{selected.name}</h3>
-              <p className="mt-1 text-xs uppercase tracking-[0.24em] text-slate-400">Total events: {selected.totalCount}</p>
-            </div>
-            <span className="rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs text-slate-300">
-              Latest sample
-            </span>
-          </div>
-          {selected.latestPayload && (
-            <div className="mt-4">
-              <p className="mb-2 text-xs uppercase tracking-[0.24em] text-slate-500">Latest payload</p>
-              <pre className="max-h-40 overflow-auto rounded-2xl border border-white/8 bg-slate-950/85 p-3 text-xs text-slate-200">
-                {JSON.stringify(selected.latestPayload, null, 2)}
-              </pre>
-            </div>
-          )}
-          {selected.history.length > 0 && (
-            <div className="mt-4">
-              <p className="mb-2 text-xs uppercase tracking-[0.24em] text-slate-500">History ({selected.history.length})</p>
-              {selected.history.map((h, i) => (
-                <div key={i} className="mb-2 rounded-2xl border border-white/8 bg-slate-950/72 p-3 text-xs text-slate-200">
-                  <span className="text-slate-500">{new Date(h.receivedAt).toLocaleTimeString()}</span>
-                  <pre className="mt-2 max-h-24 overflow-auto">{JSON.stringify(h.payload, null, 2)}</pre>
-                </div>
-              ))}
-            </div>
+        <div className="mt-4 rounded-xl border border-white/10 bg-slate-900/80 p-4" data-testid="component-detail">
+          <h3 className="text-lg font-semibold text-emerald-300">{selected.name}</h3>
+          <p className="mt-1 text-xs text-slate-400">
+            Events: {selected.totalCount} · Last update: {new Date(selected.lastEffectiveUpdate).toLocaleString()}
+          </p>
+
+          {selected.properties.length > 0 ? (
+            <table className="mt-3 w-full text-sm" data-testid="property-table">
+              <thead>
+                <tr className="text-left text-xs uppercase text-slate-500">
+                  <th className="pb-2">Property</th>
+                  <th className="pb-2">Value</th>
+                  <th className="pb-2">Last Updated</th>
+                </tr>
+              </thead>
+              <tbody>
+                {selected.properties.map((p) => (
+                  <tr key={p.name} className="border-t border-white/5">
+                    <td className="py-1.5 text-slate-200">{p.name}</td>
+                    <td className="py-1.5 text-slate-300 font-mono text-xs">{p.value}</td>
+                    <td className="py-1.5 text-slate-400 text-xs">{new Date(p.lastUpdated).toLocaleTimeString()}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          ) : (
+            <p className="mt-3 text-sm text-slate-400" data-testid="no-properties">No properties yet.</p>
           )}
         </div>
       )}

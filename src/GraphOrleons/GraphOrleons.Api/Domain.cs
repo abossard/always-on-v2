@@ -10,19 +10,34 @@ public sealed record HealthEvent(string Tenant, string Component, JsonElement Pa
 
 public enum Impact { None, Partial, Full }
 
-// --- Value types (Orleans-serializable, use string for JSON payloads) ---
+// --- Value types (Orleans-serializable) ---
 
 [GenerateSerializer]
-public sealed record PayloadEntry(
-    [property: Id(0)] DateTimeOffset ReceivedAt,
-    [property: Id(1)] string PayloadJson);
+public sealed class MergedProperty
+{
+    [Id(0)] public string Value { get; set; } = "";
+    [Id(1)] public DateTimeOffset LastUpdated { get; set; }
+}
 
 [GenerateSerializer]
 public sealed record ComponentSnapshot(
     [property: Id(0)] string Name,
-    [property: Id(1)] string? LatestPayloadJson,
+    [property: Id(1)] IReadOnlyDictionary<string, MergedProperty> Properties,
     [property: Id(2)] int TotalCount,
-    [property: Id(3)] IReadOnlyList<PayloadEntry> History);
+    [property: Id(3)] DateTimeOffset LastEffectiveUpdate);
+
+/// <summary>Discriminator for events on the tenant stream.</summary>
+[GenerateSerializer]
+public enum TenantEventType { ComponentUpdated, ModelUpdated }
+
+/// <summary>Unified event published to the tenant stream.</summary>
+[GenerateSerializer]
+public sealed record TenantStreamEvent(
+    [property: Id(0)] string TenantId,
+    [property: Id(1)] TenantEventType EventType,
+    [property: Id(2)] string ComponentName,
+    [property: Id(3)] IReadOnlyDictionary<string, MergedProperty>? Properties,
+    [property: Id(4)] GraphSnapshot? Graph);
 
 [GenerateSerializer]
 public sealed record GraphEdge(
@@ -64,4 +79,10 @@ public interface IModelGrain : IGrainWithStringKey
 {
     Task AddRelationships(string componentPath, string payloadJson);
     Task<GraphSnapshot> GetGraph();
+}
+
+public static class StreamConstants
+{
+    public const string ProviderName = "ComponentUpdates";
+    public const string TenantStreamNamespace = "tenant";
 }
