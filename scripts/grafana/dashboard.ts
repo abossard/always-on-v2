@@ -119,5 +119,21 @@ export function buildAppDashboard(app: AppConfig, config: PlatformConfig): objec
       );
   }
 
+  // ── Blob Storage row (conditional) ────────────────────────────
+  if (app.usesBlobs) {
+    const blobRow = new RowBuilder('📦 Blob Storage').collapsed(true);
+    for (const stamp of config.stamps) {
+      if (stamp.storageAccount) {
+        blobRow
+          .withPanel(panels.blobAvailabilityStat(config, stamp.storageAccount, stamp.resourceGroup, stamp.region))
+          .withPanel(panels.blobTransactionsTimeseries(config, stamp.storageAccount, stamp.resourceGroup, stamp.region))
+          .withPanel(panels.blobE2ELatencyTimeseries(config, stamp.storageAccount, stamp.resourceGroup, stamp.region))
+          .withPanel(panels.blobServerLatencyTimeseries(config, stamp.storageAccount, stamp.resourceGroup, stamp.region))
+          .withPanel(panels.blobErrorsTimeseries(config, stamp.storageAccount, stamp.resourceGroup, stamp.region));
+      }
+    }
+    builder = builder.withRow(blobRow);
+  }
+
   return builder.build();
 }

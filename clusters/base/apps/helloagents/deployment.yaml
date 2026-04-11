@@ -29,7 +29,7 @@ spec:
         app: helloagents
         azure.workload.identity/use: "true"
         orleans/serviceId: helloagents
-        orleans/clusterId: helloagents
+        orleans/clusterId: helloagents-${STAMP_NAME}
     spec:
       terminationGracePeriodSeconds: 65
       serviceAccountName: ${HELLOAGENTS_SA_NAME}

@@ -654,3 +654,166 @@ export function aiTokensPerSecondPanel(config: PlatformConfig): TimeseriesPanelB
     .span(12)
     .height(8);
 }
+
+// ── Blob Storage panels ─────────────────────────────────────────────
+
+export function blobAvailabilityStat(config: PlatformConfig, storageAccount: string, resourceGroup: string, region: string): StatPanelBuilder {
+  return new StatPanelBuilder()
+    .title(`Blob Availability % — ${region}`)
+    .datasource(AZURE_DS)
+    .unit('percent')
+    .thresholds(availabilityThresholds())
+    .colorMode(common.BigValueColorMode.Background)
+    .graphMode(common.BigValueGraphMode.None)
+    .reduceOptions(new common.ReduceDataOptionsBuilder().calcs(['lastNotNull']).values(false))
+    .withTarget(
+      new AzureMonitorQueryBuilder()
+        .queryType(AzureQueryType.AzureMonitor)
+        .refId('A')
+        .subscription(config.subscription)
+        .azureMonitor(
+          new AzureMetricQueryBuilder()
+            .metricNamespace('microsoft.storage/storageaccounts/blobservices')
+            .metricName('Availability')
+            .aggregation('Average')
+            .timeGrain('auto')
+            .resources([
+              new AzureMonitorResourceBuilder()
+                .subscription(config.subscription)
+                .resourceGroup(resourceGroup)
+                .resourceName(`${storageAccount}/default`)
+                .metricNamespace('microsoft.storage/storageaccounts/blobservices')
+                .region(region),
+            ])
+            .dimensionFilters([]),
+        ),
+    )
+    .span(8)
+    .height(4);
+}
+
+export function blobTransactionsTimeseries(config: PlatformConfig, storageAccount: string, resourceGroup: string, region: string): TimeseriesPanelBuilder {
+  return defaultTimeseries()
+    .title(`Blob TPS by API — ${region}`)
+    .datasource(AZURE_DS)
+    .thresholds(defaultThresholds())
+    .withTarget(
+      new AzureMonitorQueryBuilder()
+        .queryType(AzureQueryType.AzureMonitor)
+        .refId('A')
+        .subscription(config.subscription)
+        .azureMonitor(
+          new AzureMetricQueryBuilder()
+            .metricNamespace('microsoft.storage/storageaccounts/blobservices')
+            .metricName('Transactions')
+            .aggregation('Total')
+            .timeGrain('auto')
+            .resources([
+              new AzureMonitorResourceBuilder()
+                .subscription(config.subscription)
+                .resourceGroup(resourceGroup)
+                .resourceName(`${storageAccount}/default`)
+                .metricNamespace('microsoft.storage/storageaccounts/blobservices')
+                .region(region),
+            ])
+            .dimensionFilters([new AzureMetricDimensionBuilder().dimension('ApiName').operator('eq').filters([])]),
+        ),
+    )
+    .span(12)
+    .height(8);
+}
+
+export function blobE2ELatencyTimeseries(config: PlatformConfig, storageAccount: string, resourceGroup: string, region: string): TimeseriesPanelBuilder {
+  return defaultTimeseries()
+    .title(`Blob E2E Latency — ${region}`)
+    .datasource(AZURE_DS)
+    .unit('ms')
+    .thresholds(defaultThresholds())
+    .withTarget(
+      new AzureMonitorQueryBuilder()
+        .queryType(AzureQueryType.AzureMonitor)
+        .refId('A')
+        .subscription(config.subscription)
+        .azureMonitor(
+          new AzureMetricQueryBuilder()
+            .metricNamespace('microsoft.storage/storageaccounts/blobservices')
+            .metricName('SuccessE2ELatency')
+            .aggregation('Average')
+            .timeGrain('auto')
+            .resources([
+              new AzureMonitorResourceBuilder()
+                .subscription(config.subscription)
+                .resourceGroup(resourceGroup)
+                .resourceName(`${storageAccount}/default`)
+                .metricNamespace('microsoft.storage/storageaccounts/blobservices')
+                .region(region),
+            ])
+            .dimensionFilters([new AzureMetricDimensionBuilder().dimension('ApiName').operator('eq').filters([])]),
+        ),
+    )
+    .span(12)
+    .height(8);
+}
+
+export function blobServerLatencyTimeseries(config: PlatformConfig, storageAccount: string, resourceGroup: string, region: string): TimeseriesPanelBuilder {
+  return defaultTimeseries()
+    .title(`Blob Server Latency — ${region}`)
+    .datasource(AZURE_DS)
+    .unit('ms')
+    .thresholds(defaultThresholds())
+    .withTarget(
+      new AzureMonitorQueryBuilder()
+        .queryType(AzureQueryType.AzureMonitor)
+        .refId('A')
+        .subscription(config.subscription)
+        .azureMonitor(
+          new AzureMetricQueryBuilder()
+            .metricNamespace('microsoft.storage/storageaccounts/blobservices')
+            .metricName('SuccessServerLatency')
+            .aggregation('Average')
+            .timeGrain('auto')
+            .resources([
+              new AzureMonitorResourceBuilder()
+                .subscription(config.subscription)
+                .resourceGroup(resourceGroup)
+                .resourceName(`${storageAccount}/default`)
+                .metricNamespace('microsoft.storage/storageaccounts/blobservices')
+                .region(region),
+            ])
+            .dimensionFilters([new AzureMetricDimensionBuilder().dimension('ApiName').operator('eq').filters([])]),
+        ),
+    )
+    .span(12)
+    .height(8);
+}
+
+export function blobErrorsTimeseries(config: PlatformConfig, storageAccount: string, resourceGroup: string, region: string): TimeseriesPanelBuilder {
+  return defaultTimeseries()
+    .title(`Blob Errors — ${region}`)
+    .datasource(AZURE_DS)
+    .thresholds(defaultThresholds())
+    .withTarget(
+      new AzureMonitorQueryBuilder()
+        .queryType(AzureQueryType.AzureMonitor)
+        .refId('A')
+        .subscription(config.subscription)
+        .azureMonitor(
+          new AzureMetricQueryBuilder()
+            .metricNamespace('microsoft.storage/storageaccounts/blobservices')
+            .metricName('Transactions')
+            .aggregation('Total')
+            .timeGrain('auto')
+            .resources([
+              new AzureMonitorResourceBuilder()
+                .subscription(config.subscription)
+                .resourceGroup(resourceGroup)
+                .resourceName(`${storageAccount}/default`)
+                .metricNamespace('microsoft.storage/storageaccounts/blobservices')
+                .region(region),
+            ])
+            .dimensionFilters([new AzureMetricDimensionBuilder().dimension('ResponseType').operator('eq').filters(['ClientOtherError', 'ServerOtherError', 'ClientThrottlingError'])]),
+        ),
+    )
+    .span(12)
+    .height(8);
+}

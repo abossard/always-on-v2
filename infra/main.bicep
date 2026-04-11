@@ -602,6 +602,10 @@ module healthModelHelloagents 'healthmodel/healthmodel.bicep' = {
     identityId: global.outputs.healthModelIdentityId
     cosmosAccountId: global.outputs.cosmosId
     frontDoorProfileId: global.outputs.frontDoorId
+    usesAI: true
+    aiServicesAccountId: ai.outputs.aiServicesId
+    usesQueues: true
+    storageAccountId: stamps[0].outputs.helloAgentsStorageId
     stamps: [for (stamp, i) in allStamps: {
       key: '${stamp.regionKey}-${stamp.stampKey}'
       aksClusterId: stamps[i].outputs.aksClusterId
@@ -622,6 +626,8 @@ module healthModelGraphorleons 'healthmodel/healthmodel.bicep' = {
     identityId: global.outputs.healthModelIdentityId
     cosmosAccountId: global.outputs.cosmosId
     frontDoorProfileId: global.outputs.frontDoorId
+    usesBlobs: true
+    blobStorageAccountId: graphOrleons.outputs.storageAccountId
     stamps: [for (stamp, i) in allStamps: {
       key: '${stamp.regionKey}-${stamp.stampKey}'
       aksClusterId: stamps[i].outputs.aksClusterId

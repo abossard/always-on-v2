@@ -29,7 +29,7 @@ spec:
         app: helloorleons
         azure.workload.identity/use: "true"
         orleans/serviceId: helloorleons
-        orleans/clusterId: helloorleons
+        orleans/clusterId: helloorleons-${STAMP_NAME}
     spec:
       terminationGracePeriodSeconds: 65
       serviceAccountName: ${HELLOORLEONS_SA_NAME}

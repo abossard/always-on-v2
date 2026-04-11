@@ -55,6 +55,7 @@ resource originGroup 'Microsoft.Cdn/profiles/originGroups@2025-04-15' = {
   parent: frontDoor
   name: 'og-${appName}'
   properties: {
+    sessionAffinityState: 'Enabled'
     loadBalancingSettings: {
       sampleSize: 4
       successfulSamplesRequired: 3

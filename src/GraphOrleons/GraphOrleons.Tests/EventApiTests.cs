@@ -58,7 +58,7 @@ public abstract class EventApiTests(HttpClient client)
         var tenant = $"tenant-{Guid.NewGuid():N}";
         await api.PostEvent(tenant, "comp1", new { v = 1 });
         await Assert.That(() => api.GetTenants())
-            .Eventually(assert => assert.Contains(tenant), timeout: TimeSpan.FromSeconds(10));
+            .Eventually(assert => assert.Contains(tenant), timeout: TimeSpan.FromSeconds(15));
     }
 
     [Test]
@@ -161,7 +161,7 @@ public abstract class EventApiTests(HttpClient client)
         await api.PostEvent(tenant, "web/db", new { impact = "Full" });
 
         await Assert.That(() => api.GetTenants())
-            .Eventually(assert => assert.Contains(tenant), timeout: TimeSpan.FromSeconds(10));
+            .Eventually(assert => assert.Contains(tenant), timeout: TimeSpan.FromSeconds(15));
 
         await Assert.That(async () =>
         {
@@ -180,5 +180,23 @@ public abstract class EventApiTests(HttpClient client)
             var graph = await api.GetGraph(tenant);
             return graph.GetProperty("edges").GetArrayLength();
         }).Eventually(assert => assert.IsGreaterThanOrEqualTo(1), timeout: TimeSpan.FromSeconds(10));
+    }
+
+    [Test]
+    public async Task RapidFireEventsAllCounted()
+    {
+        var tenant = $"rapid-{Guid.NewGuid():N}";
+        var comp = "rapid-comp";
+        const int eventCount = 50;
+
+        var tasks = Enumerable.Range(0, eventCount)
+            .Select(i => api.PostEvent(tenant, comp, new { seq = i }));
+        await Task.WhenAll(tasks);
+
+        await Assert.That(async () =>
+        {
+            var detail = await api.GetComponentDetail(tenant, comp);
+            return detail.GetProperty("totalCount").GetInt32();
+        }).Eventually(assert => assert.IsEqualTo(eventCount), timeout: TimeSpan.FromSeconds(15));
     }
 }

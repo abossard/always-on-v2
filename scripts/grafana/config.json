@@ -8,14 +8,14 @@
     "aiServicesAccount": "ai-svc-alwayson-a2nyh4"
   },
   "stamps": [
-    { "key": "swedencentral-001", "region": "swedencentral", "cluster": "aks-alwayson-swedencentral-001" },
-    { "key": "eastus-001", "region": "eastus", "cluster": "aks-alwayson-eastus-001" },
-    { "key": "southeastasia-001", "region": "southeastasia", "cluster": "aks-alwayson-southeastasia-001" }
+    { "key": "swedencentral-001", "region": "swedencentral", "cluster": "aks-alwayson-swedencentral-001", "resourceGroup": "rg-alwayson-swedencentral-001", "storageAccount": "sthaalwayonswe001" },
+    { "key": "eastus-001", "region": "eastus", "cluster": "aks-alwayson-eastus-001", "resourceGroup": "rg-alwayson-eastus-001", "storageAccount": "sthaalwayoneas001" },
+    { "key": "southeastasia-001", "region": "southeastasia", "cluster": "aks-alwayson-southeastasia-001", "resourceGroup": "rg-alwayson-southeastasia-001", "storageAccount": "sthaalwayonsou001" }
   ],
   "apps": [
-    { "name": "darkux", "displayName": "DarkUX Challenge", "namespace": "darkux", "subdomain": "darkux", "usesAI": false, "usesQueues": false },
-    { "name": "helloorleons", "displayName": "HelloOrleons", "namespace": "helloorleons", "subdomain": "hello", "usesAI": false, "usesQueues": false },
-    { "name": "helloagents", "displayName": "HelloAgents", "namespace": "helloagents", "subdomain": "agents", "usesAI": true, "usesQueues": true },
-    { "name": "graphorleons", "displayName": "GraphOrleons", "namespace": "graphorleons", "subdomain": "events", "usesAI": false, "usesQueues": false }
+    { "name": "darkux", "displayName": "DarkUX Challenge", "namespace": "darkux", "subdomain": "darkux", "usesAI": false, "usesQueues": false, "usesBlobs": false },
+    { "name": "helloorleons", "displayName": "HelloOrleons", "namespace": "helloorleons", "subdomain": "hello", "usesAI": false, "usesQueues": false, "usesBlobs": false },
+    { "name": "helloagents", "displayName": "HelloAgents", "namespace": "helloagents", "subdomain": "agents", "usesAI": true, "usesQueues": true, "usesBlobs": false },
+    { "name": "graphorleons", "displayName": "GraphOrleons", "namespace": "graphorleons", "subdomain": "events", "usesAI": false, "usesQueues": false, "usesBlobs": true }
   ]
 }

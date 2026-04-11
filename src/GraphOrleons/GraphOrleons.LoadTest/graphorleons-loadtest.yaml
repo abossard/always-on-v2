@@ -1,7 +1,7 @@
 version: v0.1
 testId: graphorleons-load-test
 displayName: GraphOrleons Load Test
-description: 200 users across 50 tenants, 20 components each — heavy writes with graph edges
+description: Multi-tenant mixed load — 50 tenants, instrument events, graph edges, SSE streams
 testType: Locust
 testPlan: locustfile.py
 engineInstances: 1

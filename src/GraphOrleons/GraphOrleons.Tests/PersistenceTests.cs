@@ -22,7 +22,7 @@ public abstract class PersistenceTests(HttpClient client)
         foreach (var t in tenants)
         {
             await Assert.That(() => api.GetTenants())
-                .Eventually(assert => assert.Contains(t), timeout: TimeSpan.FromSeconds(10));
+                .Eventually(assert => assert.Contains(t), timeout: TimeSpan.FromSeconds(45));
         }
     }
 
@@ -174,5 +174,25 @@ public abstract class PersistenceTests(HttpClient client)
             var graph = await api.GetGraph(tenant);
             return graph.GetProperty("edges").GetArrayLength();
         }).Eventually(assert => assert.IsGreaterThan(0), timeout: TimeSpan.FromSeconds(10));
+    }
+
+    [Test]
+    public async Task TenantIndexPersistedAfterFlushCycle()
+    {
+        var tenant = $"flush-{Guid.NewGuid():N}";
+        // Send several components quickly — TenantGrain batches writes
+        for (int i = 0; i < 5; i++)
+            await api.PostEvent(tenant, $"comp-{i}", new { v = i });
+
+        // Components appear immediately (in-memory)
+        await Assert.That(async () =>
+        {
+            var comps = await api.GetComponents(tenant);
+            return comps?.Length ?? 0;
+        }).Eventually(assert => assert.IsEqualTo(5), timeout: TimeSpan.FromSeconds(10));
+
+        // Tenant registry is persisted after flush (30s timer + some buffer)
+        await Assert.That(() => api.GetTenants())
+            .Eventually(assert => assert.Contains(tenant), timeout: TimeSpan.FromSeconds(45));
     }
 }

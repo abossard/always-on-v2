@@ -29,7 +29,7 @@ spec:
         app: graphorleons
         azure.workload.identity/use: "true"
         orleans/serviceId: graphorleons
-        orleans/clusterId: graphorleons
+        orleans/clusterId: graphorleons-${STAMP_NAME}
     spec:
       terminationGracePeriodSeconds: 65
       serviceAccountName: ${GRAPHORLEONS_SA_NAME}

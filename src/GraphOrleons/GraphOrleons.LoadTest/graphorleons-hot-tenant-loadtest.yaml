@@ -1,10 +1,13 @@
 version: v0.1
 testId: graphorleons-hot-tenant-load-test
 displayName: GraphOrleons Hot Tenant Load Test
-description: One tenant, 43 stable components, tiny event payloads, zero think time, heavy write saturation
+description: Single hot hospital tenant, zero think time, saturate writes + SSE
 testType: Locust
-testPlan: locustfile-hot-tenant.py
+testPlan: locustfile.py
 engineInstances: 1
+env:
+  - name: HOT_MODE
+    value: "1"
 failureCriteria:
   - avg(response_time_ms) > 500
   - percentage(error) > 5

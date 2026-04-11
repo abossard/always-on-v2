@@ -13,11 +13,9 @@ public enum Impact { None, Partial, Full }
 // --- Value types (Orleans-serializable) ---
 
 [GenerateSerializer]
-public sealed class MergedProperty
-{
-    [Id(0)] public string Value { get; set; } = "";
-    [Id(1)] public DateTimeOffset LastUpdated { get; set; }
-}
+public sealed record MergedProperty(
+    [property: Id(0)] string Value,
+    [property: Id(1)] DateTimeOffset LastUpdated);
 
 [GenerateSerializer]
 public sealed record ComponentSnapshot(

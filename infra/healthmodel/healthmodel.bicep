@@ -43,6 +43,12 @@ param usesAI bool = false
 @description('AI Services account resource ID (required if usesAI)')
 param aiServicesAccountId string = ''
 
+@description('Whether this app uses Azure Blob Storage')
+param usesBlobs bool = false
+
+@description('Storage account resource ID for Blob Storage (required if usesBlobs)')
+param blobStorageAccountId string = ''
+
 // ─── Variables ───────────────────────────────────────────────────────
 
 var identityName = last(split(identityId, '/'))
@@ -1064,6 +1070,105 @@ resource rel_ai 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-pre
   properties: {
     parentEntityName: root.name
     childEntityName: aiEntity.name
+  }
+}
+
+resource blobsEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = if (usesBlobs) {
+  parent: hm
+  name: guid(name, 'blobs')
+  properties: {
+    displayName: 'Blob Storage'
+    canvasPosition: {
+      x: json('1100')
+      y: json('200')
+    }
+    icon: {
+      iconName: 'SystemComponent'
+    }
+    impact: 'Standard'
+    tags: {}
+    signalGroups: {
+      azureResource: {
+        authenticationSetting: auth.name
+        azureResourceId: blobStorageAccountId
+        signals: [
+          {
+            signalKind: 'AzureResourceMetric'
+            displayName: 'Blob Availability'
+            refreshInterval: 'PT5M'
+            dataUnit: 'Percent'
+            name: guid(name, 'blobs-blob-availability')
+            evaluationRules: {
+              degradedRule: {
+                operator: 'LessThan'
+                threshold: json('100')
+              }
+              unhealthyRule: {
+                operator: 'LessThan'
+                threshold: json('95')
+              }
+            }
+            metricNamespace: 'microsoft.storage/storageaccounts/blobservices'
+            metricName: 'Availability'
+            timeGrain: 'PT1H'
+            aggregationType: 'Average'
+          }
+          {
+            signalKind: 'AzureResourceMetric'
+            displayName: 'Blob E2E Latency'
+            refreshInterval: 'PT5M'
+            dataUnit: 'MilliSeconds'
+            name: guid(name, 'blobs-blob-e2e-latency')
+            evaluationRules: {
+              degradedRule: {
+                operator: 'GreaterThan'
+                threshold: json('500')
+              }
+              unhealthyRule: {
+                operator: 'GreaterThan'
+                threshold: json('2000')
+              }
+            }
+            metricNamespace: 'microsoft.storage/storageaccounts/blobservices'
+            metricName: 'SuccessE2ELatency'
+            timeGrain: 'PT5M'
+            aggregationType: 'Average'
+          }
+          {
+            signalKind: 'AzureResourceMetric'
+            displayName: 'Blob Errors'
+            refreshInterval: 'PT5M'
+            dataUnit: 'Count'
+            name: guid(name, 'blobs-blob-errors')
+            evaluationRules: {
+              degradedRule: {
+                operator: 'GreaterThan'
+                threshold: json('5')
+              }
+              unhealthyRule: {
+                operator: 'GreaterThan'
+                threshold: json('50')
+              }
+            }
+            metricNamespace: 'microsoft.storage/storageaccounts/blobservices'
+            metricName: 'Transactions'
+            timeGrain: 'PT5M'
+            aggregationType: 'Total'
+            dimension: 'ResponseType'
+            dimensionFilter: 'ClientOtherError'
+          }
+        ]
+      }
+    }
+  }
+}
+
+resource rel_blobs 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = if (usesBlobs) {
+  parent: hm
+  name: guid(name, 'rel-blobs')
+  properties: {
+    parentEntityName: root.name
+    childEntityName: blobsEntity.name
   }
 }
 

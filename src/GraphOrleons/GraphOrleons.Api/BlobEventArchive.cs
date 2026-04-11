@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using Azure;
 using Azure.Storage.Blobs;
 using Azure.Storage.Blobs.Specialized;
 
@@ -20,26 +21,51 @@ public sealed class BlobEventArchive : IEventArchive, IDisposable
         _containerName = configuration["Storage:EventArchiveContainer"] ?? "graphorleans-events";
     }
 
-    public async Task AppendEventAsync(string tenantId, string componentName, string payloadJson)
+    public Task AppendEventAsync(string tenantId, string componentName, string payloadJson) =>
+        AppendEventsAsync(tenantId, componentName, [payloadJson]);
+
+    public async Task AppendEventsAsync(string tenantId, string componentName, IReadOnlyList<string> payloadsJson)
     {
+        if (payloadsJson.Count == 0) return;
+
         var container = await GetContainerClientAsync();
         var now = DateTimeOffset.UtcNow;
         var blobPath = $"{tenantId}/{now:yyyy}/{now:MM}/{now:dd}/events.jsonl";
         var appendBlob = container.GetAppendBlobClient(blobPath);
 
-        await appendBlob.CreateIfNotExistsAsync();
+        var data = BuildJsonlBytes(tenantId, componentName, payloadsJson, now);
 
-        var eventLine = JsonSerializer.Serialize(new
+        try
         {
-            timestamp = now,
-            tenantId,
-            component = componentName,
-            payload = payloadJson
-        });
+            using var stream = new MemoryStream(data);
+            await appendBlob.AppendBlockAsync(stream);
+        }
+        catch (RequestFailedException ex) when (ex.Status == 404)
+        {
+            // Blob doesn't exist yet (first write of the day) — create and retry
+            await appendBlob.CreateIfNotExistsAsync();
+            using var retryStream = new MemoryStream(data);
+            await appendBlob.AppendBlockAsync(retryStream);
+        }
+    }
 
-        var bytes = Encoding.UTF8.GetBytes(eventLine + "\n");
-        using var stream = new MemoryStream(bytes);
-        await appendBlob.AppendBlockAsync(stream);
+    private static byte[] BuildJsonlBytes(
+        string tenantId, string componentName,
+        IReadOnlyList<string> payloadsJson, DateTimeOffset now)
+    {
+        var sb = new StringBuilder();
+        foreach (var payloadJson in payloadsJson)
+        {
+            var eventLine = JsonSerializer.Serialize(new
+            {
+                timestamp = now,
+                tenantId,
+                component = componentName,
+                payload = payloadJson
+            });
+            sb.AppendLine(eventLine);
+        }
+        return Encoding.UTF8.GetBytes(sb.ToString());
     }
 
     private async Task<BlobContainerClient> GetContainerClientAsync()
@@ -50,7 +76,7 @@ public sealed class BlobEventArchive : IEventArchive, IDisposable
         await _initLock.WaitAsync().ConfigureAwait(false);
         try
         {
-#pragma warning disable CA1508 // Avoid dead conditional code — double-check pattern after async lock acquisition
+#pragma warning disable CA1508
             _containerClient ??= await CreateContainerClientAsync().ConfigureAwait(false);
 #pragma warning restore CA1508
             return _containerClient;

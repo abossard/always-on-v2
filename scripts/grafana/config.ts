@@ -2,6 +2,8 @@ export interface StampConfig {
   key: string;
   region: string;
   cluster: string;
+  resourceGroup: string;
+  storageAccount?: string;
 }
 
 export interface AppConfig {
@@ -11,6 +13,7 @@ export interface AppConfig {
   subdomain: string;
   usesAI: boolean;
   usesQueues: boolean;
+  usesBlobs: boolean;
 }
 
 export interface ResourceConfig {

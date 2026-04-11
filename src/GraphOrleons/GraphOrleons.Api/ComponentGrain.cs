@@ -1,5 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Text.Json;
 using Microsoft.Extensions.Options;
 using Orleans.Streams;
 
@@ -11,127 +10,132 @@ public sealed class ComponentGrain(
     IOptions<GrainConfig> grainConfig,
     ILogger<ComponentGrain> logger) : Grain, IComponentGrain
 {
-    string _name = "";
-    string _tenant = "";
-    readonly Dictionary<string, MergedProperty> _properties = new();
-    int _totalCount;
-    DateTimeOffset _lastEffectiveUpdate;
-    bool _registered;
+    ComponentState _state = null!;
     bool _dirty;
+    readonly List<string> _pendingArchival = [];
     IAsyncStream<TenantStreamEvent>? _tenantStream;
 
     public override async Task OnActivateAsync(CancellationToken cancellationToken)
     {
         var key = this.GetPrimaryKeyString();
-        var sepIndex = key.IndexOf(':', StringComparison.Ordinal);
-        _tenant = key[..sepIndex];
-        _name = key[(sepIndex + 1)..];
+        var sep = key.IndexOf(':', StringComparison.Ordinal);
+        var tenant = key[..sep];
+        var name = key[(sep + 1)..];
+        _state = ComponentState.Initial(tenant, name);
 
-        var doc = await store.LoadComponentStateAsync(_tenant, _name);
+        var doc = await store.LoadComponentStateAsync(tenant, name);
         if (doc is not null)
         {
-            _totalCount = doc.TotalCount;
-            _registered = true;
-            _lastEffectiveUpdate = doc.LastEffectiveUpdate;
-            _properties.Clear();
+            var props = new Dictionary<string, MergedProperty>();
             foreach (var p in doc.Properties)
-                _properties[p.Name] = new MergedProperty { Value = p.Value, LastUpdated = p.LastUpdated };
+                props[p.Name] = new MergedProperty(p.Value, p.LastUpdated);
+            _state = _state with
+            {
+                TotalCount = doc.TotalCount,
+                Registered = true,
+                LastEffectiveUpdate = doc.LastEffectiveUpdate,
+                Properties = props
+            };
         }
 
-        // Set up tenant stream
         var streamProvider = this.GetStreamProvider(StreamConstants.ProviderName);
         _tenantStream = streamProvider.GetStream<TenantStreamEvent>(
-            StreamConstants.TenantStreamNamespace, _tenant);
+            StreamConstants.TenantStreamNamespace, tenant);
 
-        var interval = TimeSpan.FromSeconds(grainConfig.Value.FlushIntervalSeconds);
-        this.RegisterGrainTimer(FlushAsync, new GrainTimerCreationOptions
+        var flushInterval = TimeSpan.FromSeconds(grainConfig.Value.FlushIntervalSeconds);
+        this.RegisterGrainTimer(FlushStateAsync, new GrainTimerCreationOptions
         {
-            DueTime = interval,
-            Period = interval
+            DueTime = flushInterval,
+            Period = flushInterval
+        });
+
+        var archivalInterval = TimeSpan.FromSeconds(grainConfig.Value.ArchivalIntervalSeconds);
+        this.RegisterGrainTimer(FlushArchivalAsync, new GrainTimerCreationOptions
+        {
+            DueTime = archivalInterval,
+            Period = archivalInterval
         });
     }
 
     public async Task ReceiveEvent(string tenant, string payloadJson, string? fullComponentPath)
     {
-        _totalCount++;
+        var (newState, effectiveChange) = ComponentStateMachine.Apply(
+            _state, new EventReceived(payloadJson, fullComponentPath, DateTimeOffset.UtcNow));
+        _state = newState;
 
-        var now = DateTimeOffset.UtcNow;
-        bool effectiveChange = ComponentMerge.MergePayload(_properties, payloadJson, now);
+        _pendingArchival.Add(payloadJson);
 
-        var tenantGrain = GrainFactory.GetGrain<ITenantGrain>(_tenant);
-
-        if (!_registered)
+        if (!_state.Registered)
         {
-            _registered = true;
-            await tenantGrain.RegisterComponent(_name);
+            _state = ComponentStateMachine.Apply(_state, new ComponentMarkedRegistered()).NewState;
+            await GrainFactory.GetGrain<ITenantGrain>(_state.Tenant).RegisterComponent(_state.Name);
         }
 
         if (fullComponentPath is not null)
         {
-            await tenantGrain.ReceiveRelationship(_name, fullComponentPath, payloadJson);
+            await GrainFactory.GetGrain<ITenantGrain>(_state.Tenant)
+                .ReceiveRelationship(_state.Name, fullComponentPath, payloadJson);
         }
 
         if (effectiveChange)
         {
-            _lastEffectiveUpdate = now;
             _dirty = true;
-
-            // Publish to tenant stream
             if (_tenantStream is not null)
             {
                 await _tenantStream.OnNextAsync(new TenantStreamEvent(
-                    _tenant, TenantEventType.ComponentUpdated, _name,
-                    new Dictionary<string, MergedProperty>(_properties), null));
+                    _state.Tenant, TenantEventType.ComponentUpdated, _state.Name,
+                    new Dictionary<string, MergedProperty>(_state.Properties), null));
             }
         }
-
-        // Fire-and-forget archival
-        _ = ArchiveEventAsync(payloadJson);
     }
 
-    private async Task ArchiveEventAsync(string payloadJson)
-    {
-        try
-        {
-            await archive.AppendEventAsync(_tenant, _name, payloadJson);
-        }
-        catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
-        {
-            logger.LogError(ex, "Event archival failed for {Tenant}:{Name}", _tenant, _name);
-        }
-    }
-
-    async Task FlushAsync(CancellationToken cancellationToken)
+    async Task FlushStateAsync(CancellationToken cancellationToken)
     {
         if (!_dirty) return;
 
         var doc = new ComponentStateDocument
         {
-            Id = $"comp:{_name}",
-            Name = _name,
-            TotalCount = _totalCount,
-            LastEffectiveUpdate = _lastEffectiveUpdate,
+            Id = $"comp:{_state.Name}",
+            Name = _state.Name,
+            TotalCount = _state.TotalCount,
+            LastEffectiveUpdate = _state.LastEffectiveUpdate,
             Properties = new Collection<PropertyData>(
-                _properties.Select(kvp => new PropertyData
+                _state.Properties.Select(kvp => new PropertyData
                 {
                     Name = kvp.Key,
                     Value = kvp.Value.Value,
                     LastUpdated = kvp.Value.LastUpdated
                 }).ToList())
         };
-        await store.SaveComponentStateAsync(_tenant, doc);
+        await store.SaveComponentStateAsync(_state.Tenant, doc);
         _dirty = false;
+    }
+
+    async Task FlushArchivalAsync(CancellationToken cancellationToken)
+    {
+        if (_pendingArchival.Count == 0) return;
+
+        try
+        {
+            await archive.AppendEventsAsync(_state.Tenant, _state.Name, _pendingArchival);
+            _pendingArchival.Clear();
+        }
+        catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
+        {
+            logger.LogError(ex, "Event archival failed for {Tenant}:{Name}", _state.Tenant, _state.Name);
+        }
     }
 
     public override async Task OnDeactivateAsync(DeactivationReason reason, CancellationToken cancellationToken)
     {
-        await FlushAsync(CancellationToken.None);
+        await FlushStateAsync(CancellationToken.None);
+        await FlushArchivalAsync(CancellationToken.None);
     }
 
     public Task<ComponentSnapshot> GetSnapshot() =>
         Task.FromResult(new ComponentSnapshot(
-            _name,
-            new Dictionary<string, MergedProperty>(_properties),
-            _totalCount,
-            _lastEffectiveUpdate));
+            _state.Name,
+            new Dictionary<string, MergedProperty>(_state.Properties),
+            _state.TotalCount,
+            _state.LastEffectiveUpdate));
 }

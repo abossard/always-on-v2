@@ -164,3 +164,4 @@ output databaseName string = cosmosDatabaseName
 output containerName string = clusterContainer.name
 output modelsContainerName string = modelsContainer.name
 output storageAccountEndpoint string = !empty(storageAccountName) ? storageAccount.properties.primaryEndpoints.blob : ''
+output storageAccountId string = !empty(storageAccountName) ? storageAccount.id : ''

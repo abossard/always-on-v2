@@ -533,3 +533,4 @@ output kubeletIdentityPrincipalId string = kubeletIdentity.properties.principalI
 output stampName string = stampName
 output gatewayHostname string = 'app-${stampName}.${dnsZoneName}'
 output fluxSshPublicKey string = fluxConfig.properties.repositoryPublicKey
+output helloAgentsStorageId string = helloAgentsStorage.id

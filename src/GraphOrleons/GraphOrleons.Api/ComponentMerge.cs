@@ -4,6 +4,7 @@ namespace GraphOrleons.Api;
 
 /// <summary>
 /// Pure merge logic for component properties. Testable without Orleans activation.
+/// Returns a new dictionary — never mutates its inputs.
 /// </summary>
 public static class ComponentMerge
 {
@@ -12,10 +13,10 @@ public static class ComponentMerge
 
     /// <summary>
     /// Merges incoming payload properties into the existing merged state.
-    /// Returns true if at least one property value actually changed (effective change).
+    /// Returns a new properties dictionary and whether at least one value changed.
     /// </summary>
-    public static bool MergePayload(
-        Dictionary<string, MergedProperty> properties,
+    public static (Dictionary<string, MergedProperty> NewProperties, bool Changed) MergePayload(
+        IReadOnlyDictionary<string, MergedProperty> properties,
         string payloadJson,
         DateTimeOffset now)
     {
@@ -27,12 +28,13 @@ public static class ComponentMerge
         }
         catch (JsonException)
         {
-            return false;
+            return (new Dictionary<string, MergedProperty>(properties), false);
         }
 
         if (root.ValueKind != JsonValueKind.Object)
-            return false;
+            return (new Dictionary<string, MergedProperty>(properties), false);
 
+        var result = new Dictionary<string, MergedProperty>(properties);
         bool changed = false;
 
         foreach (var prop in root.EnumerateObject())
@@ -41,12 +43,11 @@ public static class ComponentMerge
             if (value.Length > MaxPropertyValueLength)
                 value = value[..MaxPropertyValueLength];
 
-            if (properties.TryGetValue(prop.Name, out var existing))
+            if (result.TryGetValue(prop.Name, out var existing))
             {
                 if (existing.Value != value)
                 {
-                    existing.Value = value;
-                    existing.LastUpdated = now;
+                    result[prop.Name] = new MergedProperty(value, now);
                     changed = true;
                 }
                 // else: same value — do not update timestamp
@@ -54,21 +55,17 @@ public static class ComponentMerge
             else
             {
                 // Evict oldest if at capacity
-                if (properties.Count >= MaxProperties)
+                if (result.Count >= MaxProperties)
                 {
-                    EvictOldest(properties);
+                    EvictOldest(result);
                 }
 
-                properties[prop.Name] = new MergedProperty
-                {
-                    Value = value,
-                    LastUpdated = now
-                };
+                result[prop.Name] = new MergedProperty(value, now);
                 changed = true;
             }
         }
 
-        return changed;
+        return (result, changed);
     }
 
     private static void EvictOldest(Dictionary<string, MergedProperty> properties)

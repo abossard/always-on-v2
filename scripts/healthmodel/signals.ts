@@ -442,6 +442,54 @@ export function queueMessageAge(namespace: string, queueNames: string[]): Promet
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// Azure Resource Signals — Storage Blobs
+// ═══════════════════════════════════════════════════════════════════
+
+export function blobAvailability(): AzureResourceSignalDef {
+  return {
+    signalKind: 'AzureResourceMetric',
+    metricNamespace: 'microsoft.storage/storageaccounts/blobservices',
+    metricName: 'Availability',
+    timeGrain: 'PT1H',
+    aggregationType: 'Average',
+    displayName: 'Blob Availability',
+    refreshInterval: 'PT5M',
+    dataUnit: 'Percent',
+    threshold: { direction: 'lower-is-worse', degraded: 100, unhealthy: 95 },
+  };
+}
+
+export function blobE2ELatency(): AzureResourceSignalDef {
+  return {
+    signalKind: 'AzureResourceMetric',
+    metricNamespace: 'microsoft.storage/storageaccounts/blobservices',
+    metricName: 'SuccessE2ELatency',
+    timeGrain: 'PT5M',
+    aggregationType: 'Average',
+    displayName: 'Blob E2E Latency',
+    refreshInterval: 'PT5M',
+    dataUnit: 'MilliSeconds',
+    threshold: { direction: 'higher-is-worse', degraded: 500, unhealthy: 2000 },
+  };
+}
+
+export function blobTransactionErrors(): AzureResourceSignalDef {
+  return {
+    signalKind: 'AzureResourceMetric',
+    metricNamespace: 'microsoft.storage/storageaccounts/blobservices',
+    metricName: 'Transactions',
+    timeGrain: 'PT5M',
+    aggregationType: 'Total',
+    dimension: 'ResponseType',
+    dimensionFilter: 'ClientOtherError',
+    displayName: 'Blob Errors',
+    refreshInterval: 'PT5M',
+    dataUnit: 'Count',
+    threshold: { direction: 'higher-is-worse', degraded: 5, unhealthy: 50 },
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // Signal Collections — grouped for entity composition
 // ═══════════════════════════════════════════════════════════════════
 

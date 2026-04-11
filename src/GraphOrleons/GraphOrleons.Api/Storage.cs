@@ -31,6 +31,7 @@ public interface IGraphStore
 public interface IEventArchive
 {
     Task AppendEventAsync(string tenantId, string componentName, string payloadJson);
+    Task AppendEventsAsync(string tenantId, string componentName, IReadOnlyList<string> payloadsJson);
 }
 
 // ─── Document POCOs (Cosmos DB) ────────────────────────────────────

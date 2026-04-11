@@ -16,3 +16,8 @@ public class AspireEventApiTests(AspireFixture f)
 [ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
 public class AspirePersistenceTests(AspireFixture f)
     : PersistenceTests(f.Client);
+
+[InheritsTests]
+[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
+public class AspireSseIntegrationTests(AspireFixture f)
+    : SseIntegrationTests(f.Client);

@@ -74,4 +74,34 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
       },
     ],
   },
+
+  // ── Azure Blob Storage ────────────────────────────────────────────
+  {
+    key: 'blobs',
+    displayName: 'Blob Storage',
+    enableParam: 'usesBlobs',
+    enableDescription: 'Whether this app uses Azure Blob Storage',
+    parentKey: 'root',
+    icon: 'SystemComponent',
+    scope: { kind: 'global' },
+    bindings: [
+      {
+        type: 'azureResource',
+        resourceIdExpr: 'blobStorageAccountId',
+        signals: [
+          signals.blobAvailability(),
+          signals.blobE2ELatency(),
+          signals.blobTransactionErrors(),
+        ],
+      },
+    ],
+    params: [
+      {
+        name: 'blobStorageAccountId',
+        type: 'string',
+        description: 'Storage account resource ID for Blob Storage (required if usesBlobs)',
+        defaultValue: "''",
+      },
+    ],
+  },
 ] as const;

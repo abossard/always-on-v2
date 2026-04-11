@@ -95,6 +95,7 @@ public sealed class CosmosGraphStore : IGraphStore
     public async Task SaveBucketsAsync(string tenantId, string modelId, int generation, IEnumerable<GraphBucketDocument> buckets)
     {
         var pk = new PartitionKeyBuilder().Add(tenantId).Add(modelId).Build();
+        var batch = Container.CreateTransactionalBatch(pk);
 
         foreach (var bucket in buckets)
         {
@@ -103,8 +104,12 @@ public sealed class CosmosGraphStore : IGraphStore
             bucket.ModelId = modelId;
             bucket.Generation = generation;
 
-            await Container.UpsertItemAsync(bucket, pk);
+            batch.UpsertItem(bucket);
         }
+
+        using var response = await batch.ExecuteAsync();
+        if (!response.IsSuccessStatusCode)
+            throw new InvalidOperationException($"Batch bucket save failed: {response.StatusCode}");
     }
 
     public async Task DeleteBucketsAsync(string tenantId, string modelId, int generation)
@@ -121,17 +126,16 @@ public sealed class CosmosGraphStore : IGraphStore
         while (iterator.HasMoreResults)
         {
             var page = await iterator.ReadNextAsync();
+            if (page.Count == 0) continue;
+
+            var batch = Container.CreateTransactionalBatch(pk);
             foreach (var item in page)
-            {
-                try
-                {
-                    await Container.DeleteItemAsync<object>(item.Id, pk);
-                }
-                catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
-                {
-                    // Already gone — postcondition met
-                }
-            }
+                batch.DeleteItem(item.Id);
+
+            using var response = await batch.ExecuteAsync();
+            // Best-effort GC — log but don't throw on individual NotFound
+            if (!response.IsSuccessStatusCode)
+                _logger.LogWarning("Batch delete for generation {Gen} returned {Status}", generation, response.StatusCode);
         }
     }
 
