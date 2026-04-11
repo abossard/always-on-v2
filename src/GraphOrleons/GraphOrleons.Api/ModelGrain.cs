@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using System.Text.Json;
 using Microsoft.Extensions.Options;
 using Orleans.Streams;
@@ -7,13 +6,11 @@ namespace GraphOrleons.Api;
 
 public sealed class ModelGrain(
     IGraphStore store,
-    IOptions<GrainConfig> grainConfig,
-    ILogger<ModelGrain> logger) : Grain, IModelGrain
+    IOptions<GrainConfig> grainConfig) : Grain, IModelGrain
 {
     ModelState _state = ModelState.Initial();
     string _tenantId = "";
     string _modelId = "";
-    string? _manifestEtag;
     IAsyncStream<TenantStreamEvent>? _tenantStream;
 
     public override async Task OnActivateAsync(CancellationToken cancellationToken)
@@ -23,23 +20,24 @@ public sealed class ModelGrain(
         _tenantId = key[..sep];
         _modelId = key[(sep + 1)..];
 
-        var (manifest, etag) = await store.LoadManifestAsync(_tenantId, _modelId);
-        if (manifest is not null)
+        // Load per-component documents and rebuild in-memory state
+        var docs = await store.LoadModelComponentsAsync(_tenantId, _modelId);
+        if (docs.Count > 0)
         {
-            _manifestEtag = etag;
-
-            var nodes = new HashSet<string>();
+            var components = new HashSet<string>();
             var edges = new List<GraphEdge>();
-            var buckets = await store.LoadBucketsAsync(_tenantId, _modelId, manifest.CurrentGeneration);
-            foreach (var bucket in buckets)
+            foreach (var doc in docs)
             {
-                foreach (var n in bucket.Nodes) nodes.Add(n);
-                foreach (var e in bucket.Edges)
-                    edges.Add(new GraphEdge(e.Source, e.Target,
+                components.Add(doc.Id);
+                foreach (var e in doc.Edges)
+                {
+                    components.Add(e.Target);
+                    edges.Add(new GraphEdge(doc.Id, e.Target,
                         Enum.TryParse<Impact>(e.Impact, true, out var imp) ? imp : Impact.None));
+                }
             }
 
-            _state = new ModelState(nodes, edges, manifest.CurrentGeneration, []);
+            _state = new ModelState(components, edges, []);
         }
 
         var streamProvider = this.GetStreamProvider(StreamConstants.ProviderName);
@@ -77,7 +75,7 @@ public sealed class ModelGrain(
         // Publish model update to tenant stream on effective change
         if (changed && _tenantStream is not null)
         {
-            var graph = new GraphSnapshot(_modelId, _state.Nodes.Order().ToList(), _state.Edges.ToList());
+            var graph = new GraphSnapshot(_modelId, _state.Components.Order().ToList(), _state.Edges.ToList());
             await _tenantStream.OnNextAsync(new TenantStreamEvent(
                 _tenantId, TenantEventType.ModelUpdated, "", null, graph));
         }
@@ -86,66 +84,34 @@ public sealed class ModelGrain(
     public Task<GraphSnapshot> GetGraph() =>
         Task.FromResult(new GraphSnapshot(
             _modelId,
-            _state.Nodes.Order().ToList(),
+            _state.Components.Order().ToList(),
             _state.Edges.ToList()));
 
     private async Task FlushAsync(CancellationToken cancellationToken)
     {
-        if (_state.DirtyBuckets.Count == 0) return;
+        if (_state.DirtyComponents.Count == 0) return;
 
-        var newGeneration = _state.Generation + 1;
-
-        var bucketDocs = new List<GraphBucketDocument>();
-        foreach (var bi in _state.DirtyBuckets)
+        // Build per-component documents for dirty components only
+        var docs = new List<ModelComponentDocument>();
+        foreach (var compName in _state.DirtyComponents)
         {
-            var bucketEdges = _state.Edges
-                .Where(e => Math.Abs(e.Source.GetHashCode(StringComparison.Ordinal)) % ModelState.BucketCount == bi)
+            var outEdges = _state.Edges
+                .Where(e => e.Source == compName)
+                .Select(e => new ModelEdgeData { Target = e.Target, Impact = e.Impact.ToString() })
                 .ToList();
-            var bucketNodes = bucketEdges
-                .SelectMany(e => new[] { e.Source, e.Target })
-                .Distinct().Order().ToList();
 
-            bucketDocs.Add(new GraphBucketDocument
+            docs.Add(new ModelComponentDocument
             {
-                BucketIndex = bi,
-                Generation = newGeneration,
-                Nodes = new Collection<string>(bucketNodes),
-                Edges = new Collection<GraphEdgeData>(bucketEdges.Select(e => new GraphEdgeData
-                {
-                    Source = e.Source,
-                    Target = e.Target,
-                    Impact = e.Impact.ToString()
-                }).ToList())
+                Id = compName,
+                Edges = new System.Collections.ObjectModel.Collection<ModelEdgeData>(outEdges)
             });
         }
 
-        await store.SaveBucketsAsync(_tenantId, _modelId, newGeneration, bucketDocs);
+        await store.SaveModelComponentsAsync(_tenantId, _modelId, docs);
 
-        var manifest = new GraphManifestDocument
-        {
-            CurrentGeneration = newGeneration,
-            BucketCount = ModelState.BucketCount,
-            NodeCount = _state.Nodes.Count,
-            EdgeCount = _state.Edges.Count,
-            UpdatedAt = DateTimeOffset.UtcNow
-        };
-        _manifestEtag = await store.UpdateManifestAsync(_tenantId, _modelId, manifest, _manifestEtag);
-
-        var oldGeneration = _state.Generation;
-
-        // Apply flush event to FSM
-        var (flushedState, _) = ModelStateMachine.Apply(_state, new BucketsFlushed(newGeneration));
+        // Clear dirty set
+        var (flushedState, _) = ModelStateMachine.Apply(_state, new ComponentsFlushed());
         _state = flushedState;
-
-        // Best-effort GC of old generation
-        try
-        {
-            await store.DeleteBucketsAsync(_tenantId, _modelId, oldGeneration);
-        }
-        catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
-        {
-            logger.LogError(ex, "GC failed for generation {Gen}", oldGeneration);
-        }
     }
 
     public override async Task OnDeactivateAsync(DeactivationReason reason, CancellationToken cancellationToken)

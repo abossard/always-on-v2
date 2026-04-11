@@ -38,50 +38,16 @@ public sealed class CosmosGraphStore : IGraphStore
         }
     }
 
-    // ─── Graph Manifest ────────────────────────────────────────────────
+    // ─── Model Components (per-component documents) ──────────────────
 
-    public async Task<(GraphManifestDocument? Doc, string? Etag)> LoadManifestAsync(string tenantId, string modelId)
+    public async Task<List<ModelComponentDocument>> LoadModelComponentsAsync(string tenantId, string modelId)
     {
         var pk = new PartitionKeyBuilder().Add(tenantId).Add(modelId).Build();
-        try
-        {
-            var response = await Container.ReadItemAsync<GraphManifestDocument>("manifest", pk);
-            return (response.Resource, response.ETag);
-        }
-        catch (CosmosException ex) when (ex.StatusCode == HttpStatusCode.NotFound)
-        {
-            return (null, null);
-        }
-    }
+        var query = new QueryDefinition("SELECT * FROM c WHERE c.type = 'ModelComponent'");
 
-    public async Task<string> UpdateManifestAsync(string tenantId, string modelId, GraphManifestDocument manifest, string? etag)
-    {
-        var pk = new PartitionKeyBuilder().Add(tenantId).Add(modelId).Build();
-        manifest.Id = "manifest";
-        manifest.TenantId = tenantId;
-        manifest.ModelId = modelId;
-
-        var options = new ItemRequestOptions();
-        if (etag is not null)
-            options.IfMatchEtag = etag;
-
-        var response = await Container.UpsertItemAsync(manifest, pk, options);
-        return response.ETag;
-    }
-
-    // ─── Graph Buckets ─────────────────────────────────────────────────
-
-    public async Task<List<GraphBucketDocument>> LoadBucketsAsync(string tenantId, string modelId, int generation)
-    {
-        var pk = new PartitionKeyBuilder().Add(tenantId).Add(modelId).Build();
-
-        var query = new QueryDefinition(
-            "SELECT * FROM c WHERE c.type = 'GraphBucket' AND c.generation = @gen")
-            .WithParameter("@gen", generation);
-
-        var results = new List<GraphBucketDocument>();
-        using var iterator = Container.GetItemQueryIterator<GraphBucketDocument>(query,
-            requestOptions: new QueryRequestOptions { PartitionKey = pk });
+        var results = new List<ModelComponentDocument>();
+        using var iterator = Container.GetItemQueryIterator<ModelComponentDocument>(query,
+            requestOptions: new QueryRequestOptions { PartitionKey = pk, MaxItemCount = 1000 });
 
         while (iterator.HasMoreResults)
         {
@@ -92,50 +58,23 @@ public sealed class CosmosGraphStore : IGraphStore
         return results;
     }
 
-    public async Task SaveBucketsAsync(string tenantId, string modelId, int generation, IEnumerable<GraphBucketDocument> buckets)
-    {
-        var pk = new PartitionKeyBuilder().Add(tenantId).Add(modelId).Build();
-        var batch = Container.CreateTransactionalBatch(pk);
-
-        foreach (var bucket in buckets)
-        {
-            bucket.Id = $"gen-{generation}-bucket-{bucket.BucketIndex}";
-            bucket.TenantId = tenantId;
-            bucket.ModelId = modelId;
-            bucket.Generation = generation;
-
-            batch.UpsertItem(bucket);
-        }
-
-        using var response = await batch.ExecuteAsync();
-        if (!response.IsSuccessStatusCode)
-            throw new InvalidOperationException($"Batch bucket save failed: {response.StatusCode}");
-    }
-
-    public async Task DeleteBucketsAsync(string tenantId, string modelId, int generation)
+    public async Task SaveModelComponentsAsync(string tenantId, string modelId, IEnumerable<ModelComponentDocument> components)
     {
         var pk = new PartitionKeyBuilder().Add(tenantId).Add(modelId).Build();
 
-        var query = new QueryDefinition(
-            "SELECT c.id FROM c WHERE c.type = 'GraphBucket' AND c.generation = @gen")
-            .WithParameter("@gen", generation);
-
-        using var iterator = Container.GetItemQueryIterator<IdOnly>(query,
-            requestOptions: new QueryRequestOptions { PartitionKey = pk });
-
-        while (iterator.HasMoreResults)
+        foreach (var chunk in components.Chunk(100))
         {
-            var page = await iterator.ReadNextAsync();
-            if (page.Count == 0) continue;
-
             var batch = Container.CreateTransactionalBatch(pk);
-            foreach (var item in page)
-                batch.DeleteItem(item.Id);
+            foreach (var doc in chunk)
+            {
+                doc.TenantId = tenantId;
+                doc.ModelId = modelId;
+                batch.UpsertItem(doc);
+            }
 
             using var response = await batch.ExecuteAsync();
-            // Best-effort GC — log but don't throw on individual NotFound
             if (!response.IsSuccessStatusCode)
-                _logger.LogWarning("Batch delete for generation {Gen} returned {Status}", generation, response.StatusCode);
+                throw new InvalidOperationException($"Batch component save failed: {response.StatusCode}");
         }
     }
 

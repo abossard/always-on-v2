@@ -7,14 +7,9 @@ namespace GraphOrleons.Api;
 
 public interface IGraphStore
 {
-    // Graph manifest
-    Task<(GraphManifestDocument? Doc, string? Etag)> LoadManifestAsync(string tenantId, string modelId);
-    Task<string> UpdateManifestAsync(string tenantId, string modelId, GraphManifestDocument manifest, string? etag);
-
-    // Graph buckets
-    Task<List<GraphBucketDocument>> LoadBucketsAsync(string tenantId, string modelId, int generation);
-    Task SaveBucketsAsync(string tenantId, string modelId, int generation, IEnumerable<GraphBucketDocument> buckets);
-    Task DeleteBucketsAsync(string tenantId, string modelId, int generation);
+    // Model components (per-component documents)
+    Task<List<ModelComponentDocument>> LoadModelComponentsAsync(string tenantId, string modelId);
+    Task SaveModelComponentsAsync(string tenantId, string modelId, IEnumerable<ModelComponentDocument> components);
 
     // Tenant index
     Task<(TenantIndexDocument? Doc, string? Etag)> LoadTenantIndexAsync(string tenantId);
@@ -60,37 +55,7 @@ public sealed class TenantIndexDocument
     public string? ActiveModelId { get; set; }
 }
 
-public sealed class GraphManifestDocument
-{
-    [JsonPropertyName("id")]
-    public string Id { get; set; } = "manifest";
-
-    [JsonPropertyName("tenantId")]
-    public string TenantId { get; set; } = "";
-
-    [JsonPropertyName("modelId")]
-    public string ModelId { get; set; } = "";
-
-    [JsonPropertyName("type")]
-    public string Type { get; set; } = "GraphManifest";
-
-    [JsonPropertyName("currentGeneration")]
-    public int CurrentGeneration { get; set; }
-
-    [JsonPropertyName("bucketCount")]
-    public int BucketCount { get; set; }
-
-    [JsonPropertyName("nodeCount")]
-    public int NodeCount { get; set; }
-
-    [JsonPropertyName("edgeCount")]
-    public int EdgeCount { get; set; }
-
-    [JsonPropertyName("updatedAt")]
-    public DateTimeOffset UpdatedAt { get; set; }
-}
-
-public sealed class GraphBucketDocument
+public sealed class ModelComponentDocument
 {
     [JsonPropertyName("id")]
     public string Id { get; set; } = "";
@@ -102,26 +67,14 @@ public sealed class GraphBucketDocument
     public string ModelId { get; set; } = "";
 
     [JsonPropertyName("type")]
-    public string Type { get; set; } = "GraphBucket";
-
-    [JsonPropertyName("generation")]
-    public int Generation { get; set; }
-
-    [JsonPropertyName("bucketIndex")]
-    public int BucketIndex { get; set; }
-
-    [JsonPropertyName("nodes")]
-    public Collection<string> Nodes { get; init; } = [];
+    public string Type { get; set; } = "ModelComponent";
 
     [JsonPropertyName("edges")]
-    public Collection<GraphEdgeData> Edges { get; init; } = [];
+    public Collection<ModelEdgeData> Edges { get; init; } = [];
 }
 
-public sealed class GraphEdgeData
+public sealed class ModelEdgeData
 {
-    [JsonPropertyName("source")]
-    public string Source { get; set; } = "";
-
     [JsonPropertyName("target")]
     public string Target { get; set; } = "";
 

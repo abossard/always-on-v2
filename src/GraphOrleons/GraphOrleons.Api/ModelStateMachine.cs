@@ -2,15 +2,12 @@ namespace GraphOrleons.Api;
 
 /// <summary>Immutable state for ModelGrain. All transitions go through Apply.</summary>
 internal sealed record ModelState(
-    HashSet<string> Nodes,
+    HashSet<string> Components,
     List<GraphEdge> Edges,
-    int Generation,
-    HashSet<int> DirtyBuckets)
+    HashSet<string> DirtyComponents)
 {
-    public const int BucketCount = 8;
-
     public static ModelState Initial() =>
-        new([], [], 0, []);
+        new([], [], []);
 }
 
 // ─── Typed events ──────────────────────────────────────────────────
@@ -19,7 +16,7 @@ internal abstract record ModelEvent;
 
 internal sealed record RelationshipsAdded(string[] PathSegments, Impact Impact) : ModelEvent;
 
-internal sealed record BucketsFlushed(int NewGeneration) : ModelEvent;
+internal sealed record ComponentsFlushed : ModelEvent;
 
 // ─── Pure state machine ────────────────────────────────────────────
 
@@ -29,7 +26,7 @@ internal static class ModelStateMachine
         ModelState state, ModelEvent evt) => evt switch
     {
         RelationshipsAdded e => ApplyRelationshipsAdded(state, e),
-        BucketsFlushed e => (state with { Generation = e.NewGeneration, DirtyBuckets = [] }, false),
+        ComponentsFlushed => (state with { DirtyComponents = [] }, false),
         _ => throw new InvalidOperationException($"Unhandled model event: {evt.GetType().Name}")
     };
 
@@ -39,14 +36,18 @@ internal static class ModelStateMachine
         if (e.PathSegments.Length < 2)
             return (state, false);
 
-        var nodes = new HashSet<string>(state.Nodes);
+        var components = new HashSet<string>(state.Components);
         var edges = new List<GraphEdge>(state.Edges);
-        var dirtyBuckets = new HashSet<int>(state.DirtyBuckets);
+        var dirtyComponents = new HashSet<string>(state.DirtyComponents);
         bool changed = false;
 
         for (int i = 0; i < e.PathSegments.Length; i++)
         {
-            if (nodes.Add(e.PathSegments[i])) changed = true;
+            if (components.Add(e.PathSegments[i]))
+            {
+                changed = true;
+                dirtyComponents.Add(e.PathSegments[i]);
+            }
 
             if (i < e.PathSegments.Length - 1)
             {
@@ -64,17 +65,15 @@ internal static class ModelStateMachine
                 }
 
                 edges.Add(edge);
-
-                var bucketIndex = Math.Abs(edge.Source.GetHashCode(StringComparison.Ordinal)) % ModelState.BucketCount;
-                dirtyBuckets.Add(bucketIndex);
+                dirtyComponents.Add(e.PathSegments[i]);
             }
         }
 
         return (state with
         {
-            Nodes = nodes,
+            Components = components,
             Edges = edges,
-            DirtyBuckets = dirtyBuckets
+            DirtyComponents = dirtyComponents
         }, changed);
     }
 }
