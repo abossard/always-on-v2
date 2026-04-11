@@ -92,7 +92,7 @@ function buildTreeLayout(
   payloads: Record<string, MergedProperty[]>,
   flashed: Set<string>,
 ): { nodes: FlowNode<InstrumentNodeData>[]; edges: FlowEdge[] } {
-  if (graph.nodes.length === 0) return { nodes: [], edges: [] };
+  if (graph.components.length === 0) return { nodes: [], edges: [] };
 
   const g = new dagre.graphlib.Graph();
   g.setDefaultEdgeLabel(() => ({}));
@@ -104,7 +104,7 @@ function buildTreeLayout(
     connectionCount.set(edge.target, (connectionCount.get(edge.target) ?? 0) + 1);
   }
 
-  for (const node of graph.nodes) {
+  for (const node of graph.components) {
     const props = payloads[node] ?? [];
     const h = props.length > 0 ? 56 + Math.min(props.length, 3) * 14 + 8 : 56;
     g.setNode(node, { width: 190, height: h });
@@ -115,7 +115,7 @@ function buildTreeLayout(
 
   dagre.layout(g);
 
-  const nodes: FlowNode<InstrumentNodeData>[] = graph.nodes.map((name) => {
+  const nodes: FlowNode<InstrumentNodeData>[] = graph.components.map((name) => {
     const pos = g.node(name);
     return {
       id: name,
@@ -149,7 +149,7 @@ function buildTreeLayout(
 // ── Component ──
 
 export function GraphView({ graph, selectedTenant, componentPayloads = {}, flashedComponents = new Set() }: Props) {
-  const hasModel = graph.nodes.length > 0;
+  const hasModel = graph.components.length > 0;
   const [view, setView] = useState<ViewMode>('tree');
   const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const treeData = useMemo(() => buildTreeLayout(graph, componentPayloads, flashedComponents), [graph, componentPayloads, flashedComponents]);
@@ -209,7 +209,7 @@ export function GraphView({ graph, selectedTenant, componentPayloads = {}, flash
           <div className="grid gap-3 sm:grid-cols-3">
             <div className="rounded-xl border border-teal-200 bg-teal-50 px-4 py-3">
               <div className="text-[11px] font-medium uppercase tracking-wider text-teal-600">Instruments</div>
-              <div className="mt-1 text-2xl font-bold text-teal-800" data-testid="instrument-count">{graph.nodes.length}</div>
+              <div className="mt-1 text-2xl font-bold text-teal-800" data-testid="instrument-count">{graph.components.length}</div>
             </div>
             <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
               <div className="text-[11px] font-medium uppercase tracking-wider text-blue-600">Connections</div>
@@ -256,7 +256,7 @@ export function GraphView({ graph, selectedTenant, componentPayloads = {}, flash
               <div className="flex-1 rounded-xl border border-gray-200 bg-white p-5 shadow-sm overflow-auto">
                 <h3 className="mb-3 text-sm font-semibold text-teal-700">Instruments</h3>
                 <ul className="space-y-1.5" data-testid="instrument-list">
-                  {graph.nodes.map((node) => {
+                  {graph.components.map((node) => {
                     const props = componentPayloads[node] ?? [];
                     const isFlashed = flashedComponents.has(node);
                     return (

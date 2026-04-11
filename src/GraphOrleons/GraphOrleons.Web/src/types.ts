@@ -25,7 +25,7 @@ export interface GraphEdge {
 
 export interface GraphSnapshot {
   modelId: string;
-  nodes: string[];
+  components: string[];
   edges: GraphEdge[];
 }
 

@@ -33,6 +33,6 @@ export async function getModels(tenantId: string): Promise<ModelsInfo> {
 
 export async function getActiveGraph(tenantId: string): Promise<GraphSnapshot> {
   const res = await fetch(`${BASE}/tenants/${encodeURIComponent(tenantId)}/models/active/graph`);
-  if (res.status === 404) return { modelId: '', nodes: [], edges: [] };
+  if (res.status === 404) return { modelId: '', components: [], edges: [] };
   return res.json();
 }

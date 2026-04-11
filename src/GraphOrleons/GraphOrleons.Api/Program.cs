@@ -97,6 +97,43 @@ builder.Host.UseOrleans(silo =>
         silo.AddMemoryStreams(StreamConstants.ProviderName);
     }
     silo.AddMemoryGrainStorage("PubSubStore");
+
+    // Grain state persistence — Cosmos DB
+    if (!string.IsNullOrEmpty(cosmosConnectionString))
+    {
+        var isEmulatorForState = cosmosConnectionString.Contains("AccountKey=C2y6yDjf5", StringComparison.Ordinal);
+        var hasAccountKeyForState = cosmosConnectionString.Contains("AccountKey=", StringComparison.Ordinal);
+
+        silo.AddCosmosGrainStorage(StreamConstants.GrainStoreName, o =>
+        {
+            o.DatabaseName = cosmosDbName;
+            o.ContainerName = "graphorleons-grainstate";
+            o.IsResourceCreationEnabled = true;
+            if (hasAccountKeyForState)
+            {
+                o.ConfigureCosmosClient(cosmosConnectionString);
+                if (isEmulatorForState)
+                {
+                    o.ClientOptions = new CosmosClientOptions
+                    {
+                        ConnectionMode = ConnectionMode.Gateway,
+                        LimitToEndpoint = true
+                    };
+                }
+            }
+            else
+            {
+                var endpoint = cosmosConnectionString
+                    .Replace("AccountEndpoint=", "", StringComparison.OrdinalIgnoreCase)
+                    .TrimEnd(';');
+                o.ConfigureCosmosClient(endpoint, new Azure.Identity.DefaultAzureCredential());
+            }
+        });
+    }
+    else
+    {
+        silo.AddMemoryGrainStorage(StreamConstants.GrainStoreName);
+    }
 });
 
 builder.Services.AddCors(options =>

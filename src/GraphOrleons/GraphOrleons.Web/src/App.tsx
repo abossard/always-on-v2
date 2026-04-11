@@ -10,7 +10,7 @@ const BASE = '/api';
 export default function App() {
   const [tenants, setTenants] = useState<string[]>([]);
   const [selectedTenant, setSelectedTenant] = useState<string | null>(null);
-  const [graph, setGraph] = useState<GraphSnapshot>({ modelId: '', nodes: [], edges: [] });
+  const [graph, setGraph] = useState<GraphSnapshot>({ modelId: '', components: [], edges: [] });
   const [componentPayloads, setComponentPayloads] = useState<Record<string, MergedProperty[]>>({});
   const [connected, setConnected] = useState(false);
   const [flashedComponents, setFlashedComponents] = useState<Set<string>>(new Set());
@@ -27,7 +27,7 @@ export default function App() {
   // SSE subscription — connect when tenant is selected, disconnect on deselect
   useEffect(() => {
     if (!selectedTenant) {
-      setGraph({ modelId: '', nodes: [], edges: [] });
+      setGraph({ modelId: '', components: [], edges: [] });
       setComponentPayloads({});
       setConnected(false);
       return;
@@ -40,7 +40,7 @@ export default function App() {
 
     es.addEventListener('model', (e) => {
       const data = JSON.parse(e.data) as GraphSnapshot;
-      console.log(`[SSE] model event: ${data.nodes.length} nodes, ${data.edges.length} edges`);
+      console.log(`[SSE] model event: ${data.components.length} components, ${data.edges.length} edges`);
       setGraph(data);
     });
 

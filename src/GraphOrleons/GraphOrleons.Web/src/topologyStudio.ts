@@ -54,7 +54,7 @@ export const demoScenarios: DemoScenarioDefinition[] = [
     focus: 'Shows a single customer journey with multiple downstream systems and a heavy payment branch.',
     graph: {
       modelId: 'checkout-flow',
-      nodes: [
+      components: [
         'web-portal',
         'api-gateway',
         'checkout-api',
@@ -95,7 +95,7 @@ export const demoScenarios: DemoScenarioDefinition[] = [
     focus: 'Shows how a hot service creates a wide operational blast radius across data and messaging.',
     graph: {
       modelId: 'incident-mesh',
-      nodes: [
+      components: [
         'edge-proxy',
         'session-api',
         'profile-service',
@@ -130,7 +130,7 @@ export const demoScenarios: DemoScenarioDefinition[] = [
     focus: 'Shows grouped platform ownership and a longer operations-oriented dependency chain.',
     graph: {
       modelId: 'release-pipeline',
-      nodes: [
+      components: [
         'developer-portal',
         'release-api',
         'build-runner',
@@ -228,7 +228,7 @@ function buildNodePayload(nodeName: string, scenarioId: DemoScenarioDefinition['
 export function buildSeedEvents(tenant: string, scenarioId: DemoScenarioDefinition['id']): HealthEvent[] {
   const scenario = demoScenarios.find((entry) => entry.id === scenarioId) ?? demoScenarios[0];
 
-  const componentEvents = scenario.graph.nodes.map((nodeName, index) => ({
+  const componentEvents = scenario.graph.components.map((nodeName, index) => ({
     tenant,
     component: nodeName,
     payload: buildNodePayload(nodeName, scenario.id, index),

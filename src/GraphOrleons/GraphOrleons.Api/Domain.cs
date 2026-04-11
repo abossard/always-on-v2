@@ -1,3 +1,4 @@
+using System.Collections.ObjectModel;
 using System.Text.Json;
 
 namespace GraphOrleons.Api;
@@ -46,15 +47,37 @@ public sealed record GraphEdge(
 [GenerateSerializer]
 public sealed record GraphSnapshot(
     [property: Id(0)] string ModelId,
-    [property: Id(1)] IReadOnlyList<string> Nodes,
+    [property: Id(1)] IReadOnlyList<string> Components,
     [property: Id(2)] IReadOnlyList<GraphEdge> Edges);
 
 [GenerateSerializer]
 public sealed record TenantOverview(
     [property: Id(0)] string TenantId,
-    [property: Id(1)] IReadOnlyList<string> Components,
-    [property: Id(2)] IReadOnlyList<string> ModelIds,
-    [property: Id(3)] string? ActiveModelId);
+    [property: Id(1)] IReadOnlyList<string> ModelIds,
+    [property: Id(2)] string? ActiveModelId);
+
+// --- Grain state types (for IPersistentState) ---
+
+[GenerateSerializer]
+public sealed class ComponentGrainState
+{
+    [Id(0)] public Dictionary<string, MergedProperty> Properties { get; init; } = new();
+    [Id(1)] public int TotalCount { get; set; }
+    [Id(2)] public DateTimeOffset LastEffectiveUpdate { get; set; }
+}
+
+[GenerateSerializer]
+public sealed class TenantGrainState
+{
+    [Id(0)] public Collection<string> ModelIds { get; init; } = [];
+    [Id(1)] public string? ActiveModelId { get; set; }
+}
+
+[GenerateSerializer]
+public sealed class TenantRegistryState
+{
+    [Id(0)] public HashSet<string> TenantIds { get; init; } = [];
+}
 
 // --- Grain interfaces ---
 
@@ -67,10 +90,8 @@ public interface IComponentGrain : IGrainWithStringKey
 public interface ITenantGrain : IGrainWithStringKey
 {
     Task<TenantOverview> GetOverview();
-    Task<IReadOnlyList<string>> GetComponentNames();
     Task SetActiveModel(string modelId);
-    Task RegisterComponent(string componentName);
-    Task ReceiveRelationship(string componentName, string componentPath, string payloadJson);
+    Task ReceiveRelationship(string componentPath, string payloadJson);
 }
 
 public interface IModelGrain : IGrainWithStringKey
@@ -79,8 +100,15 @@ public interface IModelGrain : IGrainWithStringKey
     Task<GraphSnapshot> GetGraph();
 }
 
+public interface ITenantRegistryGrain : IGrainWithStringKey
+{
+    Task RegisterTenant(string tenantId);
+    Task<IReadOnlyList<string>> GetTenantIds();
+}
+
 public static class StreamConstants
 {
     public const string ProviderName = "ComponentUpdates";
     public const string TenantStreamNamespace = "tenant";
+    public const string GrainStoreName = "GrainState";
 }

@@ -49,17 +49,23 @@ public static class EventEndpoints
             return Results.Accepted();
         });
 
-        app.MapGet(Routes.Tenants, async (IGraphStore store) =>
+        app.MapGet(Routes.Tenants, async (IGrainFactory grains) =>
         {
-            var tenants = await store.GetRegisteredTenantIdsAsync();
-            return Results.Ok(tenants.Order().ToArray());
+            var registry = grains.GetGrain<ITenantRegistryGrain>("default");
+            var tenants = await registry.GetTenantIds();
+            return Results.Ok(tenants);
         });
 
         app.MapGet(Routes.TenantComponentsTemplate, async (string tenantId, IGrainFactory grains) =>
         {
+            // Components come from the model — model nodes ARE the components
             var tenant = grains.GetGrain<ITenantGrain>(tenantId);
-            var names = await tenant.GetComponentNames();
-            return Results.Ok(names);
+            var overview = await tenant.GetOverview();
+            if (overview.ActiveModelId is null)
+                return Results.Ok(Array.Empty<string>());
+            var model = grains.GetGrain<IModelGrain>($"{tenantId}:{overview.ActiveModelId}");
+            var graph = await model.GetGraph();
+            return Results.Ok(graph.Components);
         });
 
         app.MapGet(Routes.ComponentDetailTemplate,
@@ -117,12 +123,7 @@ public static class EventEndpoints
             var channel = Channel.CreateBounded<string>(new BoundedChannelOptions(64) { FullMode = BoundedChannelFullMode.DropOldest });
 
             // 1) Send initial state dump
-            // Tenants list
-            var tenantsJson = JsonSerializer.Serialize(
-                await grains.GetGrain<ITenantGrain>(tenantId).GetComponentNames(), jsonOpts);
-            await WriteSseEvent(ctx.Response, "components", tenantsJson, ct);
-
-            // Current graph
+            // Current graph (components are the model's nodes)
             var tenant = grains.GetGrain<ITenantGrain>(tenantId);
             var overview = await tenant.GetOverview();
             if (overview.ActiveModelId is not null)
@@ -131,22 +132,22 @@ public static class EventEndpoints
                 var graph = await model.GetGraph();
                 var graphJson = JsonSerializer.Serialize(graph, jsonOpts);
                 await WriteSseEvent(ctx.Response, "model", graphJson, ct);
-            }
 
-            // Component snapshots
-            foreach (var compName in overview.Components)
-            {
-                var grain = grains.GetGrain<IComponentGrain>($"{tenantId}:{compName}");
-                var snap = await grain.GetSnapshot();
-                var snapJson = JsonSerializer.Serialize(new
+                // Component snapshots for each component in the model
+                foreach (var compName in graph.Components)
                 {
-                    snap.Name,
-                    snap.TotalCount,
-                    snap.LastEffectiveUpdate,
-                    Properties = snap.Properties.Select(kvp => new { Name = kvp.Key, kvp.Value.Value, kvp.Value.LastUpdated })
-                        .OrderBy(p => p.Name).ToList()
-                }, jsonOpts);
-                await WriteSseEvent(ctx.Response, "component", snapJson, ct);
+                    var grain = grains.GetGrain<IComponentGrain>($"{tenantId}:{compName}");
+                    var snap = await grain.GetSnapshot();
+                    var snapJson = JsonSerializer.Serialize(new
+                    {
+                        snap.Name,
+                        snap.TotalCount,
+                        snap.LastEffectiveUpdate,
+                        Properties = snap.Properties.Select(kvp => new { Name = kvp.Key, kvp.Value.Value, kvp.Value.LastUpdated })
+                            .OrderBy(p => p.Name).ToList()
+                    }, jsonOpts);
+                    await WriteSseEvent(ctx.Response, "component", snapJson, ct);
+                }
             }
 
             await WriteSseEvent(ctx.Response, "ready", "{}", ct);

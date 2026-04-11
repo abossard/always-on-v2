@@ -1,46 +1,34 @@
-using System.Collections.ObjectModel;
 using Microsoft.Extensions.Options;
+using Orleans.Runtime;
 using Orleans.Streams;
 
 namespace GraphOrleons.Api;
 
 public sealed class ComponentGrain(
-    IGraphStore store,
+    [PersistentState("component", StreamConstants.GrainStoreName)]
+    IPersistentState<ComponentGrainState> persistence,
     IEventArchive archive,
     IOptions<GrainConfig> grainConfig,
     ILogger<ComponentGrain> logger) : Grain, IComponentGrain
 {
-    ComponentState _state = null!;
+    string _tenant = "";
+    string _name = "";
     bool _dirty;
     readonly List<string> _pendingArchival = [];
     IAsyncStream<TenantStreamEvent>? _tenantStream;
 
-    public override async Task OnActivateAsync(CancellationToken cancellationToken)
+    public override Task OnActivateAsync(CancellationToken cancellationToken)
     {
         var key = this.GetPrimaryKeyString();
         var sep = key.IndexOf(':', StringComparison.Ordinal);
-        var tenant = key[..sep];
-        var name = key[(sep + 1)..];
-        _state = ComponentState.Initial(tenant, name);
+        _tenant = key[..sep];
+        _name = key[(sep + 1)..];
 
-        var doc = await store.LoadComponentStateAsync(tenant, name);
-        if (doc is not null)
-        {
-            var props = new Dictionary<string, MergedProperty>();
-            foreach (var p in doc.Properties)
-                props[p.Name] = new MergedProperty(p.Value, p.LastUpdated);
-            _state = _state with
-            {
-                TotalCount = doc.TotalCount,
-                Registered = true,
-                LastEffectiveUpdate = doc.LastEffectiveUpdate,
-                Properties = props
-            };
-        }
+        // Orleans auto-loaded persistence.State from Cosmos before this point
 
         var streamProvider = this.GetStreamProvider(StreamConstants.ProviderName);
         _tenantStream = streamProvider.GetStream<TenantStreamEvent>(
-            StreamConstants.TenantStreamNamespace, tenant);
+            StreamConstants.TenantStreamNamespace, _tenant);
 
         var flushInterval = TimeSpan.FromSeconds(grainConfig.Value.FlushIntervalSeconds);
         this.RegisterGrainTimer(FlushStateAsync, new GrainTimerCreationOptions
@@ -55,36 +43,48 @@ public sealed class ComponentGrain(
             DueTime = archivalInterval,
             Period = archivalInterval
         });
+
+        return Task.CompletedTask;
     }
 
     public async Task ReceiveEvent(string tenant, string payloadJson, string? fullComponentPath)
     {
-        var (newState, effectiveChange) = ComponentStateMachine.Apply(
-            _state, new EventReceived(payloadJson, fullComponentPath, DateTimeOffset.UtcNow));
-        _state = newState;
+        var now = DateTimeOffset.UtcNow;
+
+        // Merge payload into persistent state
+        var (newProps, effectiveChange) = ComponentMerge.MergePayload(
+            persistence.State.Properties, payloadJson, now);
+        // Update in-place (Properties is init-only)
+        persistence.State.Properties.Clear();
+        foreach (var kvp in newProps)
+            persistence.State.Properties[kvp.Key] = kvp.Value;
+        persistence.State.TotalCount++;
 
         _pendingArchival.Add(payloadJson);
 
-        if (!_state.Registered)
+        // Register tenant on first event
+        if (persistence.State.TotalCount == 1)
         {
-            _state = ComponentStateMachine.Apply(_state, new ComponentMarkedRegistered()).NewState;
-            await GrainFactory.GetGrain<ITenantGrain>(_state.Tenant).RegisterComponent(_state.Name);
+            await GrainFactory.GetGrain<ITenantRegistryGrain>("default").RegisterTenant(_tenant);
         }
 
+        // Forward relationship to tenant grain → model grain
         if (fullComponentPath is not null)
         {
-            await GrainFactory.GetGrain<ITenantGrain>(_state.Tenant)
-                .ReceiveRelationship(_state.Name, fullComponentPath, payloadJson);
+            await GrainFactory.GetGrain<ITenantGrain>(_tenant)
+                .ReceiveRelationship(fullComponentPath, payloadJson);
         }
 
         if (effectiveChange)
         {
+            persistence.State.LastEffectiveUpdate = now;
             _dirty = true;
+
             if (_tenantStream is not null)
             {
                 await _tenantStream.OnNextAsync(new TenantStreamEvent(
-                    _state.Tenant, TenantEventType.ComponentUpdated, _state.Name,
-                    new Dictionary<string, MergedProperty>(_state.Properties), null));
+                    _tenant, TenantEventType.ComponentUpdated, _name,
+                    new Dictionary<string, MergedProperty>(persistence.State.Properties), null));
             }
         }
     }
@@ -92,37 +92,21 @@ public sealed class ComponentGrain(
     async Task FlushStateAsync(CancellationToken cancellationToken)
     {
         if (!_dirty) return;
-
-        var doc = new ComponentStateDocument
-        {
-            Id = $"comp:{_state.Name}",
-            Name = _state.Name,
-            TotalCount = _state.TotalCount,
-            LastEffectiveUpdate = _state.LastEffectiveUpdate,
-            Properties = new Collection<PropertyData>(
-                _state.Properties.Select(kvp => new PropertyData
-                {
-                    Name = kvp.Key,
-                    Value = kvp.Value.Value,
-                    LastUpdated = kvp.Value.LastUpdated
-                }).ToList())
-        };
-        await store.SaveComponentStateAsync(_state.Tenant, doc);
+        await persistence.WriteStateAsync(cancellationToken);
         _dirty = false;
     }
 
     async Task FlushArchivalAsync(CancellationToken cancellationToken)
     {
         if (_pendingArchival.Count == 0) return;
-
         try
         {
-            await archive.AppendEventsAsync(_state.Tenant, _state.Name, _pendingArchival);
+            await archive.AppendEventsAsync(_tenant, _name, _pendingArchival);
             _pendingArchival.Clear();
         }
         catch (Exception ex) when (ex is not OutOfMemoryException and not StackOverflowException)
         {
-            logger.LogError(ex, "Event archival failed for {Tenant}:{Name}", _state.Tenant, _state.Name);
+            logger.LogError(ex, "Event archival failed for {Tenant}:{Name}", _tenant, _name);
         }
     }
 
@@ -134,8 +118,8 @@ public sealed class ComponentGrain(
 
     public Task<ComponentSnapshot> GetSnapshot() =>
         Task.FromResult(new ComponentSnapshot(
-            _state.Name,
-            new Dictionary<string, MergedProperty>(_state.Properties),
-            _state.TotalCount,
-            _state.LastEffectiveUpdate));
+            _name,
+            new Dictionary<string, MergedProperty>(persistence.State.Properties),
+            persistence.State.TotalCount,
+            persistence.State.LastEffectiveUpdate));
 }
