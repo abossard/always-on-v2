@@ -1,9 +1,14 @@
 # ADR-0012: CI/CD Pipeline
 
-**Status:** Under Investigation
+**Status:** Decided
 
 ## Context
 - Need automated build, test, and deployment pipelines for multi-region AKS deployments
+
+
+## Conclusion
+- GitHub Actions for CI
+- Flux for CD
 
 ## Options Under Consideration
 - **GitHub Actions** — Native `azd` integration, OIDC federation, rich marketplace. Cons: GitHub coupling, runner queue times

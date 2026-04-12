@@ -18,7 +18,7 @@ This directory contains all Architecture Decision Records (ADRs) for the AlwaysO
 | [ADR-0000](0000-adr-template-DI.md) | ADR Template | Accepted | DI |
 | [ADR-0001](0001-compute-platform-DI.md) | Compute Platform | Accepted (Pre-defined) | DI |
 | [ADR-0001](0001-deployment-strategy-DI.md) | Deployment Strategy | Accepted | DI |
-| [ADR-0002](0002-multi-stamp-architecture-DI.md) | Multi-Stamp Architecture per Region | Accepted | DI |
+| [ADR-0002](0002-multi-stamp-architecture-DI.md) | Multi-Region Strategy & Stamp Architecture | Decided | DI |
 | [ADR-0003](0003-application-framework-DI.md) | Application Framework | Accepted (Pre-defined) | DI |
 | [ADR-0004](0004-programming-language-DI.md) | Programming Language | Accepted (Implied by 0003) | DI |
 | [ADR-0005](0005-architecture-pattern-UI.md) | Architecture Pattern | Accepted (Pre-defined) | UI |
@@ -29,7 +29,6 @@ This directory contains all Architecture Decision Records (ADRs) for the AlwaysO
 | [ADR-0010](0010-observability-stack-UI.md) | Observability Stack | Proposed | UI |
 | [ADR-0011](0011-infrastructure-as-code-UI.md) | Infrastructure as Code | Proposed | UI |
 | [ADR-0012](0012-cicd-pipeline-UI.md) | CI/CD Pipeline | Proposed | UI |
-| [ADR-0013](0013-multi-region-strategy-UI.md) | Multi-Region Strategy | Proposed | UI |
 | [ADR-0014](0014-data-consistency-model-UI.md) | Data Consistency Model | Proposed | UI |
 | [ADR-0015](0015-security-approach-UI.md) | Security Approach | Proposed | UI |
 | [ADR-0016](0016-testing-strategy-UI.md) | Testing Strategy | Proposed | UI |
