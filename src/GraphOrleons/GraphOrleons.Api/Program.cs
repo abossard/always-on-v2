@@ -22,7 +22,8 @@ builder.AddAzureCosmosClient("cosmos", configureClientOptions: options =>
     }
 });
 
-// Event Hub for event archivalbuilder.AddAzureEventHubProducerClient("graphorleons-events");
+// Event Hub for event archival
+builder.AddAzureEventHubProducerClient("graphorleons-events");
 
 // Graph storage services
 builder.Services.AddSingleton<IGraphStore, CosmosGraphStore>();

@@ -6,12 +6,15 @@
 
 - GraphOrleons `ComponentGrain` archives events for audit, replay, and analytics
 - Events are published from stamps in 3 regions (swedencentral, eastus, southeastasia) to a geo-replicated Event Hubs namespace (Premium)
-- We need events archived durably, surviving region outages
+- The Event Hub namespace uses `geoDataReplication` (sync RPO=0) with primary in swedencentral and secondary in germanywestcentral — this makes the **Event Hub the durable multi-region event log**
+- Producers connect via a single FQDN; DNS routes to the nearest replica
+- We need events archived durably to storage for analytics/audit, surviving region outages
 - Key constraints:
   - ADLS Gen2 (HNS) does **not** support Object Replication
   - Azure Storage has no multi-region write
   - EH Capture writes to a single storage account
   - RA-GZRS provides 2-region redundancy (primary + geo-paired secondary)
+  - Capture only runs on the active primary EH region; the standby secondary does not run Capture until promoted
 
 ## Decision
 
@@ -60,9 +63,11 @@ Deploy separate EH hubs per region (within the same geo-replicated namespace) so
 
 - **Positive:** Lowest cost. Fully managed. No custom code. Events are durable in EH (7-day retention) even during Capture gaps.
 - **Positive:** RA-GZRS provides 6 copies across 2 regions (3 ZRS in primary + 3 in geo-paired secondary).
+- **Positive:** The geo-replicated Event Hub is the source of truth — it survives full region outages. Storage is a projection.
 - **Negative:** No HNS — loses ADLS Gen2 directory operations and Spark/analytics performance. Avro format only (not Parquet).
-- **Negative:** Only 2 regions covered (primary + GRS pair), not all 3 deployment regions.
-- **Mitigated by:** Event Hub itself is the durable multi-region event log (geo-replicated). Storage is a projection for analytics/audit — the EH is the source of truth.
+- **Negative:** Only 2 regions covered by storage (primary + GRS pair), not all 3 deployment regions.
+- **Negative:** If the primary EH region fails, Capture pauses until the secondary is promoted. Events buffer in EH (7-day retention) and can be replayed after recovery.
+- **Mitigated by:** Event Hub geo-replication ensures zero data loss (sync RPO=0). The EH is the durable multi-region event log; storage is a cheaper analytics/audit projection.
 
 ## Upgrade Path
 

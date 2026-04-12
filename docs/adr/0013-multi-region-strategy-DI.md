@@ -1,10 +1,15 @@
 # ADR-0013: Multi-Region Strategy
 
-**Status:** Under Investigation
+**Status:** Decided
 
 ## Context
 - Must deploy across 3+ Azure regions with 99.99% availability, P99 < 200ms globally, < 5min RTO
 - Strategy must handle regional failures transparently while maintaining data consistency
+
+## Conclusion
+- Multi-region with temporary stamp support
+- Stamps can help increase capacity or test a larger infrastructure change
+- No cross-cluster/cross-stamp orchestration, so stamps require session affinity
 
 ## Options Under Consideration
 - **Active-Active (Regional Stamps)** — All regions serve traffic, Front Door routes nearest. Lowest latency, near-zero RTO. Cons: ~3x cost, conflict handling needed

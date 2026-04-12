@@ -166,6 +166,69 @@ module global 'global.bicep' = {
 }
 
 // ============================================================================
+// Application Infrastructure (generic module, one call per app)
+// ============================================================================
+// Each app declares only the Cosmos containers it needs.
+// The generic module creates: identity, Cosmos RBAC, App Insights RBAC, containers.
+
+var appContainers = [
+  // [0] helloorleons
+  [
+    { name: 'helloorleons-storage', partitionKeyPaths: ['/PartitionKey'] }
+    { name: 'helloorleons-cluster', partitionKeyPaths: ['/ClusterId'] }
+  ]
+  // [1] darkux
+  [
+    { name: 'darkux-users', partitionKeyPaths: ['/userId'] }
+  ]
+  // [2] helloagents
+  [
+    { name: 'helloagents-storage', partitionKeyPaths: ['/PartitionKey'] }
+    { name: 'helloagents-cluster', partitionKeyPaths: ['/ClusterId'] }
+  ]
+  // [3] graphorleons
+  [
+    { name: 'graphorleons-cluster', partitionKeyPaths: ['/ClusterId'] }
+    {
+      name: 'graphorleons-models'
+      partitionKeyPaths: ['/tenantId', '/modelId']
+      partitionKeyKind: 'MultiHash'
+      indexingPolicy: {
+        automatic: true
+        indexingMode: 'consistent'
+        includedPaths: [
+          { path: '/type/?' }
+          { path: '/tenantId/?' }
+          { path: '/modelId/?' }
+          { path: '/generation/?' }
+        ]
+        excludedPaths: [
+          { path: '/nodes/*' }
+          { path: '/edges/*' }
+          { path: '/"_etag"/?' }
+        ]
+      }
+    }
+  ]
+]
+
+module appInfra 'app-infra.bicep' = [
+  for (app, i) in apps: {
+    name: 'deploy-app-${app.name}'
+    scope: globalRg
+    params: {
+      baseName: baseName
+      location: globalLocation
+      appName: app.name
+      cosmosAccountName: global.outputs.cosmosName
+      cosmosDatabaseName: global.outputs.cosmosDatabaseName
+      appInsightsId: global.outputs.appInsightsId
+      containers: appContainers[i]
+    }
+  }
+]
+
+// ============================================================================
 // AI Foundry — Hub, Project, and Global Model Deployments
 // ============================================================================
 
@@ -177,76 +240,12 @@ module ai 'ai.bicep' = {
     location: globalLocation
     appInsightsId: global.outputs.appInsightsId
     appIdentityPrincipalIds: [
-      helloOrleons.outputs.identityPrincipalId
-      darkUxChallenge.outputs.identityPrincipalId
-      helloAgents.outputs.identityPrincipalId
-      graphOrleons.outputs.identityPrincipalId
+      appInfra[0].outputs.identityPrincipalId
+      appInfra[1].outputs.identityPrincipalId
+      appInfra[2].outputs.identityPrincipalId
+      appInfra[3].outputs.identityPrincipalId
       ciServicePrincipalId
     ]
-  }
-}
-
-// ============================================================================
-// Application: DarkUxChallenge
-// ============================================================================
-
-module darkUxChallenge 'apps/darkux/infra.bicep' = {
-  name: 'deploy-app-darkuxchallenge'
-  scope: globalRg
-  params: {
-    baseName: baseName
-    location: globalLocation
-    cosmosAccountName: global.outputs.cosmosName
-    cosmosDatabaseName: global.outputs.cosmosDatabaseName
-    appInsightsId: global.outputs.appInsightsId
-  }
-}
-
-// ============================================================================
-// Application: HelloOrleons
-// ============================================================================
-
-module helloOrleons 'apps/helloorleons/infra.bicep' = {
-  name: 'deploy-app-helloorleons'
-  scope: globalRg
-  params: {
-    baseName: baseName
-    location: globalLocation
-    cosmosAccountName: global.outputs.cosmosName
-    cosmosDatabaseName: global.outputs.cosmosDatabaseName
-    appInsightsId: global.outputs.appInsightsId
-  }
-}
-
-// ============================================================================
-// Application: HelloAgents
-// ============================================================================
-
-module helloAgents 'apps/helloagents/infra.bicep' = {
-  name: 'deploy-app-helloagents'
-  scope: globalRg
-  params: {
-    baseName: baseName
-    location: globalLocation
-    cosmosAccountName: global.outputs.cosmosName
-    cosmosDatabaseName: global.outputs.cosmosDatabaseName
-    appInsightsId: global.outputs.appInsightsId
-  }
-}
-
-// ============================================================================
-// Application: GraphOrleons (clustering + models via Cosmos DB)
-// ============================================================================
-
-module graphOrleons 'apps/graphorleons/infra.bicep' = {
-  name: 'deploy-app-graphorleons'
-  scope: globalRg
-  params: {
-    baseName: baseName
-    location: globalLocation
-    cosmosAccountName: global.outputs.cosmosName
-    cosmosDatabaseName: global.outputs.cosmosDatabaseName
-    appInsightsId: global.outputs.appInsightsId
   }
 }
 
@@ -280,7 +279,7 @@ module eventHubs 'eventhubs.bicep' = {
     secondaryLocations: filter(map(regions, r => r.location), loc => loc != globalLocation)
     captureStorageAccountId: regional[0].outputs.captureStorageId
     captureStorageAccountName: regional[0].outputs.captureStorageName
-    senderPrincipalId: graphOrleons.outputs.identityPrincipalId
+    senderPrincipalId: appInfra[3].outputs.identityPrincipalId
   }
 }
 
@@ -297,42 +296,42 @@ var appFluxVars = [
   {
     name: apps[0].name
     namespace: apps[0].namespace
-    identityClientId: helloOrleons.outputs.identityClientId
-    identityId: helloOrleons.outputs.identityId
-    cosmosDatabase: helloOrleons.outputs.databaseName
-    cosmosContainer: helloOrleons.outputs.containerName
-    cosmosClusterContainer: helloOrleons.outputs.clusterContainerName
+    identityClientId: appInfra[0].outputs.identityClientId
+    identityId: appInfra[0].outputs.identityId
+    cosmosDatabase: appInfra[0].outputs.databaseName
+    cosmosContainer: appInfra[0].outputs.containerNames[0]
+    cosmosClusterContainer: appInfra[0].outputs.containerNames[1]
     aiServicesEndpoint: ai.outputs.aiServicesEndpoint
   }
   {
     name: apps[1].name
     namespace: apps[1].namespace
-    identityClientId: darkUxChallenge.outputs.identityClientId
-    identityId: darkUxChallenge.outputs.identityId
-    cosmosDatabase: darkUxChallenge.outputs.databaseName
-    cosmosContainer: darkUxChallenge.outputs.containerName
+    identityClientId: appInfra[1].outputs.identityClientId
+    identityId: appInfra[1].outputs.identityId
+    cosmosDatabase: appInfra[1].outputs.databaseName
+    cosmosContainer: appInfra[1].outputs.containerNames[0]
     aiServicesEndpoint: ai.outputs.aiServicesEndpoint
   }
   {
     name: apps[2].name
     namespace: apps[2].namespace
-    identityClientId: helloAgents.outputs.identityClientId
-    identityId: helloAgents.outputs.identityId
-    identityPrincipalId: helloAgents.outputs.identityPrincipalId
-    cosmosDatabase: helloAgents.outputs.databaseName
-    cosmosContainer: helloAgents.outputs.containerName
-    cosmosClusterContainer: helloAgents.outputs.clusterContainerName
+    identityClientId: appInfra[2].outputs.identityClientId
+    identityId: appInfra[2].outputs.identityId
+    identityPrincipalId: appInfra[2].outputs.identityPrincipalId
+    cosmosDatabase: appInfra[2].outputs.databaseName
+    cosmosContainer: appInfra[2].outputs.containerNames[0]
+    cosmosClusterContainer: appInfra[2].outputs.containerNames[1]
     aiServicesEndpoint: ai.outputs.aiServicesEndpoint
   }
   {
     name: apps[3].name
     namespace: apps[3].namespace
-    identityClientId: graphOrleons.outputs.identityClientId
-    identityId: graphOrleons.outputs.identityId
-    identityPrincipalId: graphOrleons.outputs.identityPrincipalId
-    cosmosDatabase: graphOrleons.outputs.databaseName
-    cosmosContainer: graphOrleons.outputs.containerName
-    cosmosModelsContainer: graphOrleons.outputs.modelsContainerName
+    identityClientId: appInfra[3].outputs.identityClientId
+    identityId: appInfra[3].outputs.identityId
+    identityPrincipalId: appInfra[3].outputs.identityPrincipalId
+    cosmosDatabase: appInfra[3].outputs.databaseName
+    cosmosContainer: appInfra[3].outputs.containerNames[0]
+    cosmosModelsContainer: appInfra[3].outputs.containerNames[1]
     aiServicesEndpoint: ai.outputs.aiServicesEndpoint
     eventHubEndpoint: eventHubs.outputs.namespaceFqdn
   }
@@ -667,15 +666,15 @@ output dnsZoneName string = domainName
 output aksClusterNames array = [
   for (stamp, i) in allStamps: stamps[i].outputs.aksClusterName
 ]
-output helloOrleonsIdentityClientId string = helloOrleons.outputs.identityClientId
+output helloOrleonsIdentityClientId string = appInfra[0].outputs.identityClientId
 output appInsightsConnectionString string = global.outputs.appInsightsConnectionString
-output darkUxChallengeIdentityClientId string = darkUxChallenge.outputs.identityClientId
+output darkUxChallengeIdentityClientId string = appInfra[1].outputs.identityClientId
 output aiServicesEndpoint string = ai.outputs.aiServicesEndpoint
 output aiServicesName string = ai.outputs.aiServicesName
 output aiHubName string = ai.outputs.hubName
 output aiProjectName string = ai.outputs.projectName
 
-output graphOrleonsIdentityClientId string = graphOrleons.outputs.identityClientId
+output graphOrleonsIdentityClientId string = appInfra[3].outputs.identityClientId
 
 // Generic app endpoints — used by CI/CD to display all URLs
 output appEndpoints array = [

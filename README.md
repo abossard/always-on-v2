@@ -25,9 +25,9 @@ A hands-on learning framework for senior software engineers: design, build, and 
 | App | Description | Tech Stack | SPA | Tests | E2E | AOT |
 |-----|-------------|------------|:---:|:-----:|:---:|:---:|
 | **[DarkUxChallenge](src/DarkUxChallenge/)** | Accessibility testing challenge — hostile-but-truthful UX | .NET 10, Cosmos DB, Aspire | ✅ React+Vite | ✅ TUnit | ✅ Playwright | ✅ |
-| **[HelloAgents](src/HelloAgents/)** | AI multi-agent conversations with Orleans streaming | .NET 10, Orleans, Redis, OpenAI, Cosmos DB | ✅ React | ✅ TUnit | ✅ Playwright | — |
+| **[HelloAgents](src/HelloAgents/)** | AI multi-agent conversations with Orleans streaming | .NET 10, Orleans, OpenAI, Cosmos DB | ✅ React | ✅ TUnit | ✅ Playwright | — |
 | **[GraphOrleons](src/GraphOrleons/)** | Event-driven graph modeling with Orleans grains | .NET 10, Orleans, Cosmos DB, Aspire | ✅ React+Vite | ✅ TUnit | ✅ Playwright | — |
-| **[HelloOrleons](src/HelloOrleons/)** | Orleans clustering demo with Redis | .NET 10, Orleans, Redis | — | ✅ TUnit | — | — |
+| **[HelloOrleons](src/HelloOrleons/)** | Orleans clustering demo | .NET 10, Orleans | — | ✅ TUnit | — | — |
 | **[PlayersOn](src/PlayersOn/)** | Orleans grain architecture reference | .NET 10, Orleans | — | ✅ | — | — |
 | **[PlayersOnOrleans](src/PlayersOnOrleons/)** | Minimal Orleans alternative demo | .NET 10, Orleans | — | ✅ | — | — |
 | **[Orthereum](src/Orthereum/)** | Ethereum-like state machine with AOT | .NET 10, Orleans, AOT | — | ✅ | — | ✅ |

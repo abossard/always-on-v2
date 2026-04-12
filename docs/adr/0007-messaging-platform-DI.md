@@ -1,10 +1,15 @@
 # ADR-0007: Messaging Platform
 
-**Status:** Not decided yet
+**Status:** Decided
 
 ## Context
 - Event-driven architecture needs a messaging platform for state change events
 - Must support reliable delivery, dead-letter handling, and geographic redundancy
+
+## Conclusion
+- Azure Storage Queues for most messages and streaming (ongoing streams within stamps)
+- Azure Event Hub for multi-region streaming
+- Other stuff works too, but it's more expensive
 
 ## Options Under Consideration
 - **Azure Service Bus Premium** — Rich features (DLQ, sessions, geo-DR), ~10K TPS. Cons: Premium tier cost

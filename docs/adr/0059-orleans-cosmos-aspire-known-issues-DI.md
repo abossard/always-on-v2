@@ -14,7 +14,6 @@
 | 2 | `UseAzureMonitor` drops traces (OTEL 1.15+) | 🟠 High | `UseAzureMonitor()` appears to work; monitor — see [ADR-0053](0053-direct-azure-monitor-otel-exporters-DI.md) |
 | 3 | `UseAzureMonitor` overrides custom samplers | 🟡 Medium | Use `options.SamplingRatio` or OTEL env vars |
 | 4 | Cosmos emulator HTTPS cert in CI | 🟡 Medium | `dotnet dev-certs https --trust` — see [ADR-0054](0054-cosmos-emulator-https-protocol-aspire-13-2.md) |
-| 5 | Redis clustering data loss (ephemeral) | 🟡 Medium | **Resolved** — migrated to Cosmos clustering |
 | 6 | `JsonElement` not serializable in Orleans | 🟡 Medium | Use `string` for payloads, parse at boundaries |
 | 7 | Missing `[GenerateSerializer]` crash | 🟡 Medium | Add `[GenerateSerializer]` + `[Id(N)]` to all grain interface types |
 | 8 | Aspire dashboard OTLP env var renamed | 🟢 Low | Use `ASPIRE_DASHBOARD_OTLP_HTTP_ENDPOINT_URL` |

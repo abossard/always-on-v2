@@ -1,13 +1,13 @@
 // ============================================================================
-// HelloOrleons Application Resources
+// Generic Application Resources
 //
-// Deployed to the global resource group alongside Cosmos DB and App Insights.
-// Creates: database, container, managed identity, RBAC assignments.
+// Deployed to the global resource group. Creates per-app:
+//   - Managed identity
+//   - Cosmos DB RBAC (Data Contributor)
+//   - App Insights RBAC (Monitoring Metrics Publisher)
+//   - N Cosmos containers (from containers array parameter)
 //
-// Config delivery to the app:
-//   The outputs (identityClientId, databaseName, containerName)
-//   are surfaced via Flux postBuild.substitute variables.
-//   The app uses DefaultAzureCredential via workload identity.
+// Each app ONLY gets the containers it declares — nothing more.
 // ============================================================================
 
 @description('Base name for all resources.')
@@ -15,6 +15,9 @@ param baseName string
 
 @description('Location for resources.')
 param location string
+
+@description('App name (used for identity naming).')
+param appName string
 
 @description('Cosmos DB account name (must exist).')
 param cosmosAccountName string
@@ -25,12 +28,15 @@ param cosmosDatabaseName string
 @description('Application Insights resource ID (for RBAC).')
 param appInsightsId string
 
+@description('Cosmos container definitions. Each entry: { name, partitionKeyPaths, partitionKeyKind?, indexingPolicy? }')
+param containers array
+
 // ============================================================================
-// Managed Identity for HelloOrleons
+// Managed Identity
 // ============================================================================
 
 resource appIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
-  name: 'id-helloorleons-${baseName}'
+  name: 'id-${appName}-${baseName}'
   location: location
 }
 
@@ -82,30 +88,29 @@ resource appInsightsRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = 
 }
 
 // ============================================================================
-// Cosmos DB Containers
+// Cosmos DB Containers (one per entry in containers array)
 // ============================================================================
 
-resource storageContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2025-04-15' = {
-  parent: cosmosDatabase
-  name: 'helloorleons-storage'
-  properties: {
-    resource: {
-      id: 'helloorleons-storage'
-      partitionKey: { paths: ['/PartitionKey'], kind: 'Hash', version: 2 }
+resource cosmosContainers 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2025-04-15' = [
+  for container in containers: {
+    parent: cosmosDatabase
+    name: container.name
+    properties: {
+      resource: {
+        id: container.name
+        partitionKey: {
+          paths: container.partitionKeyPaths
+          kind: container.?partitionKeyKind ?? 'Hash'
+          version: 2
+        }
+        indexingPolicy: container.?indexingPolicy ?? {
+          automatic: true
+          indexingMode: 'consistent'
+        }
+      }
     }
   }
-}
-
-resource clusterContainer 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2025-04-15' = {
-  parent: cosmosDatabase
-  name: 'helloorleons-cluster'
-  properties: {
-    resource: {
-      id: 'helloorleons-cluster'
-      partitionKey: { paths: ['/ClusterId'], kind: 'Hash', version: 2 }
-    }
-  }
-}
+]
 
 // ============================================================================
 // Outputs
@@ -115,5 +120,4 @@ output identityId string = appIdentity.id
 output identityClientId string = appIdentity.properties.clientId
 output identityPrincipalId string = appIdentity.properties.principalId
 output databaseName string = cosmosDatabaseName
-output containerName string = storageContainer.name
-output clusterContainerName string = clusterContainer.name
+output containerNames array = [for (c, i) in containers: cosmosContainers[i].name]
