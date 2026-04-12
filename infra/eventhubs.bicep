@@ -14,10 +14,10 @@ param location string
 @description('Secondary locations for geo-data-replication (array of location strings).')
 param secondaryLocations array = []
 
-@description('ADLS Gen2 storage account resource ID for Capture destination.')
+@description('Capture destination storage account resource ID.')
 param captureStorageAccountId string
 
-@description('ADLS Gen2 storage account name for Capture destination.')
+@description('Capture destination storage account name (for RBAC).')
 param captureStorageAccountName string
 
 @description('Principal ID of the identity that needs Event Hubs Data Sender role.')
@@ -83,13 +83,10 @@ resource graphEventsHub 'Microsoft.EventHub/namespaces/eventhubs@2025-05-01-prev
       sizeLimitInBytes: 314572800
       skipEmptyArchives: true
       destination: {
-        name: 'EventHubArchive.AzureDataLakeGen2'
+        name: 'EventHubArchive.AzureBlockBlob'
         properties: {
           storageAccountResourceId: captureStorageAccountId
           blobContainer: 'graph-events-archive'
-          dataLakeAccountName: captureStorageAccountName
-          dataLakeFolderPath: 'capture'
-          dataLakeSubscriptionId: subscription().subscriptionId
           archiveNameFormat: '{Namespace}/{EventHub}/{PartitionId}/{Year}/{Month}/{Day}/{Hour}/{Minute}/{Second}'
         }
       }

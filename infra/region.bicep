@@ -91,9 +91,8 @@ resource captureStorage 'Microsoft.Storage/storageAccounts@2025-01-01' = {
   name: captureStorageNameSafe
   location: location
   kind: 'StorageV2'
-  sku: { name: 'Standard_ZRS' }
+  sku: { name: 'Standard_RAGZRS' }
   properties: {
-    isHnsEnabled: true
     accessTier: 'Hot'
     allowBlobPublicAccess: false
     minimumTlsVersion: 'TLS1_2'
