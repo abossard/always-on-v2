@@ -462,4 +462,4 @@ output healthModelIdentityPrincipalId string = healthModelIdentity.properties.pr
 output cosmosDatabaseName string = cosmosDatabase.name
 output eventHubsNamespaceName string = ehNamespace.name
 output eventHubsNamespaceId string = ehNamespace.id
-output graphEventsConnectionString string = '${split(split(ehNamespace.properties.serviceBusEndpoint, '//')[1], ':')[0]};EntityPath=${graphEventsHub.name}'
+output graphEventsConnectionString string = 'Endpoint=sb://${ehNamespace.name}.servicebus.windows.net;EntityPath=${graphEventsHub.name}'

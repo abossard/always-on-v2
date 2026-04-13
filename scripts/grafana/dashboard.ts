@@ -3,6 +3,9 @@ import {
   DashboardCursorSync,
   RowBuilder,
   TimePickerBuilder,
+  DatasourceVariableBuilder,
+  QueryVariableBuilder,
+  VariableRefresh,
 } from '@grafana/grafana-foundation-sdk/dashboard';
 import type { AppConfig, PlatformConfig } from './config';
 import * as panels from './panels';
@@ -35,6 +38,32 @@ export function buildAppDashboard(app: AppConfig, config: PlatformConfig): objec
     .timepicker(
       new TimePickerBuilder()
         .refreshIntervals(['5s', '10s', '30s', '1m', '5m', '15m', '30m', '1h', '2h', '1d']),
+    )
+    // ── Template variables ────────────────────────────────────────
+    // Prometheus datasource picker (matches ARM template pattern)
+    .withVariable(
+      new DatasourceVariableBuilder('datasource')
+        .label('Data source')
+        .type('prometheus'),
+    )
+    // Cluster selector — auto-populated from selected Prometheus DS
+    .withVariable(
+      new QueryVariableBuilder('cluster')
+        .label('cluster')
+        .datasource({ uid: '${datasource}', type: 'prometheus' })
+        .query('label_values(up{job="kube-state-metrics"}, cluster)')
+        .refresh(VariableRefresh.OnTimeRangeChanged)
+        .sort(1),
+    )
+    // Namespace — fixed to this app's namespace
+    .withVariable(
+      new QueryVariableBuilder('namespace')
+        .label('namespace')
+        .datasource({ uid: '${datasource}', type: 'prometheus' })
+        .query(`label_values(kube_namespace_status_phase{job="kube-state-metrics", cluster="$cluster"}, namespace)`)
+        .refresh(VariableRefresh.OnTimeRangeChanged)
+        .sort(1)
+        .current({ selected: true, text: app.namespace, value: app.namespace }),
     );
 
   // ── Row 1: Global Resources (Azure Monitor — always visible) ──

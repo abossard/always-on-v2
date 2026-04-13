@@ -4,7 +4,66 @@
   "graphTooltip": 1,
   "fiscalYearStartMonth": 0,
   "schemaVersion": 41,
-  "templating": {},
+  "templating": {
+    "list": [
+      {
+        "type": "datasource",
+        "name": "datasource",
+        "skipUrlSync": false,
+        "multi": false,
+        "allowCustomValue": true,
+        "includeAll": false,
+        "auto": false,
+        "auto_min": "10s",
+        "auto_count": 30,
+        "label": "Data source",
+        "query": "prometheus"
+      },
+      {
+        "type": "query",
+        "name": "cluster",
+        "skipUrlSync": false,
+        "multi": false,
+        "allowCustomValue": true,
+        "includeAll": false,
+        "auto": false,
+        "auto_min": "10s",
+        "auto_count": 30,
+        "label": "cluster",
+        "datasource": {
+          "uid": "${datasource}",
+          "type": "prometheus"
+        },
+        "query": "label_values(up{job=\"kube-state-metrics\"}, cluster)",
+        "refresh": 2,
+        "sort": 1
+      },
+      {
+        "type": "query",
+        "name": "namespace",
+        "skipUrlSync": false,
+        "multi": false,
+        "allowCustomValue": true,
+        "includeAll": false,
+        "auto": false,
+        "auto_min": "10s",
+        "auto_count": 30,
+        "label": "namespace",
+        "datasource": {
+          "uid": "${datasource}",
+          "type": "prometheus"
+        },
+        "query": "label_values(kube_namespace_status_phase{job=\"kube-state-metrics\", cluster=\"$cluster\"}, namespace)",
+        "refresh": 2,
+        "sort": 1,
+        "current": {
+          "selected": true,
+          "text": "helloagents",
+          "value": "helloagents"
+        }
+      }
+    ]
+  },
   "annotations": {},
   "title": "helloagents Dashboard",
   "uid": "helloagents-health",
@@ -97,7 +156,7 @@
       },
       "title": "Front Door 5XX %",
       "datasource": {
-        "uid": "grafana-azure-monitor-datasource",
+        "uid": "azure-monitor",
         "type": "grafana-azure-monitor-datasource"
       },
       "targets": [
@@ -119,14 +178,17 @@
                 "region": "global"
               }
             ],
-            "dimensionFilters": [
-              {
-                "dimension": "Endpoint",
-                "operator": "eq",
-                "filters": [
-                  "agents*"
-                ]
-              }
+            "dimensionFilters": [],
+            "customNamespace": "microsoft.cdn/profiles",
+            "allowedTimeGrainsMs": [
+              60000,
+              300000,
+              900000,
+              1800000,
+              3600000,
+              21600000,
+              43200000,
+              86400000
             ]
           }
         }
@@ -188,7 +250,7 @@
       },
       "title": "Front Door 4XX",
       "datasource": {
-        "uid": "grafana-azure-monitor-datasource",
+        "uid": "azure-monitor",
         "type": "grafana-azure-monitor-datasource"
       },
       "targets": [
@@ -210,14 +272,17 @@
                 "region": "global"
               }
             ],
-            "dimensionFilters": [
-              {
-                "dimension": "Endpoint",
-                "operator": "eq",
-                "filters": [
-                  "agents*"
-                ]
-              }
+            "dimensionFilters": [],
+            "customNamespace": "microsoft.cdn/profiles",
+            "allowedTimeGrainsMs": [
+              60000,
+              300000,
+              900000,
+              1800000,
+              3600000,
+              21600000,
+              43200000,
+              86400000
             ]
           }
         }
@@ -279,7 +344,7 @@
       },
       "title": "FD Origin Latency — all origins",
       "datasource": {
-        "uid": "grafana-azure-monitor-datasource",
+        "uid": "azure-monitor",
         "type": "grafana-azure-monitor-datasource"
       },
       "targets": [
@@ -301,14 +366,17 @@
                 "region": "global"
               }
             ],
-            "dimensionFilters": [
-              {
-                "dimension": "Origin",
-                "operator": "eq",
-                "filters": [
-                  "agents*"
-                ]
-              }
+            "dimensionFilters": [],
+            "customNamespace": "microsoft.cdn/profiles",
+            "allowedTimeGrainsMs": [
+              60000,
+              300000,
+              900000,
+              1800000,
+              3600000,
+              21600000,
+              43200000,
+              86400000
             ]
           }
         }
@@ -326,7 +394,7 @@
       "repeatDirection": "h",
       "title": "Cosmos Availability %",
       "datasource": {
-        "uid": "grafana-azure-monitor-datasource",
+        "uid": "azure-monitor",
         "type": "grafana-azure-monitor-datasource"
       },
       "fieldConfig": {
@@ -395,6 +463,17 @@
                   "helloagentsdb"
                 ]
               }
+            ],
+            "customNamespace": "microsoft.documentdb/databaseaccounts",
+            "allowedTimeGrainsMs": [
+              60000,
+              300000,
+              900000,
+              1800000,
+              3600000,
+              21600000,
+              43200000,
+              86400000
             ]
           }
         }
@@ -412,7 +491,7 @@
       "repeatDirection": "h",
       "title": "Cosmos Errors (429+5xx)",
       "datasource": {
-        "uid": "grafana-azure-monitor-datasource",
+        "uid": "azure-monitor",
         "type": "grafana-azure-monitor-datasource"
       },
       "fieldConfig": {
@@ -489,6 +568,17 @@
                   "helloagentsdb"
                 ]
               }
+            ],
+            "customNamespace": "microsoft.documentdb/databaseaccounts",
+            "allowedTimeGrainsMs": [
+              60000,
+              300000,
+              900000,
+              1800000,
+              3600000,
+              21600000,
+              43200000,
+              86400000
             ]
           }
         }
@@ -550,7 +640,7 @@
       },
       "title": "Cosmos Normalized RU %",
       "datasource": {
-        "uid": "grafana-azure-monitor-datasource",
+        "uid": "azure-monitor",
         "type": "grafana-azure-monitor-datasource"
       },
       "targets": [
@@ -580,6 +670,17 @@
                   "helloagentsdb"
                 ]
               }
+            ],
+            "customNamespace": "microsoft.documentdb/databaseaccounts",
+            "allowedTimeGrainsMs": [
+              60000,
+              300000,
+              900000,
+              1800000,
+              3600000,
+              21600000,
+              43200000,
+              86400000
             ]
           }
         }
@@ -640,7 +741,7 @@
       },
       "title": "Cosmos Throttled (429)",
       "datasource": {
-        "uid": "grafana-azure-monitor-datasource",
+        "uid": "azure-monitor",
         "type": "grafana-azure-monitor-datasource"
       },
       "targets": [
@@ -677,6 +778,17 @@
                   "helloagentsdb"
                 ]
               }
+            ],
+            "customNamespace": "microsoft.documentdb/databaseaccounts",
+            "allowedTimeGrainsMs": [
+              60000,
+              300000,
+              900000,
+              1800000,
+              3600000,
+              21600000,
+              43200000,
+              86400000
             ]
           }
         }
@@ -707,8 +819,8 @@
       "repeatDirection": "h",
       "title": "Pod Restarts — all stamps",
       "datasource": {
-        "uid": "grafana-azure-monitor-prometheus-datasource",
-        "type": "prometheus"
+        "uid": "-- Mixed --",
+        "type": "datasource"
       },
       "fieldConfig": {
         "defaults": {
@@ -750,8 +862,12 @@
       },
       "targets": [
         {
-          "expr": "sum by (cluster) (increase(kube_pod_container_status_restarts_total{namespace=\"helloagents\"}[$__range]))",
+          "expr": "sum by (cluster) (increase(kube_pod_container_status_restarts_total{namespace=\"helloagents\", cluster=\"$cluster\"}[$__range]))",
           "refId": "A",
+          "datasource": {
+            "uid": "${datasource}",
+            "type": "prometheus"
+          },
           "legendFormat": "{{cluster}}",
           "range": true,
           "instant": false
@@ -770,8 +886,8 @@
       "repeatDirection": "h",
       "title": "OOMKills — all stamps",
       "datasource": {
-        "uid": "grafana-azure-monitor-prometheus-datasource",
-        "type": "prometheus"
+        "uid": "-- Mixed --",
+        "type": "datasource"
       },
       "fieldConfig": {
         "defaults": {
@@ -813,8 +929,12 @@
       },
       "targets": [
         {
-          "expr": "sum by (cluster) (kube_pod_container_status_last_terminated_reason{namespace=\"helloagents\", reason=\"OOMKilled\"}) or vector(0)",
+          "expr": "sum by (cluster) (kube_pod_container_status_last_terminated_reason{namespace=\"helloagents\", reason=\"OOMKilled\", cluster=\"$cluster\"}) or vector(0)",
           "refId": "A",
+          "datasource": {
+            "uid": "${datasource}",
+            "type": "prometheus"
+          },
           "legendFormat": "{{cluster}}",
           "range": true,
           "instant": false
@@ -833,8 +953,8 @@
       "repeatDirection": "h",
       "title": "CrashLoop — all stamps",
       "datasource": {
-        "uid": "grafana-azure-monitor-prometheus-datasource",
-        "type": "prometheus"
+        "uid": "-- Mixed --",
+        "type": "datasource"
       },
       "fieldConfig": {
         "defaults": {
@@ -876,8 +996,12 @@
       },
       "targets": [
         {
-          "expr": "sum by (cluster) (kube_pod_container_status_waiting_reason{namespace=\"helloagents\", reason=\"CrashLoopBackOff\"}) or vector(0)",
+          "expr": "sum by (cluster) (kube_pod_container_status_waiting_reason{namespace=\"helloagents\", reason=\"CrashLoopBackOff\", cluster=\"$cluster\"}) or vector(0)",
           "refId": "A",
+          "datasource": {
+            "uid": "${datasource}",
+            "type": "prometheus"
+          },
           "legendFormat": "{{cluster}}",
           "range": true,
           "instant": false
@@ -909,8 +1033,8 @@
       "repeatDirection": "h",
       "title": "CPU Pressure — per cluster",
       "datasource": {
-        "uid": "grafana-azure-monitor-prometheus-datasource",
-        "type": "prometheus"
+        "uid": "-- Mixed --",
+        "type": "datasource"
       },
       "fieldConfig": {
         "defaults": {
@@ -951,8 +1075,12 @@
       },
       "targets": [
         {
-          "expr": "sum by (cluster) (rate(container_cpu_usage_seconds_total{namespace=\"helloagents\", container!=\"\", container!=\"POD\"}[5m])) / sum by (cluster) (kube_pod_container_resource_requests{namespace=\"helloagents\", resource=\"cpu\"}) * 100",
+          "expr": "sum by (cluster) (rate(container_cpu_usage_seconds_total{namespace=\"helloagents\", cluster=\"$cluster\", container!=\"\", container!=\"POD\"}[5m])) / sum by (cluster) (kube_pod_container_resource_requests{namespace=\"helloagents\", cluster=\"$cluster\", resource=\"cpu\"}) * 100",
           "refId": "A",
+          "datasource": {
+            "uid": "${datasource}",
+            "type": "prometheus"
+          },
           "legendFormat": "{{cluster}}",
           "range": true,
           "instant": false
@@ -971,8 +1099,8 @@
       "repeatDirection": "h",
       "title": "Memory Pressure — per cluster",
       "datasource": {
-        "uid": "grafana-azure-monitor-prometheus-datasource",
-        "type": "prometheus"
+        "uid": "-- Mixed --",
+        "type": "datasource"
       },
       "fieldConfig": {
         "defaults": {
@@ -1013,8 +1141,12 @@
       },
       "targets": [
         {
-          "expr": "sum by (cluster) (container_memory_working_set_bytes{namespace=\"helloagents\", container!=\"\", container!=\"POD\"}) / sum by (cluster) (kube_pod_container_resource_limits{namespace=\"helloagents\", resource=\"memory\"}) * 100",
+          "expr": "sum by (cluster) (container_memory_working_set_bytes{namespace=\"helloagents\", cluster=\"$cluster\", container!=\"\", container!=\"POD\"}) / sum by (cluster) (kube_pod_container_resource_limits{namespace=\"helloagents\", cluster=\"$cluster\", resource=\"memory\"}) * 100",
           "refId": "A",
+          "datasource": {
+            "uid": "${datasource}",
+            "type": "prometheus"
+          },
           "legendFormat": "{{cluster}}",
           "range": true,
           "instant": false
@@ -1082,13 +1214,17 @@
           },
           "title": "CPU Usage by Pod",
           "datasource": {
-            "uid": "grafana-azure-monitor-prometheus-datasource",
-            "type": "prometheus"
+            "uid": "-- Mixed --",
+            "type": "datasource"
           },
           "targets": [
             {
               "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"helloagents\", cluster=\"aks-alwayson-swedencentral-001\", container!=\"\", container!=\"POD\"}[5m])) by (pod)",
               "refId": "A",
+              "datasource": {
+                "uid": "${datasource}",
+                "type": "prometheus"
+              },
               "legendFormat": "{{pod}}",
               "range": true,
               "instant": false
@@ -1096,6 +1232,10 @@
             {
               "expr": "sum(kube_pod_container_resource_requests{namespace=\"helloagents\", cluster=\"aks-alwayson-swedencentral-001\", resource=\"cpu\"}) by (pod)",
               "refId": "B",
+              "datasource": {
+                "uid": "${datasource}",
+                "type": "prometheus"
+              },
               "legendFormat": "{{pod}} request",
               "range": true,
               "instant": false
@@ -1158,13 +1298,17 @@
           },
           "title": "Memory Usage vs Limit",
           "datasource": {
-            "uid": "grafana-azure-monitor-prometheus-datasource",
-            "type": "prometheus"
+            "uid": "-- Mixed --",
+            "type": "datasource"
           },
           "targets": [
             {
               "expr": "sum(container_memory_working_set_bytes{namespace=\"helloagents\", cluster=\"aks-alwayson-swedencentral-001\", container!=\"\", container!=\"POD\"}) by (pod)",
               "refId": "A",
+              "datasource": {
+                "uid": "${datasource}",
+                "type": "prometheus"
+              },
               "legendFormat": "{{pod}} usage",
               "range": true,
               "instant": false
@@ -1172,6 +1316,10 @@
             {
               "expr": "sum(kube_pod_container_resource_limits{namespace=\"helloagents\", cluster=\"aks-alwayson-swedencentral-001\", resource=\"memory\"}) by (pod)",
               "refId": "B",
+              "datasource": {
+                "uid": "${datasource}",
+                "type": "prometheus"
+              },
               "legendFormat": "{{pod}} limit",
               "range": true,
               "instant": false
@@ -1234,13 +1382,17 @@
           },
           "title": "CPU Throttling %",
           "datasource": {
-            "uid": "grafana-azure-monitor-prometheus-datasource",
-            "type": "prometheus"
+            "uid": "-- Mixed --",
+            "type": "datasource"
           },
           "targets": [
             {
               "expr": "sum(rate(container_cpu_cfs_throttled_periods_total{namespace=\"helloagents\", cluster=\"aks-alwayson-swedencentral-001\", container!=\"\"}[5m])) by (pod) / sum(rate(container_cpu_cfs_periods_total{namespace=\"helloagents\", cluster=\"aks-alwayson-swedencentral-001\", container!=\"\"}[5m])) by (pod) * 100",
               "refId": "A",
+              "datasource": {
+                "uid": "${datasource}",
+                "type": "prometheus"
+              },
               "legendFormat": "{{pod}}",
               "range": true,
               "instant": false
@@ -1302,13 +1454,17 @@
           },
           "title": "Pod Restarts",
           "datasource": {
-            "uid": "grafana-azure-monitor-prometheus-datasource",
-            "type": "prometheus"
+            "uid": "-- Mixed --",
+            "type": "datasource"
           },
           "targets": [
             {
               "expr": "increase(kube_pod_container_status_restarts_total{namespace=\"helloagents\", cluster=\"aks-alwayson-swedencentral-001\"}[$__range])",
               "refId": "A",
+              "datasource": {
+                "uid": "${datasource}",
+                "type": "prometheus"
+              },
               "legendFormat": "{{pod}}",
               "range": true,
               "instant": false
@@ -1371,13 +1527,17 @@
           },
           "title": "Node CPU %",
           "datasource": {
-            "uid": "grafana-azure-monitor-prometheus-datasource",
-            "type": "prometheus"
+            "uid": "-- Mixed --",
+            "type": "datasource"
           },
           "targets": [
             {
               "expr": "(1 - avg by (node) (rate(node_cpu_seconds_total{mode=\"idle\", cluster=\"aks-alwayson-swedencentral-001\"}[5m]))) * on(node) group_left() (count by (node) (kube_pod_info{namespace=\"helloagents\", cluster=\"aks-alwayson-swedencentral-001\"}) > 0) * 100",
               "refId": "A",
+              "datasource": {
+                "uid": "${datasource}",
+                "type": "prometheus"
+              },
               "legendFormat": "{{node}}",
               "range": true,
               "instant": false
@@ -1440,13 +1600,17 @@
           },
           "title": "Node Memory %",
           "datasource": {
-            "uid": "grafana-azure-monitor-prometheus-datasource",
-            "type": "prometheus"
+            "uid": "-- Mixed --",
+            "type": "datasource"
           },
           "targets": [
             {
               "expr": "(1 - (node_memory_MemAvailable_bytes{cluster=\"aks-alwayson-swedencentral-001\"} / node_memory_MemTotal_bytes{cluster=\"aks-alwayson-swedencentral-001\"})) * on(node) group_left() (count by (node) (kube_pod_info{namespace=\"helloagents\", cluster=\"aks-alwayson-swedencentral-001\"}) > 0) * 100",
               "refId": "A",
+              "datasource": {
+                "uid": "${datasource}",
+                "type": "prometheus"
+              },
               "legendFormat": "{{node}}",
               "range": true,
               "instant": false
@@ -1523,13 +1687,17 @@
           },
           "title": "CPU Usage by Pod",
           "datasource": {
-            "uid": "grafana-azure-monitor-prometheus-datasource",
-            "type": "prometheus"
+            "uid": "-- Mixed --",
+            "type": "datasource"
           },
           "targets": [
             {
               "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"helloagents\", cluster=\"aks-alwayson-centralus-001\", container!=\"\", container!=\"POD\"}[5m])) by (pod)",
               "refId": "A",
+              "datasource": {
+                "uid": "${datasource}",
+                "type": "prometheus"
+              },
               "legendFormat": "{{pod}}",
               "range": true,
               "instant": false
@@ -1537,6 +1705,10 @@
             {
               "expr": "sum(kube_pod_container_resource_requests{namespace=\"helloagents\", cluster=\"aks-alwayson-centralus-001\", resource=\"cpu\"}) by (pod)",
               "refId": "B",
+              "datasource": {
+                "uid": "${datasource}",
+                "type": "prometheus"
+              },
               "legendFormat": "{{pod}} request",
               "range": true,
               "instant": false
@@ -1599,13 +1771,17 @@
           },
           "title": "Memory Usage vs Limit",
           "datasource": {
-            "uid": "grafana-azure-monitor-prometheus-datasource",
-            "type": "prometheus"
+            "uid": "-- Mixed --",
+            "type": "datasource"
           },
           "targets": [
             {
               "expr": "sum(container_memory_working_set_bytes{namespace=\"helloagents\", cluster=\"aks-alwayson-centralus-001\", container!=\"\", container!=\"POD\"}) by (pod)",
               "refId": "A",
+              "datasource": {
+                "uid": "${datasource}",
+                "type": "prometheus"
+              },
               "legendFormat": "{{pod}} usage",
               "range": true,
               "instant": false
@@ -1613,6 +1789,10 @@
             {
               "expr": "sum(kube_pod_container_resource_limits{namespace=\"helloagents\", cluster=\"aks-alwayson-centralus-001\", resource=\"memory\"}) by (pod)",
               "refId": "B",
+              "datasource": {
+                "uid": "${datasource}",
+                "type": "prometheus"
+              },
               "legendFormat": "{{pod}} limit",
               "range": true,
               "instant": false
@@ -1675,13 +1855,17 @@
           },
           "title": "CPU Throttling %",
           "datasource": {
-            "uid": "grafana-azure-monitor-prometheus-datasource",
-            "type": "prometheus"
+            "uid": "-- Mixed --",
+            "type": "datasource"
           },
           "targets": [
             {
               "expr": "sum(rate(container_cpu_cfs_throttled_periods_total{namespace=\"helloagents\", cluster=\"aks-alwayson-centralus-001\", container!=\"\"}[5m])) by (pod) / sum(rate(container_cpu_cfs_periods_total{namespace=\"helloagents\", cluster=\"aks-alwayson-centralus-001\", container!=\"\"}[5m])) by (pod) * 100",
               "refId": "A",
+              "datasource": {
+                "uid": "${datasource}",
+                "type": "prometheus"
+              },
               "legendFormat": "{{pod}}",
               "range": true,
               "instant": false
@@ -1743,13 +1927,17 @@
           },
           "title": "Pod Restarts",
           "datasource": {
-            "uid": "grafana-azure-monitor-prometheus-datasource",
-            "type": "prometheus"
+            "uid": "-- Mixed --",
+            "type": "datasource"
           },
           "targets": [
             {
               "expr": "increase(kube_pod_container_status_restarts_total{namespace=\"helloagents\", cluster=\"aks-alwayson-centralus-001\"}[$__range])",
               "refId": "A",
+              "datasource": {
+                "uid": "${datasource}",
+                "type": "prometheus"
+              },
               "legendFormat": "{{pod}}",
               "range": true,
               "instant": false
@@ -1812,13 +2000,17 @@
           },
           "title": "Node CPU %",
           "datasource": {
-            "uid": "grafana-azure-monitor-prometheus-datasource",
-            "type": "prometheus"
+            "uid": "-- Mixed --",
+            "type": "datasource"
           },
           "targets": [
             {
               "expr": "(1 - avg by (node) (rate(node_cpu_seconds_total{mode=\"idle\", cluster=\"aks-alwayson-centralus-001\"}[5m]))) * on(node) group_left() (count by (node) (kube_pod_info{namespace=\"helloagents\", cluster=\"aks-alwayson-centralus-001\"}) > 0) * 100",
               "refId": "A",
+              "datasource": {
+                "uid": "${datasource}",
+                "type": "prometheus"
+              },
               "legendFormat": "{{node}}",
               "range": true,
               "instant": false
@@ -1881,13 +2073,17 @@
           },
           "title": "Node Memory %",
           "datasource": {
-            "uid": "grafana-azure-monitor-prometheus-datasource",
-            "type": "prometheus"
+            "uid": "-- Mixed --",
+            "type": "datasource"
           },
           "targets": [
             {
               "expr": "(1 - (node_memory_MemAvailable_bytes{cluster=\"aks-alwayson-centralus-001\"} / node_memory_MemTotal_bytes{cluster=\"aks-alwayson-centralus-001\"})) * on(node) group_left() (count by (node) (kube_pod_info{namespace=\"helloagents\", cluster=\"aks-alwayson-centralus-001\"}) > 0) * 100",
               "refId": "A",
+              "datasource": {
+                "uid": "${datasource}",
+                "type": "prometheus"
+              },
               "legendFormat": "{{node}}",
               "range": true,
               "instant": false
@@ -1963,7 +2159,7 @@
           },
           "title": "Tokens by Model (Input + Output)",
           "datasource": {
-            "uid": "grafana-azure-monitor-datasource",
+            "uid": "azure-monitor",
             "type": "grafana-azure-monitor-datasource"
           },
           "targets": [
@@ -2078,7 +2274,7 @@
           },
           "title": "Requests by Model",
           "datasource": {
-            "uid": "grafana-azure-monitor-datasource",
+            "uid": "azure-monitor",
             "type": "grafana-azure-monitor-datasource"
           },
           "targets": [
@@ -2167,7 +2363,7 @@
           },
           "title": "Response Latency by Model (ms)",
           "datasource": {
-            "uid": "grafana-azure-monitor-datasource",
+            "uid": "azure-monitor",
             "type": "grafana-azure-monitor-datasource"
           },
           "targets": [
@@ -2257,7 +2453,7 @@
           },
           "title": "Tokens per Second by Model",
           "datasource": {
-            "uid": "grafana-azure-monitor-datasource",
+            "uid": "azure-monitor",
             "type": "grafana-azure-monitor-datasource"
           },
           "targets": [
@@ -2361,13 +2557,17 @@
           },
           "title": "Queue Message Count",
           "datasource": {
-            "uid": "grafana-azure-monitor-prometheus-datasource",
-            "type": "prometheus"
+            "uid": "-- Mixed --",
+            "type": "datasource"
           },
           "targets": [
             {
               "expr": "azure_storage_queue_message_count{namespace=\"helloagents\"}",
               "refId": "A",
+              "datasource": {
+                "uid": "${datasource}",
+                "type": "prometheus"
+              },
               "legendFormat": "{{queue_name}}",
               "range": true,
               "instant": false
@@ -2430,13 +2630,17 @@
           },
           "title": "Queue Approximate Age (oldest msg)",
           "datasource": {
-            "uid": "grafana-azure-monitor-prometheus-datasource",
-            "type": "prometheus"
+            "uid": "-- Mixed --",
+            "type": "datasource"
           },
           "targets": [
             {
               "expr": "azure_storage_queue_approximate_age_seconds{namespace=\"helloagents\"}",
               "refId": "A",
+              "datasource": {
+                "uid": "${datasource}",
+                "type": "prometheus"
+              },
               "legendFormat": "{{queue_name}}",
               "range": true,
               "instant": false
