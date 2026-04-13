@@ -150,6 +150,9 @@ public static class EventEndpoints
                 }
             }
 
+            // Send origin info so the client knows which region/host it landed on
+            await WriteSseEvent(ctx.Response, "origin", Environment.GetEnvironmentVariable("OTEL_RESOURCE_ATTRIBUTES") ?? "localhost", ct);
+
             await WriteSseEvent(ctx.Response, "ready", "{}", ct);
 
             // 2) Subscribe to Orleans tenant stream

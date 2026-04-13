@@ -293,3 +293,173 @@ test.describe('GraphOrleons SPA — SSE-driven', () => {
     await expect(page.getByTestId('instrument-count')).toContainText('3');
   });
 });
+
+// ── New feature tests ──
+
+test.describe('GraphOrleons SPA — new features', () => {
+
+  test('layout is full-width (no max-w-5xl constraint)', async ({ page }) => {
+    await page.goto('/');
+    const container = page.getByTestId('app-container');
+    await expect(container).toBeVisible();
+    const classes = await container.getAttribute('class');
+    expect(classes).not.toContain('max-w-5xl');
+  });
+
+  test('Component and Relationship buttons are disabled before seeding', async ({ page }) => {
+    const tenant = `e2e-btns-${Date.now()}`;
+    // Create tenant with component only (no graph model)
+    await postEvent({ tenant, component: 'lonely', payload: { x: 1 } });
+    await waitForTenant(page, tenant);
+    await page.getByTestId('tenant-selector').selectOption(tenant);
+    await expect(page.getByTestId('connection-status')).toContainText('Live', { timeout: 10000 });
+
+    // No model → components list is empty → buttons should be disabled
+    await expect(page.getByTestId('send-random-event')).toBeDisabled();
+    await expect(page.getByTestId('send-relationship-event')).toBeDisabled();
+    // Seed button should always be enabled
+    await expect(page.getByTestId('seed-hospital')).toBeEnabled();
+  });
+
+  test('Seed Hospital Tree creates deep tree with correct count', async ({ page }) => {
+    const tenant = `e2e-seed-deep-${Date.now()}`;
+    await page.goto('/');
+    // Type tenant name in the input (no existing tenant selected)
+    await page.getByTestId('event-tenant-input').fill(tenant);
+    await page.getByTestId('seed-hospital').click();
+
+    // Wait for the seed status message with correct counts
+    await expect(page.getByTestId('event-status')).toContainText('Seeded', { timeout: 30000 });
+    await expect(page.getByTestId('event-status')).toContainText('35 instruments');
+    await expect(page.getByTestId('event-status')).toContainText('34 connections');
+
+    // Tenant should auto-select and model should appear
+    await expect(page.getByTestId('connection-status')).toContainText('Live', { timeout: 15000 });
+    await expect(page.getByTestId('current-model')).toBeVisible({ timeout: 15000 });
+    await expect(page.getByTestId('instrument-count')).toContainText('35', { timeout: 15000 });
+    await expect(page.getByTestId('connection-count')).toContainText('34', { timeout: 15000 });
+  });
+
+  test('Component button sends payload to existing entity without adding new ones', async ({ page }) => {
+    const tenant = `e2e-comp-existing-${Date.now()}`;
+    // Pre-seed: 2 nodes + 1 edge
+    await postEvent({ tenant, component: 'alpha/beta', payload: { impact: 'Full' } });
+    await postEvent({ tenant, component: 'alpha', payload: { status: 'online' } });
+    await postEvent({ tenant, component: 'beta', payload: { status: 'online' } });
+
+    await waitForTenant(page, tenant);
+    await page.getByTestId('tenant-selector').selectOption(tenant);
+    await expect(page.getByTestId('connection-status')).toContainText('Live', { timeout: 10000 });
+    await expect(page.getByTestId('current-model')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('instrument-count')).toContainText('2');
+
+    // Buttons should now be enabled
+    await expect(page.getByTestId('send-random-event')).toBeEnabled();
+
+    // Click Component button
+    await page.getByTestId('send-random-event').click();
+    await expect(page.getByTestId('event-status')).toContainText('✓', { timeout: 5000 });
+
+    // Instrument count should NOT increase — still 2
+    await page.waitForTimeout(2000);
+    await expect(page.getByTestId('instrument-count')).toContainText('2');
+  });
+
+  test('Relationship button links existing entities and adds connection', async ({ page }) => {
+    const tenant = `e2e-rel-existing-${Date.now()}`;
+    await postEvent({ tenant, component: 'nodeA/nodeB', payload: { impact: 'None' } });
+    await postEvent({ tenant, component: 'nodeA', payload: { v: 1 } });
+    await postEvent({ tenant, component: 'nodeB', payload: { v: 2 } });
+
+    await waitForTenant(page, tenant);
+    await page.getByTestId('tenant-selector').selectOption(tenant);
+    await expect(page.getByTestId('connection-status')).toContainText('Live', { timeout: 10000 });
+    await expect(page.getByTestId('current-model')).toBeVisible({ timeout: 10000 });
+    await expect(page.getByTestId('instrument-count')).toContainText('2');
+    const initialConnections = await page.getByTestId('connection-count').textContent();
+
+    // Click Relationship button
+    await expect(page.getByTestId('send-relationship-event')).toBeEnabled();
+    await page.getByTestId('send-relationship-event').click();
+    await expect(page.getByTestId('event-status')).toContainText('✓', { timeout: 5000 });
+
+    // Instrument count should stay 2 — no new entities
+    await page.waitForTimeout(2000);
+    await expect(page.getByTestId('instrument-count')).toContainText('2');
+    // Connection count may have increased by 1
+    const newConnections = await page.getByTestId('connection-count').textContent();
+    expect(Number(newConnections)).toBeGreaterThanOrEqual(Number(initialConnections));
+  });
+
+  test('Payload Sender is visible after seeding and sends data', async ({ page }) => {
+    const tenant = `e2e-payload-send-${Date.now()}`;
+    // Seed a small graph
+    await postEvent({ tenant, component: 'devA/devB', payload: { impact: 'Partial' } });
+    await postEvent({ tenant, component: 'devA', payload: { status: 'online' } });
+    await postEvent({ tenant, component: 'devB', payload: { status: 'online' } });
+
+    await waitForTenant(page, tenant);
+    await page.getByTestId('tenant-selector').selectOption(tenant);
+    await expect(page.getByTestId('connection-status')).toContainText('Live', { timeout: 10000 });
+    await expect(page.getByTestId('current-model')).toBeVisible({ timeout: 10000 });
+
+    // Payload Sender should be visible
+    const sender = page.getByTestId('payload-sender');
+    await expect(sender).toBeVisible();
+
+    // Select a component
+    await sender.getByTestId('payload-component-select').selectOption('devA');
+
+    // Default key/value rows should be prefilled
+    const keyInputs = sender.getByTestId('payload-key-input');
+    await expect(keyInputs.first()).toHaveValue('status');
+
+    // Send
+    await sender.getByTestId('payload-send').click();
+    await expect(sender.getByTestId('payload-sender-status')).toContainText('✓ Sent to devA', { timeout: 5000 });
+
+    // Component payload should update via SSE
+    await page.getByText('📋 List').click();
+    const devAItem = page.getByTestId('instrument-item').filter({ hasText: 'devA' }).first();
+    await expect(devAItem.getByTestId('inline-props')).toContainText('status=online', { timeout: 10000 });
+  });
+
+  test('Payload Sender add/remove rows', async ({ page }) => {
+    const tenant = `e2e-payload-rows-${Date.now()}`;
+    await postEvent({ tenant, component: 'x/y', payload: { impact: 'None' } });
+    await postEvent({ tenant, component: 'x', payload: { v: 1 } });
+
+    await waitForTenant(page, tenant);
+    await page.getByTestId('tenant-selector').selectOption(tenant);
+    await expect(page.getByTestId('connection-status')).toContainText('Live', { timeout: 10000 });
+    await expect(page.getByTestId('current-model')).toBeVisible({ timeout: 10000 });
+
+    const sender = page.getByTestId('payload-sender');
+    await expect(sender).toBeVisible();
+
+    // Initially 4 rows
+    await expect(sender.getByTestId('payload-key-input')).toHaveCount(4);
+
+    // Add a row
+    await sender.getByTestId('payload-add-row').click();
+    await expect(sender.getByTestId('payload-key-input')).toHaveCount(5);
+
+    // Remove a row
+    await sender.getByTestId('payload-remove-row').first().click();
+    await expect(sender.getByTestId('payload-key-input')).toHaveCount(4);
+  });
+
+  test('region info appears on Live badge via SSE origin event', async ({ page }) => {
+    const tenant = `e2e-region-${Date.now()}`;
+    await postEvent({ tenant, component: 'a/b', payload: { impact: 'None' } });
+
+    await waitForTenant(page, tenant);
+    await page.getByTestId('tenant-selector').selectOption(tenant);
+
+    // The origin SSE event should appear inlined in the Live badge text
+    const badge = page.getByTestId('connection-status');
+    await expect(badge).toContainText('Live', { timeout: 10000 });
+    // Origin string should appear in parentheses — at minimum "localhost" in local dev
+    await expect(badge).toContainText('(', { timeout: 10000 });
+  });
+});

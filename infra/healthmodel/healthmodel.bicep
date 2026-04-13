@@ -292,6 +292,30 @@ resource def_pods_notready_nodes 'Microsoft.CloudHealth/healthmodels/signaldefin
 }
 
 #disable-next-line BCP081
+resource def_deployments_not_ready 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+  parent: hm
+  name: guid(name, 'def-deployments-not-ready')
+  properties: {
+    signalKind: 'PrometheusMetricsQuery'
+    displayName: 'Deployments Not Ready'
+    refreshInterval: 'PT1M'
+    dataUnit: 'Count'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('0')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('0')
+      }
+    }
+    queryText: 'count(kube_deployment_status_replicas_ready{namespace="${namespace}"} == 0) or vector(0)'
+    timeGrain: 'PT1M'
+  }
+}
+
+#disable-next-line BCP081
 resource def_fd_5xx 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
   parent: hm
   name: guid(name, 'def-fd-5xx')
@@ -1180,6 +1204,12 @@ resource stamp_prom_failures 'Microsoft.CloudHealth/healthmodels/entities@2026-0
               signalKind: 'PrometheusMetricsQuery'
               name: guid(name, stamp.key, 'pods-notready-nodes')
               signalDefinitionName: def_pods_notready_nodes.name
+              refreshInterval: 'PT1M'
+            }
+            {
+              signalKind: 'PrometheusMetricsQuery'
+              name: guid(name, stamp.key, 'deployments-not-ready')
+              signalDefinitionName: def_deployments_not_ready.name
               refreshInterval: 'PT1M'
             }
           ]

@@ -155,6 +155,18 @@ export function podsOnNotReadyNodes(namespace: string): PrometheusSignalDef {
   };
 }
 
+export function deploymentsNotReady(namespace: string): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `count(kube_deployment_status_replicas_ready{namespace="${namespace}"} == 0) or vector(0)`,
+    timeGrain: 'PT1M',
+    displayName: 'Deployments Not Ready',
+    refreshInterval: 'PT1M',
+    dataUnit: 'Count',
+    threshold: { direction: 'higher-is-worse', degraded: 0, unhealthy: 0 },
+  };
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // Azure Resource Signals — AKS
 // ═══════════════════════════════════════════════════════════════════
@@ -543,6 +555,7 @@ export interface FailureSignals {
   podRestarts: PrometheusSignalDef;
   oomKilled: PrometheusSignalDef;
   crashLoop: PrometheusSignalDef;
+  deploymentsNotReady: PrometheusSignalDef;
   aksFailedPods: AzureResourceSignalDef;
   fd5xx: AzureResourceSignalDef;
   fd4xx: AzureResourceSignalDef;
@@ -570,6 +583,7 @@ export function buildFailureSignals(namespace: string): FailureSignals {
     podRestarts: podRestarts(namespace),
     oomKilled: oomKilled(namespace),
     crashLoop: crashLoop(namespace),
+    deploymentsNotReady: deploymentsNotReady(namespace),
     aksFailedPods: aksFailedPods(),
     fd5xx: fdPercentage5xx(),
     fd4xx: fdRequestCount4xx(),

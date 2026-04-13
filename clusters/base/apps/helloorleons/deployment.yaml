@@ -67,9 +67,9 @@ spec:
             - name: CosmosDb__DatabaseName
               value: ${HELLOORLEONS_COSMOS_DATABASE}
             - name: CosmosDb__ContainerName
-              value: ${HELLOORLEONS_COSMOS_CONTAINER}
+              value: ${HELLOORLEONS_COSMOS_CONTAINER}-${STAMP_NAME}
             - name: CosmosDb__ClusterContainerName
-              value: ${HELLOORLEONS_COSMOS_CLUSTER_CONTAINER}
+              value: ${HELLOORLEONS_COSMOS_CLUSTER_CONTAINER}-${STAMP_NAME}
             - name: ConnectionStrings__cosmos
               value: "AccountEndpoint=${COSMOS_ENDPOINT}"
           resizePolicy:

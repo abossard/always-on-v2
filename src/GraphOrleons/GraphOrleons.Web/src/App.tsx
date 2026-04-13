@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { TenantSelector } from './components/TenantSelector';
 import { GraphView } from './components/GraphView';
 import { EventTools } from './components/EventTools';
+import { PayloadSender } from './components/PayloadSender';
 import { getTenants } from './api';
 import type { GraphSnapshot, MergedProperty } from './types';
 
@@ -13,6 +14,7 @@ export default function App() {
   const [graph, setGraph] = useState<GraphSnapshot>({ modelId: '', components: [], edges: [] });
   const [componentPayloads, setComponentPayloads] = useState<Record<string, MergedProperty[]>>({});
   const [connected, setConnected] = useState(false);
+  const [originRegion, setOriginRegion] = useState<string | null>(null);
   const [flashedComponents, setFlashedComponents] = useState<Set<string>>(new Set());
   const eventSourceRef = useRef<EventSource | null>(null);
 
@@ -30,6 +32,7 @@ export default function App() {
       setGraph({ modelId: '', components: [], edges: [] });
       setComponentPayloads({});
       setConnected(false);
+      setOriginRegion(null);
       return;
     }
 
@@ -37,6 +40,10 @@ export default function App() {
     console.log(`[SSE] Subscribing to tenant "${selectedTenant}" → ${url}`);
     const es = new EventSource(url);
     eventSourceRef.current = es;
+
+    es.addEventListener('origin', (e) => {
+      if (e.data) setOriginRegion(e.data);
+    });
 
     es.addEventListener('model', (e) => {
       const data = JSON.parse(e.data) as GraphSnapshot;
@@ -84,7 +91,7 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-800">
-      <div className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-5 px-4 py-6">
+      <div className="mx-auto flex min-h-screen w-full flex-col gap-5 px-6 py-6" data-testid="app-container">
         {/* Header */}
         <header className="rounded-xl border border-teal-200 bg-white p-5 shadow-sm">
           <div className="flex items-center gap-3">
@@ -96,25 +103,38 @@ export default function App() {
               </p>
             </div>
             {selectedTenant && (
-              <span className={`ml-auto rounded-full px-2.5 py-1 text-xs font-medium ${
-                connected ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
-              }`} data-testid="connection-status">
-                {connected ? '● Live' : '○ Connecting…'}
+              <span
+                className={`ml-auto rounded-full px-2.5 py-1 text-xs font-medium ${
+                  connected ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                }`}
+                data-testid="connection-status"
+                title={originRegion ? `Region: ${originRegion}` : undefined}
+                data-region={originRegion ?? undefined}
+              >
+                {connected ? `● Live${originRegion ? ` (${originRegion})` : ''}` : '○ Connecting…'}
               </span>
             )}
           </div>
         </header>
 
         {/* Controls row */}
-        <div className="grid gap-4 md:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-3">
           <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
             <TenantSelector tenants={tenants} selected={selectedTenant} onSelect={setSelectedTenant} />
           </div>
           <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
             <EventTools
               tenant={selectedTenant}
+              components={graph.components}
               onSent={handleSent}
               onTenantUsed={(t) => { setSelectedTenant(t); }}
+            />
+          </div>
+          <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+            <PayloadSender
+              tenant={selectedTenant}
+              components={graph.components}
+              onSent={handleSent}
             />
           </div>
         </div>

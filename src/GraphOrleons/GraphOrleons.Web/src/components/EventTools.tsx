@@ -3,14 +3,10 @@ import { sendEvent } from '../api';
 
 interface Props {
   tenant: string | null;
+  components: string[];
   onSent: () => void;
   onTenantUsed: (tenant: string) => void;
 }
-
-const INSTRUMENTS = [
-  'ventilator', 'heart-monitor', 'infusion-pump', 'pulse-oximeter',
-  'blood-pressure', 'ecg-machine', 'defibrillator', 'syringe-driver',
-];
 
 const LOCATIONS = ['ICU-A', 'ICU-B', 'Ward-3', 'OR-1', 'ER'];
 const IMPACTS = ['None', 'Partial', 'Full'] as const;
@@ -19,48 +15,89 @@ function pick<T>(arr: readonly T[]): T {
   return arr[Math.floor(Math.random() * arr.length)];
 }
 
-// A wide hospital tree topology
+// Deep hospital tree topology — narrow but many levels
 const HOSPITAL_TREE = {
   nodes: [
+    // Root
     'central-station',
-    'icu-hub', 'surgery-hub', 'ward-hub', 'er-hub',
-    'ventilator-1', 'ventilator-2', 'heart-monitor-1', 'heart-monitor-2',
-    'anesthesia-unit', 'surgical-monitor', 'surgical-pump',
-    'infusion-pump-1', 'infusion-pump-2', 'blood-pressure-1', 'ecg-ward',
-    'defibrillator-er', 'pulse-ox-er', 'triage-monitor',
+    // Level 1: 3 hubs
+    'icu-hub', 'surgery-hub', 'er-hub',
+    // Level 2: departments
+    'icu-bay-1', 'icu-bay-2',
+    'pre-op', 'or-suite',
+    'triage', 'resus-bay',
+    // Level 3: instrument clusters
+    'icu-bay-1-rack', 'icu-bay-2-rack',
+    'anesthesia-cart', 'surgical-tower',
+    'triage-station', 'resus-cart',
+    // Level 4: instruments
+    'ventilator-1', 'heart-monitor-1',
+    'ventilator-2', 'pulse-ox-2',
+    'anesthesia-unit', 'gas-mixer',
+    'surgical-monitor', 'cautery-unit',
+    'triage-ecg', 'triage-bp',
+    'defib-resus', 'resus-monitor',
+    // Level 5: sensors
+    'vent-1-flow-sensor', 'vent-1-pressure-sensor',
+    'hm-1-lead-sensor',
+    'vent-2-o2-sensor',
+    'gas-mixer-valve',
+    'cautery-temp-sensor',
+    'defib-charge-sensor',
   ],
   edges: [
-    // Level 1: central → hubs
+    // Level 0→1
     { src: 'central-station', dst: 'icu-hub', impact: 'Full' as const },
     { src: 'central-station', dst: 'surgery-hub', impact: 'Full' as const },
-    { src: 'central-station', dst: 'ward-hub', impact: 'Partial' as const },
     { src: 'central-station', dst: 'er-hub', impact: 'Full' as const },
-    // Level 2: hubs → instruments
-    { src: 'icu-hub', dst: 'ventilator-1', impact: 'Full' as const },
-    { src: 'icu-hub', dst: 'ventilator-2', impact: 'Full' as const },
-    { src: 'icu-hub', dst: 'heart-monitor-1', impact: 'Partial' as const },
-    { src: 'icu-hub', dst: 'heart-monitor-2', impact: 'Partial' as const },
-    { src: 'surgery-hub', dst: 'anesthesia-unit', impact: 'Full' as const },
-    { src: 'surgery-hub', dst: 'surgical-monitor', impact: 'Partial' as const },
-    { src: 'surgery-hub', dst: 'surgical-pump', impact: 'None' as const },
-    { src: 'ward-hub', dst: 'infusion-pump-1', impact: 'Partial' as const },
-    { src: 'ward-hub', dst: 'infusion-pump-2', impact: 'Partial' as const },
-    { src: 'ward-hub', dst: 'blood-pressure-1', impact: 'None' as const },
-    { src: 'ward-hub', dst: 'ecg-ward', impact: 'None' as const },
-    { src: 'er-hub', dst: 'defibrillator-er', impact: 'Full' as const },
-    { src: 'er-hub', dst: 'pulse-ox-er', impact: 'Partial' as const },
-    { src: 'er-hub', dst: 'triage-monitor', impact: 'Partial' as const },
+    // Level 1→2
+    { src: 'icu-hub', dst: 'icu-bay-1', impact: 'Full' as const },
+    { src: 'icu-hub', dst: 'icu-bay-2', impact: 'Partial' as const },
+    { src: 'surgery-hub', dst: 'pre-op', impact: 'Partial' as const },
+    { src: 'surgery-hub', dst: 'or-suite', impact: 'Full' as const },
+    { src: 'er-hub', dst: 'triage', impact: 'Partial' as const },
+    { src: 'er-hub', dst: 'resus-bay', impact: 'Full' as const },
+    // Level 2→3
+    { src: 'icu-bay-1', dst: 'icu-bay-1-rack', impact: 'Full' as const },
+    { src: 'icu-bay-2', dst: 'icu-bay-2-rack', impact: 'Full' as const },
+    { src: 'pre-op', dst: 'anesthesia-cart', impact: 'Full' as const },
+    { src: 'or-suite', dst: 'surgical-tower', impact: 'Full' as const },
+    { src: 'triage', dst: 'triage-station', impact: 'Partial' as const },
+    { src: 'resus-bay', dst: 'resus-cart', impact: 'Full' as const },
+    // Level 3→4
+    { src: 'icu-bay-1-rack', dst: 'ventilator-1', impact: 'Full' as const },
+    { src: 'icu-bay-1-rack', dst: 'heart-monitor-1', impact: 'Partial' as const },
+    { src: 'icu-bay-2-rack', dst: 'ventilator-2', impact: 'Full' as const },
+    { src: 'icu-bay-2-rack', dst: 'pulse-ox-2', impact: 'None' as const },
+    { src: 'anesthesia-cart', dst: 'anesthesia-unit', impact: 'Full' as const },
+    { src: 'anesthesia-cart', dst: 'gas-mixer', impact: 'Partial' as const },
+    { src: 'surgical-tower', dst: 'surgical-monitor', impact: 'Partial' as const },
+    { src: 'surgical-tower', dst: 'cautery-unit', impact: 'Full' as const },
+    { src: 'triage-station', dst: 'triage-ecg', impact: 'None' as const },
+    { src: 'triage-station', dst: 'triage-bp', impact: 'None' as const },
+    { src: 'resus-cart', dst: 'defib-resus', impact: 'Full' as const },
+    { src: 'resus-cart', dst: 'resus-monitor', impact: 'Partial' as const },
+    // Level 4→5 (deepest)
+    { src: 'ventilator-1', dst: 'vent-1-flow-sensor', impact: 'Full' as const },
+    { src: 'ventilator-1', dst: 'vent-1-pressure-sensor', impact: 'Partial' as const },
+    { src: 'heart-monitor-1', dst: 'hm-1-lead-sensor', impact: 'Full' as const },
+    { src: 'ventilator-2', dst: 'vent-2-o2-sensor', impact: 'Full' as const },
+    { src: 'gas-mixer', dst: 'gas-mixer-valve', impact: 'Full' as const },
+    { src: 'cautery-unit', dst: 'cautery-temp-sensor', impact: 'Partial' as const },
+    { src: 'defib-resus', dst: 'defib-charge-sensor', impact: 'Full' as const },
   ],
 };
 
-export function EventTools({ tenant, onSent, onTenantUsed }: Props) {
+export function EventTools({ tenant, components, onSent, onTenantUsed }: Props) {
   const [inputTenant, setInputTenant] = useState('hospital-1');
   const [status, setStatus] = useState('');
 
   const activeTenant = tenant || inputTenant;
+  const hasComponents = components.length > 0;
 
   const sendComponent = async () => {
-    const comp = pick(INSTRUMENTS);
+    if (!hasComponents) return;
+    const comp = pick(components);
     const loc = pick(LOCATIONS);
     try {
       await sendEvent({
@@ -80,9 +117,10 @@ export function EventTools({ tenant, onSent, onTenantUsed }: Props) {
   };
 
   const sendRelationship = async () => {
-    const i = Math.floor(Math.random() * (INSTRUMENTS.length - 1));
-    const src = INSTRUMENTS[i];
-    const dst = INSTRUMENTS[i + 1];
+    if (components.length < 2) return;
+    const shuffled = [...components].sort(() => Math.random() - 0.5);
+    const src = shuffled[0];
+    const dst = shuffled[1];
     const impact = pick(IMPACTS);
     try {
       await sendEvent({
@@ -98,7 +136,6 @@ export function EventTools({ tenant, onSent, onTenantUsed }: Props) {
 
   const seedHospital = async () => {
     try {
-      // Send all node component events
       for (const node of HOSPITAL_TREE.nodes) {
         await sendEvent({
           tenant: activeTenant,
@@ -110,7 +147,6 @@ export function EventTools({ tenant, onSent, onTenantUsed }: Props) {
           },
         });
       }
-      // Send all relationship events
       for (const edge of HOSPITAL_TREE.edges) {
         await sendEvent({
           tenant: activeTenant,
@@ -148,14 +184,16 @@ export function EventTools({ tenant, onSent, onTenantUsed }: Props) {
       <div className="grid grid-cols-2 gap-2">
         <button
           onClick={sendComponent}
-          className="rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-xs font-medium text-teal-700 transition hover:bg-teal-100 active:bg-teal-200"
+          disabled={!hasComponents}
+          className="rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-xs font-medium text-teal-700 transition hover:bg-teal-100 active:bg-teal-200 disabled:cursor-not-allowed disabled:opacity-40"
           data-testid="send-random-event"
         >
           📡 Component
         </button>
         <button
           onClick={sendRelationship}
-          className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700 transition hover:bg-blue-100 active:bg-blue-200"
+          disabled={components.length < 2}
+          className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs font-medium text-blue-700 transition hover:bg-blue-100 active:bg-blue-200 disabled:cursor-not-allowed disabled:opacity-40"
           data-testid="send-relationship-event"
         >
           🔗 Relationship
@@ -166,7 +204,7 @@ export function EventTools({ tenant, onSent, onTenantUsed }: Props) {
         className="w-full rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2.5 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 active:bg-emerald-200"
         data-testid="seed-hospital"
       >
-        🏥 Seed Hospital Tree (19 instruments, 18 connections)
+        🏥 Seed Hospital Tree ({HOSPITAL_TREE.nodes.length} instruments, {HOSPITAL_TREE.edges.length} connections)
       </button>
     </div>
   );

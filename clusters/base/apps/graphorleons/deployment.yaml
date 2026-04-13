@@ -61,7 +61,7 @@ spec:
             - name: OTEL_TRACES_SAMPLER_ARG
               value: "0.01"
             - name: CosmosDb__ClusterContainerName
-              value: ${GRAPHORLEONS_COSMOS_CONTAINER}
+              value: ${GRAPHORLEONS_COSMOS_CONTAINER}-${STAMP_NAME}
             - name: ConnectionStrings__cosmos
               value: "AccountEndpoint=${COSMOS_ENDPOINT}"
             - name: CosmosDb__ModelsContainerName
