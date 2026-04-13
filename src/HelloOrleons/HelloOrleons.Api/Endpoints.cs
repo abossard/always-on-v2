@@ -4,7 +4,8 @@ public static class HelloEndpoints
 {
     public static WebApplication MapHelloEndpoints(this WebApplication app)
     {
-        app.MapGet(Routes.Root, () => Results.Redirect("/scalar/v1"))
+        var redirectTarget = app.Environment.IsDevelopment() ? "/scalar/v1" : "/health";
+        app.MapGet(Routes.Root, () => Results.Redirect(redirectTarget))
             .ExcludeFromDescription();
 
         app.MapGet(Routes.HelloTemplate, async (string name, IGrainFactory grains) =>
