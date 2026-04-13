@@ -112,7 +112,7 @@ jobs:
             # Still try to read keys from deployment outputs for display
             ENV_NAME="${AZURE_ENV_NAME:-alwayson}"
             DEPLOYMENT_NAME=$(az deployment sub list \
-              --query "[?starts_with(name, '${ENV_NAME}') && properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
+              --query "[?starts_with(name, 'azd-stack-${ENV_NAME}') && properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
               -o tsv 2>/dev/null || echo "")
 
             if [ -n "$DEPLOYMENT_NAME" ]; then
@@ -142,7 +142,7 @@ jobs:
 
           # Find the latest successful subscription-level deployment
           DEPLOYMENT_NAME=$(az deployment sub list \
-            --query "[?starts_with(name, '${ENV_NAME}') && properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
+            --query "[?starts_with(name, 'azd-stack-${ENV_NAME}') && properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
             -o tsv)
 
           if [ -z "$DEPLOYMENT_NAME" ]; then
@@ -198,7 +198,7 @@ jobs:
           set -euo pipefail
           ENV_NAME="${AZURE_ENV_NAME:-alwayson}"
           DEPLOYMENT_NAME=$(az deployment sub list \
-            --query "[?starts_with(name, '${ENV_NAME}') && properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
+            --query "[?starts_with(name, 'azd-stack-${ENV_NAME}') && properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
             -o tsv 2>/dev/null || echo "")
 
           if [ -z "$DEPLOYMENT_NAME" ]; then

@@ -410,7 +410,7 @@ export function aiContentBlocked(): AzureResourceSignalDef {
 export function queueAvailability(): AzureResourceSignalDef {
   return {
     signalKind: 'AzureResourceMetric',
-    metricNamespace: 'microsoft.storage/storageaccounts/queueservices',
+    metricNamespace: 'Microsoft.Storage/storageAccounts',
     metricName: 'Availability',
     timeGrain: 'PT1H',
     aggregationType: 'Average',
@@ -424,7 +424,7 @@ export function queueAvailability(): AzureResourceSignalDef {
 export function queueE2ELatency(): AzureResourceSignalDef {
   return {
     signalKind: 'AzureResourceMetric',
-    metricNamespace: 'microsoft.storage/storageaccounts/queueservices',
+    metricNamespace: 'Microsoft.Storage/storageAccounts',
     metricName: 'SuccessE2ELatency',
     timeGrain: 'PT5M',
     aggregationType: 'Average',
@@ -438,7 +438,7 @@ export function queueE2ELatency(): AzureResourceSignalDef {
 export function queueTransactionErrors(): AzureResourceSignalDef {
   return {
     signalKind: 'AzureResourceMetric',
-    metricNamespace: 'microsoft.storage/storageaccounts/queueservices',
+    metricNamespace: 'Microsoft.Storage/storageAccounts',
     metricName: 'Transactions',
     timeGrain: 'PT5M',
     aggregationType: 'Total',
@@ -486,7 +486,7 @@ export function queueMessageAge(namespace: string, queueNames: string[]): Promet
 export function blobAvailability(): AzureResourceSignalDef {
   return {
     signalKind: 'AzureResourceMetric',
-    metricNamespace: 'microsoft.storage/storageaccounts/blobservices',
+    metricNamespace: 'Microsoft.Storage/storageAccounts',
     metricName: 'Availability',
     timeGrain: 'PT1H',
     aggregationType: 'Average',
@@ -500,7 +500,7 @@ export function blobAvailability(): AzureResourceSignalDef {
 export function blobE2ELatency(): AzureResourceSignalDef {
   return {
     signalKind: 'AzureResourceMetric',
-    metricNamespace: 'microsoft.storage/storageaccounts/blobservices',
+    metricNamespace: 'Microsoft.Storage/storageAccounts',
     metricName: 'SuccessE2ELatency',
     timeGrain: 'PT5M',
     aggregationType: 'Average',
@@ -514,7 +514,7 @@ export function blobE2ELatency(): AzureResourceSignalDef {
 export function blobTransactionErrors(): AzureResourceSignalDef {
   return {
     signalKind: 'AzureResourceMetric',
-    metricNamespace: 'microsoft.storage/storageaccounts/blobservices',
+    metricNamespace: 'Microsoft.Storage/storageAccounts',
     metricName: 'Transactions',
     timeGrain: 'PT5M',
     aggregationType: 'Total',

@@ -738,7 +738,7 @@ resource def_queues_queue_availability 'Microsoft.CloudHealth/healthmodels/signa
         threshold: json('95')
       }
     }
-    metricNamespace: 'microsoft.storage/storageaccounts/queueservices'
+    metricNamespace: 'Microsoft.Storage/storageAccounts'
     metricName: 'Availability'
     timeGrain: 'PT1H'
     aggregationType: 'Average'
@@ -764,7 +764,7 @@ resource def_queues_queue_e2e_latency 'Microsoft.CloudHealth/healthmodels/signal
         threshold: json('2000')
       }
     }
-    metricNamespace: 'microsoft.storage/storageaccounts/queueservices'
+    metricNamespace: 'Microsoft.Storage/storageAccounts'
     metricName: 'SuccessE2ELatency'
     timeGrain: 'PT5M'
     aggregationType: 'Average'
@@ -790,7 +790,7 @@ resource def_queues_queue_errors 'Microsoft.CloudHealth/healthmodels/signaldefin
         threshold: json('50')
       }
     }
-    metricNamespace: 'microsoft.storage/storageaccounts/queueservices'
+    metricNamespace: 'Microsoft.Storage/storageAccounts'
     metricName: 'Transactions'
     timeGrain: 'PT5M'
     aggregationType: 'Total'
@@ -922,7 +922,7 @@ resource def_blobs_blob_availability 'Microsoft.CloudHealth/healthmodels/signald
         threshold: json('95')
       }
     }
-    metricNamespace: 'microsoft.storage/storageaccounts/blobservices'
+    metricNamespace: 'Microsoft.Storage/storageAccounts'
     metricName: 'Availability'
     timeGrain: 'PT1H'
     aggregationType: 'Average'
@@ -948,7 +948,7 @@ resource def_blobs_blob_e2e_latency 'Microsoft.CloudHealth/healthmodels/signalde
         threshold: json('2000')
       }
     }
-    metricNamespace: 'microsoft.storage/storageaccounts/blobservices'
+    metricNamespace: 'Microsoft.Storage/storageAccounts'
     metricName: 'SuccessE2ELatency'
     timeGrain: 'PT5M'
     aggregationType: 'Average'
@@ -974,7 +974,7 @@ resource def_blobs_blob_errors 'Microsoft.CloudHealth/healthmodels/signaldefinit
         threshold: json('50')
       }
     }
-    metricNamespace: 'microsoft.storage/storageaccounts/blobservices'
+    metricNamespace: 'Microsoft.Storage/storageAccounts'
     metricName: 'Transactions'
     timeGrain: 'PT5M'
     aggregationType: 'Total'
