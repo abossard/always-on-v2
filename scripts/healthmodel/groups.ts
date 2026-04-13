@@ -21,7 +21,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
     enableParam: 'usesQueues',
     enableDescription: 'Whether this app uses Azure Storage Queues',
     parentKey: 'root',
-    icon: 'SystemComponent',
+    icon: 'AzureStorageQueue',
     scope: { kind: 'global' },
     bindings: [
       {
@@ -51,7 +51,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
     enableParam: 'usesAI',
     enableDescription: 'Whether this app uses Azure AI Services',
     parentKey: 'root',
-    icon: 'SystemComponent',
+    icon: 'AzureCognitiveServices',
     scope: { kind: 'global' },
     bindings: [
       {
@@ -60,8 +60,8 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
         signals: [
           signals.aiAvailability(),
           signals.aiLatency(),
-          signals.aiRequests(),
-          signals.aiTokensPerSecond(),
+          signals.aiServerErrors(),
+          signals.aiContentBlocked(),
         ],
       },
     ],
@@ -82,7 +82,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
     enableParam: 'usesBlobs',
     enableDescription: 'Whether this app uses Azure Blob Storage',
     parentKey: 'root',
-    icon: 'SystemComponent',
+    icon: 'AzureBlobStorage',
     scope: { kind: 'global' },
     bindings: [
       {

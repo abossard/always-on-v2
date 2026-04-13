@@ -173,6 +173,15 @@ function buildFailureEntities(): StampEntitySpec[] {
       resourceIdExpr: 'cosmosAccountId',
       signals: ['cosmos-availability', 'cosmos-client-errors'],
     },
+    {
+      key: 'gateway-failures',
+      displayNameExpr: "'Gateway Health'",
+      icon: 'Resource',
+      category: 'failures',
+      bindingType: 'azureMonitorWorkspace',
+      resourceIdExpr: 'stamp.amwResourceId',
+      signals: ['gateway-error-rate'],
+    },
   ];
 }
 
@@ -204,10 +213,19 @@ function buildLatencyEntities(): StampEntitySpec[] {
       bindingType: 'azureMonitorWorkspace',
       resourceIdExpr: 'stamp.amwResourceId',
       signals: [
-        'cpu-pressure', 'cpu-throttling', 'memory-pressure',
+        'cpu-pressure', 'memory-pressure',
         'pods-high-cpu-nodes', 'pods-high-mem-nodes',
         'pods-disk-pressure-nodes', 'pods-pid-pressure-nodes',
       ],
+    },
+    {
+      key: 'gateway-latency',
+      displayNameExpr: "'Gateway Latency'",
+      icon: 'Resource',
+      category: 'latency',
+      bindingType: 'azureMonitorWorkspace',
+      resourceIdExpr: 'stamp.amwResourceId',
+      signals: ['gateway-p99-latency'],
     },
   ];
 }
@@ -224,6 +242,7 @@ function registerCoreSignals(reg: SignalRegistry): void {
   reg.register('crashloop', failSigs.crashLoop);
   reg.register('pods-notready-nodes', failSigs.podsOnNotReadyNodes);
   reg.register('deployments-not-ready', failSigs.deploymentsNotReady);
+  reg.register('gateway-error-rate', failSigs.gatewayErrorRate);
   reg.register('fd-5xx', failSigs.fd5xx);
   reg.register('fd-4xx', failSigs.fd4xx);
   reg.register('cosmos-availability', failSigs.cosmosAvailability);
@@ -236,6 +255,7 @@ function registerCoreSignals(reg: SignalRegistry): void {
   reg.register('cpu-pressure', latSigs.cpuPressure);
   reg.register('cpu-throttling', latSigs.cpuThrottling);
   reg.register('memory-pressure', latSigs.memoryPressure);
+  reg.register('gateway-p99-latency', latSigs.gatewayP99Latency);
   reg.register('pods-high-cpu-nodes', latSigs.podsOnHighCpuNodes);
   reg.register('pods-high-mem-nodes', latSigs.podsOnHighMemoryNodes);
   reg.register('pods-disk-pressure-nodes', latSigs.podsOnDiskPressureNodes);

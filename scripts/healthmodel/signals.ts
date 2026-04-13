@@ -122,7 +122,7 @@ export function podsOnHighMemoryNodes(namespace: string): PrometheusSignalDef {
 export function podsOnDiskPressureNodes(namespace: string): PrometheusSignalDef {
   return {
     signalKind: 'PrometheusMetricsQuery',
-    queryText: `count(kube_pod_info{namespace="${namespace}"} * on(node) group_left() kube_node_status_condition{condition="DiskPressure", status="true"}) or vector(0)`,
+    queryText: `count(kube_pod_info{namespace="${namespace}"} * on(node) group_left() (kube_node_status_condition{condition="DiskPressure", status="true"} == 1)) or vector(0)`,
     timeGrain: 'PT1M',
     displayName: 'Pods on DiskPressure Nodes',
     refreshInterval: 'PT1M',
@@ -134,7 +134,7 @@ export function podsOnDiskPressureNodes(namespace: string): PrometheusSignalDef 
 export function podsOnPidPressureNodes(namespace: string): PrometheusSignalDef {
   return {
     signalKind: 'PrometheusMetricsQuery',
-    queryText: `count(kube_pod_info{namespace="${namespace}"} * on(node) group_left() kube_node_status_condition{condition="PIDPressure", status="true"}) or vector(0)`,
+    queryText: `count(kube_pod_info{namespace="${namespace}"} * on(node) group_left() (kube_node_status_condition{condition="PIDPressure", status="true"} == 1)) or vector(0)`,
     timeGrain: 'PT1M',
     displayName: 'Pods on PIDPressure Nodes',
     refreshInterval: 'PT1M',
@@ -146,7 +146,7 @@ export function podsOnPidPressureNodes(namespace: string): PrometheusSignalDef {
 export function podsOnNotReadyNodes(namespace: string): PrometheusSignalDef {
   return {
     signalKind: 'PrometheusMetricsQuery',
-    queryText: `count(kube_pod_info{namespace="${namespace}"} * on(node) group_left() kube_node_status_condition{condition="Ready", status="false"}) or vector(0)`,
+    queryText: `count(kube_pod_info{namespace="${namespace}"} * on(node) group_left() (kube_node_status_condition{condition="Ready", status="false"} == 1)) or vector(0)`,
     timeGrain: 'PT1M',
     displayName: 'Pods on NotReady Nodes',
     refreshInterval: 'PT1M',
@@ -164,6 +164,34 @@ export function deploymentsNotReady(namespace: string): PrometheusSignalDef {
     refreshInterval: 'PT1M',
     dataUnit: 'Count',
     threshold: { direction: 'higher-is-worse', degraded: 0, unhealthy: 0 },
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Istio Service Mesh Signals — Gateway-level HTTP health
+// ═══════════════════════════════════════════════════════════════════
+
+export function gatewayErrorRate(namespace: string): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `(sum(rate(istio_requests_total{destination_workload_namespace="${namespace}", response_code=~"5.."}[5m])) / sum(rate(istio_requests_total{destination_workload_namespace="${namespace}"}[5m])) * 100) or vector(0)`,
+    timeGrain: 'PT1M',
+    displayName: 'Gateway Error Rate (5xx)',
+    refreshInterval: 'PT1M',
+    dataUnit: 'Percent',
+    threshold: { direction: 'higher-is-worse', degraded: 1, unhealthy: 5 },
+  };
+}
+
+export function gatewayP99Latency(namespace: string): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `histogram_quantile(0.99, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload_namespace="${namespace}"}[5m])) by (le)) or vector(0)`,
+    timeGrain: 'PT1M',
+    displayName: 'Gateway P99 Latency',
+    refreshInterval: 'PT1M',
+    dataUnit: 'MilliSeconds',
+    threshold: { direction: 'higher-is-worse', degraded: 500, unhealthy: 2000 },
   };
 }
 
@@ -323,7 +351,7 @@ export function aiAvailability(): AzureResourceSignalDef {
   return {
     signalKind: 'AzureResourceMetric',
     metricNamespace: 'microsoft.cognitiveservices/accounts',
-    metricName: 'Availability',
+    metricName: 'ModelAvailabilityRate',
     timeGrain: 'PT5M',
     aggregationType: 'Average',
     displayName: 'AI Availability',
@@ -347,33 +375,31 @@ export function aiLatency(): AzureResourceSignalDef {
   };
 }
 
-export function aiRequests(): AzureResourceSignalDef {
+export function aiServerErrors(): AzureResourceSignalDef {
   return {
     signalKind: 'AzureResourceMetric',
     metricNamespace: 'microsoft.cognitiveservices/accounts',
-    metricName: 'ModelRequests',
+    metricName: 'ServerErrors',
     timeGrain: 'PT5M',
     aggregationType: 'Total',
-    dimension: 'StatusCode',
-    dimensionFilter: '429',
-    displayName: 'AI Throttled Requests (429)',
+    displayName: 'AI Server Errors',
     refreshInterval: 'PT5M',
     dataUnit: 'Count',
-    threshold: { direction: 'higher-is-worse', degraded: 5, unhealthy: 50 },
+    threshold: { direction: 'higher-is-worse', degraded: 1, unhealthy: 10 },
   };
 }
 
-export function aiTokensPerSecond(): AzureResourceSignalDef {
+export function aiContentBlocked(): AzureResourceSignalDef {
   return {
     signalKind: 'AzureResourceMetric',
     metricNamespace: 'microsoft.cognitiveservices/accounts',
-    metricName: 'AzureOpenAITokenPerSecond',
+    metricName: 'RAIRejectedRequests',
     timeGrain: 'PT5M',
-    aggregationType: 'Average',
-    displayName: 'AI Tokens/sec',
+    aggregationType: 'Total',
+    displayName: 'AI Content Blocked',
     refreshInterval: 'PT5M',
     dataUnit: 'Count',
-    threshold: { direction: 'lower-is-worse', degraded: 10, unhealthy: 1 },
+    threshold: { direction: 'higher-is-worse', degraded: 10, unhealthy: 100 },
   };
 }
 
@@ -556,6 +582,7 @@ export interface FailureSignals {
   oomKilled: PrometheusSignalDef;
   crashLoop: PrometheusSignalDef;
   deploymentsNotReady: PrometheusSignalDef;
+  gatewayErrorRate: PrometheusSignalDef;
   aksFailedPods: AzureResourceSignalDef;
   fd5xx: AzureResourceSignalDef;
   fd4xx: AzureResourceSignalDef;
@@ -568,6 +595,7 @@ export interface LatencySignals {
   cpuPressure: PrometheusSignalDef;
   cpuThrottling: PrometheusSignalDef;
   memoryPressure: PrometheusSignalDef;
+  gatewayP99Latency: PrometheusSignalDef;
   fdTotalLatency: AzureResourceSignalDef;
   cosmosNormalizedRU: AzureResourceSignalDef;
   cosmosThrottled: AzureResourceSignalDef;
@@ -584,6 +612,7 @@ export function buildFailureSignals(namespace: string): FailureSignals {
     oomKilled: oomKilled(namespace),
     crashLoop: crashLoop(namespace),
     deploymentsNotReady: deploymentsNotReady(namespace),
+    gatewayErrorRate: gatewayErrorRate(namespace),
     aksFailedPods: aksFailedPods(),
     fd5xx: fdPercentage5xx(),
     fd4xx: fdRequestCount4xx(),
@@ -599,6 +628,7 @@ export function buildLatencySignals(namespace: string): LatencySignals {
     cpuPressure: cpuPressure(namespace),
     cpuThrottling: cpuThrottling(namespace),
     memoryPressure: memoryPressure(namespace),
+    gatewayP99Latency: gatewayP99Latency(namespace),
     fdTotalLatency: fdTotalLatency(),
     cosmosNormalizedRU: cosmosNormalizedRU(),
     cosmosThrottled: cosmosThrottled(),
