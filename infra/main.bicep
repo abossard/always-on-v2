@@ -102,8 +102,8 @@ param regions array = [
 var defaultStampConfig = {
   aksNodeVmSize: 'Standard_D2s_v5'     // system pool: 2 vCPU / 8 GB (D v5 series)
   aksSystemNodeCount: 1
-  aksAvailabilityZones: []             // no AZ — requires Free tier
-  aksTier: 'Free'
+  aksAvailabilityZones: []
+  aksTier: 'Standard'
 }
 
 // Flatten regions × stamps into a single array for loops
@@ -369,6 +369,7 @@ module wiring 'wiring.bicep' = [
 // DNS Federated Credentials (cert-manager + external-dns per stamp)
 // ============================================================================
 
+@batchSize(1)
 module dnsFederatedCreds 'dns-federated-credentials.bicep' = [
   for (stamp, i) in allStamps: {
     name: 'deploy-dns-fedcred-${stamp.regionKey}-${stamp.stampKey}'
@@ -385,6 +386,7 @@ module dnsFederatedCreds 'dns-federated-credentials.bicep' = [
 // App Federated Credentials (DarkUxChallenge workload identity per stamp)
 // ============================================================================
 
+@batchSize(1)
 module darkUxFederatedCreds 'app-federated-creds.bicep' = [
   for (stamp, i) in allStamps: {
     name: 'deploy-darkux-fedcred-${stamp.regionKey}-${stamp.stampKey}'
@@ -403,6 +405,7 @@ module darkUxFederatedCreds 'app-federated-creds.bicep' = [
 // App Federated Credentials (HelloOrleons workload identity per stamp)
 // ============================================================================
 
+@batchSize(1)
 module helloOrleonsFederatedCreds 'app-federated-creds.bicep' = [
   for (stamp, i) in allStamps: {
     name: 'deploy-helloorleons-fedcred-${stamp.regionKey}-${stamp.stampKey}'
@@ -421,6 +424,7 @@ module helloOrleonsFederatedCreds 'app-federated-creds.bicep' = [
 // App Federated Credentials (HelloAgents workload identity per stamp)
 // ============================================================================
 
+@batchSize(1)
 module helloAgentsFederatedCreds 'app-federated-creds.bicep' = [
   for (stamp, i) in allStamps: {
     name: 'deploy-helloagents-fedcred-${stamp.regionKey}-${stamp.stampKey}'
@@ -439,6 +443,7 @@ module helloAgentsFederatedCreds 'app-federated-creds.bicep' = [
 // App Federated Credentials (GraphOrleons workload identity per stamp)
 // ============================================================================
 
+@batchSize(1)
 module graphOrleonsFederatedCreds 'app-federated-creds.bicep' = [
   for (stamp, i) in allStamps: {
     name: 'deploy-graphorleons-fedcred-${stamp.regionKey}-${stamp.stampKey}'
