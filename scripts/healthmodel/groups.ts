@@ -119,9 +119,10 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
         type: 'azureResource',
         resourceIdExpr: 'eventHubsNamespaceId',
         signals: [
-          signals.eventHubAvailability(),
           signals.eventHubThrottled(),
           signals.eventHubServerErrors(),
+          signals.eventHubCaptureBacklog(),
+          signals.eventHubReplicationLag(),
         ],
       },
     ],

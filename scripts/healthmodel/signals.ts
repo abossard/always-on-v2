@@ -535,13 +535,13 @@ export function eventHubAvailability(): AzureResourceSignalDef {
   return {
     signalKind: 'AzureResourceMetric',
     metricNamespace: 'microsoft.eventhub/namespaces',
-    metricName: 'NamespaceActiveConnections',
+    metricName: 'UserErrors',
     timeGrain: 'PT5M',
-    aggregationType: 'Average',
-    displayName: 'Event Hub Availability',
+    aggregationType: 'Total',
+    displayName: 'Event Hub User Errors',
     refreshInterval: 'PT5M',
     dataUnit: 'Count',
-    threshold: { direction: 'lower-is-worse', degraded: 1, unhealthy: 0 },
+    threshold: { direction: 'higher-is-worse', degraded: 5, unhealthy: 50 },
   };
 }
 
@@ -570,6 +570,34 @@ export function eventHubServerErrors(): AzureResourceSignalDef {
     refreshInterval: 'PT5M',
     dataUnit: 'Count',
     threshold: { direction: 'higher-is-worse', degraded: 1, unhealthy: 10 },
+  };
+}
+
+export function eventHubCaptureBacklog(): AzureResourceSignalDef {
+  return {
+    signalKind: 'AzureResourceMetric',
+    metricNamespace: 'microsoft.eventhub/namespaces',
+    metricName: 'CaptureBacklog',
+    timeGrain: 'PT5M',
+    aggregationType: 'Average',
+    displayName: 'Event Hub Capture Backlog',
+    refreshInterval: 'PT5M',
+    dataUnit: 'Count',
+    threshold: { direction: 'higher-is-worse', degraded: 1000, unhealthy: 10000 },
+  };
+}
+
+export function eventHubReplicationLag(): AzureResourceSignalDef {
+  return {
+    signalKind: 'AzureResourceMetric',
+    metricNamespace: 'microsoft.eventhub/namespaces',
+    metricName: 'ReplicationLagCount',
+    timeGrain: 'PT5M',
+    aggregationType: 'Maximum',
+    displayName: 'Event Hub Geo-Replication Lag',
+    refreshInterval: 'PT5M',
+    dataUnit: 'Count',
+    threshold: { direction: 'higher-is-worse', degraded: 100, unhealthy: 1000 },
   };
 }
 

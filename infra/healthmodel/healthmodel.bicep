@@ -984,32 +984,6 @@ resource def_blobs_blob_errors 'Microsoft.CloudHealth/healthmodels/signaldefinit
 }
 
 #disable-next-line BCP081
-resource def_eventhubs_event_hub_availability 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesEventHubs) {
-  parent: hm
-  name: guid(name, 'def-eventhubs-event-hub-availability')
-  properties: {
-    signalKind: 'AzureResourceMetric'
-    displayName: 'Event Hub Availability'
-    refreshInterval: 'PT5M'
-    dataUnit: 'Count'
-    evaluationRules: {
-      degradedRule: {
-        operator: 'LessThan'
-        threshold: json('1')
-      }
-      unhealthyRule: {
-        operator: 'LessThan'
-        threshold: json('0')
-      }
-    }
-    metricNamespace: 'microsoft.eventhub/namespaces'
-    metricName: 'NamespaceActiveConnections'
-    timeGrain: 'PT5M'
-    aggregationType: 'Average'
-  }
-}
-
-#disable-next-line BCP081
 resource def_eventhubs_event_hub_throttled 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesEventHubs) {
   parent: hm
   name: guid(name, 'def-eventhubs-event-hub-throttled')
@@ -1058,6 +1032,58 @@ resource def_eventhubs_event_hub_server_errors 'Microsoft.CloudHealth/healthmode
     metricName: 'ServerErrors'
     timeGrain: 'PT5M'
     aggregationType: 'Total'
+  }
+}
+
+#disable-next-line BCP081
+resource def_eventhubs_event_hub_capture_backlog 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesEventHubs) {
+  parent: hm
+  name: guid(name, 'def-eventhubs-event-hub-capture-backlog')
+  properties: {
+    signalKind: 'AzureResourceMetric'
+    displayName: 'Event Hub Capture Backlog'
+    refreshInterval: 'PT5M'
+    dataUnit: 'Count'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('1000')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('10000')
+      }
+    }
+    metricNamespace: 'microsoft.eventhub/namespaces'
+    metricName: 'CaptureBacklog'
+    timeGrain: 'PT5M'
+    aggregationType: 'Average'
+  }
+}
+
+#disable-next-line BCP081
+resource def_eventhubs_event_hub_geo_replication_lag 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesEventHubs) {
+  parent: hm
+  name: guid(name, 'def-eventhubs-event-hub-geo-replication-lag')
+  properties: {
+    signalKind: 'AzureResourceMetric'
+    displayName: 'Event Hub Geo-Replication Lag'
+    refreshInterval: 'PT5M'
+    dataUnit: 'Count'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('100')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('1000')
+      }
+    }
+    metricNamespace: 'microsoft.eventhub/namespaces'
+    metricName: 'ReplicationLagCount'
+    timeGrain: 'PT5M'
+    aggregationType: 'Maximum'
   }
 }
 
@@ -1849,12 +1875,6 @@ resource eventhubsEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01
         signals: [
           {
             signalKind: 'AzureResourceMetric'
-            name: guid(name, 'eventhubs-event-hub-availability')
-            signalDefinitionName: def_eventhubs_event_hub_availability.name
-            refreshInterval: 'PT5M'
-          }
-          {
-            signalKind: 'AzureResourceMetric'
             name: guid(name, 'eventhubs-event-hub-throttled')
             signalDefinitionName: def_eventhubs_event_hub_throttled.name
             refreshInterval: 'PT5M'
@@ -1863,6 +1883,18 @@ resource eventhubsEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01
             signalKind: 'AzureResourceMetric'
             name: guid(name, 'eventhubs-event-hub-server-errors')
             signalDefinitionName: def_eventhubs_event_hub_server_errors.name
+            refreshInterval: 'PT5M'
+          }
+          {
+            signalKind: 'AzureResourceMetric'
+            name: guid(name, 'eventhubs-event-hub-capture-backlog')
+            signalDefinitionName: def_eventhubs_event_hub_capture_backlog.name
+            refreshInterval: 'PT5M'
+          }
+          {
+            signalKind: 'AzureResourceMetric'
+            name: guid(name, 'eventhubs-event-hub-geo-replication-lag')
+            signalDefinitionName: def_eventhubs_event_hub_geo_replication_lag.name
             refreshInterval: 'PT5M'
           }
         ]
