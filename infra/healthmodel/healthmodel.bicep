@@ -122,7 +122,7 @@ resource failuresEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-
     icon: {
       iconName: 'SystemComponent'
     }
-    impact: 'Suppressed'
+    impact: 'Standard'
     tags: {}
   }
 }

@@ -543,7 +543,7 @@ export function buildHealthModelBicep(): string {
         displayName: 'Failures',
         canvasPosition: { x: jsonNum(200), y: jsonNum(200) },
         icon: { iconName: 'SystemComponent' },
-        impact: 'Suppressed',
+        impact: 'Standard',
         tags: {},
       },
     },
