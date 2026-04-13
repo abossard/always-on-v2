@@ -43,6 +43,8 @@ if (string.IsNullOrEmpty(cosmosConnectionString))
 
 var cosmosDbName = builder.Configuration["CosmosDb__DatabaseName"] ?? "graphorleans";
 var cosmosClusterContainer = builder.Configuration["CosmosDb__ClusterContainerName"] ?? "graphorleans-cluster";
+var cosmosPubSubContainer = builder.Configuration["CosmosDb__PubSubContainerName"] ?? "graphorleans-pubsub";
+var cosmosGrainStateContainer = builder.Configuration["CosmosDb__GrainStateContainerName"] ?? "graphorleans-grainstate";
 var isEmulator = cosmosConnectionString.Contains("AccountKey=C2y6yDjf5", StringComparison.Ordinal);
 
 // Orleans needs its own CosmosClient — the Aspire DI client uses camelCase JSON
@@ -107,7 +109,7 @@ builder.Host.UseOrleans(silo =>
     silo.AddCosmosGrainStorage("PubSubStore", o =>
     {
         o.DatabaseName = cosmosDbName;
-        o.ContainerName = "graphorleans-pubsub";
+        o.ContainerName = cosmosPubSubContainer;
         o.IsResourceCreationEnabled = true;
         o.ConfigureCosmosClient(_ => new ValueTask<CosmosClient>(orleansCosmosClient));
     });
@@ -115,7 +117,7 @@ builder.Host.UseOrleans(silo =>
     silo.AddCosmosGrainStorage(StreamConstants.GrainStoreName, o =>
     {
         o.DatabaseName = cosmosDbName;
-        o.ContainerName = "graphorleans-grainstate";
+        o.ContainerName = cosmosGrainStateContainer;
         o.IsResourceCreationEnabled = true;
         o.ConfigureCosmosClient(_ => new ValueTask<CosmosClient>(orleansCosmosClient));
     });

@@ -62,6 +62,10 @@ spec:
               value: "0.01"
             - name: CosmosDb__ClusterContainerName
               value: ${GRAPHORLEONS_COSMOS_CONTAINER}-${STAMP_NAME}
+            - name: CosmosDb__PubSubContainerName
+              value: graphorleans-pubsub-${STAMP_NAME}
+            - name: CosmosDb__GrainStateContainerName
+              value: graphorleans-grainstate
             - name: ConnectionStrings__cosmos
               value: "AccountEndpoint=${COSMOS_ENDPOINT}"
             - name: CosmosDb__ModelsContainerName
