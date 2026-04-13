@@ -65,44 +65,19 @@ resource certManagerIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2
   location: location
 }
 
-var dnsZoneContributorRoleId = 'befefa01-2a29-4197-83a8-272ff33ce314'
+var roles = loadJsonContent('roles.json')
 
 resource certManagerDnsRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(childDnsZone.id, certManagerIdentity.id, dnsZoneContributorRoleId)
+  name: guid(childDnsZone.id, certManagerIdentity.id, roles.dnsZoneContributor)
   scope: childDnsZone
   properties: {
     principalId: certManagerIdentity.properties.principalId
     roleDefinitionId: subscriptionResourceId(
       'Microsoft.Authorization/roleDefinitions',
-      dnsZoneContributorRoleId
+      roles.dnsZoneContributor
     )
     principalType: 'ServicePrincipal'
   }
-}
-
-// ============================================================================
-// ADLS Gen2 Storage — Event Hub Capture destination (per-region)
-// ============================================================================
-
-var captureStorageName = replace('stadls${take(baseName, 8)}${take(regionKey, 8)}', '-', '')
-var captureStorageNameSafe = length(captureStorageName) > 24 ? substring(captureStorageName, 0, 24) : captureStorageName
-
-resource captureStorage 'Microsoft.Storage/storageAccounts@2025-01-01' = {
-  name: captureStorageNameSafe
-  location: location
-  kind: 'StorageV2'
-  sku: { name: 'Standard_RAGZRS' }
-  properties: {
-    accessTier: 'Hot'
-    allowBlobPublicAccess: false
-    minimumTlsVersion: 'TLS1_2'
-    supportsHttpsTrafficOnly: true
-  }
-}
-
-resource captureContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2025-01-01' = {
-  name: '${captureStorage.name}/default/graph-events-archive'
-  properties: {}
 }
 
 // ============================================================================
@@ -115,5 +90,3 @@ output childDnsZoneName string = childDnsZone.name
 output childDnsNameServers array = childDnsZone.properties.nameServers
 output certManagerIdentityClientId string = certManagerIdentity.properties.clientId
 output certManagerIdentityId string = certManagerIdentity.id
-output captureStorageId string = captureStorage.id
-output captureStorageName string = captureStorage.name

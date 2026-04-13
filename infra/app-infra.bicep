@@ -31,6 +31,11 @@ param appInsightsId string
 @description('Cosmos container definitions. Each entry: { name, partitionKeyPaths, partitionKeyKind?, indexingPolicy? }')
 param containers array
 
+@description('Optional: Event Hubs namespace name for Data Sender RBAC.')
+param eventHubsNamespaceName string = ''
+
+var roles = loadJsonContent('roles.json')
+
 // ============================================================================
 // Managed Identity
 // ============================================================================
@@ -57,14 +62,12 @@ resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2025
 // Cosmos DB RBAC — Data Contributor on the shared database
 // ============================================================================
 
-var cosmosDataContributorRoleId = '00000000-0000-0000-0000-000000000002'
-
 resource cosmosRbac 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2025-04-15' = {
   parent: cosmosAccount
-  name: guid(cosmosAccount.id, appIdentity.id, cosmosDataContributorRoleId)
+  name: guid(cosmosAccount.id, appIdentity.id, roles.cosmosDataContributor)
   properties: {
     principalId: appIdentity.properties.principalId
-    roleDefinitionId: '${cosmosAccount.id}/sqlRoleDefinitions/${cosmosDataContributorRoleId}'
+    roleDefinitionId: '${cosmosAccount.id}/sqlRoleDefinitions/${roles.cosmosDataContributor}'
     scope: '${cosmosAccount.id}/dbs/${cosmosDatabaseName}'
   }
 }
@@ -73,15 +76,13 @@ resource cosmosRbac 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@20
 // Application Insights RBAC — Monitoring Metrics Publisher
 // ============================================================================
 
-var monitoringMetricsPublisherRoleId = '3913510d-42f4-4e42-8a64-420c390055eb'
-
 resource appInsightsRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(appInsightsId, appIdentity.id, monitoringMetricsPublisherRoleId)
+  name: guid(appInsightsId, appIdentity.id, roles.monitoringMetricsPublisher)
   properties: {
     principalId: appIdentity.properties.principalId
     roleDefinitionId: subscriptionResourceId(
       'Microsoft.Authorization/roleDefinitions',
-      monitoringMetricsPublisherRoleId
+      roles.monitoringMetricsPublisher
     )
     principalType: 'ServicePrincipal'
   }
@@ -111,6 +112,27 @@ resource cosmosContainers 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/co
     }
   }
 ]
+
+// ============================================================================
+// Event Hubs RBAC — Data Sender (optional, only when eventHubsNamespaceName is set)
+// ============================================================================
+
+resource ehNamespace 'Microsoft.EventHub/namespaces@2025-05-01-preview' existing = if (!empty(eventHubsNamespaceName)) {
+  name: eventHubsNamespaceName
+}
+
+resource ehSenderRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(eventHubsNamespaceName)) {
+  name: guid(ehNamespace.id, appIdentity.id, roles.eventHubsDataSender)
+  scope: ehNamespace
+  properties: {
+    principalId: appIdentity.properties.principalId
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      roles.eventHubsDataSender
+    )
+    principalType: 'ServicePrincipal'
+  }
+}
 
 // ============================================================================
 // Outputs

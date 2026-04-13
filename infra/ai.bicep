@@ -220,18 +220,17 @@ resource aiProject 'Microsoft.MachineLearningServices/workspaces@2025-01-01-prev
 // RBAC: Cognitive Services OpenAI User for app identities
 // ============================================================================
 
-// Built-in role: Cognitive Services OpenAI User
-var cognitiveServicesOpenAIUserRoleId = '5e0bd9bd-7b93-4f28-af87-19fc36ad61bd'
+var roles = loadJsonContent('roles.json')
 
 resource appAiRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = [
   for (principalId, i) in appIdentityPrincipalIds: {
-    name: guid(aiServices.id, principalId, cognitiveServicesOpenAIUserRoleId)
+    name: guid(aiServices.id, principalId, roles.cognitiveServicesOpenAIUser)
     scope: aiServices
     properties: {
       principalId: principalId
       roleDefinitionId: subscriptionResourceId(
         'Microsoft.Authorization/roleDefinitions',
-        cognitiveServicesOpenAIUserRoleId
+        roles.cognitiveServicesOpenAIUser
       )
       principalType: 'ServicePrincipal'
     }

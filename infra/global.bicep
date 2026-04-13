@@ -1,7 +1,7 @@
 // ============================================================================
 // Global Resources — deployed into the global resource group
 // ============================================================================
-
+@minLength(3)
 @description('Base name for all resources.')
 param baseName string
 
@@ -334,6 +334,110 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
 }
 
 // ============================================================================
+// Event Hubs — Premium namespace with geo-data-replication + Capture
+// ============================================================================
+
+var ehCaptureStorageName = replace('stadlseh${take(baseName, 12)}', '-', '')
+var ehCaptureStorageNameSafe = length(ehCaptureStorageName) > 24
+  ? substring(ehCaptureStorageName, 0, 24)
+  : ehCaptureStorageName
+
+resource ehCaptureStorage 'Microsoft.Storage/storageAccounts@2025-01-01' = {
+  name: ehCaptureStorageNameSafe
+  location: location
+  kind: 'StorageV2'
+  sku: { name: 'Standard_RAGZRS' }
+  properties: {
+    accessTier: 'Hot'
+    allowBlobPublicAccess: false
+    minimumTlsVersion: 'TLS1_2'
+    supportsHttpsTrafficOnly: true
+  }
+}
+
+resource ehCaptureContainer 'Microsoft.Storage/storageAccounts/blobServices/containers@2025-01-01' = {
+  name: '${ehCaptureStorage.name}/default/graph-events-archive'
+  properties: {}
+}
+
+var ehNamespaceName = 'eh-${baseName}'
+
+var ehPrimaryLocation = {
+  locationName: location
+  roleType: 'Primary'
+}
+var ehReplicationLocations = concat([ehPrimaryLocation], map(regions, r => {
+  locationName: r.location
+  roleType: r.location == location ? 'Primary' : 'Secondary'
+}))
+// Filter to unique locations (primary is already in the array; skip duplicates from regions)
+var ehReplicationLocationsDeduped = filter(ehReplicationLocations, (loc, i) =>
+  indexOf(map(ehReplicationLocations, l => l.locationName), loc.locationName) == i
+)
+
+resource ehNamespace 'Microsoft.EventHub/namespaces@2025-05-01-preview' = {
+  name: ehNamespaceName
+  location: location
+  sku: {
+    name: 'Premium'
+    tier: 'Premium'
+    capacity: 1
+  }
+  identity: {
+    type: 'SystemAssigned'
+  }
+  properties: {
+    geoDataReplication: {
+      locations: ehReplicationLocationsDeduped
+      maxReplicationLagDurationInSeconds: 0
+    }
+    disableLocalAuth: true
+    minimumTlsVersion: '1.2'
+    publicNetworkAccess: 'Enabled'
+  }
+}
+
+resource graphEventsHub 'Microsoft.EventHub/namespaces/eventhubs@2025-05-01-preview' = {
+  parent: ehNamespace
+  name: 'graph-events'
+  properties: {
+    partitionCount: 4
+    messageRetentionInDays: 7
+    captureDescription: {
+      enabled: true
+      encoding: 'Avro'
+      intervalInSeconds: 300
+      sizeLimitInBytes: 314572800
+      skipEmptyArchives: true
+      destination: {
+        name: 'EventHubArchive.AzureBlockBlob'
+        properties: {
+          storageAccountResourceId: ehCaptureStorage.id
+          blobContainer: 'graph-events-archive'
+          archiveNameFormat: '{Namespace}/{EventHub}/{PartitionId}/{Year}/{Month}/{Day}/{Hour}/{Minute}/{Second}'
+        }
+      }
+    }
+  }
+}
+
+// RBAC — Storage Blob Data Contributor for Capture (EH system identity → storage)
+var roles = loadJsonContent('roles.json')
+
+resource ehCaptureStorageRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(ehCaptureStorage.id, ehNamespace.id, roles.storageBlobDataContributor)
+  scope: ehCaptureStorage
+  properties: {
+    principalId: ehNamespace.identity.principalId
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      roles.storageBlobDataContributor
+    )
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// ============================================================================
 // Outputs
 // ============================================================================
 
@@ -345,12 +449,12 @@ output cosmosName string = cosmos.name
 output cosmosEndpoint string = cosmos.properties.documentEndpoint
 output frontDoorId string = frontDoor.id
 output fdEndpointHostName string = fdEndpoint.properties.hostName
-output loadTestId string = loadTest.id
-output dnsZoneId string = dnsZone.id
-output dnsZoneName string = dnsZone.name
 output dnsNameServers array = dnsZone.properties.nameServers
 output appInsightsConnectionString string = appInsights.properties.ConnectionString
 output appInsightsId string = appInsights.id
 output healthModelIdentityId string = healthModelIdentity.id
 output healthModelIdentityPrincipalId string = healthModelIdentity.properties.principalId
 output cosmosDatabaseName string = cosmosDatabase.name
+output eventHubsNamespaceName string = ehNamespace.name
+output eventHubsNamespaceId string = ehNamespace.id
+output graphEventsConnectionString string = '${split(split(ehNamespace.properties.serviceBusEndpoint, '//')[1], ':')[0]};EntityPath=${graphEventsHub.name}'

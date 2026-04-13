@@ -96,16 +96,16 @@ resource kubeletIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-
   location: location
 }
 
-var managedIdentityOperatorRoleId = 'f1a07417-d97a-45cb-824c-7a7467783830'
+var roles = loadJsonContent('roles.json')
 
 resource clusterToKubeletRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(kubeletIdentity.id, clusterIdentity.id, managedIdentityOperatorRoleId)
+  name: guid(kubeletIdentity.id, clusterIdentity.id, roles.managedIdentityOperator)
   scope: kubeletIdentity
   properties: {
     principalId: clusterIdentity.properties.principalId
     roleDefinitionId: subscriptionResourceId(
       'Microsoft.Authorization/roleDefinitions',
-      managedIdentityOperatorRoleId
+      roles.managedIdentityOperator
     )
     principalType: 'ServicePrincipal'
   }
@@ -149,8 +149,7 @@ resource prometheusDcr 'Microsoft.Insights/dataCollectionRules@2023-03-11' = {
 // AKS Managed Cluster
 // ============================================================================
 
-#disable-next-line BCP081
-resource aksCluster 'Microsoft.ContainerService/managedClusters@2025-10-01' = {
+resource aksCluster 'Microsoft.ContainerService/managedClusters@2026-01-01' = {
   name: 'aks-${baseName}-${stampName}'
   location: location
   identity: {
@@ -266,17 +265,15 @@ resource prometheusDcra 'Microsoft.Insights/dataCollectionRuleAssociations@2022-
 // Dev Permissions — AKS Cluster Admin (scoped to this cluster)
 // ============================================================================
 
-var aksClusterAdminRoleId = 'b1ff04bb-8a4e-4dc4-8eb5-8693973ce19b'
-
 resource aksClusterAdminRoleAssignment 'Microsoft.Authorization/roleAssignments@2022-04-01' = [
   for (identity, i) in devIdentities: {
-    name: guid(aksCluster.id, identity, aksClusterAdminRoleId)
+    name: guid(aksCluster.id, identity, roles.aksClusterAdmin)
     scope: aksCluster
     properties: {
       principalId: identity
       roleDefinitionId: subscriptionResourceId(
         'Microsoft.Authorization/roleDefinitions',
-        aksClusterAdminRoleId
+        roles.aksClusterAdmin
       )
       principalType: 'User'
     }
@@ -364,17 +361,17 @@ resource helloAgentsStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
 }
 
 // RBAC — Storage Queue Data Contributor for HelloAgents identity
-var storageQueueDataContributorRoleId = '974c5e8b-45b9-4653-ba55-5f855dd0fb88'
+
 var helloAgentsIdentityId = length(appFluxVars) > 2 && appFluxVars[2].name == 'helloagents' ? appFluxVars[2].identityId : ''
 
 resource helloAgentsStorageQueueRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(helloAgentsIdentityId)) {
-  name: guid(helloAgentsStorage.id, helloAgentsIdentityId, storageQueueDataContributorRoleId)
+  name: guid(helloAgentsStorage.id, helloAgentsIdentityId, roles.storageQueueDataContributor)
   scope: helloAgentsStorage
   properties: {
     principalId: length(appFluxVars) > 2 ? appFluxVars[2].identityPrincipalId : ''
     roleDefinitionId: subscriptionResourceId(
       'Microsoft.Authorization/roleDefinitions',
-      storageQueueDataContributorRoleId
+      roles.storageQueueDataContributor
     )
     principalType: 'ServicePrincipal'
   }

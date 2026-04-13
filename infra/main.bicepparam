@@ -9,14 +9,6 @@ var normalStamp = {
   aksIngressType: 'External'           // public LB — reachable from Standard Front Door
 }
 
-var productionStamp = {
-  aksNodeVmSize: 'Standard_D4s_v5'     // 4 vCPU / 16 GB
-  aksSystemNodeCount: 3
-  aksAvailabilityZones: ['1', '2', '3']
-  aksTier: 'Standard'
-  aksIngressType: 'Internal'           // private LB — Premium Front Door via Private Link
-}
-
 // ── Environment configurations ────────────────────────────────────────────────
 var dev = {
   acrSku: 'Basic'
@@ -32,46 +24,21 @@ var dev = {
       ]
     }
     {
-      key: 'eastus'
-      location: 'eastus'
+      key: 'centralus'
+      location: 'centralus'
       stampDefaults: normalStamp
       stamps: [
         { key: '001' }
       ]
     }
-    {
-      key: 'southeastasia'
-      location: 'southeastasia'
-      stampDefaults: normalStamp
-      stamps: [
-        { key: '001' }
-      ]
-    }
-  ]
-}
-
-var prod = {
-  acrSku: 'Premium'                    // geo-replication across regions
-  frontDoorSku: 'Premium_AzureFrontDoor'
-  cosmosAutoscaleMaxThroughput: 4000
-  regions: [
-    {
-      key: 'swedencentral'
-      location: 'swedencentral'
-      stampDefaults: productionStamp
-      stamps: [
-        { key: '001' }
-        { key: '002' }
-      ]
-    }
-    {
-      key: 'germanywestcentral'
-      location: 'germanywestcentral'
-      stampDefaults: productionStamp
-      stamps: [
-        { key: '001' }
-      ]
-    }
+    // {
+    //   key: 'southeastasia'
+    //   location: 'southeastasia'
+    //   stampDefaults: normalStamp
+    //   stamps: [
+    //     { key: '001' }
+    //   ]
+    // }
   ]
 }
 

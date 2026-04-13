@@ -26,16 +26,16 @@ resource acr 'Microsoft.ContainerRegistry/registries@2025-11-01' existing = {
   name: acrName
 }
 
-var acrPullRoleId = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
+var roles = loadJsonContent('roles.json')
 
 resource acrPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(acr.id, kubeletPrincipalId, acrPullRoleId)
+  name: guid(acr.id, kubeletPrincipalId, roles.acrPull)
   scope: acr
   properties: {
     principalId: kubeletPrincipalId
     roleDefinitionId: subscriptionResourceId(
       'Microsoft.Authorization/roleDefinitions',
-      acrPullRoleId
+      roles.acrPull
     )
     principalType: 'ServicePrincipal'
   }

@@ -39,11 +39,7 @@ resource aiServices 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' ex
 // Role definitions
 // ============================================================================
 
-// Cosmos DB Built-in Data Contributor
-var cosmosDataContributorRoleId = '00000000-0000-0000-0000-000000000002'
-
-// AcrPush (push + pull)
-var acrPushRoleId = '8311e382-0749-4cb8-b61a-304f252e45ec'
+var roles = loadJsonContent('roles.json')
 
 // ============================================================================
 // AKS RBAC Cluster Admin — assigned at resource group scope
@@ -61,10 +57,10 @@ var acrPushRoleId = '8311e382-0749-4cb8-b61a-304f252e45ec'
 
 resource cosmosDataContributor 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2025-04-15' = {
   parent: cosmos
-  name: guid(cosmos.id, principalId, cosmosDataContributorRoleId)
+  name: guid(cosmos.id, principalId, roles.cosmosDataContributor)
   properties: {
     principalId: principalId
-    roleDefinitionId: '${cosmos.id}/sqlRoleDefinitions/${cosmosDataContributorRoleId}'
+    roleDefinitionId: '${cosmos.id}/sqlRoleDefinitions/${roles.cosmosDataContributor}'
     scope: cosmos.id
   }
 }
@@ -74,13 +70,13 @@ resource cosmosDataContributor 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAss
 // ============================================================================
 
 resource acrPush 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(acr.id, principalId, acrPushRoleId)
+  name: guid(acr.id, principalId, roles.acrPush)
   scope: acr
   properties: {
     principalId: principalId
     roleDefinitionId: subscriptionResourceId(
       'Microsoft.Authorization/roleDefinitions',
-      acrPushRoleId
+      roles.acrPush
     )
     principalType: 'User'
   }
@@ -90,16 +86,14 @@ resource acrPush 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
 // Cognitive Services OpenAI Contributor (dev access to playground & models)
 // ============================================================================
 
-var cognitiveServicesOpenAIContributorRoleId = 'a001fd3d-188f-4b5d-821b-7da978bf7442'
-
 resource aiOpenAIContributor 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(aiServicesAccountName)) {
-  name: guid(aiServices.id, principalId, cognitiveServicesOpenAIContributorRoleId)
+  name: guid(aiServices.id, principalId, roles.cognitiveServicesOpenAIContributor)
   scope: aiServices
   properties: {
     principalId: principalId
     roleDefinitionId: subscriptionResourceId(
       'Microsoft.Authorization/roleDefinitions',
-      cognitiveServicesOpenAIContributorRoleId
+      roles.cognitiveServicesOpenAIContributor
     )
     principalType: 'User'
   }
