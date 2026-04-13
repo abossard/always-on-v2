@@ -197,10 +197,7 @@ var appContainers = [
         automatic: true
         indexingMode: 'consistent'
         includedPaths: [
-          { path: '/type/?' }
-          { path: '/tenantId/?' }
-          { path: '/modelId/?' }
-          { path: '/generation/?' }
+          { path: '/*' }
         ]
         excludedPaths: [
           { path: '/nodes/*' }
