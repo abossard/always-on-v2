@@ -24,6 +24,11 @@ param regions array
 @allowed(['Premium_AzureFrontDoor', 'Standard_AzureFrontDoor'])
 param frontDoorSku string = 'Premium_AzureFrontDoor'
 
+// ACR geo-replication requires Premium SKU and subscription-level support.
+// Set to false if your subscription does not support ACR replication.
+@description('Enable ACR geo-replication to stamp regions.')
+param enableAcrReplication bool = false
+
 // ============================================================================
 // User-Assigned Managed Identities (one per global service)
 // ============================================================================
@@ -78,7 +83,7 @@ resource acr 'Microsoft.ContainerRegistry/registries@2025-11-01' = {
 }
 
 resource acrReplications 'Microsoft.ContainerRegistry/registries/replications@2025-11-01' = [
-  for region in regions: if (region.location != location) {
+  for region in regions: if (enableAcrReplication && region.location != location) {
     parent: acr
     name: region.location
     location: region.location
@@ -112,7 +117,7 @@ resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2025-04-15' = {
       for (region, i) in regions: {
         locationName: region.location
         failoverPriority: i
-        isZoneRedundant: true
+        isZoneRedundant: false
       }
     ]
     consistencyPolicy: {
