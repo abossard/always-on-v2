@@ -59,8 +59,10 @@ resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2025
 }
 
 // ============================================================================
-// Cosmos DB RBAC — Data Contributor on the shared database
+// Cosmos DB RBAC — Data Contributor at account scope
 // ============================================================================
+// Account scope is required because Orleans and Aspire call readMetadata
+// at the account level (e.g. CreateDatabaseIfNotExistsAsync).
 
 resource cosmosRbac 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2025-04-15' = {
   parent: cosmosAccount
@@ -68,7 +70,7 @@ resource cosmosRbac 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@20
   properties: {
     principalId: appIdentity.properties.principalId
     roleDefinitionId: '${cosmosAccount.id}/sqlRoleDefinitions/${roles.cosmosDataContributor}'
-    scope: '${cosmosAccount.id}/dbs/${cosmosDatabaseName}'
+    scope: cosmosAccount.id
   }
 }
 
