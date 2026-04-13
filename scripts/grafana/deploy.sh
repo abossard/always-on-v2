@@ -1,54 +1,36 @@
 #!/usr/bin/env bash
-# Deploy Grafana dashboards to Azure Managed Grafana via az CLI.
-# Usage: ./deploy.sh <grafana-name> [resource-group]
+# Regenerate and validate Grafana dashboard JSONs for Azure Monitor.
+#
+# Import via Azure Portal:
+#   Azure Portal → Monitor → Dashboards with Grafana → New → Import
+#   Select the JSON files from docs/grafana/*.json
+#
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DASHBOARD_DIR="${SCRIPT_DIR}/../../docs/grafana"
-FOLDER_TITLE="Always-On"
 
-GRAFANA_NAME="${1:?Usage: $0 <grafana-name> [resource-group]}"
-RG_ARGS=""
-if [[ -n "${2:-}" ]]; then
-  RG_ARGS="--resource-group $2"
-fi
+echo "🔄 Regenerating dashboards..."
+cd "$SCRIPT_DIR"
+npx ts-node generate.ts
 
-# Fail early if no dashboard files exist
+# Validate generated files
 shopt -s nullglob
 DASHBOARDS=("${DASHBOARD_DIR}"/*-dashboard.json)
 shopt -u nullglob
 if [[ ${#DASHBOARDS[@]} -eq 0 ]]; then
-  echo "❌ No *-dashboard.json files found in ${DASHBOARD_DIR}" >&2
-  echo "   Run 'npx ts-node generate.ts' in scripts/grafana/ first." >&2
+  echo "❌ No *-dashboard.json files generated" >&2
   exit 1
 fi
 
-echo "📊 Deploying ${#DASHBOARDS[@]} dashboards to Grafana: ${GRAFANA_NAME}"
-
-# Create or find the folder
-FOLDER_UID=$(az grafana folder list --name "$GRAFANA_NAME" $RG_ARGS \
-  --query "[?title=='${FOLDER_TITLE}'].uid | [0]" -o tsv)
-
-if [[ -z "$FOLDER_UID" ]]; then
-  echo "📁 Creating folder: ${FOLDER_TITLE}"
-  FOLDER_UID=$(az grafana folder create --name "$GRAFANA_NAME" $RG_ARGS \
-    --title "$FOLDER_TITLE" --query "uid" -o tsv)
-fi
-
-echo "📁 Using folder: ${FOLDER_TITLE} (uid: ${FOLDER_UID})"
-
-# Import each dashboard
-for DASHBOARD_FILE in "${DASHBOARDS[@]}"; do
-  BASENAME=$(basename "$DASHBOARD_FILE")
-  echo "  ⬆️  Importing ${BASENAME}..."
-  az grafana dashboard create \
-    --name "$GRAFANA_NAME" $RG_ARGS \
-    --definition "@${DASHBOARD_FILE}" \
-    --folder "$FOLDER_UID" \
-    --overwrite \
-    --output none
-  echo "  ✅ ${BASENAME}"
+echo ""
+echo "✅ Generated ${#DASHBOARDS[@]} dashboards:"
+for f in "${DASHBOARDS[@]}"; do
+  DASH_UID=$(python3 -c "import json; print(json.load(open('$f'))['uid'])")
+  DASH_TITLE=$(python3 -c "import json; print(json.load(open('$f'))['title'])")
+  echo "  📊 ${DASH_TITLE} (uid: ${DASH_UID}) — $(basename "$f")"
 done
 
 echo ""
-echo "🎉 All dashboards deployed to ${GRAFANA_NAME}/${FOLDER_TITLE}"
+echo "Import via Azure Portal:"
+echo "  Azure Portal → Monitor → Dashboards with Grafana → New → Import"

@@ -119,6 +119,41 @@ export interface LogAnalyticsSignalDef extends BaseSignal {
 
 export type SignalDef = AzureResourceSignalDef | PrometheusSignalDef | LogAnalyticsSignalDef;
 
+// ─── Signal Registry Types ──────────────────────────────────────────
+
+/** Whether a signal definition is created once per model or once per stamp. */
+export type SignalScope = 'model' | 'perStamp';
+
+/** A signal registered in the definition registry with an explicit scope. */
+export interface RegisteredSignal {
+  /** Stable key used in GUIDs and Bicep symbolic names. */
+  readonly key: string;
+  /** The signal definition data. */
+  readonly signal: SignalDef;
+  /** 'model' = one def shared across stamps, 'perStamp' = one def per stamp. */
+  readonly scope: SignalScope;
+  /** Optional Bicep condition expression (e.g. 'usesQueues'). */
+  readonly condition?: string;
+}
+
+/** Declares a per-stamp entity type as data for the compiler to emit. */
+export interface StampEntitySpec {
+  /** Stable key (used in GUIDs, Bicep names). Never derived from displayName. */
+  readonly key: string;
+  /** Bicep expression for display name (e.g. "'AKS Failures'" or "'${stamp.key} — AKS'"). */
+  readonly displayNameExpr: string;
+  /** Icon name for the entity. */
+  readonly icon: string;
+  /** Which category this entity belongs under. */
+  readonly category: 'failures' | 'latency';
+  /** Signal group binding type. */
+  readonly bindingType: 'azureResource' | 'azureMonitorWorkspace';
+  /** Bicep expression for the resource/workspace ID. */
+  readonly resourceIdExpr: string;
+  /** Keys referencing RegisteredSignal entries. */
+  readonly signals: readonly string[];
+}
+
 // ─── Entity ─────────────────────────────────────────────────────────
 
 export interface EntityCoordinates {
