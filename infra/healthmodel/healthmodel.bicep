@@ -267,11 +267,263 @@ resource rel_latencyStampGroup 'Microsoft.CloudHealth/healthmodels/relationships
   }
 ]
 
+// ─── Per-Stamp Failure Signal Definitions ────────────────────────────
+
+// All signals are extracted to standalone signaldefinitions for discoverability and reuse.
+
+#disable-next-line BCP081
+resource defAksFailedPods 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = [
+  for (stamp, i) in stamps: {
+    parent: hm
+    name: guid(name, stamp.key, 'def-failed-pods')
+    properties: {
+      signalKind: 'AzureResourceMetric'
+      displayName: 'Failed Pods'
+      refreshInterval: 'PT1M'
+      dataUnit: 'Count'
+      evaluationRules: {
+        degradedRule: {
+          operator: 'GreaterThan'
+          threshold: json('0')
+        }
+        unhealthyRule: {
+          operator: 'GreaterThan'
+          threshold: json('3')
+        }
+      }
+      metricNamespace: 'microsoft.containerservice/managedclusters'
+      metricName: 'kube_pod_status_phase'
+      timeGrain: 'PT5M'
+      aggregationType: 'Average'
+      dimension: 'phase'
+      dimensionFilter: 'Failed'
+    }
+  }
+]
+
+#disable-next-line BCP081
+resource defPodRestarts 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = [
+  for (stamp, i) in stamps: {
+    parent: hm
+    name: guid(name, stamp.key, 'def-pod-restarts')
+    properties: {
+      signalKind: 'PrometheusMetricsQuery'
+      displayName: 'Pod Restarts'
+      refreshInterval: 'PT1M'
+      dataUnit: 'Count'
+      evaluationRules: {
+        degradedRule: {
+          operator: 'GreaterThan'
+          threshold: json('2')
+        }
+        unhealthyRule: {
+          operator: 'GreaterThan'
+          threshold: json('5')
+        }
+      }
+      queryText: 'sum(increase(kube_pod_container_status_restarts_total{namespace="${namespace}"}[1h]))'
+      timeGrain: 'PT1M'
+    }
+  }
+]
+
+#disable-next-line BCP081
+resource defOomKilled 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = [
+  for (stamp, i) in stamps: {
+    parent: hm
+    name: guid(name, stamp.key, 'def-oomkilled')
+    properties: {
+      signalKind: 'PrometheusMetricsQuery'
+      displayName: 'OOMKilled'
+      refreshInterval: 'PT1M'
+      dataUnit: 'Count'
+      evaluationRules: {
+        degradedRule: {
+          operator: 'GreaterThan'
+          threshold: json('0')
+        }
+        unhealthyRule: {
+          operator: 'GreaterThan'
+          threshold: json('2')
+        }
+      }
+      queryText: 'sum(kube_pod_container_status_last_terminated_reason{namespace="${namespace}", reason="OOMKilled"}) or vector(0)'
+      timeGrain: 'PT1M'
+    }
+  }
+]
+
+#disable-next-line BCP081
+resource defCrashLoop 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = [
+  for (stamp, i) in stamps: {
+    parent: hm
+    name: guid(name, stamp.key, 'def-crashloop')
+    properties: {
+      signalKind: 'PrometheusMetricsQuery'
+      displayName: 'CrashLoopBackOff'
+      refreshInterval: 'PT1M'
+      dataUnit: 'Count'
+      evaluationRules: {
+        degradedRule: {
+          operator: 'GreaterThan'
+          threshold: json('0')
+        }
+        unhealthyRule: {
+          operator: 'GreaterThan'
+          threshold: json('1')
+        }
+      }
+      queryText: 'sum(kube_pod_container_status_waiting_reason{namespace="${namespace}", reason="CrashLoopBackOff"}) or vector(0)'
+      timeGrain: 'PT1M'
+    }
+  }
+]
+
+#disable-next-line BCP081
+resource defPodsNotReadyNodes 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = [
+  for (stamp, i) in stamps: {
+    parent: hm
+    name: guid(name, stamp.key, 'def-pods-notready-nodes')
+    properties: {
+      signalKind: 'PrometheusMetricsQuery'
+      displayName: 'Pods on NotReady Nodes'
+      refreshInterval: 'PT1M'
+      dataUnit: 'Count'
+      evaluationRules: {
+        degradedRule: {
+          operator: 'GreaterThan'
+          threshold: json('1')
+        }
+        unhealthyRule: {
+          operator: 'GreaterThan'
+          threshold: json('1')
+        }
+      }
+      queryText: 'count(kube_pod_info{namespace="${namespace}"} * on(node) group_left() kube_node_status_condition{condition="Ready", status="false"}) or vector(0)'
+      timeGrain: 'PT1M'
+    }
+  }
+]
+
+#disable-next-line BCP081
+resource defFd5xx 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = [
+  for (stamp, i) in stamps: {
+    parent: hm
+    name: guid(name, stamp.key, 'def-fd-5xx')
+    properties: {
+      signalKind: 'AzureResourceMetric'
+      displayName: 'FD 5XX'
+      refreshInterval: 'PT1M'
+      dataUnit: 'Percent'
+      evaluationRules: {
+        degradedRule: {
+          operator: 'GreaterThan'
+          threshold: json('5')
+        }
+        unhealthyRule: {
+          operator: 'GreaterThan'
+          threshold: json('10')
+        }
+      }
+      metricNamespace: 'microsoft.cdn/profiles'
+      metricName: 'Percentage5XX'
+      timeGrain: 'PT5M'
+      aggregationType: 'Average'
+    }
+  }
+]
+
+#disable-next-line BCP081
+resource defFd4xx 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = [
+  for (stamp, i) in stamps: {
+    parent: hm
+    name: guid(name, stamp.key, 'def-fd-4xx')
+    properties: {
+      signalKind: 'AzureResourceMetric'
+      displayName: 'FD 4XX'
+      refreshInterval: 'PT1M'
+      dataUnit: 'Count'
+      evaluationRules: {
+        degradedRule: {
+          operator: 'GreaterThan'
+          threshold: json('10')
+        }
+        unhealthyRule: {
+          operator: 'GreaterThan'
+          threshold: json('50')
+        }
+      }
+      metricNamespace: 'microsoft.cdn/profiles'
+      metricName: 'RequestCount'
+      timeGrain: 'PT1M'
+      aggregationType: 'Total'
+      dimension: 'HttpStatusGroup'
+      dimensionFilter: '4XX'
+    }
+  }
+]
+
+#disable-next-line BCP081
+resource defCosmosAvailability 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = [
+  for (stamp, i) in stamps: {
+    parent: hm
+    name: guid(name, stamp.key, 'def-cosmos-availability')
+    properties: {
+      signalKind: 'AzureResourceMetric'
+      displayName: 'Cosmos Availability'
+      refreshInterval: 'PT1M'
+      dataUnit: 'Percent'
+      evaluationRules: {
+        degradedRule: {
+          operator: 'LessThan'
+          threshold: json('100')
+        }
+        unhealthyRule: {
+          operator: 'LessThan'
+          threshold: json('95')
+        }
+      }
+      metricNamespace: 'microsoft.documentdb/databaseaccounts'
+      metricName: 'ServiceAvailability'
+      timeGrain: 'PT1H'
+      aggregationType: 'Average'
+    }
+  }
+]
+
+#disable-next-line BCP081
+resource defCosmosClientErrors 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = [
+  for (stamp, i) in stamps: {
+    parent: hm
+    name: guid(name, stamp.key, 'def-cosmos-client-errors')
+    properties: {
+      signalKind: 'AzureResourceMetric'
+      displayName: 'Cosmos Client Errors'
+      refreshInterval: 'PT1M'
+      dataUnit: 'Count'
+      evaluationRules: {
+        degradedRule: {
+          operator: 'GreaterThan'
+          threshold: json('10')
+        }
+        unhealthyRule: {
+          operator: 'GreaterThan'
+          threshold: json('100')
+        }
+      }
+      metricNamespace: 'microsoft.documentdb/databaseaccounts'
+      metricName: 'TotalRequests'
+      timeGrain: 'PT1M'
+      aggregationType: 'Count'
+      dimension: 'Status'
+      dimensionFilter: 'ClientOtherError'
+    }
+  }
+]
+
 // ─── Per-Stamp Failure Entities ──────────────────────────────────────
 
-// Split by resource type: AKS, Prometheus, FrontDoor, Cosmos.
-
-// Each entity has at most one azureResource + one azureMonitorWorkspace group.
+// Each entity references signal definitions instead of inline signals.
 
 #disable-next-line BCP081
 resource stampAksFailures 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = [
@@ -296,26 +548,9 @@ resource stampAksFailures 'Microsoft.CloudHealth/healthmodels/entities@2026-01-0
           signals: [
             {
               signalKind: 'AzureResourceMetric'
-              displayName: 'Failed Pods'
-              refreshInterval: 'PT1M'
-              dataUnit: 'Count'
               name: guid(name, stamp.key, 'failed-pods')
-              evaluationRules: {
-                degradedRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('0')
-                }
-                unhealthyRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('3')
-                }
-              }
-              metricNamespace: 'microsoft.containerservice/managedclusters'
-              metricName: 'kube_pod_status_phase'
-              timeGrain: 'PT5M'
-              aggregationType: 'Average'
-              dimension: 'phase'
-              dimensionFilter: 'Failed'
+              signalDefinitionName: defAksFailedPods[i].name
+              refreshInterval: 'PT1M'
             }
           ]
         }
@@ -347,79 +582,27 @@ resource stampPromFailures 'Microsoft.CloudHealth/healthmodels/entities@2026-01-
           signals: [
             {
               signalKind: 'PrometheusMetricsQuery'
-              displayName: 'Pod Restarts'
-              refreshInterval: 'PT1M'
-              dataUnit: 'Count'
               name: guid(name, stamp.key, 'pod-restarts')
-              evaluationRules: {
-                degradedRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('2')
-                }
-                unhealthyRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('5')
-                }
-              }
-              queryText: 'sum(increase(kube_pod_container_status_restarts_total{namespace="${namespace}"}[1h]))'
-              timeGrain: 'PT1M'
+              signalDefinitionName: defPodRestarts[i].name
+              refreshInterval: 'PT1M'
             }
             {
               signalKind: 'PrometheusMetricsQuery'
-              displayName: 'OOMKilled'
-              refreshInterval: 'PT1M'
-              dataUnit: 'Count'
               name: guid(name, stamp.key, 'oomkilled')
-              evaluationRules: {
-                degradedRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('0')
-                }
-                unhealthyRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('2')
-                }
-              }
-              queryText: 'sum(kube_pod_container_status_last_terminated_reason{namespace="${namespace}", reason="OOMKilled"}) or vector(0)'
-              timeGrain: 'PT1M'
+              signalDefinitionName: defOomKilled[i].name
+              refreshInterval: 'PT1M'
             }
             {
               signalKind: 'PrometheusMetricsQuery'
-              displayName: 'CrashLoopBackOff'
-              refreshInterval: 'PT1M'
-              dataUnit: 'Count'
               name: guid(name, stamp.key, 'crashloop')
-              evaluationRules: {
-                degradedRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('0')
-                }
-                unhealthyRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('1')
-                }
-              }
-              queryText: 'sum(kube_pod_container_status_waiting_reason{namespace="${namespace}", reason="CrashLoopBackOff"}) or vector(0)'
-              timeGrain: 'PT1M'
+              signalDefinitionName: defCrashLoop[i].name
+              refreshInterval: 'PT1M'
             }
             {
               signalKind: 'PrometheusMetricsQuery'
-              displayName: 'Pods on NotReady Nodes'
-              refreshInterval: 'PT1M'
-              dataUnit: 'Count'
               name: guid(name, stamp.key, 'pods-notready-nodes')
-              evaluationRules: {
-                degradedRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('1')
-                }
-                unhealthyRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('1')
-                }
-              }
-              queryText: 'count(kube_pod_info{namespace="${namespace}"} * on(node) group_left() kube_node_status_condition{condition="Ready", status="false"}) or vector(0)'
-              timeGrain: 'PT1M'
+              signalDefinitionName: defPodsNotReadyNodes[i].name
+              refreshInterval: 'PT1M'
             }
           ]
         }
@@ -451,47 +634,15 @@ resource stampFdFailures 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01
           signals: [
             {
               signalKind: 'AzureResourceMetric'
-              displayName: 'FD 5XX'
-              refreshInterval: 'PT1M'
-              dataUnit: 'Percent'
               name: guid(name, stamp.key, 'fd-5xx')
-              evaluationRules: {
-                degradedRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('5')
-                }
-                unhealthyRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('10')
-                }
-              }
-              metricNamespace: 'microsoft.cdn/profiles'
-              metricName: 'Percentage5XX'
-              timeGrain: 'PT5M'
-              aggregationType: 'Average'
+              signalDefinitionName: defFd5xx[i].name
+              refreshInterval: 'PT1M'
             }
             {
               signalKind: 'AzureResourceMetric'
-              displayName: 'FD 4XX'
-              refreshInterval: 'PT1M'
-              dataUnit: 'Count'
               name: guid(name, stamp.key, 'fd-4xx')
-              evaluationRules: {
-                degradedRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('10')
-                }
-                unhealthyRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('50')
-                }
-              }
-              metricNamespace: 'microsoft.cdn/profiles'
-              metricName: 'RequestCount'
-              timeGrain: 'PT1M'
-              aggregationType: 'Total'
-              dimension: 'HttpStatusGroup'
-              dimensionFilter: '4XX'
+              signalDefinitionName: defFd4xx[i].name
+              refreshInterval: 'PT1M'
             }
           ]
         }
@@ -523,47 +674,15 @@ resource stampCosmosFailures 'Microsoft.CloudHealth/healthmodels/entities@2026-0
           signals: [
             {
               signalKind: 'AzureResourceMetric'
-              displayName: 'Cosmos Availability'
-              refreshInterval: 'PT1M'
-              dataUnit: 'Percent'
               name: guid(name, stamp.key, 'cosmos-availability')
-              evaluationRules: {
-                degradedRule: {
-                  operator: 'LessThan'
-                  threshold: json('100')
-                }
-                unhealthyRule: {
-                  operator: 'LessThan'
-                  threshold: json('95')
-                }
-              }
-              metricNamespace: 'microsoft.documentdb/databaseaccounts'
-              metricName: 'ServiceAvailability'
-              timeGrain: 'PT1H'
-              aggregationType: 'Average'
+              signalDefinitionName: defCosmosAvailability[i].name
+              refreshInterval: 'PT1M'
             }
             {
               signalKind: 'AzureResourceMetric'
-              displayName: 'Cosmos Client Errors'
-              refreshInterval: 'PT1M'
-              dataUnit: 'Count'
               name: guid(name, stamp.key, 'cosmos-client-errors')
-              evaluationRules: {
-                degradedRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('10')
-                }
-                unhealthyRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('100')
-                }
-              }
-              metricNamespace: 'microsoft.documentdb/databaseaccounts'
-              metricName: 'TotalRequests'
-              timeGrain: 'PT1M'
-              aggregationType: 'Count'
-              dimension: 'Status'
-              dimensionFilter: 'ClientOtherError'
+              signalDefinitionName: defCosmosClientErrors[i].name
+              refreshInterval: 'PT1M'
             }
           ]
         }
@@ -620,9 +739,277 @@ resource rel_stampCosmosFailures 'Microsoft.CloudHealth/healthmodels/relationshi
   }
 ]
 
-// ─── Per-Stamp Latency Entities ──────────────────────────────────────
+// ─── Per-Stamp Latency Signal Definitions ────────────────────────────
 
-// Split by resource type: FrontDoor, Cosmos, Prometheus.
+#disable-next-line BCP081
+resource defFdTotalLatency 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = [
+  for (stamp, i) in stamps: {
+    parent: hm
+    name: guid(name, stamp.key, 'def-fd-total-latency')
+    properties: {
+      signalKind: 'AzureResourceMetric'
+      displayName: 'FD Total Latency'
+      refreshInterval: 'PT1M'
+      dataUnit: 'MilliSeconds'
+      evaluationRules: {
+        degradedRule: {
+          operator: 'GreaterThan'
+          threshold: json('300')
+        }
+        unhealthyRule: {
+          operator: 'GreaterThan'
+          threshold: json('2000')
+        }
+      }
+      metricNamespace: 'microsoft.cdn/profiles'
+      metricName: 'TotalLatency'
+      timeGrain: 'PT1H'
+      aggregationType: 'Average'
+    }
+  }
+]
+
+#disable-next-line BCP081
+resource defCosmosNormalizedRU 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = [
+  for (stamp, i) in stamps: {
+    parent: hm
+    name: guid(name, stamp.key, 'def-cosmos-normalized-ru')
+    properties: {
+      signalKind: 'AzureResourceMetric'
+      displayName: 'Cosmos NormalizedRU'
+      refreshInterval: 'PT1M'
+      dataUnit: 'Percent'
+      evaluationRules: {
+        degradedRule: {
+          operator: 'GreaterThan'
+          threshold: json('80')
+        }
+        unhealthyRule: {
+          operator: 'GreaterThan'
+          threshold: json('90')
+        }
+      }
+      metricNamespace: 'microsoft.documentdb/databaseaccounts'
+      metricName: 'NormalizedRUConsumption'
+      timeGrain: 'PT5M'
+      aggregationType: 'Maximum'
+    }
+  }
+]
+
+#disable-next-line BCP081
+resource defCosmosThrottled 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = [
+  for (stamp, i) in stamps: {
+    parent: hm
+    name: guid(name, stamp.key, 'def-cosmos-throttled')
+    properties: {
+      signalKind: 'AzureResourceMetric'
+      displayName: 'Cosmos Throttled'
+      refreshInterval: 'PT1M'
+      dataUnit: 'Count'
+      evaluationRules: {
+        degradedRule: {
+          operator: 'GreaterThan'
+          threshold: json('100')
+        }
+        unhealthyRule: {
+          operator: 'GreaterThan'
+          threshold: json('400')
+        }
+      }
+      metricNamespace: 'microsoft.documentdb/databaseaccounts'
+      metricName: 'TotalRequests'
+      timeGrain: 'P1D'
+      aggregationType: 'Count'
+      dimension: 'Status'
+      dimensionFilter: 'ClientThrottlingError'
+    }
+  }
+]
+
+#disable-next-line BCP081
+resource defCpuPressure 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = [
+  for (stamp, i) in stamps: {
+    parent: hm
+    name: guid(name, stamp.key, 'def-cpu-pressure')
+    properties: {
+      signalKind: 'PrometheusMetricsQuery'
+      displayName: 'CPU Pressure'
+      refreshInterval: 'PT1M'
+      dataUnit: 'Percent'
+      evaluationRules: {
+        degradedRule: {
+          operator: 'GreaterThan'
+          threshold: json('90')
+        }
+        unhealthyRule: {
+          operator: 'GreaterThan'
+          threshold: json('98')
+        }
+      }
+      queryText: 'sum(rate(container_cpu_usage_seconds_total{namespace="${namespace}", container!="", container!="POD"}[5m])) / sum(kube_pod_container_resource_requests{namespace="${namespace}", resource="cpu"}) * 100'
+      timeGrain: 'PT1M'
+    }
+  }
+]
+
+#disable-next-line BCP081
+resource defCpuThrottling 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = [
+  for (stamp, i) in stamps: {
+    parent: hm
+    name: guid(name, stamp.key, 'def-cpu-throttling')
+    properties: {
+      signalKind: 'PrometheusMetricsQuery'
+      displayName: 'CPU Throttling'
+      refreshInterval: 'PT1M'
+      dataUnit: 'Percent'
+      evaluationRules: {
+        degradedRule: {
+          operator: 'GreaterThan'
+          threshold: json('20')
+        }
+        unhealthyRule: {
+          operator: 'GreaterThan'
+          threshold: json('50')
+        }
+      }
+      queryText: 'sum(rate(container_cpu_cfs_throttled_periods_total{namespace="${namespace}", container!=""}[5m])) / sum(rate(container_cpu_cfs_periods_total{namespace="${namespace}", container!=""}[5m])) * 100'
+      timeGrain: 'PT1M'
+    }
+  }
+]
+
+#disable-next-line BCP081
+resource defMemoryPressure 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = [
+  for (stamp, i) in stamps: {
+    parent: hm
+    name: guid(name, stamp.key, 'def-memory-pressure')
+    properties: {
+      signalKind: 'PrometheusMetricsQuery'
+      displayName: 'Memory Pressure'
+      refreshInterval: 'PT1M'
+      dataUnit: 'Percent'
+      evaluationRules: {
+        degradedRule: {
+          operator: 'GreaterThan'
+          threshold: json('80')
+        }
+        unhealthyRule: {
+          operator: 'GreaterThan'
+          threshold: json('95')
+        }
+      }
+      queryText: 'sum(container_memory_working_set_bytes{namespace="${namespace}", container!="", container!="POD"}) / sum(kube_pod_container_resource_limits{namespace="${namespace}", resource="memory"}) * 100'
+      timeGrain: 'PT1M'
+    }
+  }
+]
+
+#disable-next-line BCP081
+resource defPodsHighCpuNodes 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = [
+  for (stamp, i) in stamps: {
+    parent: hm
+    name: guid(name, stamp.key, 'def-pods-high-cpu-nodes')
+    properties: {
+      signalKind: 'PrometheusMetricsQuery'
+      displayName: 'Pods on High-CPU Nodes'
+      refreshInterval: 'PT1M'
+      dataUnit: 'Count'
+      evaluationRules: {
+        degradedRule: {
+          operator: 'GreaterThan'
+          threshold: json('1')
+        }
+        unhealthyRule: {
+          operator: 'GreaterThan'
+          threshold: json('3')
+        }
+      }
+      queryText: 'count(kube_pod_info{namespace="${namespace}"} * on(node) group_left() ((1 - avg by (node) (rate(node_cpu_seconds_total{mode="idle"}[5m]))) > 0.8)) or vector(0)'
+      timeGrain: 'PT1M'
+    }
+  }
+]
+
+#disable-next-line BCP081
+resource defPodsHighMemNodes 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = [
+  for (stamp, i) in stamps: {
+    parent: hm
+    name: guid(name, stamp.key, 'def-pods-high-mem-nodes')
+    properties: {
+      signalKind: 'PrometheusMetricsQuery'
+      displayName: 'Pods on High-Memory Nodes'
+      refreshInterval: 'PT1M'
+      dataUnit: 'Count'
+      evaluationRules: {
+        degradedRule: {
+          operator: 'GreaterThan'
+          threshold: json('1')
+        }
+        unhealthyRule: {
+          operator: 'GreaterThan'
+          threshold: json('3')
+        }
+      }
+      queryText: 'count(kube_pod_info{namespace="${namespace}"} * on(node) group_left() ((1 - avg by (node) (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.85)) or vector(0)'
+      timeGrain: 'PT1M'
+    }
+  }
+]
+
+#disable-next-line BCP081
+resource defPodsDiskPressureNodes 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = [
+  for (stamp, i) in stamps: {
+    parent: hm
+    name: guid(name, stamp.key, 'def-pods-disk-pressure-nodes')
+    properties: {
+      signalKind: 'PrometheusMetricsQuery'
+      displayName: 'Pods on DiskPressure Nodes'
+      refreshInterval: 'PT1M'
+      dataUnit: 'Count'
+      evaluationRules: {
+        degradedRule: {
+          operator: 'GreaterThan'
+          threshold: json('1')
+        }
+        unhealthyRule: {
+          operator: 'GreaterThan'
+          threshold: json('1')
+        }
+      }
+      queryText: 'count(kube_pod_info{namespace="${namespace}"} * on(node) group_left() kube_node_status_condition{condition="DiskPressure", status="true"}) or vector(0)'
+      timeGrain: 'PT1M'
+    }
+  }
+]
+
+#disable-next-line BCP081
+resource defPodsPidPressureNodes 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = [
+  for (stamp, i) in stamps: {
+    parent: hm
+    name: guid(name, stamp.key, 'def-pods-pid-pressure-nodes')
+    properties: {
+      signalKind: 'PrometheusMetricsQuery'
+      displayName: 'Pods on PIDPressure Nodes'
+      refreshInterval: 'PT1M'
+      dataUnit: 'Count'
+      evaluationRules: {
+        degradedRule: {
+          operator: 'GreaterThan'
+          threshold: json('1')
+        }
+        unhealthyRule: {
+          operator: 'GreaterThan'
+          threshold: json('1')
+        }
+      }
+      queryText: 'count(kube_pod_info{namespace="${namespace}"} * on(node) group_left() kube_node_status_condition{condition="PIDPressure", status="true"}) or vector(0)'
+      timeGrain: 'PT1M'
+    }
+  }
+]
+
+// ─── Per-Stamp Latency Entities ──────────────────────────────────────
 
 #disable-next-line BCP081
 resource stampFdLatency 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = [
@@ -647,30 +1034,15 @@ resource stampFdLatency 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-
           signals: [
             {
               signalKind: 'AzureResourceMetric'
-              refreshInterval: 'PT1M'
               name: guid(name, stamp.key, 'fd-origin-latency')
               signalDefinitionName: originLatencyDef[i].name
+              refreshInterval: 'PT1M'
             }
             {
               signalKind: 'AzureResourceMetric'
-              displayName: 'FD Total Latency'
-              refreshInterval: 'PT1M'
-              dataUnit: 'MilliSeconds'
               name: guid(name, stamp.key, 'fd-total-latency')
-              evaluationRules: {
-                degradedRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('300')
-                }
-                unhealthyRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('2000')
-                }
-              }
-              metricNamespace: 'microsoft.cdn/profiles'
-              metricName: 'TotalLatency'
-              timeGrain: 'PT1H'
-              aggregationType: 'Average'
+              signalDefinitionName: defFdTotalLatency[i].name
+              refreshInterval: 'PT1M'
             }
           ]
         }
@@ -702,47 +1074,15 @@ resource stampCosmosLatency 'Microsoft.CloudHealth/healthmodels/entities@2026-01
           signals: [
             {
               signalKind: 'AzureResourceMetric'
-              displayName: 'Cosmos NormalizedRU'
-              refreshInterval: 'PT1M'
-              dataUnit: 'Percent'
               name: guid(name, stamp.key, 'cosmos-normalized-ru')
-              evaluationRules: {
-                degradedRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('80')
-                }
-                unhealthyRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('90')
-                }
-              }
-              metricNamespace: 'microsoft.documentdb/databaseaccounts'
-              metricName: 'NormalizedRUConsumption'
-              timeGrain: 'PT5M'
-              aggregationType: 'Maximum'
+              signalDefinitionName: defCosmosNormalizedRU[i].name
+              refreshInterval: 'PT1M'
             }
             {
               signalKind: 'AzureResourceMetric'
-              displayName: 'Cosmos Throttled'
-              refreshInterval: 'PT1M'
-              dataUnit: 'Count'
               name: guid(name, stamp.key, 'cosmos-throttled')
-              evaluationRules: {
-                degradedRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('100')
-                }
-                unhealthyRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('400')
-                }
-              }
-              metricNamespace: 'microsoft.documentdb/databaseaccounts'
-              metricName: 'TotalRequests'
-              timeGrain: 'P1D'
-              aggregationType: 'Count'
-              dimension: 'Status'
-              dimensionFilter: 'ClientThrottlingError'
+              signalDefinitionName: defCosmosThrottled[i].name
+              refreshInterval: 'PT1M'
             }
           ]
         }
@@ -774,136 +1114,45 @@ resource stampPromLatency 'Microsoft.CloudHealth/healthmodels/entities@2026-01-0
           signals: [
             {
               signalKind: 'PrometheusMetricsQuery'
-              displayName: 'CPU Pressure'
-              refreshInterval: 'PT1M'
-              dataUnit: 'Percent'
               name: guid(name, stamp.key, 'cpu-pressure')
-              evaluationRules: {
-                degradedRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('90')
-                }
-                unhealthyRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('98')
-                }
-              }
-              queryText: 'sum(rate(container_cpu_usage_seconds_total{namespace="${namespace}", container!="", container!="POD"}[5m])) / sum(kube_pod_container_resource_requests{namespace="${namespace}", resource="cpu"}) * 100'
-              timeGrain: 'PT1M'
+              signalDefinitionName: defCpuPressure[i].name
+              refreshInterval: 'PT1M'
             }
             {
               signalKind: 'PrometheusMetricsQuery'
-              displayName: 'CPU Throttling'
-              refreshInterval: 'PT1M'
-              dataUnit: 'Percent'
               name: guid(name, stamp.key, 'cpu-throttling')
-              evaluationRules: {
-                degradedRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('20')
-                }
-                unhealthyRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('50')
-                }
-              }
-              queryText: 'sum(rate(container_cpu_cfs_throttled_periods_total{namespace="${namespace}", container!=""}[5m])) / sum(rate(container_cpu_cfs_periods_total{namespace="${namespace}", container!=""}[5m])) * 100'
-              timeGrain: 'PT1M'
+              signalDefinitionName: defCpuThrottling[i].name
+              refreshInterval: 'PT1M'
             }
             {
               signalKind: 'PrometheusMetricsQuery'
-              displayName: 'Memory Pressure'
-              refreshInterval: 'PT1M'
-              dataUnit: 'Percent'
               name: guid(name, stamp.key, 'memory-pressure')
-              evaluationRules: {
-                degradedRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('80')
-                }
-                unhealthyRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('95')
-                }
-              }
-              queryText: 'sum(container_memory_working_set_bytes{namespace="${namespace}", container!="", container!="POD"}) / sum(kube_pod_container_resource_limits{namespace="${namespace}", resource="memory"}) * 100'
-              timeGrain: 'PT1M'
+              signalDefinitionName: defMemoryPressure[i].name
+              refreshInterval: 'PT1M'
             }
             {
               signalKind: 'PrometheusMetricsQuery'
-              displayName: 'Pods on High-CPU Nodes'
-              refreshInterval: 'PT1M'
-              dataUnit: 'Count'
               name: guid(name, stamp.key, 'pods-high-cpu-nodes')
-              evaluationRules: {
-                degradedRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('1')
-                }
-                unhealthyRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('3')
-                }
-              }
-              queryText: 'count(kube_pod_info{namespace="${namespace}"} * on(node) group_left() ((1 - avg by (node) (rate(node_cpu_seconds_total{mode="idle"}[5m]))) > 0.8)) or vector(0)'
-              timeGrain: 'PT1M'
+              signalDefinitionName: defPodsHighCpuNodes[i].name
+              refreshInterval: 'PT1M'
             }
             {
               signalKind: 'PrometheusMetricsQuery'
-              displayName: 'Pods on High-Memory Nodes'
-              refreshInterval: 'PT1M'
-              dataUnit: 'Count'
               name: guid(name, stamp.key, 'pods-high-mem-nodes')
-              evaluationRules: {
-                degradedRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('1')
-                }
-                unhealthyRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('3')
-                }
-              }
-              queryText: 'count(kube_pod_info{namespace="${namespace}"} * on(node) group_left() ((1 - avg by (node) (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.85)) or vector(0)'
-              timeGrain: 'PT1M'
+              signalDefinitionName: defPodsHighMemNodes[i].name
+              refreshInterval: 'PT1M'
             }
             {
               signalKind: 'PrometheusMetricsQuery'
-              displayName: 'Pods on DiskPressure Nodes'
-              refreshInterval: 'PT1M'
-              dataUnit: 'Count'
               name: guid(name, stamp.key, 'pods-disk-pressure-nodes')
-              evaluationRules: {
-                degradedRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('1')
-                }
-                unhealthyRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('1')
-                }
-              }
-              queryText: 'count(kube_pod_info{namespace="${namespace}"} * on(node) group_left() kube_node_status_condition{condition="DiskPressure", status="true"}) or vector(0)'
-              timeGrain: 'PT1M'
+              signalDefinitionName: defPodsDiskPressureNodes[i].name
+              refreshInterval: 'PT1M'
             }
             {
               signalKind: 'PrometheusMetricsQuery'
-              displayName: 'Pods on PIDPressure Nodes'
-              refreshInterval: 'PT1M'
-              dataUnit: 'Count'
               name: guid(name, stamp.key, 'pods-pid-pressure-nodes')
-              evaluationRules: {
-                degradedRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('1')
-                }
-                unhealthyRule: {
-                  operator: 'GreaterThan'
-                  threshold: json('1')
-                }
-              }
-              queryText: 'count(kube_pod_info{namespace="${namespace}"} * on(node) group_left() kube_node_status_condition{condition="PIDPressure", status="true"}) or vector(0)'
-              timeGrain: 'PT1M'
+              signalDefinitionName: defPodsPidPressureNodes[i].name
+              refreshInterval: 'PT1M'
             }
           ]
         }
@@ -953,6 +1202,86 @@ resource rel_stampPromLatency 'Microsoft.CloudHealth/healthmodels/relationships@
 // Generated from groups.ts — add new features there, not here.
 
 #disable-next-line BCP081
+resource def_queues_queue_availability 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesQueues) {
+  parent: hm
+  name: guid(name, 'def-queues-queue-availability')
+  properties: {
+    signalKind: 'AzureResourceMetric'
+    displayName: 'Queue Availability'
+    refreshInterval: 'PT5M'
+    dataUnit: 'Percent'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'LessThan'
+        threshold: json('100')
+      }
+      unhealthyRule: {
+        operator: 'LessThan'
+        threshold: json('95')
+      }
+    }
+    metricNamespace: 'microsoft.storage/storageaccounts/queueservices'
+    metricName: 'Availability'
+    timeGrain: 'PT1H'
+    aggregationType: 'Average'
+  }
+}
+
+#disable-next-line BCP081
+resource def_queues_queue_e2e_latency 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesQueues) {
+  parent: hm
+  name: guid(name, 'def-queues-queue-e2e-latency')
+  properties: {
+    signalKind: 'AzureResourceMetric'
+    displayName: 'Queue E2E Latency'
+    refreshInterval: 'PT5M'
+    dataUnit: 'MilliSeconds'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('500')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('2000')
+      }
+    }
+    metricNamespace: 'microsoft.storage/storageaccounts/queueservices'
+    metricName: 'SuccessE2ELatency'
+    timeGrain: 'PT5M'
+    aggregationType: 'Average'
+  }
+}
+
+#disable-next-line BCP081
+resource def_queues_queue_errors 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesQueues) {
+  parent: hm
+  name: guid(name, 'def-queues-queue-errors')
+  properties: {
+    signalKind: 'AzureResourceMetric'
+    displayName: 'Queue Errors'
+    refreshInterval: 'PT5M'
+    dataUnit: 'Count'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('5')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('50')
+      }
+    }
+    metricNamespace: 'microsoft.storage/storageaccounts/queueservices'
+    metricName: 'Transactions'
+    timeGrain: 'PT5M'
+    aggregationType: 'Total'
+    dimension: 'ResponseType'
+    dimensionFilter: 'ClientOtherError'
+  }
+}
+
+#disable-next-line BCP081
 resource queuesEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = if (usesQueues) {
   parent: hm
   name: guid(name, 'queues')
@@ -974,68 +1303,21 @@ resource queuesEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-pr
         signals: [
           {
             signalKind: 'AzureResourceMetric'
-            displayName: 'Queue Availability'
-            refreshInterval: 'PT5M'
-            dataUnit: 'Percent'
             name: guid(name, 'queues-queue-availability')
-            evaluationRules: {
-              degradedRule: {
-                operator: 'LessThan'
-                threshold: json('100')
-              }
-              unhealthyRule: {
-                operator: 'LessThan'
-                threshold: json('95')
-              }
-            }
-            metricNamespace: 'microsoft.storage/storageaccounts/queueservices'
-            metricName: 'Availability'
-            timeGrain: 'PT1H'
-            aggregationType: 'Average'
+            signalDefinitionName: def_queues_queue_availability.name
+            refreshInterval: 'PT5M'
           }
           {
             signalKind: 'AzureResourceMetric'
-            displayName: 'Queue E2E Latency'
-            refreshInterval: 'PT5M'
-            dataUnit: 'MilliSeconds'
             name: guid(name, 'queues-queue-e2e-latency')
-            evaluationRules: {
-              degradedRule: {
-                operator: 'GreaterThan'
-                threshold: json('500')
-              }
-              unhealthyRule: {
-                operator: 'GreaterThan'
-                threshold: json('2000')
-              }
-            }
-            metricNamespace: 'microsoft.storage/storageaccounts/queueservices'
-            metricName: 'SuccessE2ELatency'
-            timeGrain: 'PT5M'
-            aggregationType: 'Average'
+            signalDefinitionName: def_queues_queue_e2e_latency.name
+            refreshInterval: 'PT5M'
           }
           {
             signalKind: 'AzureResourceMetric'
-            displayName: 'Queue Errors'
-            refreshInterval: 'PT5M'
-            dataUnit: 'Count'
             name: guid(name, 'queues-queue-errors')
-            evaluationRules: {
-              degradedRule: {
-                operator: 'GreaterThan'
-                threshold: json('5')
-              }
-              unhealthyRule: {
-                operator: 'GreaterThan'
-                threshold: json('50')
-              }
-            }
-            metricNamespace: 'microsoft.storage/storageaccounts/queueservices'
-            metricName: 'Transactions'
-            timeGrain: 'PT5M'
-            aggregationType: 'Total'
-            dimension: 'ResponseType'
-            dimensionFilter: 'ClientOtherError'
+            signalDefinitionName: def_queues_queue_errors.name
+            refreshInterval: 'PT5M'
           }
         ]
       }
@@ -1050,6 +1332,112 @@ resource rel_queues 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01
   properties: {
     parentEntityName: root.name
     childEntityName: queuesEntity.name
+  }
+}
+
+#disable-next-line BCP081
+resource def_ai_ai_availability 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesAI) {
+  parent: hm
+  name: guid(name, 'def-ai-ai-availability')
+  properties: {
+    signalKind: 'AzureResourceMetric'
+    displayName: 'AI Availability'
+    refreshInterval: 'PT5M'
+    dataUnit: 'Percent'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'LessThan'
+        threshold: json('100')
+      }
+      unhealthyRule: {
+        operator: 'LessThan'
+        threshold: json('95')
+      }
+    }
+    metricNamespace: 'microsoft.cognitiveservices/accounts'
+    metricName: 'Availability'
+    timeGrain: 'PT5M'
+    aggregationType: 'Average'
+  }
+}
+
+#disable-next-line BCP081
+resource def_ai_ai_response_latency 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesAI) {
+  parent: hm
+  name: guid(name, 'def-ai-ai-response-latency')
+  properties: {
+    signalKind: 'AzureResourceMetric'
+    displayName: 'AI Response Latency'
+    refreshInterval: 'PT5M'
+    dataUnit: 'MilliSeconds'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('5000')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('15000')
+      }
+    }
+    metricNamespace: 'microsoft.cognitiveservices/accounts'
+    metricName: 'AzureOpenAITimeToResponse'
+    timeGrain: 'PT5M'
+    aggregationType: 'Average'
+  }
+}
+
+#disable-next-line BCP081
+resource def_ai_ai_throttled_requests__429_ 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesAI) {
+  parent: hm
+  name: guid(name, 'def-ai-ai-throttled-requests--429-')
+  properties: {
+    signalKind: 'AzureResourceMetric'
+    displayName: 'AI Throttled Requests (429)'
+    refreshInterval: 'PT5M'
+    dataUnit: 'Count'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('5')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('50')
+      }
+    }
+    metricNamespace: 'microsoft.cognitiveservices/accounts'
+    metricName: 'ModelRequests'
+    timeGrain: 'PT5M'
+    aggregationType: 'Total'
+    dimension: 'StatusCode'
+    dimensionFilter: '429'
+  }
+}
+
+#disable-next-line BCP081
+resource def_ai_ai_tokens_sec 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesAI) {
+  parent: hm
+  name: guid(name, 'def-ai-ai-tokens-sec')
+  properties: {
+    signalKind: 'AzureResourceMetric'
+    displayName: 'AI Tokens/sec'
+    refreshInterval: 'PT5M'
+    dataUnit: 'Count'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'LessThan'
+        threshold: json('10')
+      }
+      unhealthyRule: {
+        operator: 'LessThan'
+        threshold: json('1')
+      }
+    }
+    metricNamespace: 'microsoft.cognitiveservices/accounts'
+    metricName: 'AzureOpenAITokenPerSecond'
+    timeGrain: 'PT5M'
+    aggregationType: 'Average'
   }
 }
 
@@ -1075,89 +1463,27 @@ resource aiEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-previe
         signals: [
           {
             signalKind: 'AzureResourceMetric'
-            displayName: 'AI Availability'
-            refreshInterval: 'PT5M'
-            dataUnit: 'Percent'
             name: guid(name, 'ai-ai-availability')
-            evaluationRules: {
-              degradedRule: {
-                operator: 'LessThan'
-                threshold: json('100')
-              }
-              unhealthyRule: {
-                operator: 'LessThan'
-                threshold: json('95')
-              }
-            }
-            metricNamespace: 'microsoft.cognitiveservices/accounts'
-            metricName: 'Availability'
-            timeGrain: 'PT5M'
-            aggregationType: 'Average'
+            signalDefinitionName: def_ai_ai_availability.name
+            refreshInterval: 'PT5M'
           }
           {
             signalKind: 'AzureResourceMetric'
-            displayName: 'AI Response Latency'
-            refreshInterval: 'PT5M'
-            dataUnit: 'MilliSeconds'
             name: guid(name, 'ai-ai-response-latency')
-            evaluationRules: {
-              degradedRule: {
-                operator: 'GreaterThan'
-                threshold: json('5000')
-              }
-              unhealthyRule: {
-                operator: 'GreaterThan'
-                threshold: json('15000')
-              }
-            }
-            metricNamespace: 'microsoft.cognitiveservices/accounts'
-            metricName: 'AzureOpenAITimeToResponse'
-            timeGrain: 'PT5M'
-            aggregationType: 'Average'
+            signalDefinitionName: def_ai_ai_response_latency.name
+            refreshInterval: 'PT5M'
           }
           {
             signalKind: 'AzureResourceMetric'
-            displayName: 'AI Throttled Requests (429)'
-            refreshInterval: 'PT5M'
-            dataUnit: 'Count'
             name: guid(name, 'ai-ai-throttled-requests--429-')
-            evaluationRules: {
-              degradedRule: {
-                operator: 'GreaterThan'
-                threshold: json('5')
-              }
-              unhealthyRule: {
-                operator: 'GreaterThan'
-                threshold: json('50')
-              }
-            }
-            metricNamespace: 'microsoft.cognitiveservices/accounts'
-            metricName: 'ModelRequests'
-            timeGrain: 'PT5M'
-            aggregationType: 'Total'
-            dimension: 'StatusCode'
-            dimensionFilter: '429'
+            signalDefinitionName: def_ai_ai_throttled_requests__429_.name
+            refreshInterval: 'PT5M'
           }
           {
             signalKind: 'AzureResourceMetric'
-            displayName: 'AI Tokens/sec'
-            refreshInterval: 'PT5M'
-            dataUnit: 'Count'
             name: guid(name, 'ai-ai-tokens-sec')
-            evaluationRules: {
-              degradedRule: {
-                operator: 'LessThan'
-                threshold: json('10')
-              }
-              unhealthyRule: {
-                operator: 'LessThan'
-                threshold: json('1')
-              }
-            }
-            metricNamespace: 'microsoft.cognitiveservices/accounts'
-            metricName: 'AzureOpenAITokenPerSecond'
-            timeGrain: 'PT5M'
-            aggregationType: 'Average'
+            signalDefinitionName: def_ai_ai_tokens_sec.name
+            refreshInterval: 'PT5M'
           }
         ]
       }
@@ -1172,6 +1498,86 @@ resource rel_ai 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-pre
   properties: {
     parentEntityName: root.name
     childEntityName: aiEntity.name
+  }
+}
+
+#disable-next-line BCP081
+resource def_blobs_blob_availability 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesBlobs) {
+  parent: hm
+  name: guid(name, 'def-blobs-blob-availability')
+  properties: {
+    signalKind: 'AzureResourceMetric'
+    displayName: 'Blob Availability'
+    refreshInterval: 'PT5M'
+    dataUnit: 'Percent'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'LessThan'
+        threshold: json('100')
+      }
+      unhealthyRule: {
+        operator: 'LessThan'
+        threshold: json('95')
+      }
+    }
+    metricNamespace: 'microsoft.storage/storageaccounts/blobservices'
+    metricName: 'Availability'
+    timeGrain: 'PT1H'
+    aggregationType: 'Average'
+  }
+}
+
+#disable-next-line BCP081
+resource def_blobs_blob_e2e_latency 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesBlobs) {
+  parent: hm
+  name: guid(name, 'def-blobs-blob-e2e-latency')
+  properties: {
+    signalKind: 'AzureResourceMetric'
+    displayName: 'Blob E2E Latency'
+    refreshInterval: 'PT5M'
+    dataUnit: 'MilliSeconds'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('500')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('2000')
+      }
+    }
+    metricNamespace: 'microsoft.storage/storageaccounts/blobservices'
+    metricName: 'SuccessE2ELatency'
+    timeGrain: 'PT5M'
+    aggregationType: 'Average'
+  }
+}
+
+#disable-next-line BCP081
+resource def_blobs_blob_errors 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesBlobs) {
+  parent: hm
+  name: guid(name, 'def-blobs-blob-errors')
+  properties: {
+    signalKind: 'AzureResourceMetric'
+    displayName: 'Blob Errors'
+    refreshInterval: 'PT5M'
+    dataUnit: 'Count'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('5')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('50')
+      }
+    }
+    metricNamespace: 'microsoft.storage/storageaccounts/blobservices'
+    metricName: 'Transactions'
+    timeGrain: 'PT5M'
+    aggregationType: 'Total'
+    dimension: 'ResponseType'
+    dimensionFilter: 'ClientOtherError'
   }
 }
 
@@ -1197,68 +1603,21 @@ resource blobsEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-pre
         signals: [
           {
             signalKind: 'AzureResourceMetric'
-            displayName: 'Blob Availability'
-            refreshInterval: 'PT5M'
-            dataUnit: 'Percent'
             name: guid(name, 'blobs-blob-availability')
-            evaluationRules: {
-              degradedRule: {
-                operator: 'LessThan'
-                threshold: json('100')
-              }
-              unhealthyRule: {
-                operator: 'LessThan'
-                threshold: json('95')
-              }
-            }
-            metricNamespace: 'microsoft.storage/storageaccounts/blobservices'
-            metricName: 'Availability'
-            timeGrain: 'PT1H'
-            aggregationType: 'Average'
+            signalDefinitionName: def_blobs_blob_availability.name
+            refreshInterval: 'PT5M'
           }
           {
             signalKind: 'AzureResourceMetric'
-            displayName: 'Blob E2E Latency'
-            refreshInterval: 'PT5M'
-            dataUnit: 'MilliSeconds'
             name: guid(name, 'blobs-blob-e2e-latency')
-            evaluationRules: {
-              degradedRule: {
-                operator: 'GreaterThan'
-                threshold: json('500')
-              }
-              unhealthyRule: {
-                operator: 'GreaterThan'
-                threshold: json('2000')
-              }
-            }
-            metricNamespace: 'microsoft.storage/storageaccounts/blobservices'
-            metricName: 'SuccessE2ELatency'
-            timeGrain: 'PT5M'
-            aggregationType: 'Average'
+            signalDefinitionName: def_blobs_blob_e2e_latency.name
+            refreshInterval: 'PT5M'
           }
           {
             signalKind: 'AzureResourceMetric'
-            displayName: 'Blob Errors'
-            refreshInterval: 'PT5M'
-            dataUnit: 'Count'
             name: guid(name, 'blobs-blob-errors')
-            evaluationRules: {
-              degradedRule: {
-                operator: 'GreaterThan'
-                threshold: json('5')
-              }
-              unhealthyRule: {
-                operator: 'GreaterThan'
-                threshold: json('50')
-              }
-            }
-            metricNamespace: 'microsoft.storage/storageaccounts/blobservices'
-            metricName: 'Transactions'
-            timeGrain: 'PT5M'
-            aggregationType: 'Total'
-            dimension: 'ResponseType'
-            dimensionFilter: 'ClientOtherError'
+            signalDefinitionName: def_blobs_blob_errors.name
+            refreshInterval: 'PT5M'
           }
         ]
       }
@@ -1273,6 +1632,84 @@ resource rel_blobs 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-
   properties: {
     parentEntityName: root.name
     childEntityName: blobsEntity.name
+  }
+}
+
+#disable-next-line BCP081
+resource def_eventhubs_event_hub_availability 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesEventHubs) {
+  parent: hm
+  name: guid(name, 'def-eventhubs-event-hub-availability')
+  properties: {
+    signalKind: 'AzureResourceMetric'
+    displayName: 'Event Hub Availability'
+    refreshInterval: 'PT5M'
+    dataUnit: 'Count'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'LessThan'
+        threshold: json('1')
+      }
+      unhealthyRule: {
+        operator: 'LessThan'
+        threshold: json('0')
+      }
+    }
+    metricNamespace: 'microsoft.eventhub/namespaces'
+    metricName: 'NamespaceActiveConnections'
+    timeGrain: 'PT5M'
+    aggregationType: 'Average'
+  }
+}
+
+#disable-next-line BCP081
+resource def_eventhubs_event_hub_throttled 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesEventHubs) {
+  parent: hm
+  name: guid(name, 'def-eventhubs-event-hub-throttled')
+  properties: {
+    signalKind: 'AzureResourceMetric'
+    displayName: 'Event Hub Throttled'
+    refreshInterval: 'PT5M'
+    dataUnit: 'Count'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('5')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('50')
+      }
+    }
+    metricNamespace: 'microsoft.eventhub/namespaces'
+    metricName: 'ThrottledRequests'
+    timeGrain: 'PT5M'
+    aggregationType: 'Total'
+  }
+}
+
+#disable-next-line BCP081
+resource def_eventhubs_event_hub_server_errors 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesEventHubs) {
+  parent: hm
+  name: guid(name, 'def-eventhubs-event-hub-server-errors')
+  properties: {
+    signalKind: 'AzureResourceMetric'
+    displayName: 'Event Hub Server Errors'
+    refreshInterval: 'PT5M'
+    dataUnit: 'Count'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('1')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('10')
+      }
+    }
+    metricNamespace: 'microsoft.eventhub/namespaces'
+    metricName: 'ServerErrors'
+    timeGrain: 'PT5M'
+    aggregationType: 'Total'
   }
 }
 
@@ -1298,66 +1735,21 @@ resource eventhubsEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01
         signals: [
           {
             signalKind: 'AzureResourceMetric'
-            displayName: 'Event Hub Availability'
-            refreshInterval: 'PT5M'
-            dataUnit: 'Count'
             name: guid(name, 'eventhubs-event-hub-availability')
-            evaluationRules: {
-              degradedRule: {
-                operator: 'LessThan'
-                threshold: json('1')
-              }
-              unhealthyRule: {
-                operator: 'LessThan'
-                threshold: json('0')
-              }
-            }
-            metricNamespace: 'microsoft.eventhub/namespaces'
-            metricName: 'NamespaceActiveConnections'
-            timeGrain: 'PT5M'
-            aggregationType: 'Average'
+            signalDefinitionName: def_eventhubs_event_hub_availability.name
+            refreshInterval: 'PT5M'
           }
           {
             signalKind: 'AzureResourceMetric'
-            displayName: 'Event Hub Throttled'
-            refreshInterval: 'PT5M'
-            dataUnit: 'Count'
             name: guid(name, 'eventhubs-event-hub-throttled')
-            evaluationRules: {
-              degradedRule: {
-                operator: 'GreaterThan'
-                threshold: json('5')
-              }
-              unhealthyRule: {
-                operator: 'GreaterThan'
-                threshold: json('50')
-              }
-            }
-            metricNamespace: 'microsoft.eventhub/namespaces'
-            metricName: 'ThrottledRequests'
-            timeGrain: 'PT5M'
-            aggregationType: 'Total'
+            signalDefinitionName: def_eventhubs_event_hub_throttled.name
+            refreshInterval: 'PT5M'
           }
           {
             signalKind: 'AzureResourceMetric'
-            displayName: 'Event Hub Server Errors'
-            refreshInterval: 'PT5M'
-            dataUnit: 'Count'
             name: guid(name, 'eventhubs-event-hub-server-errors')
-            evaluationRules: {
-              degradedRule: {
-                operator: 'GreaterThan'
-                threshold: json('1')
-              }
-              unhealthyRule: {
-                operator: 'GreaterThan'
-                threshold: json('10')
-              }
-            }
-            metricNamespace: 'microsoft.eventhub/namespaces'
-            metricName: 'ServerErrors'
-            timeGrain: 'PT5M'
-            aggregationType: 'Total'
+            signalDefinitionName: def_eventhubs_event_hub_server_errors.name
+            refreshInterval: 'PT5M'
           }
         ]
       }

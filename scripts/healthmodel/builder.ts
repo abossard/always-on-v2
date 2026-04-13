@@ -34,14 +34,14 @@ const API_VERSION = '2026-01-01-preview';
 
 // ─── Signal → Bicep Object Conversion ───────────────────────────────
 
-function signalToBicep(sig: SignalDef, nameExpr: string): BicepValue {
+/** Convert a SignalDef to the properties body of a signaldefinitions resource. */
+function signalDefProperties(sig: SignalDef): Record<string, BicepValue> {
   const rules = toHealthModelRules(sig.threshold);
-  const base: Record<string, BicepValue> = {
+  const props: Record<string, BicepValue> = {
     signalKind: sig.signalKind,
     displayName: sig.displayName,
     refreshInterval: sig.refreshInterval ?? 'PT1M',
     dataUnit: sig.dataUnit ?? 'Count',
-    name: raw(nameExpr),
     evaluationRules: {
       degradedRule: {
         operator: rules.degradedRule!.operator,
@@ -56,19 +56,36 @@ function signalToBicep(sig: SignalDef, nameExpr: string): BicepValue {
 
   if (sig.signalKind === 'AzureResourceMetric') {
     const s = sig as AzureResourceSignalDef;
-    base.metricNamespace = s.metricNamespace;
-    base.metricName = s.metricName;
-    base.timeGrain = s.timeGrain;
-    base.aggregationType = s.aggregationType;
-    if (s.dimension) base.dimension = s.dimension;
-    if (s.dimensionFilter) base.dimensionFilter = s.dimensionFilter;
+    props.metricNamespace = s.metricNamespace;
+    props.metricName = s.metricName;
+    props.timeGrain = s.timeGrain;
+    props.aggregationType = s.aggregationType;
+    if (s.dimension) props.dimension = s.dimension;
+    if (s.dimensionFilter) props.dimensionFilter = s.dimensionFilter;
   } else if (sig.signalKind === 'PrometheusMetricsQuery') {
     const s = sig as PrometheusSignalDef;
-    base.queryText = s.queryText;
-    if (s.timeGrain) base.timeGrain = s.timeGrain;
+    props.queryText = s.queryText;
+    if (s.timeGrain) props.timeGrain = s.timeGrain;
   }
 
-  return base;
+  return props;
+}
+
+/** Build a reference to an existing signal definition for use in entity signalGroups. */
+function signalRef(sig: SignalDef, nameExpr: string, defNameExpr: string): BicepValue {
+  return {
+    signalKind: sig.signalKind,
+    name: raw(nameExpr),
+    signalDefinitionName: raw(defNameExpr),
+    refreshInterval: sig.refreshInterval ?? 'PT1M',
+  };
+}
+
+/** Legacy: inline signal (kept for backward compat during migration). */
+function signalToBicep(sig: SignalDef, nameExpr: string): BicepValue {
+  const props = signalDefProperties(sig);
+  props.name = raw(nameExpr);
+  return props;
 }
 
 /** Build a signal with namespace substituted as a Bicep parameter reference. */
@@ -100,11 +117,12 @@ function deriveParams(group: OptionalEntityGroup): string[] {
   ];
 }
 
-/** Derive a signal group Bicep object from a binding. */
-function bindingToSignalGroup(binding: SignalBinding, groupKey: string): { key: string; value: BicepValue } {
-  const sigs = binding.signals.map((sig, j) =>
-    signalToBicep(sig, `guid(name, '${groupKey}-${sig.displayName.toLowerCase().replace(/[^a-z0-9]/g, '-')}')`)
-  );
+/** Derive a signal group Bicep object from a binding, using signal definition references. */
+function bindingToSignalGroupWithDefs(binding: SignalBinding, groupKey: string, defSymbols: string[]): { key: string; value: BicepValue } {
+  const sigs = binding.signals.map((sig, j) => {
+    const sigKey = `${groupKey}-${sig.displayName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+    return signalRef(sig, `guid(name, '${sigKey}')`, `${defSymbols[j]}.name`);
+  });
 
   if (binding.type === 'azureResource') {
     return {
@@ -127,11 +145,37 @@ function bindingToSignalGroup(binding: SignalBinding, groupKey: string): { key: 
   };
 }
 
-/** Derive entity + relationship Bicep blocks for a global OptionalEntityGroup. */
+/** Derive signal definitions + entity + relationship Bicep blocks for a global OptionalEntityGroup. */
 function deriveGlobalEntity(group: OptionalEntityGroup, yOffset: number): string[] {
-  const signalGroups: Record<string, BicepValue> = {};
+  const blocks: string[] = [];
+  const defSymbolsByBinding: string[][] = [];
+
+  // Emit signal definitions first
   for (const binding of group.bindings) {
-    const { key, value } = bindingToSignalGroup(binding, group.key);
+    const defSymbols: string[] = [];
+    for (const sig of binding.signals) {
+      const sigKey = `${group.key}-${sig.displayName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+      const defSym = `def_${group.key}_${sig.displayName.toLowerCase().replace(/[^a-z0-9]/g, '_')}`;
+      defSymbols.push(defSym);
+      blocks.push(resource({
+        symbolic: defSym,
+        type: 'Microsoft.CloudHealth/healthmodels/signaldefinitions',
+        apiVersion: API_VERSION,
+        condition: group.enableParam,
+        body: {
+          parent: raw('hm'),
+          name: guid('name', `'def-${sigKey}'`),
+          properties: signalDefProperties(sig),
+        },
+      }));
+    }
+    defSymbolsByBinding.push(defSymbols);
+  }
+
+  // Build signal groups referencing definitions
+  const signalGroups: Record<string, BicepValue> = {};
+  for (let i = 0; i < group.bindings.length; i++) {
+    const { key, value } = bindingToSignalGroupWithDefs(group.bindings[i], group.key, defSymbolsByBinding[i]);
     signalGroups[key] = value;
   }
 
@@ -139,7 +183,7 @@ function deriveGlobalEntity(group: OptionalEntityGroup, yOffset: number): string
   const entitySym = `${group.key}Entity`;
   const relSym = `rel_${group.key}`;
 
-  const entity = resource({
+  blocks.push(resource({
     symbolic: entitySym,
     type: 'Microsoft.CloudHealth/healthmodels/entities',
     apiVersion: API_VERSION,
@@ -156,9 +200,9 @@ function deriveGlobalEntity(group: OptionalEntityGroup, yOffset: number): string
         signalGroups,
       },
     },
-  });
+  }));
 
-  const rel = resource({
+  blocks.push(resource({
     symbolic: relSym,
     type: 'Microsoft.CloudHealth/healthmodels/relationships',
     apiVersion: API_VERSION,
@@ -171,9 +215,9 @@ function deriveGlobalEntity(group: OptionalEntityGroup, yOffset: number): string
         childEntityName: raw(`${entitySym}.name`),
       },
     },
-  });
+  }));
 
-  return [entity, rel];
+  return blocks;
 }
 
 // ─── Main Builder ───────────────────────────────────────────────────
@@ -435,14 +479,113 @@ export function buildHealthModelBicep(): string {
   }));
 
   // Per-Stamp Failure Entities (one entity per resource type)
-  blocks.push(section('Per-Stamp Failure Entities'));
-  blocks.push(comment('Split by resource type: AKS, Prometheus, FrontDoor, Cosmos.'));
-  blocks.push(comment('Each entity has at most one azureResource + one azureMonitorWorkspace group.'));
+  blocks.push(section('Per-Stamp Failure Signal Definitions'));
+  blocks.push(comment('All signals are extracted to standalone signaldefinitions for discoverability and reuse.'));
 
   const ns = '${namespace}'; // Bicep interpolation
   const failSigs = signals.buildFailureSignals(ns);
 
-  // 1. AKS Failures (azureResource → AKS cluster)
+  // Signal Definitions: AKS Failure signals (per-stamp)
+  blocks.push(resourceLoop({
+    symbolic: 'defAksFailedPods',
+    type: 'Microsoft.CloudHealth/healthmodels/signaldefinitions',
+    apiVersion: API_VERSION,
+    arrayExpr: 'stamps',
+    itemVar: 'stamp',
+    indexVar: 'i',
+    body: {
+      parent: raw('hm'),
+      name: guid('name', 'stamp.key', "'def-failed-pods'"),
+      properties: signalDefProperties(failSigs.aksFailedPods),
+    },
+  }));
+
+  // Signal Definitions: Prometheus Failure signals (per-stamp, 4 signals)
+  const promFailSigs = [
+    { sig: failSigs.podRestarts, key: 'pod-restarts', sym: 'defPodRestarts' },
+    { sig: failSigs.oomKilled, key: 'oomkilled', sym: 'defOomKilled' },
+    { sig: failSigs.crashLoop, key: 'crashloop', sym: 'defCrashLoop' },
+    { sig: failSigs.podsOnNotReadyNodes, key: 'pods-notready-nodes', sym: 'defPodsNotReadyNodes' },
+  ];
+  for (const { sig, key, sym } of promFailSigs) {
+    blocks.push(resourceLoop({
+      symbolic: sym,
+      type: 'Microsoft.CloudHealth/healthmodels/signaldefinitions',
+      apiVersion: API_VERSION,
+      arrayExpr: 'stamps',
+      itemVar: 'stamp',
+      indexVar: 'i',
+      body: {
+        parent: raw('hm'),
+        name: guid('name', 'stamp.key', `'def-${key}'`),
+        properties: signalDefProperties(sig),
+      },
+    }));
+  }
+
+  // Signal Definitions: FD Failure signals (per-stamp — scoped by origin)
+  blocks.push(resourceLoop({
+    symbolic: 'defFd5xx',
+    type: 'Microsoft.CloudHealth/healthmodels/signaldefinitions',
+    apiVersion: API_VERSION,
+    arrayExpr: 'stamps',
+    itemVar: 'stamp',
+    indexVar: 'i',
+    body: {
+      parent: raw('hm'),
+      name: guid('name', 'stamp.key', "'def-fd-5xx'"),
+      properties: signalDefProperties(failSigs.fd5xx),
+    },
+  }));
+
+  blocks.push(resourceLoop({
+    symbolic: 'defFd4xx',
+    type: 'Microsoft.CloudHealth/healthmodels/signaldefinitions',
+    apiVersion: API_VERSION,
+    arrayExpr: 'stamps',
+    itemVar: 'stamp',
+    indexVar: 'i',
+    body: {
+      parent: raw('hm'),
+      name: guid('name', 'stamp.key', "'def-fd-4xx'"),
+      properties: signalDefProperties(failSigs.fd4xx),
+    },
+  }));
+
+  // Signal Definitions: Cosmos Failure signals (per-stamp dimension)
+  blocks.push(resourceLoop({
+    symbolic: 'defCosmosAvailability',
+    type: 'Microsoft.CloudHealth/healthmodels/signaldefinitions',
+    apiVersion: API_VERSION,
+    arrayExpr: 'stamps',
+    itemVar: 'stamp',
+    indexVar: 'i',
+    body: {
+      parent: raw('hm'),
+      name: guid('name', 'stamp.key', "'def-cosmos-availability'"),
+      properties: signalDefProperties(failSigs.cosmosAvailability),
+    },
+  }));
+
+  blocks.push(resourceLoop({
+    symbolic: 'defCosmosClientErrors',
+    type: 'Microsoft.CloudHealth/healthmodels/signaldefinitions',
+    apiVersion: API_VERSION,
+    arrayExpr: 'stamps',
+    itemVar: 'stamp',
+    indexVar: 'i',
+    body: {
+      parent: raw('hm'),
+      name: guid('name', 'stamp.key', "'def-cosmos-client-errors'"),
+      properties: signalDefProperties(failSigs.cosmosClientErrors),
+    },
+  }));
+
+  // ─── Per-Stamp Failure Entities (reference signal definitions) ─────
+  blocks.push(section('Per-Stamp Failure Entities'));
+  blocks.push(comment('Each entity references signal definitions instead of inline signals.'));
+
+  // 1. AKS Failures
   blocks.push(resourceLoop({
     symbolic: 'stampAksFailures',
     type: 'Microsoft.CloudHealth/healthmodels/entities',
@@ -464,7 +607,7 @@ export function buildHealthModelBicep(): string {
             authenticationSetting: raw('auth.name'),
             azureResourceId: raw('stamp.aksClusterId'),
             signals: [
-              signalToBicep(failSigs.aksFailedPods, "guid(name, stamp.key, 'failed-pods')"),
+              signalRef(failSigs.aksFailedPods, "guid(name, stamp.key, 'failed-pods')", 'defAksFailedPods[i].name'),
             ],
           },
         },
@@ -472,7 +615,7 @@ export function buildHealthModelBicep(): string {
     },
   }));
 
-  // 2. Prometheus Failures (azureMonitorWorkspace → AMW)
+  // 2. Prometheus Failures
   blocks.push(resourceLoop({
     symbolic: 'stampPromFailures',
     type: 'Microsoft.CloudHealth/healthmodels/entities',
@@ -494,10 +637,10 @@ export function buildHealthModelBicep(): string {
             authenticationSetting: raw('auth.name'),
             azureMonitorWorkspaceResourceId: raw('stamp.amwResourceId'),
             signals: [
-              signalToBicep(failSigs.podRestarts, "guid(name, stamp.key, 'pod-restarts')"),
-              signalToBicep(failSigs.oomKilled, "guid(name, stamp.key, 'oomkilled')"),
-              signalToBicep(failSigs.crashLoop, "guid(name, stamp.key, 'crashloop')"),
-              signalToBicep(failSigs.podsOnNotReadyNodes, "guid(name, stamp.key, 'pods-notready-nodes')"),
+              signalRef(failSigs.podRestarts, "guid(name, stamp.key, 'pod-restarts')", 'defPodRestarts[i].name'),
+              signalRef(failSigs.oomKilled, "guid(name, stamp.key, 'oomkilled')", 'defOomKilled[i].name'),
+              signalRef(failSigs.crashLoop, "guid(name, stamp.key, 'crashloop')", 'defCrashLoop[i].name'),
+              signalRef(failSigs.podsOnNotReadyNodes, "guid(name, stamp.key, 'pods-notready-nodes')", 'defPodsNotReadyNodes[i].name'),
             ],
           },
         },
@@ -505,7 +648,7 @@ export function buildHealthModelBicep(): string {
     },
   }));
 
-  // 3. Front Door Failures (azureResource → FD)
+  // 3. Front Door Failures
   blocks.push(resourceLoop({
     symbolic: 'stampFdFailures',
     type: 'Microsoft.CloudHealth/healthmodels/entities',
@@ -527,8 +670,8 @@ export function buildHealthModelBicep(): string {
             authenticationSetting: raw('auth.name'),
             azureResourceId: raw('frontDoorProfileId'),
             signals: [
-              signalToBicep(failSigs.fd5xx, "guid(name, stamp.key, 'fd-5xx')"),
-              signalToBicep(failSigs.fd4xx, "guid(name, stamp.key, 'fd-4xx')"),
+              signalRef(failSigs.fd5xx, "guid(name, stamp.key, 'fd-5xx')", 'defFd5xx[i].name'),
+              signalRef(failSigs.fd4xx, "guid(name, stamp.key, 'fd-4xx')", 'defFd4xx[i].name'),
             ],
           },
         },
@@ -536,7 +679,7 @@ export function buildHealthModelBicep(): string {
     },
   }));
 
-  // 4. Cosmos Failures (azureResource → Cosmos)
+  // 4. Cosmos Failures
   blocks.push(resourceLoop({
     symbolic: 'stampCosmosFailures',
     type: 'Microsoft.CloudHealth/healthmodels/entities',
@@ -558,8 +701,8 @@ export function buildHealthModelBicep(): string {
             authenticationSetting: raw('auth.name'),
             azureResourceId: raw('cosmosAccountId'),
             signals: [
-              signalToBicep(failSigs.cosmosAvailability, "guid(name, stamp.key, 'cosmos-availability')"),
-              signalToBicep(failSigs.cosmosClientErrors, "guid(name, stamp.key, 'cosmos-client-errors')"),
+              signalRef(failSigs.cosmosAvailability, "guid(name, stamp.key, 'cosmos-availability')", 'defCosmosAvailability[i].name'),
+              signalRef(failSigs.cosmosClientErrors, "guid(name, stamp.key, 'cosmos-client-errors')", 'defCosmosClientErrors[i].name'),
             ],
           },
         },
@@ -589,13 +732,85 @@ export function buildHealthModelBicep(): string {
     }));
   }
 
-  // Per-Stamp Latency Entities (one entity per resource type)
-  blocks.push(section('Per-Stamp Latency Entities'));
-  blocks.push(comment('Split by resource type: FrontDoor, Cosmos, Prometheus.'));
+  // Per-Stamp Latency Signal Definitions
+  blocks.push(section('Per-Stamp Latency Signal Definitions'));
 
   const latSigs = signals.buildLatencySignals(ns);
 
-  // 1. Front Door Latency (azureResource → FD)
+  // FD Total Latency def (per-stamp)
+  blocks.push(resourceLoop({
+    symbolic: 'defFdTotalLatency',
+    type: 'Microsoft.CloudHealth/healthmodels/signaldefinitions',
+    apiVersion: API_VERSION,
+    arrayExpr: 'stamps',
+    itemVar: 'stamp',
+    indexVar: 'i',
+    body: {
+      parent: raw('hm'),
+      name: guid('name', 'stamp.key', "'def-fd-total-latency'"),
+      properties: signalDefProperties(latSigs.fdTotalLatency),
+    },
+  }));
+
+  // Cosmos Latency defs (per-stamp)
+  blocks.push(resourceLoop({
+    symbolic: 'defCosmosNormalizedRU',
+    type: 'Microsoft.CloudHealth/healthmodels/signaldefinitions',
+    apiVersion: API_VERSION,
+    arrayExpr: 'stamps',
+    itemVar: 'stamp',
+    indexVar: 'i',
+    body: {
+      parent: raw('hm'),
+      name: guid('name', 'stamp.key', "'def-cosmos-normalized-ru'"),
+      properties: signalDefProperties(latSigs.cosmosNormalizedRU),
+    },
+  }));
+
+  blocks.push(resourceLoop({
+    symbolic: 'defCosmosThrottled',
+    type: 'Microsoft.CloudHealth/healthmodels/signaldefinitions',
+    apiVersion: API_VERSION,
+    arrayExpr: 'stamps',
+    itemVar: 'stamp',
+    indexVar: 'i',
+    body: {
+      parent: raw('hm'),
+      name: guid('name', 'stamp.key', "'def-cosmos-throttled'"),
+      properties: signalDefProperties(latSigs.cosmosThrottled),
+    },
+  }));
+
+  // Prometheus Latency defs (per-stamp, 7 signals)
+  const promLatSigs = [
+    { sig: latSigs.cpuPressure, key: 'cpu-pressure', sym: 'defCpuPressure' },
+    { sig: latSigs.cpuThrottling, key: 'cpu-throttling', sym: 'defCpuThrottling' },
+    { sig: latSigs.memoryPressure, key: 'memory-pressure', sym: 'defMemoryPressure' },
+    { sig: latSigs.podsOnHighCpuNodes, key: 'pods-high-cpu-nodes', sym: 'defPodsHighCpuNodes' },
+    { sig: latSigs.podsOnHighMemoryNodes, key: 'pods-high-mem-nodes', sym: 'defPodsHighMemNodes' },
+    { sig: latSigs.podsOnDiskPressureNodes, key: 'pods-disk-pressure-nodes', sym: 'defPodsDiskPressureNodes' },
+    { sig: latSigs.podsOnPidPressureNodes, key: 'pods-pid-pressure-nodes', sym: 'defPodsPidPressureNodes' },
+  ];
+  for (const { sig, key, sym } of promLatSigs) {
+    blocks.push(resourceLoop({
+      symbolic: sym,
+      type: 'Microsoft.CloudHealth/healthmodels/signaldefinitions',
+      apiVersion: API_VERSION,
+      arrayExpr: 'stamps',
+      itemVar: 'stamp',
+      indexVar: 'i',
+      body: {
+        parent: raw('hm'),
+        name: guid('name', 'stamp.key', `'def-${key}'`),
+        properties: signalDefProperties(sig),
+      },
+    }));
+  }
+
+  // ─── Per-Stamp Latency Entities (reference signal definitions) ─────
+  blocks.push(section('Per-Stamp Latency Entities'));
+
+  // 1. Front Door Latency
   blocks.push(resourceLoop({
     symbolic: 'stampFdLatency',
     type: 'Microsoft.CloudHealth/healthmodels/entities',
@@ -617,13 +832,8 @@ export function buildHealthModelBicep(): string {
             authenticationSetting: raw('auth.name'),
             azureResourceId: raw('frontDoorProfileId'),
             signals: [
-              {
-                signalKind: 'AzureResourceMetric',
-                refreshInterval: 'PT1M',
-                name: raw("guid(name, stamp.key, 'fd-origin-latency')"),
-                signalDefinitionName: raw('originLatencyDef[i].name'),
-              },
-              signalToBicep(latSigs.fdTotalLatency, "guid(name, stamp.key, 'fd-total-latency')"),
+              signalRef(latSigs.fdTotalLatency, "guid(name, stamp.key, 'fd-origin-latency')", 'originLatencyDef[i].name'),
+              signalRef(latSigs.fdTotalLatency, "guid(name, stamp.key, 'fd-total-latency')", 'defFdTotalLatency[i].name'),
             ],
           },
         },
@@ -631,7 +841,7 @@ export function buildHealthModelBicep(): string {
     },
   }));
 
-  // 2. Cosmos Latency (azureResource → Cosmos)
+  // 2. Cosmos Latency
   blocks.push(resourceLoop({
     symbolic: 'stampCosmosLatency',
     type: 'Microsoft.CloudHealth/healthmodels/entities',
@@ -653,8 +863,8 @@ export function buildHealthModelBicep(): string {
             authenticationSetting: raw('auth.name'),
             azureResourceId: raw('cosmosAccountId'),
             signals: [
-              signalToBicep(latSigs.cosmosNormalizedRU, "guid(name, stamp.key, 'cosmos-normalized-ru')"),
-              signalToBicep(latSigs.cosmosThrottled, "guid(name, stamp.key, 'cosmos-throttled')"),
+              signalRef(latSigs.cosmosNormalizedRU, "guid(name, stamp.key, 'cosmos-normalized-ru')", 'defCosmosNormalizedRU[i].name'),
+              signalRef(latSigs.cosmosThrottled, "guid(name, stamp.key, 'cosmos-throttled')", 'defCosmosThrottled[i].name'),
             ],
           },
         },
@@ -662,7 +872,7 @@ export function buildHealthModelBicep(): string {
     },
   }));
 
-  // 3. Prometheus Latency (azureMonitorWorkspace → AMW)
+  // 3. Prometheus Latency
   blocks.push(resourceLoop({
     symbolic: 'stampPromLatency',
     type: 'Microsoft.CloudHealth/healthmodels/entities',
@@ -684,13 +894,13 @@ export function buildHealthModelBicep(): string {
             authenticationSetting: raw('auth.name'),
             azureMonitorWorkspaceResourceId: raw('stamp.amwResourceId'),
             signals: [
-              signalToBicep(latSigs.cpuPressure, "guid(name, stamp.key, 'cpu-pressure')"),
-              signalToBicep(latSigs.cpuThrottling, "guid(name, stamp.key, 'cpu-throttling')"),
-              signalToBicep(latSigs.memoryPressure, "guid(name, stamp.key, 'memory-pressure')"),
-              signalToBicep(latSigs.podsOnHighCpuNodes, "guid(name, stamp.key, 'pods-high-cpu-nodes')"),
-              signalToBicep(latSigs.podsOnHighMemoryNodes, "guid(name, stamp.key, 'pods-high-mem-nodes')"),
-              signalToBicep(latSigs.podsOnDiskPressureNodes, "guid(name, stamp.key, 'pods-disk-pressure-nodes')"),
-              signalToBicep(latSigs.podsOnPidPressureNodes, "guid(name, stamp.key, 'pods-pid-pressure-nodes')"),
+              signalRef(latSigs.cpuPressure, "guid(name, stamp.key, 'cpu-pressure')", 'defCpuPressure[i].name'),
+              signalRef(latSigs.cpuThrottling, "guid(name, stamp.key, 'cpu-throttling')", 'defCpuThrottling[i].name'),
+              signalRef(latSigs.memoryPressure, "guid(name, stamp.key, 'memory-pressure')", 'defMemoryPressure[i].name'),
+              signalRef(latSigs.podsOnHighCpuNodes, "guid(name, stamp.key, 'pods-high-cpu-nodes')", 'defPodsHighCpuNodes[i].name'),
+              signalRef(latSigs.podsOnHighMemoryNodes, "guid(name, stamp.key, 'pods-high-mem-nodes')", 'defPodsHighMemNodes[i].name'),
+              signalRef(latSigs.podsOnDiskPressureNodes, "guid(name, stamp.key, 'pods-disk-pressure-nodes')", 'defPodsDiskPressureNodes[i].name'),
+              signalRef(latSigs.podsOnPidPressureNodes, "guid(name, stamp.key, 'pods-pid-pressure-nodes')", 'defPodsPidPressureNodes[i].name'),
             ],
           },
         },
