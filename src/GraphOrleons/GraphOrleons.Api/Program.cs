@@ -91,7 +91,15 @@ builder.Host.UseOrleans(silo =>
     {
         ob.ConfigureAzureQueue(q => q.Configure(o =>
         {
-            o.QueueServiceClient = new Azure.Storage.Queues.QueueServiceClient(queueConnStr);
+            if (queueConnStr!.StartsWith("http", StringComparison.OrdinalIgnoreCase))
+            {
+                o.QueueServiceClient = new Azure.Storage.Queues.QueueServiceClient(
+                    new Uri(queueConnStr), new Azure.Identity.DefaultAzureCredential());
+            }
+            else
+            {
+                o.QueueServiceClient = new Azure.Storage.Queues.QueueServiceClient(queueConnStr);
+            }
             o.QueueNames = ["tenant-stream-0", "tenant-stream-1", "tenant-stream-2", "tenant-stream-3"];
         }));
     });
