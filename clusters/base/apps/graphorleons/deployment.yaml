@@ -68,6 +68,8 @@ spec:
               value: graphorleons-models
             - name: ConnectionStrings__graphorleons-events
               value: ${GRAPHORLEONS_EVENTHUB_ENDPOINT}
+            - name: ConnectionStrings__queues
+              value: ${GRAPHORLEONS_STORAGE_QUEUE_ENDPOINT}
           resizePolicy:
             - resourceName: cpu
               restartPolicy: NotRequired

@@ -44,7 +44,8 @@ export function buildAppDashboard(app: AppConfig, config: PlatformConfig): objec
     .withVariable(
       new DatasourceVariableBuilder('datasource')
         .label('Data source')
-        .type('prometheus'),
+        .type('prometheus')
+        .current({ selected: true, text: 'default', value: 'default' }),
     )
     // Cluster selector — auto-populated from selected Prometheus DS
     .withVariable(
@@ -100,20 +101,18 @@ export function buildAppDashboard(app: AppConfig, config: PlatformConfig): objec
     .withPanel(panels.cpuPressureGauge(app.namespace))
     .withPanel(panels.memoryPressureGauge(app.namespace));
 
-  // ── Row 4+: Per-stamp drill-down (collapsed) ─────────────────
-  for (const stamp of config.stamps) {
-    builder = builder
-      .withRow(
-        new RowBuilder(`📍 ${stamp.key}`)
-          .collapsed(true)
-          .withPanel(panels.cpuUsageTimeseries(app.namespace, stamp.cluster))
-          .withPanel(panels.memoryUsageTimeseries(app.namespace, stamp.cluster))
-          .withPanel(panels.cpuThrottlingTimeseries(app.namespace, stamp.cluster))
-          .withPanel(panels.podRestartsTimeseries(app.namespace, stamp.cluster))
-          .withPanel(panels.nodeCpuTimeseries(app.namespace, stamp.cluster))
-          .withPanel(panels.nodeMemoryTimeseries(app.namespace, stamp.cluster)),
-      );
-  }
+  // ── Row 4: App Pods (collapsed, uses $cluster variable) ────────
+  builder = builder
+    .withRow(
+      new RowBuilder('📦 App Pods')
+        .collapsed(true)
+        .withPanel(panels.cpuUsageTimeseries(app.namespace, '$cluster'))
+        .withPanel(panels.memoryUsageTimeseries(app.namespace, '$cluster'))
+        .withPanel(panels.cpuThrottlingTimeseries(app.namespace, '$cluster'))
+        .withPanel(panels.podRestartsTimeseries(app.namespace, '$cluster'))
+        .withPanel(panels.nodeCpuTimeseries(app.namespace, '$cluster'))
+        .withPanel(panels.nodeMemoryTimeseries(app.namespace, '$cluster')),
+    );
 
   // ── AI Models row (conditional) ───────────────────────────────
   if (app.usesAI) {
@@ -134,8 +133,8 @@ export function buildAppDashboard(app: AppConfig, config: PlatformConfig): objec
       .withRow(
         new RowBuilder('📬 Azure Queue Storage')
           .collapsed(true)
-          .withPanel(panels.queueMessageCountTimeseries(app.namespace))
-          .withPanel(panels.queueAgeTimeseries(app.namespace)),
+          .withPanel(panels.queueMessageCountTimeseries(app.namespace, config))
+          .withPanel(panels.queueAgeTimeseries(app.namespace, config)),
       );
   }
 

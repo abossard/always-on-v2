@@ -17,7 +17,12 @@
         "auto_min": "10s",
         "auto_count": 30,
         "label": "Data source",
-        "query": "prometheus"
+        "query": "prometheus",
+        "current": {
+          "selected": true,
+          "text": "default",
+          "value": "default"
+        }
       },
       {
         "type": "query",
@@ -174,8 +179,7 @@
                 "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
                 "resourceGroup": "rg-alwayson-global",
                 "resourceName": "fd-alwayson",
-                "metricNamespace": "microsoft.cdn/profiles",
-                "region": "global"
+                "metricNamespace": "microsoft.cdn/profiles"
               }
             ],
             "dimensionFilters": [],
@@ -268,8 +272,7 @@
                 "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
                 "resourceGroup": "rg-alwayson-global",
                 "resourceName": "fd-alwayson",
-                "metricNamespace": "microsoft.cdn/profiles",
-                "region": "global"
+                "metricNamespace": "microsoft.cdn/profiles"
               }
             ],
             "dimensionFilters": [],
@@ -362,8 +365,7 @@
                 "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
                 "resourceGroup": "rg-alwayson-global",
                 "resourceName": "fd-alwayson",
-                "metricNamespace": "microsoft.cdn/profiles",
-                "region": "global"
+                "metricNamespace": "microsoft.cdn/profiles"
               }
             ],
             "dimensionFilters": [],
@@ -451,19 +453,10 @@
                 "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
                 "resourceGroup": "rg-alwayson-global",
                 "resourceName": "cosmos-alwayson-a2nyh4",
-                "metricNamespace": "microsoft.documentdb/databaseaccounts",
-                "region": "swedencentral"
+                "metricNamespace": "microsoft.documentdb/databaseaccounts"
               }
             ],
-            "dimensionFilters": [
-              {
-                "dimension": "DatabaseName",
-                "operator": "eq",
-                "filters": [
-                  "graphorleonsdb"
-                ]
-              }
-            ],
+            "dimensionFilters": [],
             "customNamespace": "microsoft.documentdb/databaseaccounts",
             "allowedTimeGrainsMs": [
               60000,
@@ -547,28 +540,10 @@
                 "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
                 "resourceGroup": "rg-alwayson-global",
                 "resourceName": "cosmos-alwayson-a2nyh4",
-                "metricNamespace": "microsoft.documentdb/databaseaccounts",
-                "region": "swedencentral"
+                "metricNamespace": "microsoft.documentdb/databaseaccounts"
               }
             ],
-            "dimensionFilters": [
-              {
-                "dimension": "StatusCode",
-                "operator": "eq",
-                "filters": [
-                  "429",
-                  "500",
-                  "503"
-                ]
-              },
-              {
-                "dimension": "DatabaseName",
-                "operator": "eq",
-                "filters": [
-                  "graphorleonsdb"
-                ]
-              }
-            ],
+            "dimensionFilters": [],
             "customNamespace": "microsoft.documentdb/databaseaccounts",
             "allowedTimeGrainsMs": [
               60000,
@@ -658,19 +633,10 @@
                 "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
                 "resourceGroup": "rg-alwayson-global",
                 "resourceName": "cosmos-alwayson-a2nyh4",
-                "metricNamespace": "microsoft.documentdb/databaseaccounts",
-                "region": "swedencentral"
+                "metricNamespace": "microsoft.documentdb/databaseaccounts"
               }
             ],
-            "dimensionFilters": [
-              {
-                "dimension": "DatabaseName",
-                "operator": "eq",
-                "filters": [
-                  "graphorleonsdb"
-                ]
-              }
-            ],
+            "dimensionFilters": [],
             "customNamespace": "microsoft.documentdb/databaseaccounts",
             "allowedTimeGrainsMs": [
               60000,
@@ -759,26 +725,10 @@
                 "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
                 "resourceGroup": "rg-alwayson-global",
                 "resourceName": "cosmos-alwayson-a2nyh4",
-                "metricNamespace": "microsoft.documentdb/databaseaccounts",
-                "region": "swedencentral"
+                "metricNamespace": "microsoft.documentdb/databaseaccounts"
               }
             ],
-            "dimensionFilters": [
-              {
-                "dimension": "StatusCode",
-                "operator": "eq",
-                "filters": [
-                  "429"
-                ]
-              },
-              {
-                "dimension": "DatabaseName",
-                "operator": "eq",
-                "filters": [
-                  "graphorleonsdb"
-                ]
-              }
-            ],
+            "dimensionFilters": [],
             "customNamespace": "microsoft.documentdb/databaseaccounts",
             "allowedTimeGrainsMs": [
               60000,
@@ -867,8 +817,7 @@
                 "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
                 "resourceGroup": "rg-alwayson-global",
                 "resourceName": "evh-graphorleons-alwayson",
-                "metricNamespace": "microsoft.eventhub/namespaces",
-                "region": "swedencentral"
+                "metricNamespace": "microsoft.eventhub/namespaces"
               }
             ],
             "dimensionFilters": [],
@@ -960,8 +909,7 @@
                 "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
                 "resourceGroup": "rg-alwayson-global",
                 "resourceName": "evh-graphorleons-alwayson",
-                "metricNamespace": "microsoft.eventhub/namespaces",
-                "region": "swedencentral"
+                "metricNamespace": "microsoft.eventhub/namespaces"
               }
             ],
             "dimensionFilters": [],
@@ -1057,8 +1005,7 @@
                 "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
                 "resourceGroup": "rg-alwayson-global",
                 "resourceName": "evh-graphorleons-alwayson",
-                "metricNamespace": "microsoft.eventhub/namespaces",
-                "region": "swedencentral"
+                "metricNamespace": "microsoft.eventhub/namespaces"
               }
             ],
             "dimensionFilters": [],
@@ -1154,8 +1101,7 @@
                 "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
                 "resourceGroup": "rg-alwayson-global",
                 "resourceName": "evh-graphorleons-alwayson",
-                "metricNamespace": "microsoft.eventhub/namespaces",
-                "region": "swedencentral"
+                "metricNamespace": "microsoft.eventhub/namespaces"
               }
             ],
             "dimensionFilters": [],
@@ -1247,8 +1193,7 @@
                 "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
                 "resourceGroup": "rg-alwayson-global",
                 "resourceName": "evh-graphorleons-alwayson",
-                "metricNamespace": "microsoft.eventhub/namespaces",
-                "region": "swedencentral"
+                "metricNamespace": "microsoft.eventhub/namespaces"
               }
             ],
             "dimensionFilters": [],
@@ -1335,7 +1280,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (cluster) (increase(kube_pod_container_status_restarts_total{namespace=\"graphorleons\", cluster=\"$cluster\"}[$__range]))",
+          "expr": "sum by (cluster) (increase(kube_pod_container_status_restarts_total{namespace=\"$namespace\", cluster=\"$cluster\"}[$__range]))",
           "refId": "A",
           "datasource": {
             "uid": "${datasource}",
@@ -1402,7 +1347,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (cluster) (kube_pod_container_status_last_terminated_reason{namespace=\"graphorleons\", reason=\"OOMKilled\", cluster=\"$cluster\"}) or vector(0)",
+          "expr": "sum by (cluster) (kube_pod_container_status_last_terminated_reason{namespace=\"$namespace\", reason=\"OOMKilled\", cluster=\"$cluster\"}) or vector(0)",
           "refId": "A",
           "datasource": {
             "uid": "${datasource}",
@@ -1469,7 +1414,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (cluster) (kube_pod_container_status_waiting_reason{namespace=\"graphorleons\", reason=\"CrashLoopBackOff\", cluster=\"$cluster\"}) or vector(0)",
+          "expr": "sum by (cluster) (kube_pod_container_status_waiting_reason{namespace=\"$namespace\", reason=\"CrashLoopBackOff\", cluster=\"$cluster\"}) or vector(0)",
           "refId": "A",
           "datasource": {
             "uid": "${datasource}",
@@ -1548,7 +1493,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (cluster) (rate(container_cpu_usage_seconds_total{namespace=\"graphorleons\", cluster=\"$cluster\", container!=\"\", container!=\"POD\"}[5m])) / sum by (cluster) (kube_pod_container_resource_requests{namespace=\"graphorleons\", cluster=\"$cluster\", resource=\"cpu\"}) * 100",
+          "expr": "sum by (cluster) (rate(container_cpu_usage_seconds_total{namespace=\"$namespace\", cluster=\"$cluster\", container!=\"\", container!=\"POD\"}[5m])) / sum by (cluster) (kube_pod_container_resource_requests{namespace=\"$namespace\", cluster=\"$cluster\", resource=\"cpu\"}) * 100",
           "refId": "A",
           "datasource": {
             "uid": "${datasource}",
@@ -1614,7 +1559,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (cluster) (container_memory_working_set_bytes{namespace=\"graphorleons\", cluster=\"$cluster\", container!=\"\", container!=\"POD\"}) / sum by (cluster) (kube_pod_container_resource_limits{namespace=\"graphorleons\", cluster=\"$cluster\", resource=\"memory\"}) * 100",
+          "expr": "sum by (cluster) (container_memory_working_set_bytes{namespace=\"$namespace\", cluster=\"$cluster\", container!=\"\", container!=\"POD\"}) / sum by (cluster) (kube_pod_container_resource_limits{namespace=\"$namespace\", cluster=\"$cluster\", resource=\"memory\"}) * 100",
           "refId": "A",
           "datasource": {
             "uid": "${datasource}",
@@ -1692,7 +1637,7 @@
           },
           "targets": [
             {
-              "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"graphorleons\", cluster=\"aks-alwayson-swedencentral-001\", container!=\"\", container!=\"POD\"}[5m])) by (pod)",
+              "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"$namespace\", cluster=\"$cluster\", container!=\"\", container!=\"POD\"}[5m])) by (pod)",
               "refId": "A",
               "datasource": {
                 "uid": "${datasource}",
@@ -1703,7 +1648,7 @@
               "instant": false
             },
             {
-              "expr": "sum(kube_pod_container_resource_requests{namespace=\"graphorleons\", cluster=\"aks-alwayson-swedencentral-001\", resource=\"cpu\"}) by (pod)",
+              "expr": "sum(kube_pod_container_resource_requests{namespace=\"$namespace\", cluster=\"$cluster\", resource=\"cpu\"}) by (pod)",
               "refId": "B",
               "datasource": {
                 "uid": "${datasource}",
@@ -1776,7 +1721,7 @@
           },
           "targets": [
             {
-              "expr": "sum(container_memory_working_set_bytes{namespace=\"graphorleons\", cluster=\"aks-alwayson-swedencentral-001\", container!=\"\", container!=\"POD\"}) by (pod)",
+              "expr": "sum(container_memory_working_set_bytes{namespace=\"$namespace\", cluster=\"$cluster\", container!=\"\", container!=\"POD\"}) by (pod)",
               "refId": "A",
               "datasource": {
                 "uid": "${datasource}",
@@ -1787,7 +1732,7 @@
               "instant": false
             },
             {
-              "expr": "sum(kube_pod_container_resource_limits{namespace=\"graphorleons\", cluster=\"aks-alwayson-swedencentral-001\", resource=\"memory\"}) by (pod)",
+              "expr": "sum(kube_pod_container_resource_limits{namespace=\"$namespace\", cluster=\"$cluster\", resource=\"memory\"}) by (pod)",
               "refId": "B",
               "datasource": {
                 "uid": "${datasource}",
@@ -1860,7 +1805,7 @@
           },
           "targets": [
             {
-              "expr": "sum(rate(container_cpu_cfs_throttled_periods_total{namespace=\"graphorleons\", cluster=\"aks-alwayson-swedencentral-001\", container!=\"\"}[5m])) by (pod) / sum(rate(container_cpu_cfs_periods_total{namespace=\"graphorleons\", cluster=\"aks-alwayson-swedencentral-001\", container!=\"\"}[5m])) by (pod) * 100",
+              "expr": "sum(rate(container_cpu_cfs_throttled_periods_total{namespace=\"$namespace\", cluster=\"$cluster\", container!=\"\"}[5m])) by (pod) / sum(rate(container_cpu_cfs_periods_total{namespace=\"$namespace\", cluster=\"$cluster\", container!=\"\"}[5m])) by (pod) * 100",
               "refId": "A",
               "datasource": {
                 "uid": "${datasource}",
@@ -1932,7 +1877,7 @@
           },
           "targets": [
             {
-              "expr": "increase(kube_pod_container_status_restarts_total{namespace=\"graphorleons\", cluster=\"aks-alwayson-swedencentral-001\"}[$__range])",
+              "expr": "increase(kube_pod_container_status_restarts_total{namespace=\"$namespace\", cluster=\"$cluster\"}[$__range])",
               "refId": "A",
               "datasource": {
                 "uid": "${datasource}",
@@ -2005,7 +1950,7 @@
           },
           "targets": [
             {
-              "expr": "(1 - avg by (node) (rate(node_cpu_seconds_total{mode=\"idle\", cluster=\"aks-alwayson-swedencentral-001\"}[5m]))) * on(node) group_left() (count by (node) (kube_pod_info{namespace=\"graphorleons\", cluster=\"aks-alwayson-swedencentral-001\"}) > 0) * 100",
+              "expr": "(1 - avg by (node) (rate(node_cpu_seconds_total{mode=\"idle\", cluster=\"$cluster\"}[5m]))) * on(node) group_left() (count by (node) (kube_pod_info{namespace=\"$namespace\", cluster=\"$cluster\"}) > 0) * 100",
               "refId": "A",
               "datasource": {
                 "uid": "${datasource}",
@@ -2078,7 +2023,7 @@
           },
           "targets": [
             {
-              "expr": "(1 - (node_memory_MemAvailable_bytes{cluster=\"aks-alwayson-swedencentral-001\"} / node_memory_MemTotal_bytes{cluster=\"aks-alwayson-swedencentral-001\"})) * on(node) group_left() (count by (node) (kube_pod_info{namespace=\"graphorleons\", cluster=\"aks-alwayson-swedencentral-001\"}) > 0) * 100",
+              "expr": "(1 - (node_memory_MemAvailable_bytes{cluster=\"$cluster\"} / node_memory_MemTotal_bytes{cluster=\"$cluster\"})) * on(node) group_left() (count by (node) (kube_pod_info{namespace=\"$namespace\", cluster=\"$cluster\"}) > 0) * 100",
               "refId": "A",
               "datasource": {
                 "uid": "${datasource}",
@@ -2097,483 +2042,10 @@
           }
         }
       ],
-      "title": "📍 swedencentral-001",
+      "title": "📦 App Pods",
       "gridPos": {
         "x": 0,
         "y": 51,
-        "h": 1,
-        "w": 24
-      }
-    },
-    {
-      "type": "row",
-      "collapsed": true,
-      "id": 0,
-      "panels": [
-        {
-          "type": "timeseries",
-          "transparent": false,
-          "repeatDirection": "h",
-          "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "lineWidth": 1,
-                "fillOpacity": 10,
-                "showPoints": "never",
-                "drawStyle": "line",
-                "gradientMode": "opacity",
-                "spanNulls": false,
-                "axisBorderShow": false,
-                "lineInterpolation": "smooth",
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "unit": "short",
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "legend": {
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true,
-              "calcs": []
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc"
-            }
-          },
-          "title": "CPU Usage by Pod",
-          "datasource": {
-            "uid": "-- Mixed --",
-            "type": "datasource"
-          },
-          "targets": [
-            {
-              "expr": "sum(rate(container_cpu_usage_seconds_total{namespace=\"graphorleons\", cluster=\"aks-alwayson-centralus-001\", container!=\"\", container!=\"POD\"}[5m])) by (pod)",
-              "refId": "A",
-              "datasource": {
-                "uid": "${datasource}",
-                "type": "prometheus"
-              },
-              "legendFormat": "{{pod}}",
-              "range": true,
-              "instant": false
-            },
-            {
-              "expr": "sum(kube_pod_container_resource_requests{namespace=\"graphorleons\", cluster=\"aks-alwayson-centralus-001\", resource=\"cpu\"}) by (pod)",
-              "refId": "B",
-              "datasource": {
-                "uid": "${datasource}",
-                "type": "prometheus"
-              },
-              "legendFormat": "{{pod}} request",
-              "range": true,
-              "instant": false
-            }
-          ],
-          "gridPos": {
-            "h": 8,
-            "w": 8,
-            "x": 0,
-            "y": 69
-          }
-        },
-        {
-          "type": "timeseries",
-          "transparent": false,
-          "repeatDirection": "h",
-          "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "lineWidth": 1,
-                "fillOpacity": 10,
-                "showPoints": "never",
-                "drawStyle": "line",
-                "gradientMode": "opacity",
-                "spanNulls": false,
-                "axisBorderShow": false,
-                "lineInterpolation": "smooth",
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "unit": "bytes",
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "legend": {
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true,
-              "calcs": []
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc"
-            }
-          },
-          "title": "Memory Usage vs Limit",
-          "datasource": {
-            "uid": "-- Mixed --",
-            "type": "datasource"
-          },
-          "targets": [
-            {
-              "expr": "sum(container_memory_working_set_bytes{namespace=\"graphorleons\", cluster=\"aks-alwayson-centralus-001\", container!=\"\", container!=\"POD\"}) by (pod)",
-              "refId": "A",
-              "datasource": {
-                "uid": "${datasource}",
-                "type": "prometheus"
-              },
-              "legendFormat": "{{pod}} usage",
-              "range": true,
-              "instant": false
-            },
-            {
-              "expr": "sum(kube_pod_container_resource_limits{namespace=\"graphorleons\", cluster=\"aks-alwayson-centralus-001\", resource=\"memory\"}) by (pod)",
-              "refId": "B",
-              "datasource": {
-                "uid": "${datasource}",
-                "type": "prometheus"
-              },
-              "legendFormat": "{{pod}} limit",
-              "range": true,
-              "instant": false
-            }
-          ],
-          "gridPos": {
-            "h": 8,
-            "w": 8,
-            "x": 8,
-            "y": 69
-          }
-        },
-        {
-          "type": "timeseries",
-          "transparent": false,
-          "repeatDirection": "h",
-          "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "lineWidth": 1,
-                "fillOpacity": 10,
-                "showPoints": "never",
-                "drawStyle": "line",
-                "gradientMode": "opacity",
-                "spanNulls": false,
-                "axisBorderShow": false,
-                "lineInterpolation": "smooth",
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "unit": "percent",
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "legend": {
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true,
-              "calcs": []
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc"
-            }
-          },
-          "title": "CPU Throttling %",
-          "datasource": {
-            "uid": "-- Mixed --",
-            "type": "datasource"
-          },
-          "targets": [
-            {
-              "expr": "sum(rate(container_cpu_cfs_throttled_periods_total{namespace=\"graphorleons\", cluster=\"aks-alwayson-centralus-001\", container!=\"\"}[5m])) by (pod) / sum(rate(container_cpu_cfs_periods_total{namespace=\"graphorleons\", cluster=\"aks-alwayson-centralus-001\", container!=\"\"}[5m])) by (pod) * 100",
-              "refId": "A",
-              "datasource": {
-                "uid": "${datasource}",
-                "type": "prometheus"
-              },
-              "legendFormat": "{{pod}}",
-              "range": true,
-              "instant": false
-            }
-          ],
-          "gridPos": {
-            "h": 8,
-            "w": 8,
-            "x": 16,
-            "y": 69
-          }
-        },
-        {
-          "type": "timeseries",
-          "transparent": false,
-          "repeatDirection": "h",
-          "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "lineWidth": 1,
-                "fillOpacity": 10,
-                "showPoints": "never",
-                "drawStyle": "line",
-                "gradientMode": "opacity",
-                "spanNulls": false,
-                "axisBorderShow": false,
-                "lineInterpolation": "smooth",
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "legend": {
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true,
-              "calcs": []
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc"
-            }
-          },
-          "title": "Pod Restarts",
-          "datasource": {
-            "uid": "-- Mixed --",
-            "type": "datasource"
-          },
-          "targets": [
-            {
-              "expr": "increase(kube_pod_container_status_restarts_total{namespace=\"graphorleons\", cluster=\"aks-alwayson-centralus-001\"}[$__range])",
-              "refId": "A",
-              "datasource": {
-                "uid": "${datasource}",
-                "type": "prometheus"
-              },
-              "legendFormat": "{{pod}}",
-              "range": true,
-              "instant": false
-            }
-          ],
-          "gridPos": {
-            "h": 8,
-            "w": 8,
-            "x": 0,
-            "y": 77
-          }
-        },
-        {
-          "type": "timeseries",
-          "transparent": false,
-          "repeatDirection": "h",
-          "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "lineWidth": 1,
-                "fillOpacity": 10,
-                "showPoints": "never",
-                "drawStyle": "line",
-                "gradientMode": "opacity",
-                "spanNulls": false,
-                "axisBorderShow": false,
-                "lineInterpolation": "smooth",
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "unit": "percent",
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "legend": {
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true,
-              "calcs": []
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc"
-            }
-          },
-          "title": "Node CPU %",
-          "datasource": {
-            "uid": "-- Mixed --",
-            "type": "datasource"
-          },
-          "targets": [
-            {
-              "expr": "(1 - avg by (node) (rate(node_cpu_seconds_total{mode=\"idle\", cluster=\"aks-alwayson-centralus-001\"}[5m]))) * on(node) group_left() (count by (node) (kube_pod_info{namespace=\"graphorleons\", cluster=\"aks-alwayson-centralus-001\"}) > 0) * 100",
-              "refId": "A",
-              "datasource": {
-                "uid": "${datasource}",
-                "type": "prometheus"
-              },
-              "legendFormat": "{{node}}",
-              "range": true,
-              "instant": false
-            }
-          ],
-          "gridPos": {
-            "h": 8,
-            "w": 8,
-            "x": 8,
-            "y": 77
-          }
-        },
-        {
-          "type": "timeseries",
-          "transparent": false,
-          "repeatDirection": "h",
-          "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "lineWidth": 1,
-                "fillOpacity": 10,
-                "showPoints": "never",
-                "drawStyle": "line",
-                "gradientMode": "opacity",
-                "spanNulls": false,
-                "axisBorderShow": false,
-                "lineInterpolation": "smooth",
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "unit": "percent",
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "legend": {
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true,
-              "calcs": []
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc"
-            }
-          },
-          "title": "Node Memory %",
-          "datasource": {
-            "uid": "-- Mixed --",
-            "type": "datasource"
-          },
-          "targets": [
-            {
-              "expr": "(1 - (node_memory_MemAvailable_bytes{cluster=\"aks-alwayson-centralus-001\"} / node_memory_MemTotal_bytes{cluster=\"aks-alwayson-centralus-001\"})) * on(node) group_left() (count by (node) (kube_pod_info{namespace=\"graphorleons\", cluster=\"aks-alwayson-centralus-001\"}) > 0) * 100",
-              "refId": "A",
-              "datasource": {
-                "uid": "${datasource}",
-                "type": "prometheus"
-              },
-              "legendFormat": "{{node}}",
-              "range": true,
-              "instant": false
-            }
-          ],
-          "gridPos": {
-            "h": 8,
-            "w": 8,
-            "x": 16,
-            "y": 77
-          }
-        }
-      ],
-      "title": "📍 centralus-001",
-      "gridPos": {
-        "x": 0,
-        "y": 68,
         "h": 1,
         "w": 24
       }

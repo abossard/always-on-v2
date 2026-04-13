@@ -376,6 +376,43 @@ resource helloAgentsStorageQueueRbac 'Microsoft.Authorization/roleAssignments@20
     principalType: 'ServicePrincipal'
   }
 }
+
+// ============================================================================
+// GraphOrleons Storage Account (Azure Queue Storage for Orleans Streams)
+// ============================================================================
+
+var goStorageName = replace('stgo${take(baseName, 10)}${take(stampName, 6)}', '-', '')
+
+resource graphOrleonsStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
+  name: length(goStorageName) > 24 ? substring(goStorageName, 0, 24) : goStorageName
+  location: location
+  kind: 'StorageV2'
+  sku: { name: 'Standard_LRS' }
+  properties: {
+    accessTier: 'Hot'
+    allowBlobPublicAccess: false
+    publicNetworkAccess: 'Enabled'
+    minimumTlsVersion: 'TLS1_2'
+    supportsHttpsTrafficOnly: true
+  }
+}
+
+// RBAC — Storage Queue Data Contributor for GraphOrleons identity
+
+var graphOrleonsIdentityId = length(appFluxVars) > 3 && appFluxVars[3].name == 'graphorleons' ? appFluxVars[3].identityId : ''
+
+resource graphOrleonsStorageQueueRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (!empty(graphOrleonsIdentityId)) {
+  name: guid(graphOrleonsStorage.id, graphOrleonsIdentityId, roles.storageQueueDataContributor)
+  scope: graphOrleonsStorage
+  properties: {
+    principalId: length(appFluxVars) > 3 ? appFluxVars[3].identityPrincipalId : ''
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      roles.storageQueueDataContributor
+    )
+    principalType: 'ServicePrincipal'
+  }
+}
 var githubSshKnownHosts = 'Z2l0aHViLmNvbSBlY2RzYS1zaGEyLW5pc3RwMjU2IEFBQUFFMlZqWkhOaExYTm9ZVEl0Ym1semRIQXlOVFlBQUFBSWJtbHpkSEF5TlRZQUFBQkJCRW1LU0VOalFFZXpPbXhrWk15N29wS2d3RkI5bmt0NVlScllNak51RzVOODd1UmdnNkNMcmJvNXdBZFQveTZ2MG1LVjBVMncwV1oyWUIvKytUcG9ja2c9'
 
 // Shared vars (available to all apps)
@@ -449,6 +486,7 @@ var graphorleonsFluxVars = length(appFluxVars) > 3 && appFluxVars[3].name == 'gr
   GRAPHORLEONS_COSMOS_CONTAINER: appFluxVars[3].cosmosContainer
   GRAPHORLEONS_COSMOS_MODELS_CONTAINER: appFluxVars[3].cosmosModelsContainer
   GRAPHORLEONS_EVENTHUB_ENDPOINT: appFluxVars[3].eventHubEndpoint
+  GRAPHORLEONS_STORAGE_QUEUE_ENDPOINT: graphOrleonsStorage.properties.primaryEndpoints.queue
   GRAPHORLEONS_DNS_LABEL: 'graphorleons-${stampName}'
   GRAPHORLEONS_GATEWAY_HOSTNAME: 'graphorleons-${stampName}.${dnsZoneName}'
 } : {}

@@ -104,7 +104,7 @@ export function podRestartsStat(namespace: string): StatPanelBuilder {
     .reduceOptions(new common.ReduceDataOptionsBuilder().calcs(['lastNotNull']).values(false))
     .withTarget(
       new PromQueryBuilder().datasource(PROM_TARGET_DS)
-        .expr(`sum by (cluster) (increase(kube_pod_container_status_restarts_total{namespace="${namespace}", cluster="$cluster"}[$__range]))`)
+        .expr(`sum by (cluster) (increase(kube_pod_container_status_restarts_total{namespace="$namespace", cluster="$cluster"}[$__range]))`)
         .legendFormat('{{cluster}}')
         .range()
         .refId('A'),
@@ -123,7 +123,7 @@ export function oomKilledStat(namespace: string): StatPanelBuilder {
     .reduceOptions(new common.ReduceDataOptionsBuilder().calcs(['lastNotNull']).values(false))
     .withTarget(
       new PromQueryBuilder().datasource(PROM_TARGET_DS)
-        .expr(`sum by (cluster) (kube_pod_container_status_last_terminated_reason{namespace="${namespace}", reason="OOMKilled", cluster="$cluster"}) or vector(0)`)
+        .expr(`sum by (cluster) (kube_pod_container_status_last_terminated_reason{namespace="$namespace", reason="OOMKilled", cluster="$cluster"}) or vector(0)`)
         .legendFormat('{{cluster}}')
         .range()
         .refId('A'),
@@ -142,7 +142,7 @@ export function crashLoopStat(namespace: string): StatPanelBuilder {
     .reduceOptions(new common.ReduceDataOptionsBuilder().calcs(['lastNotNull']).values(false))
     .withTarget(
       new PromQueryBuilder().datasource(PROM_TARGET_DS)
-        .expr(`sum by (cluster) (kube_pod_container_status_waiting_reason{namespace="${namespace}", reason="CrashLoopBackOff", cluster="$cluster"}) or vector(0)`)
+        .expr(`sum by (cluster) (kube_pod_container_status_waiting_reason{namespace="$namespace", reason="CrashLoopBackOff", cluster="$cluster"}) or vector(0)`)
         .legendFormat('{{cluster}}')
         .range()
         .refId('A'),
@@ -161,7 +161,7 @@ export function cpuPressureGauge(namespace: string): GaugePanelBuilder {
     .withTarget(
       new PromQueryBuilder().datasource(PROM_TARGET_DS)
         .expr(
-          `sum by (cluster) (rate(container_cpu_usage_seconds_total{namespace="${namespace}", cluster="$cluster", container!="", container!="POD"}[5m])) / sum by (cluster) (kube_pod_container_resource_requests{namespace="${namespace}", cluster="$cluster", resource="cpu"}) * 100`,
+          `sum by (cluster) (rate(container_cpu_usage_seconds_total{namespace="$namespace", cluster="$cluster", container!="", container!="POD"}[5m])) / sum by (cluster) (kube_pod_container_resource_requests{namespace="$namespace", cluster="$cluster", resource="cpu"}) * 100`,
         )
         .legendFormat('{{cluster}}')
         .range()
@@ -181,7 +181,7 @@ export function memoryPressureGauge(namespace: string): GaugePanelBuilder {
     .withTarget(
       new PromQueryBuilder().datasource(PROM_TARGET_DS)
         .expr(
-          `sum by (cluster) (container_memory_working_set_bytes{namespace="${namespace}", cluster="$cluster", container!="", container!="POD"}) / sum by (cluster) (kube_pod_container_resource_limits{namespace="${namespace}", cluster="$cluster", resource="memory"}) * 100`,
+          `sum by (cluster) (container_memory_working_set_bytes{namespace="$namespace", cluster="$cluster", container!="", container!="POD"}) / sum by (cluster) (kube_pod_container_resource_limits{namespace="$namespace", cluster="$cluster", resource="memory"}) * 100`,
         )
         .legendFormat('{{cluster}}')
         .range()
@@ -201,14 +201,14 @@ export function cpuUsageTimeseries(namespace: string, cluster: string): Timeseri
     .thresholds(defaultThresholds())
     .withTarget(
       new PromQueryBuilder().datasource(PROM_TARGET_DS)
-        .expr(`sum(rate(container_cpu_usage_seconds_total{namespace="${namespace}", cluster="${cluster}", container!="", container!="POD"}[5m])) by (pod)`)
+        .expr(`sum(rate(container_cpu_usage_seconds_total{namespace="$namespace", cluster="$cluster", container!="", container!="POD"}[5m])) by (pod)`)
         .legendFormat('{{pod}}')
         .range()
         .refId('A'),
     )
     .withTarget(
       new PromQueryBuilder().datasource(PROM_TARGET_DS)
-        .expr(`sum(kube_pod_container_resource_requests{namespace="${namespace}", cluster="${cluster}", resource="cpu"}) by (pod)`)
+        .expr(`sum(kube_pod_container_resource_requests{namespace="$namespace", cluster="$cluster", resource="cpu"}) by (pod)`)
         .legendFormat('{{pod}} request')
         .range()
         .refId('B'),
@@ -225,14 +225,14 @@ export function memoryUsageTimeseries(namespace: string, cluster: string): Times
     .thresholds(defaultThresholds())
     .withTarget(
       new PromQueryBuilder().datasource(PROM_TARGET_DS)
-        .expr(`sum(container_memory_working_set_bytes{namespace="${namespace}", cluster="${cluster}", container!="", container!="POD"}) by (pod)`)
+        .expr(`sum(container_memory_working_set_bytes{namespace="$namespace", cluster="$cluster", container!="", container!="POD"}) by (pod)`)
         .legendFormat('{{pod}} usage')
         .range()
         .refId('A'),
     )
     .withTarget(
       new PromQueryBuilder().datasource(PROM_TARGET_DS)
-        .expr(`sum(kube_pod_container_resource_limits{namespace="${namespace}", cluster="${cluster}", resource="memory"}) by (pod)`)
+        .expr(`sum(kube_pod_container_resource_limits{namespace="$namespace", cluster="$cluster", resource="memory"}) by (pod)`)
         .legendFormat('{{pod}} limit')
         .range()
         .refId('B'),
@@ -250,7 +250,7 @@ export function cpuThrottlingTimeseries(namespace: string, cluster: string): Tim
     .withTarget(
       new PromQueryBuilder().datasource(PROM_TARGET_DS)
         .expr(
-          `sum(rate(container_cpu_cfs_throttled_periods_total{namespace="${namespace}", cluster="${cluster}", container!=""}[5m])) by (pod) / sum(rate(container_cpu_cfs_periods_total{namespace="${namespace}", cluster="${cluster}", container!=""}[5m])) by (pod) * 100`,
+          `sum(rate(container_cpu_cfs_throttled_periods_total{namespace="$namespace", cluster="$cluster", container!=""}[5m])) by (pod) / sum(rate(container_cpu_cfs_periods_total{namespace="$namespace", cluster="$cluster", container!=""}[5m])) by (pod) * 100`,
         )
         .legendFormat('{{pod}}')
         .range()
@@ -267,7 +267,7 @@ export function podRestartsTimeseries(namespace: string, cluster: string): Times
     .thresholds(defaultThresholds())
     .withTarget(
       new PromQueryBuilder().datasource(PROM_TARGET_DS)
-        .expr(`increase(kube_pod_container_status_restarts_total{namespace="${namespace}", cluster="${cluster}"}[$__range])`)
+        .expr(`increase(kube_pod_container_status_restarts_total{namespace="$namespace", cluster="$cluster"}[$__range])`)
         .legendFormat('{{pod}}')
         .range()
         .refId('A'),
@@ -285,7 +285,7 @@ export function nodeCpuTimeseries(namespace: string, cluster: string): Timeserie
     .withTarget(
       new PromQueryBuilder().datasource(PROM_TARGET_DS)
         .expr(
-          `(1 - avg by (node) (rate(node_cpu_seconds_total{mode="idle", cluster="${cluster}"}[5m]))) * on(node) group_left() (count by (node) (kube_pod_info{namespace="${namespace}", cluster="${cluster}"}) > 0) * 100`,
+          `(1 - avg by (node) (rate(node_cpu_seconds_total{mode="idle", cluster="$cluster"}[5m]))) * on(node) group_left() (count by (node) (kube_pod_info{namespace="$namespace", cluster="$cluster"}) > 0) * 100`,
         )
         .legendFormat('{{node}}')
         .range()
@@ -304,7 +304,7 @@ export function nodeMemoryTimeseries(namespace: string, cluster: string): Timese
     .withTarget(
       new PromQueryBuilder().datasource(PROM_TARGET_DS)
         .expr(
-          `(1 - (node_memory_MemAvailable_bytes{cluster="${cluster}"} / node_memory_MemTotal_bytes{cluster="${cluster}"})) * on(node) group_left() (count by (node) (kube_pod_info{namespace="${namespace}", cluster="${cluster}"}) > 0) * 100`,
+          `(1 - (node_memory_MemAvailable_bytes{cluster="$cluster"} / node_memory_MemTotal_bytes{cluster="$cluster"})) * on(node) group_left() (count by (node) (kube_pod_info{namespace="$namespace", cluster="$cluster"}) > 0) * 100`,
         )
         .legendFormat('{{node}}')
         .range()
@@ -316,34 +316,68 @@ export function nodeMemoryTimeseries(namespace: string, cluster: string): Timese
 
 // ── Queue panels (Prometheus-sourced) ───────────────────────────────
 
-export function queueMessageCountTimeseries(namespace: string): TimeseriesPanelBuilder {
+export function queueMessageCountTimeseries(namespace: string, config: PlatformConfig): TimeseriesPanelBuilder {
+  const stamp = config.stamps[0]; // primary stamp
   return defaultTimeseries()
     .title('Queue Message Count')
-    .datasource(MIXED_DS)
+    .datasource(AZURE_DS)
     .thresholds(defaultThresholds())
     .withTarget(
-      new PromQueryBuilder().datasource(PROM_TARGET_DS)
-        .expr(`azure_storage_queue_message_count{namespace="${namespace}"}`)
-        .legendFormat('{{queue_name}}')
-        .range()
-        .refId('A'),
+      new AzureMonitorQueryBuilder()
+        .queryType(AzureQueryType.AzureMonitor)
+        .refId('A')
+        .subscription(config.subscription)
+        .azureMonitor(
+          new AzureMetricQueryBuilder()
+            .metricNamespace('microsoft.storage/storageaccounts/queueservices')
+            .metricName('QueueMessageCount')
+            .aggregation('Average')
+            .timeGrain('auto')
+            .resources([
+              new AzureMonitorResourceBuilder()
+                .subscription(config.subscription)
+                .resourceGroup(stamp.resourceGroup)
+                .resourceName(`${stamp.storageAccount}/default`)
+                .metricNamespace('microsoft.storage/storageaccounts/queueservices'),
+            ])
+            .dimensionFilters([])
+            .customNamespace('microsoft.storage/storageaccounts/queueservices')
+            .allowedTimeGrainsMs(AZURE_TIME_GRAINS),
+        ),
     )
     .span(12)
     .height(8);
 }
 
-export function queueAgeTimeseries(namespace: string): TimeseriesPanelBuilder {
+export function queueAgeTimeseries(namespace: string, config: PlatformConfig): TimeseriesPanelBuilder {
+  const stamp = config.stamps[0];
   return defaultTimeseries()
     .title('Queue Approximate Age (oldest msg)')
-    .datasource(MIXED_DS)
+    .datasource(AZURE_DS)
     .unit('s')
     .thresholds(defaultThresholds())
     .withTarget(
-      new PromQueryBuilder().datasource(PROM_TARGET_DS)
-        .expr(`azure_storage_queue_approximate_age_seconds{namespace="${namespace}"}`)
-        .legendFormat('{{queue_name}}')
-        .range()
-        .refId('A'),
+      new AzureMonitorQueryBuilder()
+        .queryType(AzureQueryType.AzureMonitor)
+        .refId('A')
+        .subscription(config.subscription)
+        .azureMonitor(
+          new AzureMetricQueryBuilder()
+            .metricNamespace('microsoft.storage/storageaccounts/queueservices')
+            .metricName('QueueCount')
+            .aggregation('Average')
+            .timeGrain('auto')
+            .resources([
+              new AzureMonitorResourceBuilder()
+                .subscription(config.subscription)
+                .resourceGroup(stamp.resourceGroup)
+                .resourceName(`${stamp.storageAccount}/default`)
+                .metricNamespace('microsoft.storage/storageaccounts/queueservices'),
+            ])
+            .dimensionFilters([])
+            .customNamespace('microsoft.storage/storageaccounts/queueservices')
+            .allowedTimeGrainsMs(AZURE_TIME_GRAINS),
+        ),
     )
     .span(12)
     .height(8);
@@ -558,7 +592,7 @@ export function aiTokensPanel(config: PlatformConfig): TimeseriesPanelBuilder {
             .aggregation('Total')
             .timeGrain('auto')
             .resources([resource])
-            .dimensionFilters([new AzureMetricDimensionBuilder().dimension('ModelDeploymentName').operator('eq').filters([])]),
+            .dimensionFilters([new AzureMetricDimensionBuilder().dimension('ModelDeploymentName').operator('eq').filters([])])
             .customNamespace('microsoft.cognitiveservices/accounts')
             .allowedTimeGrainsMs(AZURE_TIME_GRAINS)
         ),
@@ -575,7 +609,7 @@ export function aiTokensPanel(config: PlatformConfig): TimeseriesPanelBuilder {
             .aggregation('Total')
             .timeGrain('auto')
             .resources([resource])
-            .dimensionFilters([new AzureMetricDimensionBuilder().dimension('ModelDeploymentName').operator('eq').filters([])]),
+            .dimensionFilters([new AzureMetricDimensionBuilder().dimension('ModelDeploymentName').operator('eq').filters([])])
             .customNamespace('microsoft.cognitiveservices/accounts')
             .allowedTimeGrainsMs(AZURE_TIME_GRAINS)
         ),
@@ -602,7 +636,7 @@ export function aiRequestsPanel(config: PlatformConfig): TimeseriesPanelBuilder 
             .aggregation('Total')
             .timeGrain('auto')
             .resources([resource])
-            .dimensionFilters([new AzureMetricDimensionBuilder().dimension('StatusCode').operator('eq').filters([])]),
+            .dimensionFilters([new AzureMetricDimensionBuilder().dimension('StatusCode').operator('eq').filters([])])
             .customNamespace('microsoft.cognitiveservices/accounts')
             .allowedTimeGrainsMs(AZURE_TIME_GRAINS)
         ),
@@ -630,7 +664,7 @@ export function aiLatencyPanel(config: PlatformConfig): TimeseriesPanelBuilder {
             .aggregation('Average')
             .timeGrain('auto')
             .resources([resource])
-            .dimensionFilters([new AzureMetricDimensionBuilder().dimension('ModelDeploymentName').operator('eq').filters(['*'])]),
+            .dimensionFilters([new AzureMetricDimensionBuilder().dimension('ModelDeploymentName').operator('eq').filters(['*'])])
             .customNamespace('microsoft.cognitiveservices/accounts')
             .allowedTimeGrainsMs(AZURE_TIME_GRAINS)
         ),
@@ -657,7 +691,7 @@ export function aiTokensPerSecondPanel(config: PlatformConfig): TimeseriesPanelB
             .aggregation('Average')
             .timeGrain('auto')
             .resources([resource])
-            .dimensionFilters([new AzureMetricDimensionBuilder().dimension('ModelDeploymentName').operator('eq').filters(['*'])]),
+            .dimensionFilters([new AzureMetricDimensionBuilder().dimension('ModelDeploymentName').operator('eq').filters(['*'])])
             .customNamespace('microsoft.cognitiveservices/accounts')
             .allowedTimeGrainsMs(AZURE_TIME_GRAINS)
         ),
@@ -695,9 +729,9 @@ export function blobAvailabilityStat(config: PlatformConfig, storageAccount: str
                 .resourceName(`${storageAccount}/default`)
                 .metricNamespace('microsoft.storage/storageaccounts/blobservices')
             ])
-            .dimensionFilters([]),
+            .dimensionFilters([])
             .customNamespace('microsoft.storage/storageaccounts/blobservices')
-            .allowedTimeGrainsMs(AZURE_TIME_GRAINS)
+            .allowedTimeGrainsMs(AZURE_TIME_GRAINS),
         ),
     )
     .span(8)
@@ -727,7 +761,7 @@ export function blobTransactionsTimeseries(config: PlatformConfig, storageAccoun
                 .resourceName(`${storageAccount}/default`)
                 .metricNamespace('microsoft.storage/storageaccounts/blobservices')
             ])
-            .dimensionFilters([new AzureMetricDimensionBuilder().dimension('ApiName').operator('eq').filters([])]),
+            .dimensionFilters([new AzureMetricDimensionBuilder().dimension('ApiName').operator('eq').filters([])])
             .customNamespace('microsoft.storage/storageaccounts/blobservices')
             .allowedTimeGrainsMs(AZURE_TIME_GRAINS)
         ),
@@ -760,7 +794,7 @@ export function blobE2ELatencyTimeseries(config: PlatformConfig, storageAccount:
                 .resourceName(`${storageAccount}/default`)
                 .metricNamespace('microsoft.storage/storageaccounts/blobservices')
             ])
-            .dimensionFilters([new AzureMetricDimensionBuilder().dimension('ApiName').operator('eq').filters([])]),
+            .dimensionFilters([new AzureMetricDimensionBuilder().dimension('ApiName').operator('eq').filters([])])
             .customNamespace('microsoft.storage/storageaccounts/blobservices')
             .allowedTimeGrainsMs(AZURE_TIME_GRAINS)
         ),
@@ -793,7 +827,7 @@ export function blobServerLatencyTimeseries(config: PlatformConfig, storageAccou
                 .resourceName(`${storageAccount}/default`)
                 .metricNamespace('microsoft.storage/storageaccounts/blobservices')
             ])
-            .dimensionFilters([new AzureMetricDimensionBuilder().dimension('ApiName').operator('eq').filters([])]),
+            .dimensionFilters([new AzureMetricDimensionBuilder().dimension('ApiName').operator('eq').filters([])])
             .customNamespace('microsoft.storage/storageaccounts/blobservices')
             .allowedTimeGrainsMs(AZURE_TIME_GRAINS)
         ),
@@ -825,7 +859,7 @@ export function blobErrorsTimeseries(config: PlatformConfig, storageAccount: str
                 .resourceName(`${storageAccount}/default`)
                 .metricNamespace('microsoft.storage/storageaccounts/blobservices')
             ])
-            .dimensionFilters([new AzureMetricDimensionBuilder().dimension('ResponseType').operator('eq').filters(['ClientOtherError', 'ServerOtherError', 'ClientThrottlingError'])]),
+            .dimensionFilters([new AzureMetricDimensionBuilder().dimension('ResponseType').operator('eq').filters(['ClientOtherError', 'ServerOtherError', 'ClientThrottlingError'])])
             .customNamespace('microsoft.storage/storageaccounts/blobservices')
             .allowedTimeGrainsMs(AZURE_TIME_GRAINS)
         ),
@@ -845,7 +879,7 @@ export function eventHubIncomingMessagesTimeseries(config: PlatformConfig): Time
       azureMonitorTarget(
         'A', config,
         'microsoft.eventhub/namespaces', 'IncomingMessages', 'Total',
-        config.resources.eventHubsNamespace!, 'swedencentral',
+        config.resources.eventHubsNamespace!,
         [],
       ),
     )
@@ -862,7 +896,7 @@ export function eventHubOutgoingMessagesTimeseries(config: PlatformConfig): Time
       azureMonitorTarget(
         'A', config,
         'microsoft.eventhub/namespaces', 'OutgoingMessages', 'Total',
-        config.resources.eventHubsNamespace!, 'swedencentral',
+        config.resources.eventHubsNamespace!,
         [],
       ),
     )
@@ -879,7 +913,7 @@ export function eventHubThrottledTimeseries(config: PlatformConfig): TimeseriesP
       azureMonitorTarget(
         'A', config,
         'microsoft.eventhub/namespaces', 'ThrottledRequests', 'Total',
-        config.resources.eventHubsNamespace!, 'swedencentral',
+        config.resources.eventHubsNamespace!,
         [],
       ),
     )
@@ -896,7 +930,7 @@ export function eventHubServerErrorsTimeseries(config: PlatformConfig): Timeseri
       azureMonitorTarget(
         'A', config,
         'microsoft.eventhub/namespaces', 'ServerErrors', 'Total',
-        config.resources.eventHubsNamespace!, 'swedencentral',
+        config.resources.eventHubsNamespace!,
         [],
       ),
     )
@@ -913,7 +947,7 @@ export function eventHubCapturedMessagesTimeseries(config: PlatformConfig): Time
       azureMonitorTarget(
         'A', config,
         'microsoft.eventhub/namespaces', 'CapturedMessages', 'Total',
-        config.resources.eventHubsNamespace!, 'swedencentral',
+        config.resources.eventHubsNamespace!,
         [],
       ),
     )
