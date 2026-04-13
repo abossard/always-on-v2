@@ -148,7 +148,7 @@ resource latencyEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-p
 #disable-next-line BCP081
 resource relRootFailures 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = {
   parent: hm
-  name: guid(name, 'root-failures')
+  name: guid(name, root.name, failuresEntity.name)
   properties: {
     parentEntityName: root.name
     childEntityName: failuresEntity.name
@@ -158,7 +158,7 @@ resource relRootFailures 'Microsoft.CloudHealth/healthmodels/relationships@2026-
 #disable-next-line BCP081
 resource relRootLatency 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = {
   parent: hm
-  name: guid(name, 'root-latency')
+  name: guid(name, root.name, latencyEntity.name)
   properties: {
     parentEntityName: root.name
     childEntityName: latencyEntity.name
@@ -247,7 +247,7 @@ resource stampLatencyGroup 'Microsoft.CloudHealth/healthmodels/entities@2026-01-
 resource rel_failuresStampGroup 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
   for (stamp, i) in stamps: {
     parent: hm
-    name: guid(name, stamp.key, 'rel-failures-stamp')
+    name: guid(name, failuresEntity.name, stampFailuresGroup[i].name)
     properties: {
       parentEntityName: failuresEntity.name
       childEntityName: stampFailuresGroup[i].name
@@ -259,7 +259,7 @@ resource rel_failuresStampGroup 'Microsoft.CloudHealth/healthmodels/relationship
 resource rel_latencyStampGroup 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
   for (stamp, i) in stamps: {
     parent: hm
-    name: guid(name, stamp.key, 'rel-latency-stamp')
+    name: guid(name, latencyEntity.name, stampLatencyGroup[i].name)
     properties: {
       parentEntityName: latencyEntity.name
       childEntityName: stampLatencyGroup[i].name
@@ -695,7 +695,7 @@ resource stampCosmosFailures 'Microsoft.CloudHealth/healthmodels/entities@2026-0
 resource rel_stampAksFailures 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
   for (stamp, i) in stamps: {
     parent: hm
-    name: guid(name, stamp.key, 'rel-aks-failures')
+    name: guid(name, stampFailuresGroup[i].name, stampAksFailures[i].name)
     properties: {
       parentEntityName: stampFailuresGroup[i].name
       childEntityName: stampAksFailures[i].name
@@ -707,7 +707,7 @@ resource rel_stampAksFailures 'Microsoft.CloudHealth/healthmodels/relationships@
 resource rel_stampPromFailures 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
   for (stamp, i) in stamps: {
     parent: hm
-    name: guid(name, stamp.key, 'rel-prom-failures')
+    name: guid(name, stampFailuresGroup[i].name, stampPromFailures[i].name)
     properties: {
       parentEntityName: stampFailuresGroup[i].name
       childEntityName: stampPromFailures[i].name
@@ -719,7 +719,7 @@ resource rel_stampPromFailures 'Microsoft.CloudHealth/healthmodels/relationships
 resource rel_stampFdFailures 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
   for (stamp, i) in stamps: {
     parent: hm
-    name: guid(name, stamp.key, 'rel-fd-failures')
+    name: guid(name, stampFailuresGroup[i].name, stampFdFailures[i].name)
     properties: {
       parentEntityName: stampFailuresGroup[i].name
       childEntityName: stampFdFailures[i].name
@@ -731,7 +731,7 @@ resource rel_stampFdFailures 'Microsoft.CloudHealth/healthmodels/relationships@2
 resource rel_stampCosmosFailures 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
   for (stamp, i) in stamps: {
     parent: hm
-    name: guid(name, stamp.key, 'rel-cosmos-failures')
+    name: guid(name, stampFailuresGroup[i].name, stampCosmosFailures[i].name)
     properties: {
       parentEntityName: stampFailuresGroup[i].name
       childEntityName: stampCosmosFailures[i].name
@@ -1165,7 +1165,7 @@ resource stampPromLatency 'Microsoft.CloudHealth/healthmodels/entities@2026-01-0
 resource rel_stampFdLatency 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
   for (stamp, i) in stamps: {
     parent: hm
-    name: guid(name, stamp.key, 'rel-fd-latency')
+    name: guid(name, stampLatencyGroup[i].name, stampFdLatency[i].name)
     properties: {
       parentEntityName: stampLatencyGroup[i].name
       childEntityName: stampFdLatency[i].name
@@ -1177,7 +1177,7 @@ resource rel_stampFdLatency 'Microsoft.CloudHealth/healthmodels/relationships@20
 resource rel_stampCosmosLatency 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
   for (stamp, i) in stamps: {
     parent: hm
-    name: guid(name, stamp.key, 'rel-cosmos-latency')
+    name: guid(name, stampLatencyGroup[i].name, stampCosmosLatency[i].name)
     properties: {
       parentEntityName: stampLatencyGroup[i].name
       childEntityName: stampCosmosLatency[i].name
@@ -1189,7 +1189,7 @@ resource rel_stampCosmosLatency 'Microsoft.CloudHealth/healthmodels/relationship
 resource rel_stampPromLatency 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
   for (stamp, i) in stamps: {
     parent: hm
-    name: guid(name, stamp.key, 'rel-prom-latency')
+    name: guid(name, stampLatencyGroup[i].name, stampPromLatency[i].name)
     properties: {
       parentEntityName: stampLatencyGroup[i].name
       childEntityName: stampPromLatency[i].name
@@ -1328,7 +1328,7 @@ resource queuesEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-pr
 #disable-next-line BCP081
 resource rel_queues 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = if (usesQueues) {
   parent: hm
-  name: guid(name, 'rel-queues')
+  name: guid(name, root.name, queuesEntity.name)
   properties: {
     parentEntityName: root.name
     childEntityName: queuesEntity.name
@@ -1494,7 +1494,7 @@ resource aiEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-previe
 #disable-next-line BCP081
 resource rel_ai 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = if (usesAI) {
   parent: hm
-  name: guid(name, 'rel-ai')
+  name: guid(name, root.name, aiEntity.name)
   properties: {
     parentEntityName: root.name
     childEntityName: aiEntity.name
@@ -1628,7 +1628,7 @@ resource blobsEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-pre
 #disable-next-line BCP081
 resource rel_blobs 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = if (usesBlobs) {
   parent: hm
-  name: guid(name, 'rel-blobs')
+  name: guid(name, root.name, blobsEntity.name)
   properties: {
     parentEntityName: root.name
     childEntityName: blobsEntity.name
@@ -1760,7 +1760,7 @@ resource eventhubsEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01
 #disable-next-line BCP081
 resource rel_eventhubs 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = if (usesEventHubs) {
   parent: hm
-  name: guid(name, 'rel-eventhubs')
+  name: guid(name, root.name, eventhubsEntity.name)
   properties: {
     parentEntityName: root.name
     childEntityName: eventhubsEntity.name

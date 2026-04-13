@@ -550,6 +550,20 @@ module healthModelRbac 'healthmodel/rbac.bicep' = {
   }
 }
 
+// ─── Grafana RBAC (subscription-scoped) ─────────────────────────
+
+// Monitoring Reader at subscription scope — lets Grafana query Azure Monitor
+// metrics across all resource groups (global, regional, stamp).
+module grafanaRbac 'grafana-rbac.bicep' = [
+  for (region, i) in regions: {
+    name: 'GRAFANA-RBAC-${region.key}'
+    scope: subscription()
+    params: {
+      principalId: regional[i].outputs.grafanaPrincipalId
+    }
+  }
+]
+
 // ─── Per-App Health Models ──────────────────────────────────────
 
 // Pre-compute stamp infrastructure IDs to avoid Bicep copyIndex() compiler bug
@@ -701,6 +715,11 @@ output appEndpoints array = [
     name: apps[1].name
     frontDoorUrl: 'https://${darkUxRouting.outputs.hostname}'
     stampOrigins: darkUxRouting.outputs.stampOrigins
+  }
+  {
+    name: apps[2].name
+    frontDoorUrl: 'https://${helloAgentsRouting.outputs.hostname}'
+    stampOrigins: helloAgentsRouting.outputs.stampOrigins
   }
   {
     name: apps[3].name

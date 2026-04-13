@@ -4,7 +4,9 @@ import {
   RowBuilder,
   TimePickerBuilder,
   DatasourceVariableBuilder,
-  CustomVariableBuilder,
+  QueryVariableBuilder,
+  VariableHide,
+  VariableRefresh,
 } from '@grafana/grafana-foundation-sdk/dashboard';
 import type { AppConfig, PlatformConfig } from './config';
 import * as panels from './panels';
@@ -38,49 +40,67 @@ export function buildAppDashboard(app: AppConfig, config: PlatformConfig): objec
       new TimePickerBuilder()
         .refreshIntervals(['5s', '10s', '30s', '1m', '5m', '15m', '30m', '1h', '2h', '1d']),
     )
-    // Template variables
+    // ── Template variables (chained) ──────────────────────────────
+    // 1. Prometheus DS picker — effectively a region selector (each AMW = each region)
     .withVariable(
       new DatasourceVariableBuilder('promds')
         .label('Prometheus')
         .type('prometheus'),
     )
+    // 2. Cluster multi-select — auto-populated from selected Prometheus DS
+    .withVariable(
+      new QueryVariableBuilder('cluster')
+        .label('Cluster')
+        .datasource({ uid: '${promds}', type: 'prometheus' })
+        .query('label_values(kube_pod_info, cluster)')
+        .multi(true)
+        .includeAll(true)
+        .allValue('.*')
+        .refresh(VariableRefresh.OnDashboardLoad),
+    )
+    // 3. Azure Monitor DS — hidden (single instance, wired internally)
     .withVariable(
       new DatasourceVariableBuilder('datasource')
         .label('Azure Monitor')
-        .type('grafana-azure-monitor-datasource'),
-    )
-    .withVariable(
-      new CustomVariableBuilder('cluster')
-        .label('Cluster')
-        .multi(true)
-        .includeAll(true)
-        .allValue('')
-        .values(
-          Object.fromEntries(config.stamps.map((s) => [s.cluster, s.cluster])),
-        ),
+        .type('grafana-azure-monitor-datasource')
+        .hide(VariableHide.HideVariable),
     );
 
-  // ── Row 1: Failures Overview ──────────────────────────────────
+  // ── Row 1: Global Resources (Azure Monitor — always visible) ──
+  builder = builder
+    .withRow(new RowBuilder('🌍 Global Resources'))
+    .withPanel(panels.fdErrorsPanel5xx(app.subdomain, config))
+    .withPanel(panels.fdErrorsPanel4xx(app.subdomain, config))
+    .withPanel(panels.fdLatencyPanel(app.subdomain, config))
+    .withPanel(panels.cosmosAvailabilityStat(config, dbName))
+    .withPanel(panels.cosmosErrorsStat(config, dbName))
+    .withPanel(panels.cosmosRUPanel(config, dbName))
+    .withPanel(panels.cosmosThrottledPanel(config, dbName));
+
+  // Event Hubs in global row (conditional)
+  if (app.usesEventHubs && config.resources.eventHubsNamespace) {
+    builder = builder
+      .withPanel(panels.eventHubIncomingMessagesTimeseries(config))
+      .withPanel(panels.eventHubOutgoingMessagesTimeseries(config))
+      .withPanel(panels.eventHubThrottledTimeseries(config))
+      .withPanel(panels.eventHubServerErrorsTimeseries(config))
+      .withPanel(panels.eventHubCapturedMessagesTimeseries(config));
+  }
+
+  // ── Row 2: Failures Overview (Prometheus — filtered by $cluster) ─
   builder = builder
     .withRow(new RowBuilder('🔴 Failures Overview'))
     .withPanel(panels.podRestartsStat(app.namespace))
     .withPanel(panels.oomKilledStat(app.namespace))
-    .withPanel(panels.crashLoopStat(app.namespace))
-    .withPanel(panels.fdErrorsPanel5xx(app.subdomain, config))
-    .withPanel(panels.fdErrorsPanel4xx(app.subdomain, config))
-    .withPanel(panels.cosmosAvailabilityStat(config, dbName))
-    .withPanel(panels.cosmosErrorsStat(config, dbName));
+    .withPanel(panels.crashLoopStat(app.namespace));
 
-  // ── Row 2: Latency & Pressure ─────────────────────────────────
+  // ── Row 3: Latency & Pressure (Prometheus — filtered) ─────────
   builder = builder
-    .withRow(new RowBuilder('🟡 Latency & Pressure Overview'))
-    .withPanel(panels.fdLatencyPanel(app.subdomain, config))
-    .withPanel(panels.cosmosRUPanel(config, dbName))
-    .withPanel(panels.cosmosThrottledPanel(config, dbName))
+    .withRow(new RowBuilder('🟡 Latency & Pressure'))
     .withPanel(panels.cpuPressureGauge(app.namespace))
     .withPanel(panels.memoryPressureGauge(app.namespace));
 
-  // ── Row 3-N: Per-stamp drill-down (collapsed) ────────────────
+  // ── Row 4+: Per-stamp drill-down (collapsed) ─────────────────
   for (const stamp of config.stamps) {
     builder = builder
       .withRow(
@@ -133,20 +153,6 @@ export function buildAppDashboard(app: AppConfig, config: PlatformConfig): objec
       }
     }
     builder = builder.withRow(blobRow);
-  }
-
-  // ── Event Hubs row (conditional) ──────────────────────────────
-  if (app.usesEventHubs && config.resources.eventHubsNamespace) {
-    builder = builder
-      .withRow(
-        new RowBuilder('📡 Event Hubs')
-          .collapsed(true)
-          .withPanel(panels.eventHubIncomingMessagesTimeseries(config))
-          .withPanel(panels.eventHubOutgoingMessagesTimeseries(config))
-          .withPanel(panels.eventHubThrottledTimeseries(config))
-          .withPanel(panels.eventHubServerErrorsTimeseries(config))
-          .withPanel(panels.eventHubCapturedMessagesTimeseries(config)),
-      );
   }
 
   return builder.build();

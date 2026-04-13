@@ -206,6 +206,8 @@ jobs:
             exit 0
           fi
 
+          echo "📦 Reading from deployment: **$DEPLOYMENT_NAME**" >> $GITHUB_STEP_SUMMARY
+
           ENDPOINTS=$(az deployment sub show --name "$DEPLOYMENT_NAME" \
             --query "properties.outputs.appEndpoints.value" -o json 2>/dev/null || echo "[]")
 

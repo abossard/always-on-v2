@@ -9,9 +9,8 @@
     "eventHubsNamespace": "evh-graphorleons-alwayson"
   },
   "stamps": [
-    { "key": "swedencentral-001", "region": "swedencentral", "cluster": "aks-alwayson-swedencentral-001", "resourceGroup": "rg-alwayson-swedencentral-001", "storageAccount": "sthaalwayonswe001" },
-    { "key": "eastus-001", "region": "eastus", "cluster": "aks-alwayson-eastus-001", "resourceGroup": "rg-alwayson-eastus-001", "storageAccount": "sthaalwayoneas001" },
-    { "key": "southeastasia-001", "region": "southeastasia", "cluster": "aks-alwayson-southeastasia-001", "resourceGroup": "rg-alwayson-southeastasia-001", "storageAccount": "sthaalwayonsou001" }
+    { "key": "swedencentral-001", "region": "swedencentral", "cluster": "aks-alwayson-swedencentral-001", "resourceGroup": "rg-alwayson-swedencentral-001", "storageAccount": "sthaalwaysonsweden" },
+    { "key": "centralus-001", "region": "centralus", "cluster": "aks-alwayson-centralus-001", "resourceGroup": "rg-alwayson-centralus-001", "storageAccount": "sthaalwaysoncentra" }
   ],
   "apps": [
     { "name": "darkux", "displayName": "DarkUX Challenge", "namespace": "darkux", "subdomain": "darkux", "usesAI": false, "usesQueues": false, "usesBlobs": false, "usesEventHubs": false },

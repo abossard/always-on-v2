@@ -202,25 +202,66 @@ function deriveGlobalEntity(group: OptionalEntityGroup, yOffset: number): string
     },
   }));
 
-  blocks.push(resource({
+  blocks.push(emitRelationship({
     symbolic: relSym,
-    type: 'Microsoft.CloudHealth/healthmodels/relationships',
-    apiVersion: API_VERSION,
+    parentExpr: `${parentSym}.name`,
+    childExpr: `${entitySym}.name`,
     condition: group.enableParam,
-    body: {
-      parent: raw('hm'),
-      name: guid('name', `'rel-${group.key}'`),
-      properties: {
-        parentEntityName: raw(`${parentSym}.name`),
-        childEntityName: raw(`${entitySym}.name`),
-      },
-    },
   }));
 
   return blocks;
 }
 
 // ─── Main Builder ───────────────────────────────────────────────────
+
+/** Emit a relationship resource with name derived from parent + child entity names.
+ *  This ensures any structural change (parent/child swap) produces a new resource name,
+ *  avoiding the CloudHealth "RelationshipIsImmutable" error. */
+function emitRelationship(opts: {
+  symbolic: string;
+  parentExpr: string;
+  childExpr: string;
+  condition?: string;
+}): string {
+  return resource({
+    symbolic: opts.symbolic,
+    type: 'Microsoft.CloudHealth/healthmodels/relationships',
+    apiVersion: API_VERSION,
+    condition: opts.condition,
+    body: {
+      parent: raw('hm'),
+      name: raw(`guid(name, ${opts.parentExpr}, ${opts.childExpr})`),
+      properties: {
+        parentEntityName: raw(opts.parentExpr),
+        childEntityName: raw(opts.childExpr),
+      },
+    },
+  });
+}
+
+/** Emit a looped relationship resource with name derived from parent + child entity names. */
+function emitRelationshipLoop(opts: {
+  symbolic: string;
+  parentExpr: string;
+  childExpr: string;
+}): string {
+  return resourceLoop({
+    symbolic: opts.symbolic,
+    type: 'Microsoft.CloudHealth/healthmodels/relationships',
+    apiVersion: API_VERSION,
+    arrayExpr: 'stamps',
+    itemVar: 'stamp',
+    indexVar: 'i',
+    body: {
+      parent: raw('hm'),
+      name: raw(`guid(name, ${opts.parentExpr}, ${opts.childExpr})`),
+      properties: {
+        parentEntityName: raw(opts.parentExpr),
+        childEntityName: raw(opts.childExpr),
+      },
+    },
+  });
+}
 
 export function buildHealthModelBicep(): string {
   const blocks: string[] = [];
@@ -345,26 +386,16 @@ export function buildHealthModelBicep(): string {
   }));
 
   // Root → Category relationships
-  blocks.push(resource({
+  blocks.push(emitRelationship({
     symbolic: 'relRootFailures',
-    type: 'Microsoft.CloudHealth/healthmodels/relationships',
-    apiVersion: API_VERSION,
-    body: {
-      parent: raw('hm'),
-      name: guid('name', "'root-failures'"),
-      properties: { parentEntityName: raw('root.name'), childEntityName: raw('failuresEntity.name') },
-    },
+    parentExpr: 'root.name',
+    childExpr: 'failuresEntity.name',
   }));
 
-  blocks.push(resource({
+  blocks.push(emitRelationship({
     symbolic: 'relRootLatency',
-    type: 'Microsoft.CloudHealth/healthmodels/relationships',
-    apiVersion: API_VERSION,
-    body: {
-      parent: raw('hm'),
-      name: guid('name', "'root-latency'"),
-      properties: { parentEntityName: raw('root.name'), childEntityName: raw('latencyEntity.name') },
-    },
+    parentExpr: 'root.name',
+    childExpr: 'latencyEntity.name',
   }));
 
   // Signal Definitions: per-stamp FD OriginLatency
@@ -450,32 +481,16 @@ export function buildHealthModelBicep(): string {
   }));
 
   // Relationships: category → stamp group
-  blocks.push(resourceLoop({
+  blocks.push(emitRelationshipLoop({
     symbolic: 'rel_failuresStampGroup',
-    type: 'Microsoft.CloudHealth/healthmodels/relationships',
-    apiVersion: API_VERSION,
-    arrayExpr: 'stamps',
-    itemVar: 'stamp',
-    indexVar: 'i',
-    body: {
-      parent: raw('hm'),
-      name: guid('name', 'stamp.key', "'rel-failures-stamp'"),
-      properties: { parentEntityName: raw('failuresEntity.name'), childEntityName: raw('stampFailuresGroup[i].name') },
-    },
+    parentExpr: 'failuresEntity.name',
+    childExpr: 'stampFailuresGroup[i].name',
   }));
 
-  blocks.push(resourceLoop({
+  blocks.push(emitRelationshipLoop({
     symbolic: 'rel_latencyStampGroup',
-    type: 'Microsoft.CloudHealth/healthmodels/relationships',
-    apiVersion: API_VERSION,
-    arrayExpr: 'stamps',
-    itemVar: 'stamp',
-    indexVar: 'i',
-    body: {
-      parent: raw('hm'),
-      name: guid('name', 'stamp.key', "'rel-latency-stamp'"),
-      properties: { parentEntityName: raw('latencyEntity.name'), childEntityName: raw('stampLatencyGroup[i].name') },
-    },
+    parentExpr: 'latencyEntity.name',
+    childExpr: 'stampLatencyGroup[i].name',
   }));
 
   // Per-Stamp Failure Entities (one entity per resource type)
@@ -711,24 +726,11 @@ export function buildHealthModelBicep(): string {
   }));
 
   // Failure relationships — connect all 4 entity types to stamp group
-  for (const [sym, suffix] of [
-    ['stampAksFailures', 'rel-aks-failures'],
-    ['stampPromFailures', 'rel-prom-failures'],
-    ['stampFdFailures', 'rel-fd-failures'],
-    ['stampCosmosFailures', 'rel-cosmos-failures'],
-  ]) {
-    blocks.push(resourceLoop({
+  for (const sym of ['stampAksFailures', 'stampPromFailures', 'stampFdFailures', 'stampCosmosFailures']) {
+    blocks.push(emitRelationshipLoop({
       symbolic: `rel_${sym}`,
-      type: 'Microsoft.CloudHealth/healthmodels/relationships',
-      apiVersion: API_VERSION,
-      arrayExpr: 'stamps',
-      itemVar: 'stamp',
-      indexVar: 'i',
-      body: {
-        parent: raw('hm'),
-        name: guid('name', 'stamp.key', `'${suffix}'`),
-        properties: { parentEntityName: raw('stampFailuresGroup[i].name'), childEntityName: raw(`${sym}[i].name`) },
-      },
+      parentExpr: 'stampFailuresGroup[i].name',
+      childExpr: `${sym}[i].name`,
     }));
   }
 
@@ -909,23 +911,11 @@ export function buildHealthModelBicep(): string {
   }));
 
   // Latency relationships — connect all 3 entity types to stamp group
-  for (const [sym, suffix] of [
-    ['stampFdLatency', 'rel-fd-latency'],
-    ['stampCosmosLatency', 'rel-cosmos-latency'],
-    ['stampPromLatency', 'rel-prom-latency'],
-  ]) {
-    blocks.push(resourceLoop({
+  for (const sym of ['stampFdLatency', 'stampCosmosLatency', 'stampPromLatency']) {
+    blocks.push(emitRelationshipLoop({
       symbolic: `rel_${sym}`,
-      type: 'Microsoft.CloudHealth/healthmodels/relationships',
-      apiVersion: API_VERSION,
-      arrayExpr: 'stamps',
-      itemVar: 'stamp',
-      indexVar: 'i',
-      body: {
-        parent: raw('hm'),
-        name: guid('name', 'stamp.key', `'${suffix}'`),
-        properties: { parentEntityName: raw('stampLatencyGroup[i].name'), childEntityName: raw(`${sym}[i].name`) },
-      },
+      parentExpr: 'stampLatencyGroup[i].name',
+      childExpr: `${sym}[i].name`,
     }));
   }
 

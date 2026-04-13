@@ -55,5 +55,6 @@ dist/assets/*
 infra/**/*.json
 !infra/roles.json
 
-tmp.*scripts/grafana/node_modules/
+tmp.*
 node_modules/
+grafana/build/

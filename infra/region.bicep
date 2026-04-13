@@ -81,6 +81,31 @@ resource certManagerDnsRole 'Microsoft.Authorization/roleAssignments@2022-04-01'
 }
 
 // ============================================================================
+// Azure Managed Grafana — dashboards & visualization (shared by all stamps)
+// ============================================================================
+
+resource grafana 'Microsoft.Dashboard/grafana@2023-09-01' = {
+  name: 'grafana-${baseName}-${regionKey}'
+  location: location
+  sku: { name: 'Standard' }
+  identity: { type: 'SystemAssigned' }
+  properties: {
+    publicNetworkAccess: 'Enabled'
+    zoneRedundancy: 'Disabled'
+    apiKey: 'Disabled'
+    deterministicOutboundIP: 'Disabled'
+    grafanaIntegrations: {
+      azureMonitorWorkspaceIntegrations: [
+        { azureMonitorWorkspaceResourceId: monitorWorkspace.id }
+      ]
+    }
+  }
+}
+
+// Grafana needs Monitoring Reader on the subscription to query Azure Monitor metrics.
+// Assigned in main.bicep at subscription scope (region.bicep is RG-scoped).
+
+// ============================================================================
 // Outputs
 // ============================================================================
 
@@ -90,3 +115,6 @@ output childDnsZoneName string = childDnsZone.name
 output childDnsNameServers array = childDnsZone.properties.nameServers
 output certManagerIdentityClientId string = certManagerIdentity.properties.clientId
 output certManagerIdentityId string = certManagerIdentity.id
+output grafanaName string = grafana.name
+output grafanaEndpoint string = grafana.properties.endpoint
+output grafanaPrincipalId string = grafana.identity.principalId
