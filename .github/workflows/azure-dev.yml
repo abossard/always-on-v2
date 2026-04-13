@@ -238,7 +238,7 @@ jobs:
           echo "$ENDPOINTS" | jq -c '.[]' | while read -r app; do
             NAME=$(echo "$app" | jq -r '.name')
             FD_URL=$(echo "$app" | jq -r '.frontDoorUrl')
-            ORIGINS=$(echo "$app" | jq -r '.stampOrigins | join(" <br> ")')
+            ORIGINS=$(echo "$app" | jq -r '.stampOrigins | map(.gatewayHostname // .) | join(" <br> ")')
             echo "| ${NAME} | ${FD_URL} | ${ORIGINS} |" >> $GITHUB_STEP_SUMMARY
           done
 
