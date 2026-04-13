@@ -3,10 +3,6 @@ import {
   DashboardCursorSync,
   RowBuilder,
   TimePickerBuilder,
-  DatasourceVariableBuilder,
-  QueryVariableBuilder,
-  VariableHide,
-  VariableRefresh,
 } from '@grafana/grafana-foundation-sdk/dashboard';
 import type { AppConfig, PlatformConfig } from './config';
 import * as panels from './panels';
@@ -39,31 +35,6 @@ export function buildAppDashboard(app: AppConfig, config: PlatformConfig): objec
     .timepicker(
       new TimePickerBuilder()
         .refreshIntervals(['5s', '10s', '30s', '1m', '5m', '15m', '30m', '1h', '2h', '1d']),
-    )
-    // ── Template variables (chained) ──────────────────────────────
-    // 1. Prometheus DS picker — effectively a region selector (each AMW = each region)
-    .withVariable(
-      new DatasourceVariableBuilder('promds')
-        .label('Prometheus')
-        .type('prometheus'),
-    )
-    // 2. Cluster multi-select — auto-populated from selected Prometheus DS
-    .withVariable(
-      new QueryVariableBuilder('cluster')
-        .label('Cluster')
-        .datasource({ uid: '${promds}', type: 'prometheus' })
-        .query('label_values(kube_pod_info, cluster)')
-        .multi(true)
-        .includeAll(true)
-        .allValue('.*')
-        .refresh(VariableRefresh.OnDashboardLoad),
-    )
-    // 3. Azure Monitor DS — hidden (single instance, wired internally)
-    .withVariable(
-      new DatasourceVariableBuilder('datasource')
-        .label('Azure Monitor')
-        .type('grafana-azure-monitor-datasource')
-        .hide(VariableHide.HideVariable),
     );
 
   // ── Row 1: Global Resources (Azure Monitor — always visible) ──
@@ -87,7 +58,7 @@ export function buildAppDashboard(app: AppConfig, config: PlatformConfig): objec
       .withPanel(panels.eventHubCapturedMessagesTimeseries(config));
   }
 
-  // ── Row 2: Failures Overview (Prometheus — filtered by $cluster) ─
+  // ── Row 2: Failures Overview (Prometheus) ──────────────────────
   builder = builder
     .withRow(new RowBuilder('🔴 Failures Overview'))
     .withPanel(panels.podRestartsStat(app.namespace))

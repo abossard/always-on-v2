@@ -4,56 +4,7 @@
   "graphTooltip": 1,
   "fiscalYearStartMonth": 0,
   "schemaVersion": 41,
-  "templating": {
-    "list": [
-      {
-        "type": "datasource",
-        "name": "promds",
-        "skipUrlSync": false,
-        "multi": false,
-        "allowCustomValue": true,
-        "includeAll": false,
-        "auto": false,
-        "auto_min": "10s",
-        "auto_count": 30,
-        "label": "Prometheus",
-        "query": "prometheus"
-      },
-      {
-        "type": "query",
-        "name": "cluster",
-        "skipUrlSync": false,
-        "multi": true,
-        "allowCustomValue": true,
-        "includeAll": true,
-        "auto": false,
-        "auto_min": "10s",
-        "auto_count": 30,
-        "label": "Cluster",
-        "datasource": {
-          "uid": "${promds}",
-          "type": "prometheus"
-        },
-        "query": "label_values(kube_pod_info, cluster)",
-        "allValue": ".*",
-        "refresh": 1
-      },
-      {
-        "type": "datasource",
-        "name": "datasource",
-        "skipUrlSync": false,
-        "multi": false,
-        "allowCustomValue": true,
-        "includeAll": false,
-        "auto": false,
-        "auto_min": "10s",
-        "auto_count": 30,
-        "label": "Azure Monitor",
-        "query": "grafana-azure-monitor-datasource",
-        "hide": 2
-      }
-    ]
-  },
+  "templating": {},
   "annotations": {},
   "title": "graphorleons Dashboard",
   "uid": "graphorleons-health",
@@ -146,7 +97,7 @@
       },
       "title": "Front Door 5XX %",
       "datasource": {
-        "uid": "${datasource}",
+        "uid": "grafana-azure-monitor-datasource",
         "type": "grafana-azure-monitor-datasource"
       },
       "targets": [
@@ -237,7 +188,7 @@
       },
       "title": "Front Door 4XX",
       "datasource": {
-        "uid": "${datasource}",
+        "uid": "grafana-azure-monitor-datasource",
         "type": "grafana-azure-monitor-datasource"
       },
       "targets": [
@@ -328,7 +279,7 @@
       },
       "title": "FD Origin Latency — all origins",
       "datasource": {
-        "uid": "${datasource}",
+        "uid": "grafana-azure-monitor-datasource",
         "type": "grafana-azure-monitor-datasource"
       },
       "targets": [
@@ -375,7 +326,7 @@
       "repeatDirection": "h",
       "title": "Cosmos Availability %",
       "datasource": {
-        "uid": "${datasource}",
+        "uid": "grafana-azure-monitor-datasource",
         "type": "grafana-azure-monitor-datasource"
       },
       "fieldConfig": {
@@ -461,7 +412,7 @@
       "repeatDirection": "h",
       "title": "Cosmos Errors (429+5xx)",
       "datasource": {
-        "uid": "${datasource}",
+        "uid": "grafana-azure-monitor-datasource",
         "type": "grafana-azure-monitor-datasource"
       },
       "fieldConfig": {
@@ -599,7 +550,7 @@
       },
       "title": "Cosmos Normalized RU %",
       "datasource": {
-        "uid": "${datasource}",
+        "uid": "grafana-azure-monitor-datasource",
         "type": "grafana-azure-monitor-datasource"
       },
       "targets": [
@@ -689,7 +640,7 @@
       },
       "title": "Cosmos Throttled (429)",
       "datasource": {
-        "uid": "${datasource}",
+        "uid": "grafana-azure-monitor-datasource",
         "type": "grafana-azure-monitor-datasource"
       },
       "targets": [
@@ -786,7 +737,7 @@
       },
       "title": "Event Hub — Incoming Messages",
       "datasource": {
-        "uid": "${datasource}",
+        "uid": "grafana-azure-monitor-datasource",
         "type": "grafana-azure-monitor-datasource"
       },
       "targets": [
@@ -868,7 +819,7 @@
       },
       "title": "Event Hub — Outgoing Messages",
       "datasource": {
-        "uid": "${datasource}",
+        "uid": "grafana-azure-monitor-datasource",
         "type": "grafana-azure-monitor-datasource"
       },
       "targets": [
@@ -954,7 +905,7 @@
       },
       "title": "Event Hub — Throttled Requests",
       "datasource": {
-        "uid": "${datasource}",
+        "uid": "grafana-azure-monitor-datasource",
         "type": "grafana-azure-monitor-datasource"
       },
       "targets": [
@@ -1040,7 +991,7 @@
       },
       "title": "Event Hub — Server Errors",
       "datasource": {
-        "uid": "${datasource}",
+        "uid": "grafana-azure-monitor-datasource",
         "type": "grafana-azure-monitor-datasource"
       },
       "targets": [
@@ -1122,7 +1073,7 @@
       },
       "title": "Event Hub — Captured Messages",
       "datasource": {
-        "uid": "${datasource}",
+        "uid": "grafana-azure-monitor-datasource",
         "type": "grafana-azure-monitor-datasource"
       },
       "targets": [
@@ -1174,7 +1125,7 @@
       "repeatDirection": "h",
       "title": "Pod Restarts — all stamps",
       "datasource": {
-        "uid": "${promds}",
+        "uid": "grafana-azure-monitor-prometheus-datasource",
         "type": "prometheus"
       },
       "fieldConfig": {
@@ -1217,7 +1168,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (cluster) (increase(kube_pod_container_status_restarts_total{namespace=\"graphorleons\", cluster=~\"$cluster\"}[$__range]))",
+          "expr": "sum by (cluster) (increase(kube_pod_container_status_restarts_total{namespace=\"graphorleons\"}[$__range]))",
           "refId": "A",
           "legendFormat": "{{cluster}}",
           "range": true,
@@ -1237,7 +1188,7 @@
       "repeatDirection": "h",
       "title": "OOMKills — all stamps",
       "datasource": {
-        "uid": "${promds}",
+        "uid": "grafana-azure-monitor-prometheus-datasource",
         "type": "prometheus"
       },
       "fieldConfig": {
@@ -1280,7 +1231,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (cluster) (kube_pod_container_status_last_terminated_reason{namespace=\"graphorleons\", reason=\"OOMKilled\", cluster=~\"$cluster\"}) or vector(0)",
+          "expr": "sum by (cluster) (kube_pod_container_status_last_terminated_reason{namespace=\"graphorleons\", reason=\"OOMKilled\"}) or vector(0)",
           "refId": "A",
           "legendFormat": "{{cluster}}",
           "range": true,
@@ -1300,7 +1251,7 @@
       "repeatDirection": "h",
       "title": "CrashLoop — all stamps",
       "datasource": {
-        "uid": "${promds}",
+        "uid": "grafana-azure-monitor-prometheus-datasource",
         "type": "prometheus"
       },
       "fieldConfig": {
@@ -1343,7 +1294,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (cluster) (kube_pod_container_status_waiting_reason{namespace=\"graphorleons\", reason=\"CrashLoopBackOff\", cluster=~\"$cluster\"}) or vector(0)",
+          "expr": "sum by (cluster) (kube_pod_container_status_waiting_reason{namespace=\"graphorleons\", reason=\"CrashLoopBackOff\"}) or vector(0)",
           "refId": "A",
           "legendFormat": "{{cluster}}",
           "range": true,
@@ -1376,7 +1327,7 @@
       "repeatDirection": "h",
       "title": "CPU Pressure — per cluster",
       "datasource": {
-        "uid": "${promds}",
+        "uid": "grafana-azure-monitor-prometheus-datasource",
         "type": "prometheus"
       },
       "fieldConfig": {
@@ -1418,7 +1369,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (cluster) (rate(container_cpu_usage_seconds_total{namespace=\"graphorleons\", cluster=~\"$cluster\", container!=\"\", container!=\"POD\"}[5m])) / sum by (cluster) (kube_pod_container_resource_requests{namespace=\"graphorleons\", cluster=~\"$cluster\", resource=\"cpu\"}) * 100",
+          "expr": "sum by (cluster) (rate(container_cpu_usage_seconds_total{namespace=\"graphorleons\", container!=\"\", container!=\"POD\"}[5m])) / sum by (cluster) (kube_pod_container_resource_requests{namespace=\"graphorleons\", resource=\"cpu\"}) * 100",
           "refId": "A",
           "legendFormat": "{{cluster}}",
           "range": true,
@@ -1438,7 +1389,7 @@
       "repeatDirection": "h",
       "title": "Memory Pressure — per cluster",
       "datasource": {
-        "uid": "${promds}",
+        "uid": "grafana-azure-monitor-prometheus-datasource",
         "type": "prometheus"
       },
       "fieldConfig": {
@@ -1480,7 +1431,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (cluster) (container_memory_working_set_bytes{namespace=\"graphorleons\", cluster=~\"$cluster\", container!=\"\", container!=\"POD\"}) / sum by (cluster) (kube_pod_container_resource_limits{namespace=\"graphorleons\", cluster=~\"$cluster\", resource=\"memory\"}) * 100",
+          "expr": "sum by (cluster) (container_memory_working_set_bytes{namespace=\"graphorleons\", container!=\"\", container!=\"POD\"}) / sum by (cluster) (kube_pod_container_resource_limits{namespace=\"graphorleons\", resource=\"memory\"}) * 100",
           "refId": "A",
           "legendFormat": "{{cluster}}",
           "range": true,
@@ -1549,7 +1500,7 @@
           },
           "title": "CPU Usage by Pod",
           "datasource": {
-            "uid": "${promds}",
+            "uid": "grafana-azure-monitor-prometheus-datasource",
             "type": "prometheus"
           },
           "targets": [
@@ -1625,7 +1576,7 @@
           },
           "title": "Memory Usage vs Limit",
           "datasource": {
-            "uid": "${promds}",
+            "uid": "grafana-azure-monitor-prometheus-datasource",
             "type": "prometheus"
           },
           "targets": [
@@ -1701,7 +1652,7 @@
           },
           "title": "CPU Throttling %",
           "datasource": {
-            "uid": "${promds}",
+            "uid": "grafana-azure-monitor-prometheus-datasource",
             "type": "prometheus"
           },
           "targets": [
@@ -1769,7 +1720,7 @@
           },
           "title": "Pod Restarts",
           "datasource": {
-            "uid": "${promds}",
+            "uid": "grafana-azure-monitor-prometheus-datasource",
             "type": "prometheus"
           },
           "targets": [
@@ -1838,7 +1789,7 @@
           },
           "title": "Node CPU %",
           "datasource": {
-            "uid": "${promds}",
+            "uid": "grafana-azure-monitor-prometheus-datasource",
             "type": "prometheus"
           },
           "targets": [
@@ -1907,7 +1858,7 @@
           },
           "title": "Node Memory %",
           "datasource": {
-            "uid": "${promds}",
+            "uid": "grafana-azure-monitor-prometheus-datasource",
             "type": "prometheus"
           },
           "targets": [
@@ -1990,7 +1941,7 @@
           },
           "title": "CPU Usage by Pod",
           "datasource": {
-            "uid": "${promds}",
+            "uid": "grafana-azure-monitor-prometheus-datasource",
             "type": "prometheus"
           },
           "targets": [
@@ -2066,7 +2017,7 @@
           },
           "title": "Memory Usage vs Limit",
           "datasource": {
-            "uid": "${promds}",
+            "uid": "grafana-azure-monitor-prometheus-datasource",
             "type": "prometheus"
           },
           "targets": [
@@ -2142,7 +2093,7 @@
           },
           "title": "CPU Throttling %",
           "datasource": {
-            "uid": "${promds}",
+            "uid": "grafana-azure-monitor-prometheus-datasource",
             "type": "prometheus"
           },
           "targets": [
@@ -2210,7 +2161,7 @@
           },
           "title": "Pod Restarts",
           "datasource": {
-            "uid": "${promds}",
+            "uid": "grafana-azure-monitor-prometheus-datasource",
             "type": "prometheus"
           },
           "targets": [
@@ -2279,7 +2230,7 @@
           },
           "title": "Node CPU %",
           "datasource": {
-            "uid": "${promds}",
+            "uid": "grafana-azure-monitor-prometheus-datasource",
             "type": "prometheus"
           },
           "targets": [
@@ -2348,7 +2299,7 @@
           },
           "title": "Node Memory %",
           "datasource": {
-            "uid": "${promds}",
+            "uid": "grafana-azure-monitor-prometheus-datasource",
             "type": "prometheus"
           },
           "targets": [

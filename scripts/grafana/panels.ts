@@ -14,9 +14,10 @@ import * as common from '@grafana/grafana-foundation-sdk/common';
 import type { PlatformConfig } from './config';
 
 // ── Datasource references ──────────────────────────────────────────
+// Azure Monitor dashboards with Grafana auto-provisions these datasources.
 
-const PROM_DS = { uid: '${promds}', type: 'prometheus' } as const;
-const AZURE_DS = { uid: '${datasource}', type: 'grafana-azure-monitor-datasource' } as const;
+const PROM_DS = { uid: 'grafana-azure-monitor-prometheus-datasource', type: 'prometheus' } as const;
+const AZURE_DS = { uid: 'grafana-azure-monitor-datasource', type: 'grafana-azure-monitor-datasource' } as const;
 
 // ── Shared threshold presets ────────────────────────────────────────
 
@@ -100,7 +101,7 @@ export function podRestartsStat(namespace: string): StatPanelBuilder {
     .reduceOptions(new common.ReduceDataOptionsBuilder().calcs(['lastNotNull']).values(false))
     .withTarget(
       new PromQueryBuilder()
-        .expr(`sum by (cluster) (increase(kube_pod_container_status_restarts_total{namespace="${namespace}", cluster=~"$cluster"}[$__range]))`)
+        .expr(`sum by (cluster) (increase(kube_pod_container_status_restarts_total{namespace="${namespace}"}[$__range]))`)
         .legendFormat('{{cluster}}')
         .range()
         .refId('A'),
@@ -119,7 +120,7 @@ export function oomKilledStat(namespace: string): StatPanelBuilder {
     .reduceOptions(new common.ReduceDataOptionsBuilder().calcs(['lastNotNull']).values(false))
     .withTarget(
       new PromQueryBuilder()
-        .expr(`sum by (cluster) (kube_pod_container_status_last_terminated_reason{namespace="${namespace}", reason="OOMKilled", cluster=~"$cluster"}) or vector(0)`)
+        .expr(`sum by (cluster) (kube_pod_container_status_last_terminated_reason{namespace="${namespace}", reason="OOMKilled"}) or vector(0)`)
         .legendFormat('{{cluster}}')
         .range()
         .refId('A'),
@@ -138,7 +139,7 @@ export function crashLoopStat(namespace: string): StatPanelBuilder {
     .reduceOptions(new common.ReduceDataOptionsBuilder().calcs(['lastNotNull']).values(false))
     .withTarget(
       new PromQueryBuilder()
-        .expr(`sum by (cluster) (kube_pod_container_status_waiting_reason{namespace="${namespace}", reason="CrashLoopBackOff", cluster=~"$cluster"}) or vector(0)`)
+        .expr(`sum by (cluster) (kube_pod_container_status_waiting_reason{namespace="${namespace}", reason="CrashLoopBackOff"}) or vector(0)`)
         .legendFormat('{{cluster}}')
         .range()
         .refId('A'),
@@ -157,7 +158,7 @@ export function cpuPressureGauge(namespace: string): GaugePanelBuilder {
     .withTarget(
       new PromQueryBuilder()
         .expr(
-          `sum by (cluster) (rate(container_cpu_usage_seconds_total{namespace="${namespace}", cluster=~"$cluster", container!="", container!="POD"}[5m])) / sum by (cluster) (kube_pod_container_resource_requests{namespace="${namespace}", cluster=~"$cluster", resource="cpu"}) * 100`,
+          `sum by (cluster) (rate(container_cpu_usage_seconds_total{namespace="${namespace}", container!="", container!="POD"}[5m])) / sum by (cluster) (kube_pod_container_resource_requests{namespace="${namespace}", resource="cpu"}) * 100`,
         )
         .legendFormat('{{cluster}}')
         .range()
@@ -177,7 +178,7 @@ export function memoryPressureGauge(namespace: string): GaugePanelBuilder {
     .withTarget(
       new PromQueryBuilder()
         .expr(
-          `sum by (cluster) (container_memory_working_set_bytes{namespace="${namespace}", cluster=~"$cluster", container!="", container!="POD"}) / sum by (cluster) (kube_pod_container_resource_limits{namespace="${namespace}", cluster=~"$cluster", resource="memory"}) * 100`,
+          `sum by (cluster) (container_memory_working_set_bytes{namespace="${namespace}", container!="", container!="POD"}) / sum by (cluster) (kube_pod_container_resource_limits{namespace="${namespace}", resource="memory"}) * 100`,
         )
         .legendFormat('{{cluster}}')
         .range()
