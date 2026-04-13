@@ -148,6 +148,31 @@ resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2025
   }
 }
 
+// Custom SQL role: Data Contributor + sqlDatabases/* (for CreateDatabaseIfNotExistsAsync)
+var cosmosAppRoleId = guid(cosmos.id, 'app-data-owner')
+
+resource cosmosAppRole 'Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions@2025-04-15' = {
+  parent: cosmos
+  name: cosmosAppRoleId
+  properties: {
+    roleName: 'App Data Owner'
+    type: 'CustomRole'
+    assignableScopes: [
+      cosmos.id
+    ]
+    permissions: [
+      {
+        dataActions: [
+          'Microsoft.DocumentDB/databaseAccounts/readMetadata'
+          'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/*'
+          'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/*'
+          'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/items/*'
+        ]
+      }
+    ]
+  }
+}
+
 // ============================================================================
 // Azure Front Door (conditional — skipped when frontDoorSku == 'none')
 // ============================================================================
@@ -460,6 +485,7 @@ output appInsightsId string = appInsights.id
 output healthModelIdentityId string = healthModelIdentity.id
 output healthModelIdentityPrincipalId string = healthModelIdentity.properties.principalId
 output cosmosDatabaseName string = cosmosDatabase.name
+output cosmosAppRoleId string = cosmosAppRole.id
 output eventHubsNamespaceName string = ehNamespace.name
 output eventHubsNamespaceId string = ehNamespace.id
 output graphEventsConnectionString string = 'Endpoint=sb://${ehNamespace.name}.servicebus.windows.net;EntityPath=${graphEventsHub.name}'

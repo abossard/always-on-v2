@@ -218,13 +218,27 @@ jobs:
 
           echo "## 🌐 Application Endpoints" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| App | Front Door | Gateway Origins |" >> $GITHUB_STEP_SUMMARY
-          echo "|-----|-----------|-----------------|" >> $GITHUB_STEP_SUMMARY
+
+          APEX=$(az deployment sub show --name "$DEPLOYMENT_NAME" \
+            --query "properties.outputs.apexDomain.value" -o tsv 2>/dev/null || echo "")
+          FD_EP=$(az deployment sub show --name "$DEPLOYMENT_NAME" \
+            --query "properties.outputs.frontDoorEndpoint.value" -o tsv 2>/dev/null || echo "")
+
+          if [ -n "$APEX" ]; then
+            echo "| Resource | URL |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|-----|" >> $GITHUB_STEP_SUMMARY
+            echo "| Apex domain | $APEX (→ GitHub redirect) |" >> $GITHUB_STEP_SUMMARY
+            echo "| Front Door endpoint | $FD_EP |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+          fi
+
+          echo "| App | Front Door | Stamp Origins |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----|-----------|---------------|" >> $GITHUB_STEP_SUMMARY
 
           echo "$ENDPOINTS" | jq -c '.[]' | while read -r app; do
             NAME=$(echo "$app" | jq -r '.name')
             FD_URL=$(echo "$app" | jq -r '.frontDoorUrl')
-            ORIGINS=$(echo "$app" | jq -r '[.stampOrigins[] | "https://\(.gatewayHostname)"] | join(", ")')
+            ORIGINS=$(echo "$app" | jq -r '.stampOrigins | join(" <br> ")')
             echo "| ${NAME} | ${FD_URL} | ${ORIGINS} |" >> $GITHUB_STEP_SUMMARY
           done
 

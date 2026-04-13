@@ -222,6 +222,7 @@ module appInfra 'app-infra.bicep' = [
       appInsightsId: global.outputs.appInsightsId
       containers: appContainers[i]
       eventHubsNamespaceName: app.name == 'graphorleons' ? global.outputs.eventHubsNamespaceName : ''
+      cosmosAppRoleId: global.outputs.cosmosAppRoleId
     }
   }
 ]
@@ -713,6 +714,8 @@ output appEndpoints array = [
     stampOrigins: graphOrleonsRouting.outputs.stampOrigins
   }
 ]
+output apexDomain string = 'https://${domainName}'
+output frontDoorEndpoint string = 'https://${global.outputs.fdEndpointHostName}'
 
 output fluxSshPublicKeys array = [
   for (stamp, i) in allStamps: {

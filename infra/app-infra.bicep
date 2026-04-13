@@ -34,6 +34,9 @@ param containers array
 @description('Optional: Event Hubs namespace name for Data Sender RBAC.')
 param eventHubsNamespaceName string = ''
 
+@description('Cosmos DB custom SQL role definition ID for app data access.')
+param cosmosAppRoleId string
+
 var roles = loadJsonContent('roles.json')
 
 // ============================================================================
@@ -59,17 +62,17 @@ resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2025
 }
 
 // ============================================================================
-// Cosmos DB RBAC — Data Contributor at account scope
+// Cosmos DB RBAC — Custom App Data Owner (includes sqlDatabases/*)
 // ============================================================================
-// Account scope is required because Orleans and Aspire call readMetadata
-// at the account level (e.g. CreateDatabaseIfNotExistsAsync).
+// Custom role extends Data Contributor with sqlDatabases/* for
+// CreateDatabaseIfNotExistsAsync (Orleans, Aspire).
 
 resource cosmosRbac 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2025-04-15' = {
   parent: cosmosAccount
-  name: guid(cosmosAccount.id, appIdentity.id, roles.cosmosDataContributor)
+  name: guid(cosmosAccount.id, appIdentity.id, cosmosAppRoleId)
   properties: {
     principalId: appIdentity.properties.principalId
-    roleDefinitionId: '${cosmosAccount.id}/sqlRoleDefinitions/${roles.cosmosDataContributor}'
+    roleDefinitionId: cosmosAppRoleId
     scope: cosmosAccount.id
   }
 }
