@@ -112,7 +112,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
     enableParam: 'usesEventHubs',
     enableDescription: 'Whether this app uses Azure Event Hubs',
     parentKey: 'root',
-    icon: 'SystemComponent',
+    icon: 'AzureEventHub',
     scope: { kind: 'global' },
     bindings: [
       {

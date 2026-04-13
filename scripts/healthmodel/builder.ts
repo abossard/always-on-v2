@@ -358,6 +358,82 @@ export function buildHealthModelBicep(): string {
     },
   }));
 
+  // Per-Stamp Grouping Entities — intermediate layer between category and resource entities
+  blocks.push(section('Per-Stamp Grouping Entities'));
+  blocks.push(comment('One grouping entity per stamp under each category (Failures, Latency).'));
+  blocks.push(comment('Resource entities hang off these instead of directly off the category.'));
+
+  // Stamp Failures Group
+  blocks.push(resourceLoop({
+    symbolic: 'stampFailuresGroup',
+    type: 'Microsoft.CloudHealth/healthmodels/entities',
+    apiVersion: API_VERSION,
+    arrayExpr: 'stamps',
+    itemVar: 'stamp',
+    indexVar: 'i',
+    body: {
+      parent: raw('hm'),
+      name: guid('name', 'stamp.key', "'stamp-failures'"),
+      properties: {
+        displayName: raw("'Stamp ${stamp.key}'"),
+        canvasPosition: { x: raw("json('${i * 400}')"), y: jsonNum(300) },
+        icon: { iconName: 'AzureKubernetesService' },
+        impact: 'Standard',
+        tags: {},
+      },
+    },
+  }));
+
+  // Stamp Latency Group
+  blocks.push(resourceLoop({
+    symbolic: 'stampLatencyGroup',
+    type: 'Microsoft.CloudHealth/healthmodels/entities',
+    apiVersion: API_VERSION,
+    arrayExpr: 'stamps',
+    itemVar: 'stamp',
+    indexVar: 'i',
+    body: {
+      parent: raw('hm'),
+      name: guid('name', 'stamp.key', "'stamp-latency'"),
+      properties: {
+        displayName: raw("'Stamp ${stamp.key}'"),
+        canvasPosition: { x: raw("json('${(length(stamps) + 1) * 400 + i * 400}')"), y: jsonNum(300) },
+        icon: { iconName: 'AzureKubernetesService' },
+        impact: 'Standard',
+        tags: {},
+      },
+    },
+  }));
+
+  // Relationships: category → stamp group
+  blocks.push(resourceLoop({
+    symbolic: 'rel_failuresStampGroup',
+    type: 'Microsoft.CloudHealth/healthmodels/relationships',
+    apiVersion: API_VERSION,
+    arrayExpr: 'stamps',
+    itemVar: 'stamp',
+    indexVar: 'i',
+    body: {
+      parent: raw('hm'),
+      name: guid('name', 'stamp.key', "'rel-failures-stamp'"),
+      properties: { parentEntityName: raw('failuresEntity.name'), childEntityName: raw('stampFailuresGroup[i].name') },
+    },
+  }));
+
+  blocks.push(resourceLoop({
+    symbolic: 'rel_latencyStampGroup',
+    type: 'Microsoft.CloudHealth/healthmodels/relationships',
+    apiVersion: API_VERSION,
+    arrayExpr: 'stamps',
+    itemVar: 'stamp',
+    indexVar: 'i',
+    body: {
+      parent: raw('hm'),
+      name: guid('name', 'stamp.key', "'rel-latency-stamp'"),
+      properties: { parentEntityName: raw('latencyEntity.name'), childEntityName: raw('stampLatencyGroup[i].name') },
+    },
+  }));
+
   // Per-Stamp Failure Entities (one entity per resource type)
   blocks.push(section('Per-Stamp Failure Entities'));
   blocks.push(comment('Split by resource type: AKS, Prometheus, FrontDoor, Cosmos.'));
@@ -491,7 +567,7 @@ export function buildHealthModelBicep(): string {
     },
   }));
 
-  // Failure relationships — connect all 4 entity types to failuresEntity
+  // Failure relationships — connect all 4 entity types to stamp group
   for (const [sym, suffix] of [
     ['stampAksFailures', 'rel-aks-failures'],
     ['stampPromFailures', 'rel-prom-failures'],
@@ -508,7 +584,7 @@ export function buildHealthModelBicep(): string {
       body: {
         parent: raw('hm'),
         name: guid('name', 'stamp.key', `'${suffix}'`),
-        properties: { parentEntityName: raw('failuresEntity.name'), childEntityName: raw(`${sym}[i].name`) },
+        properties: { parentEntityName: raw('stampFailuresGroup[i].name'), childEntityName: raw(`${sym}[i].name`) },
       },
     }));
   }
@@ -622,7 +698,7 @@ export function buildHealthModelBicep(): string {
     },
   }));
 
-  // Latency relationships — connect all 3 entity types to latencyEntity
+  // Latency relationships — connect all 3 entity types to stamp group
   for (const [sym, suffix] of [
     ['stampFdLatency', 'rel-fd-latency'],
     ['stampCosmosLatency', 'rel-cosmos-latency'],
@@ -638,7 +714,7 @@ export function buildHealthModelBicep(): string {
       body: {
         parent: raw('hm'),
         name: guid('name', 'stamp.key', `'${suffix}'`),
-        properties: { parentEntityName: raw('latencyEntity.name'), childEntityName: raw(`${sym}[i].name`) },
+        properties: { parentEntityName: raw('stampLatencyGroup[i].name'), childEntityName: raw(`${sym}[i].name`) },
       },
     }));
   }

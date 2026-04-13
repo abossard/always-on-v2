@@ -197,6 +197,76 @@ resource originLatencyDef 'Microsoft.CloudHealth/healthmodels/signaldefinitions@
   }
 ]
 
+// ─── Per-Stamp Grouping Entities ─────────────────────────────────────
+
+// One grouping entity per stamp under each category (Failures, Latency).
+
+// Resource entities hang off these instead of directly off the category.
+
+#disable-next-line BCP081
+resource stampFailuresGroup 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = [
+  for (stamp, i) in stamps: {
+    parent: hm
+    name: guid(name, stamp.key, 'stamp-failures')
+    properties: {
+      displayName: 'Stamp ${stamp.key}'
+      canvasPosition: {
+        x: json('${i * 400}')
+        y: json('300')
+      }
+      icon: {
+        iconName: 'AzureKubernetesService'
+      }
+      impact: 'Standard'
+      tags: {}
+    }
+  }
+]
+
+#disable-next-line BCP081
+resource stampLatencyGroup 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = [
+  for (stamp, i) in stamps: {
+    parent: hm
+    name: guid(name, stamp.key, 'stamp-latency')
+    properties: {
+      displayName: 'Stamp ${stamp.key}'
+      canvasPosition: {
+        x: json('${(length(stamps) + 1) * 400 + i * 400}')
+        y: json('300')
+      }
+      icon: {
+        iconName: 'AzureKubernetesService'
+      }
+      impact: 'Standard'
+      tags: {}
+    }
+  }
+]
+
+#disable-next-line BCP081
+resource rel_failuresStampGroup 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
+  for (stamp, i) in stamps: {
+    parent: hm
+    name: guid(name, stamp.key, 'rel-failures-stamp')
+    properties: {
+      parentEntityName: failuresEntity.name
+      childEntityName: stampFailuresGroup[i].name
+    }
+  }
+]
+
+#disable-next-line BCP081
+resource rel_latencyStampGroup 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
+  for (stamp, i) in stamps: {
+    parent: hm
+    name: guid(name, stamp.key, 'rel-latency-stamp')
+    properties: {
+      parentEntityName: latencyEntity.name
+      childEntityName: stampLatencyGroup[i].name
+    }
+  }
+]
+
 // ─── Per-Stamp Failure Entities ──────────────────────────────────────
 
 // Split by resource type: AKS, Prometheus, FrontDoor, Cosmos.
@@ -508,7 +578,7 @@ resource rel_stampAksFailures 'Microsoft.CloudHealth/healthmodels/relationships@
     parent: hm
     name: guid(name, stamp.key, 'rel-aks-failures')
     properties: {
-      parentEntityName: failuresEntity.name
+      parentEntityName: stampFailuresGroup[i].name
       childEntityName: stampAksFailures[i].name
     }
   }
@@ -520,7 +590,7 @@ resource rel_stampPromFailures 'Microsoft.CloudHealth/healthmodels/relationships
     parent: hm
     name: guid(name, stamp.key, 'rel-prom-failures')
     properties: {
-      parentEntityName: failuresEntity.name
+      parentEntityName: stampFailuresGroup[i].name
       childEntityName: stampPromFailures[i].name
     }
   }
@@ -532,7 +602,7 @@ resource rel_stampFdFailures 'Microsoft.CloudHealth/healthmodels/relationships@2
     parent: hm
     name: guid(name, stamp.key, 'rel-fd-failures')
     properties: {
-      parentEntityName: failuresEntity.name
+      parentEntityName: stampFailuresGroup[i].name
       childEntityName: stampFdFailures[i].name
     }
   }
@@ -544,7 +614,7 @@ resource rel_stampCosmosFailures 'Microsoft.CloudHealth/healthmodels/relationshi
     parent: hm
     name: guid(name, stamp.key, 'rel-cosmos-failures')
     properties: {
-      parentEntityName: failuresEntity.name
+      parentEntityName: stampFailuresGroup[i].name
       childEntityName: stampCosmosFailures[i].name
     }
   }
@@ -848,7 +918,7 @@ resource rel_stampFdLatency 'Microsoft.CloudHealth/healthmodels/relationships@20
     parent: hm
     name: guid(name, stamp.key, 'rel-fd-latency')
     properties: {
-      parentEntityName: latencyEntity.name
+      parentEntityName: stampLatencyGroup[i].name
       childEntityName: stampFdLatency[i].name
     }
   }
@@ -860,7 +930,7 @@ resource rel_stampCosmosLatency 'Microsoft.CloudHealth/healthmodels/relationship
     parent: hm
     name: guid(name, stamp.key, 'rel-cosmos-latency')
     properties: {
-      parentEntityName: latencyEntity.name
+      parentEntityName: stampLatencyGroup[i].name
       childEntityName: stampCosmosLatency[i].name
     }
   }
@@ -872,7 +942,7 @@ resource rel_stampPromLatency 'Microsoft.CloudHealth/healthmodels/relationships@
     parent: hm
     name: guid(name, stamp.key, 'rel-prom-latency')
     properties: {
-      parentEntityName: latencyEntity.name
+      parentEntityName: stampLatencyGroup[i].name
       childEntityName: stampPromLatency[i].name
     }
   }
@@ -1217,7 +1287,7 @@ resource eventhubsEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01
       y: json('200')
     }
     icon: {
-      iconName: 'SystemComponent'
+      iconName: 'AzureEventHub'
     }
     impact: 'Standard'
     tags: {}
