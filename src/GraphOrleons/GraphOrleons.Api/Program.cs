@@ -15,10 +15,11 @@ builder.AddAzureCosmosClient("cosmos", configureClientOptions: options =>
     {
         PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
     };
+    // Gateway mode avoids RNTBD SIGSEGV on .NET 10 (ADR-0062)
+    options.ConnectionMode = ConnectionMode.Gateway;
     var connStr = builder.Configuration.GetConnectionString("cosmos") ?? "";
     if (connStr.Contains("AccountKey=C2y6yDjf5", StringComparison.Ordinal))
     {
-        options.ConnectionMode = ConnectionMode.Gateway;
         options.LimitToEndpoint = true;
     }
 });
