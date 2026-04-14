@@ -215,7 +215,7 @@ module appInfra 'app-infra.bicep' = [
       location: globalLocation
       appName: app.name
       cosmosAccountName: global.outputs.cosmosName
-      cosmosDatabaseName: app.name == 'darkux' ? 'app-db' : app.name
+      cosmosDatabaseName: app.name
       cosmosAutoscaleMaxThroughput: cosmosAutoscaleMaxThroughput
       appInsightsId: global.outputs.appInsightsId
       containers: appContainers[i]

@@ -421,10 +421,8 @@ public static class StorageExtensions
             return;
 
         var client = app.Services.GetRequiredService<CosmosClient>();
-        var db = await client.CreateDatabaseIfNotExistsAsync(cosmosOpts.DatabaseName);
-        await db.Database.CreateContainerIfNotExistsAsync(
-            cosmosOpts.ContainerName,
-            cosmosOpts.PartitionKeyPath);
+        var container = client.GetContainer(cosmosOpts.DatabaseName, cosmosOpts.ContainerName);
+        await container.ReadContainerAsync();
 
         if (app.Logger.IsEnabled(LogLevel.Information))
             app.Logger.LogInformation("Cosmos DB initialized: {Database}/{Container}", cosmosOpts.DatabaseName, cosmosOpts.ContainerName);

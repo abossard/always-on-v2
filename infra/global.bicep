@@ -129,14 +129,14 @@ resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2025-04-15' = {
   }
 }
 
-// Custom SQL role: Data Contributor + sqlDatabases/* (for CreateDatabaseIfNotExistsAsync)
-var cosmosAppRoleId = guid(cosmos.id, 'app-data-owner')
+// Custom SQL role: scoped data access (no database/container creation)
+var cosmosAppRoleId = guid(cosmos.id, 'app-data-readwrite')
 
 resource cosmosAppRole 'Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions@2025-04-15' = {
   parent: cosmos
   name: cosmosAppRoleId
   properties: {
-    roleName: 'App Data Owner'
+    roleName: 'App Data Read/Write'
     type: 'CustomRole'
     assignableScopes: [
       cosmos.id
@@ -145,9 +145,9 @@ resource cosmosAppRole 'Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions
       {
         dataActions: [
           'Microsoft.DocumentDB/databaseAccounts/readMetadata'
-          'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/*'
-          'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/*'
           'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/items/*'
+          'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/executeQuery'
+          'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/readChangeFeed'
         ]
       }
     ]

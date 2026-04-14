@@ -91,16 +91,16 @@ resource cosmosContainers 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/co
 ]
 
 // ============================================================================
-// Custom RBAC Role — App Data Owner (mirrors global Cosmos role)
+// Custom RBAC Role — Scoped data access (no database/container creation)
 // ============================================================================
 
-var cosmosAppRoleId = guid(cosmos.id, 'app-data-owner')
+var cosmosAppRoleId = guid(cosmos.id, 'app-data-readwrite')
 
 resource cosmosAppRole 'Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions@2025-04-15' = {
   parent: cosmos
   name: cosmosAppRoleId
   properties: {
-    roleName: 'App Data Owner'
+    roleName: 'App Data Read/Write'
     type: 'CustomRole'
     assignableScopes: [
       cosmos.id
@@ -109,9 +109,9 @@ resource cosmosAppRole 'Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions
       {
         dataActions: [
           'Microsoft.DocumentDB/databaseAccounts/readMetadata'
-          'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/*'
-          'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/*'
           'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/items/*'
+          'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/executeQuery'
+          'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/readChangeFeed'
         ]
       }
     ]
@@ -119,7 +119,7 @@ resource cosmosAppRole 'Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions
 }
 
 // ============================================================================
-// RBAC Assignments — one per app identity
+// RBAC Assignments — scoped to orleans database, one per app identity
 // ============================================================================
 
 resource cosmosRbac 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2025-04-15' = [
@@ -129,7 +129,7 @@ resource cosmosRbac 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@20
     properties: {
       principalId: identity.principalId
       roleDefinitionId: cosmosAppRole.id
-      scope: cosmos.id
+      scope: database.id
     }
   }
 ]

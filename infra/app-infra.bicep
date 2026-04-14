@@ -79,10 +79,10 @@ resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2025
 }
 
 // ============================================================================
-// Cosmos DB RBAC — Custom App Data Owner (includes sqlDatabases/*)
+// Cosmos DB RBAC — Scoped to per-app database (least privilege)
 // ============================================================================
-// Custom role extends Data Contributor with sqlDatabases/* for
-// CreateDatabaseIfNotExistsAsync (Orleans, Aspire).
+// Apps cannot create databases or containers — Bicep handles that.
+// RBAC is scoped to the app's own database only.
 
 resource cosmosRbac 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2025-04-15' = {
   parent: cosmosAccount
@@ -90,7 +90,7 @@ resource cosmosRbac 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@20
   properties: {
     principalId: appIdentity.properties.principalId
     roleDefinitionId: cosmosAppRoleId
-    scope: cosmosAccount.id
+    scope: cosmosDatabase.id
   }
 }
 

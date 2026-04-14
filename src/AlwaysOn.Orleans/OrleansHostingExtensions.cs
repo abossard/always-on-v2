@@ -53,7 +53,7 @@ public static class OrleansHostingExtensions
             {
                 o.DatabaseName = options.ClusteringDatabase;
                 o.ContainerName = options.ClusterContainer;
-                o.IsResourceCreationEnabled = true;
+                o.IsResourceCreationEnabled = false;
                 o.ConfigureCosmosClient(_ => new ValueTask<CosmosClient>(clusteringClient));
             });
 
@@ -64,7 +64,7 @@ public static class OrleansHostingExtensions
                 {
                     o.DatabaseName = options.GrainStorageDatabase;
                     o.ContainerName = options.GrainStorageContainer;
-                    o.IsResourceCreationEnabled = true;
+                    o.IsResourceCreationEnabled = false;
                     o.ConfigureCosmosClient(_ => new ValueTask<CosmosClient>(grainStorageClient));
                 });
             }
@@ -74,7 +74,7 @@ public static class OrleansHostingExtensions
                 {
                     o.DatabaseName = options.GrainStorageDatabase;
                     o.ContainerName = options.GrainStorageContainer;
-                    o.IsResourceCreationEnabled = true;
+                    o.IsResourceCreationEnabled = false;
                     o.ConfigureCosmosClient(_ => new ValueTask<CosmosClient>(grainStorageClient));
                 });
             }
@@ -86,7 +86,7 @@ public static class OrleansHostingExtensions
                 {
                     o.DatabaseName = options.ClusteringDatabase;
                     o.ContainerName = options.PubSubContainer;
-                    o.IsResourceCreationEnabled = true;
+                    o.IsResourceCreationEnabled = false;
                     o.ConfigureCosmosClient(_ => new ValueTask<CosmosClient>(clusteringClient));
                 });
             }
