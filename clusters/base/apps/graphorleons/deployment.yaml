@@ -35,7 +35,7 @@ spec:
       serviceAccountName: ${GRAPHORLEONS_SA_NAME}
       containers:
         - name: graphorleons
-          image: ${ACR_LOGIN_SERVER}/graphorleons:1776166531-af025d7c
+          image: ${ACR_LOGIN_SERVER}/graphorleons:1776208009-b4e26cfb
           ports:
             - containerPort: 8080
               name: http
@@ -145,7 +145,7 @@ spec:
     spec:
       containers:
         - name: graphorleons-web
-          image: ${ACR_LOGIN_SERVER}/graphorleons-web:1776166531-af025d7c
+          image: ${ACR_LOGIN_SERVER}/graphorleons-web:1776208009-b4e26cfb
           ports:
             - containerPort: 8080
           env:
