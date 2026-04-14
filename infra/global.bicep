@@ -58,6 +58,11 @@ resource healthModelIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2
   location: location
 }
 
+resource ehCaptureIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: 'id-eh-capture-${baseName}'
+  location: location
+}
+
 // ============================================================================
 // Azure Container Registry
 // ============================================================================
@@ -414,7 +419,10 @@ resource ehNamespace 'Microsoft.EventHub/namespaces@2025-05-01-preview' = {
     capacity: 1
   }
   identity: {
-    type: 'SystemAssigned'
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${ehCaptureIdentity.id}': {}
+    }
   }
   properties: {
     geoDataReplication: {
@@ -441,6 +449,10 @@ resource graphEventsHub 'Microsoft.EventHub/namespaces/eventhubs@2025-05-01-prev
       skipEmptyArchives: true
       destination: {
         name: 'EventHubArchive.AzureBlockBlob'
+        identity: {
+          type: 'UserAssigned'
+          userAssignedIdentity: ehCaptureIdentity.id
+        }
         properties: {
           storageAccountResourceId: ehCaptureStorage.id
           blobContainer: 'graph-events-archive'
@@ -451,14 +463,14 @@ resource graphEventsHub 'Microsoft.EventHub/namespaces/eventhubs@2025-05-01-prev
   }
 }
 
-// RBAC — Storage Blob Data Contributor for Capture (EH system identity → storage)
+// RBAC — Storage Blob Data Contributor for Capture (user-assigned identity → storage)
 var roles = loadJsonContent('roles.json')
 
 resource ehCaptureStorageRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(ehCaptureStorage.id, ehNamespace.id, roles.storageBlobDataContributor)
+  name: guid(ehCaptureStorage.id, ehCaptureIdentity.id, roles.storageBlobDataContributor)
   scope: ehCaptureStorage
   properties: {
-    principalId: ehNamespace.identity.principalId
+    principalId: ehCaptureIdentity.properties.principalId
     roleDefinitionId: subscriptionResourceId(
       'Microsoft.Authorization/roleDefinitions',
       roles.storageBlobDataContributor
