@@ -2049,6 +2049,566 @@
         "h": 1,
         "w": 24
       }
+    },
+    {
+      "type": "row",
+      "collapsed": true,
+      "id": 0,
+      "panels": [
+        {
+          "type": "stat",
+          "transparent": false,
+          "repeatDirection": "h",
+          "title": "Orleans Cosmos Availability % — swedencentral",
+          "datasource": {
+            "uid": "azure-monitor",
+            "type": "grafana-azure-monitor-datasource"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "red",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 99
+                  },
+                  {
+                    "color": "green",
+                    "value": 99.9
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "graphMode": "none",
+            "colorMode": "background",
+            "justifyMode": "auto",
+            "textMode": "auto",
+            "wideLayout": true,
+            "showPercentChange": false,
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "values": false
+            },
+            "percentChangeColorMode": "standard",
+            "orientation": "auto"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "queryType": "Azure Monitor",
+              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+              "azureMonitor": {
+                "metricNamespace": "microsoft.documentdb/databaseaccounts",
+                "metricName": "ServiceAvailability",
+                "aggregation": "Average",
+                "timeGrain": "auto",
+                "resources": [
+                  {
+                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+                    "resourceGroup": "rg-alwayson-swedencentral-001",
+                    "resourceName": "cosmos-orl-alwayson-swedencentral",
+                    "metricNamespace": "microsoft.documentdb/databaseaccounts"
+                  }
+                ],
+                "dimensionFilters": [],
+                "customNamespace": "microsoft.documentdb/databaseaccounts",
+                "allowedTimeGrainsMs": [
+                  60000,
+                  300000,
+                  900000,
+                  1800000,
+                  3600000,
+                  21600000,
+                  43200000,
+                  86400000
+                ]
+              }
+            }
+          ],
+          "gridPos": {
+            "h": 4,
+            "w": 8,
+            "x": 0,
+            "y": 69
+          }
+        },
+        {
+          "type": "timeseries",
+          "transparent": false,
+          "repeatDirection": "h",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "drawStyle": "line",
+                "gradientMode": "opacity",
+                "spanNulls": false,
+                "axisBorderShow": false,
+                "lineInterpolation": "smooth",
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "unit": "percent",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true,
+              "calcs": []
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "title": "Orleans Cosmos Normalized RU % — swedencentral",
+          "datasource": {
+            "uid": "azure-monitor",
+            "type": "grafana-azure-monitor-datasource"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "queryType": "Azure Monitor",
+              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+              "azureMonitor": {
+                "metricNamespace": "microsoft.documentdb/databaseaccounts",
+                "metricName": "NormalizedRUConsumption",
+                "aggregation": "Maximum",
+                "timeGrain": "auto",
+                "resources": [
+                  {
+                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+                    "resourceGroup": "rg-alwayson-swedencentral-001",
+                    "resourceName": "cosmos-orl-alwayson-swedencentral",
+                    "metricNamespace": "microsoft.documentdb/databaseaccounts"
+                  }
+                ],
+                "dimensionFilters": [],
+                "customNamespace": "microsoft.documentdb/databaseaccounts",
+                "allowedTimeGrainsMs": [
+                  60000,
+                  300000,
+                  900000,
+                  1800000,
+                  3600000,
+                  21600000,
+                  43200000,
+                  86400000
+                ]
+              }
+            }
+          ],
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 8,
+            "y": 69
+          }
+        },
+        {
+          "type": "timeseries",
+          "transparent": false,
+          "repeatDirection": "h",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "drawStyle": "line",
+                "gradientMode": "opacity",
+                "spanNulls": false,
+                "axisBorderShow": false,
+                "lineInterpolation": "smooth",
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true,
+              "calcs": []
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "title": "Orleans Cosmos Throttled (429) — swedencentral",
+          "datasource": {
+            "uid": "azure-monitor",
+            "type": "grafana-azure-monitor-datasource"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "queryType": "Azure Monitor",
+              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+              "azureMonitor": {
+                "metricNamespace": "microsoft.documentdb/databaseaccounts",
+                "metricName": "TotalRequests",
+                "aggregation": "Count",
+                "timeGrain": "auto",
+                "resources": [
+                  {
+                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+                    "resourceGroup": "rg-alwayson-swedencentral-001",
+                    "resourceName": "cosmos-orl-alwayson-swedencentral",
+                    "metricNamespace": "microsoft.documentdb/databaseaccounts"
+                  }
+                ],
+                "dimensionFilters": [],
+                "customNamespace": "microsoft.documentdb/databaseaccounts",
+                "allowedTimeGrainsMs": [
+                  60000,
+                  300000,
+                  900000,
+                  1800000,
+                  3600000,
+                  21600000,
+                  43200000,
+                  86400000
+                ]
+              }
+            }
+          ],
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 16,
+            "y": 69
+          }
+        },
+        {
+          "type": "stat",
+          "transparent": false,
+          "repeatDirection": "h",
+          "title": "Orleans Cosmos Availability % — centralus",
+          "datasource": {
+            "uid": "azure-monitor",
+            "type": "grafana-azure-monitor-datasource"
+          },
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "red",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 99
+                  },
+                  {
+                    "color": "green",
+                    "value": 99.9
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "graphMode": "none",
+            "colorMode": "background",
+            "justifyMode": "auto",
+            "textMode": "auto",
+            "wideLayout": true,
+            "showPercentChange": false,
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "values": false
+            },
+            "percentChangeColorMode": "standard",
+            "orientation": "auto"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "queryType": "Azure Monitor",
+              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+              "azureMonitor": {
+                "metricNamespace": "microsoft.documentdb/databaseaccounts",
+                "metricName": "ServiceAvailability",
+                "aggregation": "Average",
+                "timeGrain": "auto",
+                "resources": [
+                  {
+                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+                    "resourceGroup": "rg-alwayson-centralus-001",
+                    "resourceName": "cosmos-orl-alwayson-centralus",
+                    "metricNamespace": "microsoft.documentdb/databaseaccounts"
+                  }
+                ],
+                "dimensionFilters": [],
+                "customNamespace": "microsoft.documentdb/databaseaccounts",
+                "allowedTimeGrainsMs": [
+                  60000,
+                  300000,
+                  900000,
+                  1800000,
+                  3600000,
+                  21600000,
+                  43200000,
+                  86400000
+                ]
+              }
+            }
+          ],
+          "gridPos": {
+            "h": 4,
+            "w": 8,
+            "x": 0,
+            "y": 77
+          }
+        },
+        {
+          "type": "timeseries",
+          "transparent": false,
+          "repeatDirection": "h",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "drawStyle": "line",
+                "gradientMode": "opacity",
+                "spanNulls": false,
+                "axisBorderShow": false,
+                "lineInterpolation": "smooth",
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "unit": "percent",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true,
+              "calcs": []
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "title": "Orleans Cosmos Normalized RU % — centralus",
+          "datasource": {
+            "uid": "azure-monitor",
+            "type": "grafana-azure-monitor-datasource"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "queryType": "Azure Monitor",
+              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+              "azureMonitor": {
+                "metricNamespace": "microsoft.documentdb/databaseaccounts",
+                "metricName": "NormalizedRUConsumption",
+                "aggregation": "Maximum",
+                "timeGrain": "auto",
+                "resources": [
+                  {
+                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+                    "resourceGroup": "rg-alwayson-centralus-001",
+                    "resourceName": "cosmos-orl-alwayson-centralus",
+                    "metricNamespace": "microsoft.documentdb/databaseaccounts"
+                  }
+                ],
+                "dimensionFilters": [],
+                "customNamespace": "microsoft.documentdb/databaseaccounts",
+                "allowedTimeGrainsMs": [
+                  60000,
+                  300000,
+                  900000,
+                  1800000,
+                  3600000,
+                  21600000,
+                  43200000,
+                  86400000
+                ]
+              }
+            }
+          ],
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 8,
+            "y": 77
+          }
+        },
+        {
+          "type": "timeseries",
+          "transparent": false,
+          "repeatDirection": "h",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "drawStyle": "line",
+                "gradientMode": "opacity",
+                "spanNulls": false,
+                "axisBorderShow": false,
+                "lineInterpolation": "smooth",
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true,
+              "calcs": []
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "title": "Orleans Cosmos Throttled (429) — centralus",
+          "datasource": {
+            "uid": "azure-monitor",
+            "type": "grafana-azure-monitor-datasource"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "queryType": "Azure Monitor",
+              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+              "azureMonitor": {
+                "metricNamespace": "microsoft.documentdb/databaseaccounts",
+                "metricName": "TotalRequests",
+                "aggregation": "Count",
+                "timeGrain": "auto",
+                "resources": [
+                  {
+                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+                    "resourceGroup": "rg-alwayson-centralus-001",
+                    "resourceName": "cosmos-orl-alwayson-centralus",
+                    "metricNamespace": "microsoft.documentdb/databaseaccounts"
+                  }
+                ],
+                "dimensionFilters": [],
+                "customNamespace": "microsoft.documentdb/databaseaccounts",
+                "allowedTimeGrainsMs": [
+                  60000,
+                  300000,
+                  900000,
+                  1800000,
+                  3600000,
+                  21600000,
+                  43200000,
+                  86400000
+                ]
+              }
+            }
+          ],
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 16,
+            "y": 77
+          }
+        }
+      ],
+      "title": "🗄️ Orleans Cosmos (Clustering)",
+      "gridPos": {
+        "x": 0,
+        "y": 68,
+        "h": 1,
+        "w": 24
+      }
     }
   ]
 }

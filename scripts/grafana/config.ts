@@ -4,6 +4,7 @@ export interface StampConfig {
   cluster: string;
   resourceGroup: string;
   storageAccount?: string;
+  cosmosOrleansAccount?: string;
 }
 
 export interface AppConfig {
@@ -15,6 +16,7 @@ export interface AppConfig {
   usesQueues: boolean;
   usesBlobs: boolean;
   usesEventHubs: boolean;
+  usesOrleans: boolean;
 }
 
 export interface ResourceConfig {
