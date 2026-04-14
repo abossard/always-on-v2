@@ -537,6 +537,10 @@ resource fluxConfig 'Microsoft.KubernetesConfiguration/fluxConfigurations@2024-0
 // Chaos Studio Preparation
 // ============================================================================
 
+// ── Targets & Capabilities ────────────────────────────────────────────────────
+// Register the AKS cluster as a Chaos Mesh target and enable the fault types
+// we expect to use in experiments (pod-failure, network-loss, cpu-stress).
+
 resource chaosTarget 'Microsoft.Chaos/targets@2024-01-01' = {
   name: 'Microsoft-AzureKubernetesServiceChaosMesh'
   scope: aksCluster
@@ -558,6 +562,109 @@ resource chaosStressChaos 'Microsoft.Chaos/targets/capabilities@2024-01-01' = {
   name: 'StressChaos-2.2'
 }
 
+// ── Chaos Identity ────────────────────────────────────────────────────────────
+// User-assigned managed identity used by Chaos Studio to execute experiments
+// against this stamp's AKS cluster.
+
+resource chaosIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: 'id-chaos-${baseName}-${stampName}'
+  location: location
+}
+
+// Reader on the AKS cluster — Chaos Studio requires at minimum read access to
+// the target resource when injecting Kubernetes (ChaosMesh) faults.
+resource chaosAksReaderRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(aksCluster.id, chaosIdentity.id, roles.reader)
+  scope: aksCluster
+  properties: {
+    principalId: chaosIdentity.properties.principalId
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      roles.reader
+    )
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// Chaos Studio Operator — lets the identity start/stop experiments that
+// reference this AKS cluster as a target.
+resource chaosOperatorRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(aksCluster.id, chaosIdentity.id, roles.chaosStudioOperator)
+  scope: aksCluster
+  properties: {
+    principalId: chaosIdentity.properties.principalId
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      roles.chaosStudioOperator
+    )
+    principalType: 'ServicePrincipal'
+  }
+}
+
+// ── Placeholder Experiment ────────────────────────────────────────────────────
+// Demonstrates end-to-end Chaos Studio wiring: one step that injects a
+// pod-failure into the helloorleons namespace for 5 minutes.
+// Replace or extend the steps/branches for real resilience scenarios.
+
+// ChaosMesh PodChaos spec — injected as a JSON string into the action parameter.
+// See: https://chaos-mesh.org/docs/simulate-pod-chaos-on-kubernetes/
+var chaosPodChaosSpec = string({
+  action: 'pod-failure'
+  mode: 'one'
+  selector: {
+    namespaces: ['helloorleons']
+  }
+})
+
+resource chaosExperiment 'Microsoft.Chaos/experiments@2024-01-01' = {
+  name: 'exp-chaos-${baseName}-${stampName}'
+  location: location
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${chaosIdentity.id}': {}
+    }
+  }
+  properties: {
+    selectors: [
+      {
+        type: 'List'
+        id: 'aksSelector'
+        targets: [
+          {
+            type: 'ChaosTarget'
+            id: chaosTarget.id
+          }
+        ]
+      }
+    ]
+    steps: [
+      {
+        name: 'Inject Pod Failure'
+        branches: [
+          {
+            name: 'Pod Failure Branch'
+            actions: [
+              {
+                type: 'continuous'
+                name: 'urn:csci:microsoft:azureKubernetesServiceChaosMesh:podChaos/2.2'
+                selectorId: 'aksSelector'
+                duration: 'PT5M'
+                parameters: [
+                  {
+                    key: 'jsonSpec'
+                    value: chaosPodChaosSpec
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}
+
 // ============================================================================
 // Outputs
 // ============================================================================
@@ -570,3 +677,4 @@ output stampName string = stampName
 output gatewayHostname string = 'app-${stampName}.${dnsZoneName}'
 output fluxSshPublicKey string = fluxConfig.properties.repositoryPublicKey
 output helloAgentsStorageId string = helloAgentsStorage.id
+output chaosIdentityPrincipalId string = chaosIdentity.properties.principalId
