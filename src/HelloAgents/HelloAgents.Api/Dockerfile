@@ -2,13 +2,18 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build
 WORKDIR /src
 
-COPY Directory.Packages.props .
-COPY HelloAgents.Api/HelloAgents.Api.csproj HelloAgents.Api/
-COPY HelloAgents.ServiceDefaults/HelloAgents.ServiceDefaults.csproj HelloAgents.ServiceDefaults/
-RUN dotnet restore HelloAgents.Api/HelloAgents.Api.csproj
+COPY HelloAgents/Directory.Packages.props HelloAgents/
+COPY AlwaysOn.ServiceDefaults/Directory.Packages.props AlwaysOn.ServiceDefaults/
+COPY AlwaysOn.Orleans/Directory.Packages.props AlwaysOn.Orleans/
+COPY AlwaysOn.ServiceDefaults/AlwaysOn.ServiceDefaults.csproj AlwaysOn.ServiceDefaults/
+COPY AlwaysOn.Orleans/AlwaysOn.Orleans.csproj AlwaysOn.Orleans/
+COPY HelloAgents/HelloAgents.Api/HelloAgents.Api.csproj HelloAgents/HelloAgents.Api/
+RUN dotnet restore HelloAgents/HelloAgents.Api/HelloAgents.Api.csproj
 
-COPY . .
-RUN dotnet publish HelloAgents.Api/HelloAgents.Api.csproj \
+COPY AlwaysOn.ServiceDefaults/ AlwaysOn.ServiceDefaults/
+COPY AlwaysOn.Orleans/ AlwaysOn.Orleans/
+COPY HelloAgents/ HelloAgents/
+RUN dotnet publish HelloAgents/HelloAgents.Api/HelloAgents.Api.csproj \
     -c Release \
     -o /app \
     --no-restore

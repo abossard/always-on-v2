@@ -11,8 +11,8 @@ group "default" {
 }
 
 target "api" {
-  context    = "."
-  dockerfile = "HelloOrleons.Api/Dockerfile"
+  context    = ".."
+  dockerfile = "HelloOrleons/HelloOrleons.Api/Dockerfile"
   tags       = tag("helloorleons")
   platforms  = ["linux/amd64", "linux/arm64"]
   cache-from = ["type=gha,scope=helloorleons-api"]

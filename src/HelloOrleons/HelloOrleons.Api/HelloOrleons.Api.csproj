@@ -7,17 +7,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Aspire.Microsoft.Azure.Cosmos" />
-    <PackageReference Include="Microsoft.AspNetCore.OpenApi" />
-    <PackageReference Include="Microsoft.Orleans.Clustering.Cosmos" />
-    <PackageReference Include="Microsoft.Orleans.Hosting.Kubernetes" />
-    <PackageReference Include="Microsoft.Orleans.Persistence.Cosmos" />
-    <PackageReference Include="Microsoft.Orleans.Sdk" />
-    <PackageReference Include="Microsoft.Orleans.Server" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\HelloOrleons.ServiceDefaults\HelloOrleons.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\..\AlwaysOn.ServiceDefaults\AlwaysOn.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\..\AlwaysOn.Orleans\AlwaysOn.Orleans.csproj" />
   </ItemGroup>
 
 </Project>
