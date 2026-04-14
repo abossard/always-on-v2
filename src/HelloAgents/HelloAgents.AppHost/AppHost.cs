@@ -28,6 +28,7 @@ var api = builder.AddProject<Projects.HelloAgents_Api>(ResourceNames.Api)
     .WithEnvironment("Storage__Provider", "CosmosDb")
     .WithEnvironment("CosmosDb__DatabaseName", ResourceNames.Database)
     .WithEnvironment("CosmosDb__ContainerName", ResourceNames.Container)
+    .WithEnvironment("CosmosDb__ClusterContainerName", ResourceNames.ClusterContainer)
     .WithEnvironment("AZURE_OPENAI_ENDPOINT", builder.Configuration["AZURE_OPENAI_ENDPOINT"] ?? "")
     .WithEnvironment("AZURE_OPENAI_DEPLOYMENT_NAME", builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"] ?? "gpt-41-mini")
     .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development");

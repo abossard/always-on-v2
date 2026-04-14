@@ -30,6 +30,10 @@ public static class OrleansHostingExtensions
 
         builder.Services.Configure<HostOptions>(o => o.ShutdownTimeout = TimeSpan.FromSeconds(55));
 
+        // In Development (Aspire emulator), allow Orleans to create containers.
+        // In K8s, Bicep pre-creates everything — no runtime resource creation.
+        var isDevelopment = builder.Environment.IsDevelopment();
+
         // Create dedicated CosmosClients (not Aspire DI — avoids camelCase JSON conflicts)
 #pragma warning disable CA2000 // CosmosClient lifetime is managed by Orleans (process-scoped singleton)
         var clusteringClient = CosmosClientFactory.Create(options.ClusteringEndpoint);
@@ -53,7 +57,7 @@ public static class OrleansHostingExtensions
             {
                 o.DatabaseName = options.ClusteringDatabase;
                 o.ContainerName = options.ClusterContainer;
-                o.IsResourceCreationEnabled = false;
+                o.IsResourceCreationEnabled = isDevelopment;
                 o.ConfigureCosmosClient(_ => new ValueTask<CosmosClient>(clusteringClient));
             });
 
@@ -64,7 +68,7 @@ public static class OrleansHostingExtensions
                 {
                     o.DatabaseName = options.GrainStorageDatabase;
                     o.ContainerName = options.GrainStorageContainer;
-                    o.IsResourceCreationEnabled = false;
+                    o.IsResourceCreationEnabled = isDevelopment;
                     o.ConfigureCosmosClient(_ => new ValueTask<CosmosClient>(grainStorageClient));
                 });
             }
@@ -74,7 +78,7 @@ public static class OrleansHostingExtensions
                 {
                     o.DatabaseName = options.GrainStorageDatabase;
                     o.ContainerName = options.GrainStorageContainer;
-                    o.IsResourceCreationEnabled = false;
+                    o.IsResourceCreationEnabled = isDevelopment;
                     o.ConfigureCosmosClient(_ => new ValueTask<CosmosClient>(grainStorageClient));
                 });
             }
@@ -86,7 +90,7 @@ public static class OrleansHostingExtensions
                 {
                     o.DatabaseName = options.ClusteringDatabase;
                     o.ContainerName = options.PubSubContainer;
-                    o.IsResourceCreationEnabled = false;
+                    o.IsResourceCreationEnabled = isDevelopment;
                     o.ConfigureCosmosClient(_ => new ValueTask<CosmosClient>(clusteringClient));
                 });
             }

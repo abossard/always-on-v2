@@ -19,6 +19,9 @@ var api = builder.AddProject<Projects.HelloOrleons_Api>(ResourceNames.Api)
     .WaitFor(cosmos)
     .WithHttpEndpoint(name: "http")
     .WithExternalHttpEndpoints()
+    .WithEnvironment("CosmosDb__DatabaseName", ResourceNames.Database)
+    .WithEnvironment("CosmosDb__ContainerName", ResourceNames.Container)
+    .WithEnvironment("CosmosDb__ClusterContainerName", ResourceNames.ClusterContainer)
     .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development");
 
 builder.AddNpmApp("e2e", "../HelloOrleons.E2E", "test")

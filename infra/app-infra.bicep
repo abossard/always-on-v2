@@ -90,7 +90,7 @@ resource cosmosRbac 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@20
   properties: {
     principalId: appIdentity.properties.principalId
     roleDefinitionId: cosmosAppRoleId
-    scope: cosmosDatabase.id
+    scope: '${cosmosAccount.id}/dbs/${cosmosDatabaseName}'
   }
 }
 

@@ -129,7 +129,7 @@ resource cosmosRbac 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@20
     properties: {
       principalId: identity.principalId
       roleDefinitionId: cosmosAppRole.id
-      scope: database.id
+      scope: '${cosmos.id}/dbs/orleans'
     }
   }
 ]

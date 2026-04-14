@@ -60,7 +60,7 @@ builder.AddAlwaysOnOrleans(o =>
     {
         o.DatabaseName = cosmosDb.DatabaseName;
         o.ContainerName = cosmosDb.ContainerName;
-        o.IsResourceCreationEnabled = false;
+        o.IsResourceCreationEnabled = builder.Environment.IsDevelopment();
         o.ConfigureCosmosClient(_ => new ValueTask<Microsoft.Azure.Cosmos.CosmosClient>(
             AlwaysOn.Orleans.CosmosClientFactory.Create(
                 CosmosClientFactory.TryGetEndpoint(

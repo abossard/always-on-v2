@@ -9,7 +9,9 @@ var cosmos = builder.AddAzureCosmosDB(ResourceNames.CosmosDb)
 
 var db = cosmos.AddCosmosDatabase(ResourceNames.Database);
 db.AddContainer(ResourceNames.ClusterContainer, "/ClusterId");
-// Models container created by CosmosGraphStore.InitializeAsync() with hierarchical PK
+db.AddContainer(ResourceNames.PubSubContainer, "/PartitionKey");
+db.AddContainer(ResourceNames.GrainStateContainer, "/PartitionKey");
+db.AddContainer(ResourceNames.ModelsContainer, "/tenantId");
 
 // Azure Storage for Orleans Queue Streams (Azurite emulator for local dev)
 var storage = builder.AddAzureStorage(ResourceNames.Storage)
@@ -31,6 +33,11 @@ var api = builder.AddProject<Projects.GraphOrleons_Api>(ResourceNames.Api)
     .WithReference(graphEventsHub)
     .WaitFor(eventHubs)
     .WithExternalHttpEndpoints()
+    .WithEnvironment("CosmosDb__DatabaseName", ResourceNames.Database)
+    .WithEnvironment("CosmosDb__ClusterContainerName", ResourceNames.ClusterContainer)
+    .WithEnvironment("CosmosDb__PubSubContainerName", ResourceNames.PubSubContainer)
+    .WithEnvironment("CosmosDb__GrainStateContainerName", ResourceNames.GrainStateContainer)
+    .WithEnvironment("CosmosDb__ModelsContainerName", ResourceNames.ModelsContainer)
     .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development");
 
 // Frontend (Vite React SPA)
