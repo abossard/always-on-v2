@@ -15,6 +15,7 @@ export default function App() {
   const [componentPayloads, setComponentPayloads] = useState<Record<string, MergedProperty[]>>({});
   const [connected, setConnected] = useState(false);
   const [originRegion, setOriginRegion] = useState<string | null>(null);
+  const [selectedNode, setSelectedNode] = useState<string | null>(null);
   const [flashedComponents, setFlashedComponents] = useState<Set<string>>(new Set());
   const eventSourceRef = useRef<EventSource | null>(null);
 
@@ -134,6 +135,8 @@ export default function App() {
             <PayloadSender
               tenant={selectedTenant}
               components={graph.components}
+              componentPayloads={componentPayloads}
+              selectedNode={selectedNode}
               onSent={handleSent}
             />
           </div>
@@ -141,7 +144,7 @@ export default function App() {
 
         {/* Main content */}
         <main className="min-h-0 flex-1">
-          <GraphView graph={graph} selectedTenant={selectedTenant} componentPayloads={componentPayloads} flashedComponents={flashedComponents} />
+          <GraphView graph={graph} selectedTenant={selectedTenant} componentPayloads={componentPayloads} flashedComponents={flashedComponents} selectedNode={selectedNode} onNodeSelect={setSelectedNode} />
         </main>
       </div>
     </div>

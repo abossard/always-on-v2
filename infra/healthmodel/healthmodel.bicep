@@ -292,6 +292,30 @@ resource def_pods_notready_nodes 'Microsoft.CloudHealth/healthmodels/signaldefin
 }
 
 #disable-next-line BCP081
+resource def_deployments_min_replicas 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+  parent: hm
+  name: guid(name, 'def-deployments-min-replicas')
+  properties: {
+    signalKind: 'PrometheusMetricsQuery'
+    displayName: 'Minimum Deployment Replicas'
+    refreshInterval: 'PT1M'
+    dataUnit: 'Count'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'LessThan'
+        threshold: json('2')
+      }
+      unhealthyRule: {
+        operator: 'LessThan'
+        threshold: json('1')
+      }
+    }
+    queryText: 'min(kube_deployment_spec_replicas{namespace="${namespace}"})'
+    timeGrain: 'PT1M'
+  }
+}
+
+#disable-next-line BCP081
 resource def_deployments_not_ready 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
   parent: hm
   name: guid(name, 'def-deployments-not-ready')
@@ -1276,6 +1300,12 @@ resource stamp_prom_failures 'Microsoft.CloudHealth/healthmodels/entities@2026-0
               signalKind: 'PrometheusMetricsQuery'
               name: guid(name, stamp.key, 'pods-notready-nodes')
               signalDefinitionName: def_pods_notready_nodes.name
+              refreshInterval: 'PT1M'
+            }
+            {
+              signalKind: 'PrometheusMetricsQuery'
+              name: guid(name, stamp.key, 'deployments-min-replicas')
+              signalDefinitionName: def_deployments_min_replicas.name
               refreshInterval: 'PT1M'
             }
             {

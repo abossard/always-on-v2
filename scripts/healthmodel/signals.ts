@@ -155,6 +155,18 @@ export function podsOnNotReadyNodes(namespace: string): PrometheusSignalDef {
   };
 }
 
+export function deploymentsMinReplicas(namespace: string): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `min(kube_deployment_spec_replicas{namespace="${namespace}"})`,
+    timeGrain: 'PT1M',
+    displayName: 'Minimum Deployment Replicas',
+    refreshInterval: 'PT1M',
+    dataUnit: 'Count',
+    threshold: { direction: 'lower-is-worse', degraded: 2, unhealthy: 1 },
+  };
+}
+
 export function deploymentsNotReady(namespace: string): PrometheusSignalDef {
   return {
     signalKind: 'PrometheusMetricsQuery',
@@ -609,6 +621,7 @@ export interface FailureSignals {
   podRestarts: PrometheusSignalDef;
   oomKilled: PrometheusSignalDef;
   crashLoop: PrometheusSignalDef;
+  deploymentsMinReplicas: PrometheusSignalDef;
   deploymentsNotReady: PrometheusSignalDef;
   gatewayErrorRate: PrometheusSignalDef;
   aksFailedPods: AzureResourceSignalDef;
@@ -639,6 +652,7 @@ export function buildFailureSignals(namespace: string): FailureSignals {
     podRestarts: podRestarts(namespace),
     oomKilled: oomKilled(namespace),
     crashLoop: crashLoop(namespace),
+    deploymentsMinReplicas: deploymentsMinReplicas(namespace),
     deploymentsNotReady: deploymentsNotReady(namespace),
     gatewayErrorRate: gatewayErrorRate(namespace),
     aksFailedPods: aksFailedPods(),

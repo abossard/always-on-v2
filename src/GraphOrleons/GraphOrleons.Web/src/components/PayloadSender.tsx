@@ -1,9 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { sendEvent } from '../api';
+import type { MergedProperty } from '../types';
 
 interface Props {
   tenant: string | null;
   components: string[];
+  componentPayloads: Record<string, MergedProperty[]>;
+  selectedNode: string | null;
   onSent: () => void;
 }
 
@@ -19,10 +22,20 @@ const DEFAULT_ROWS: KVRow[] = [
   { key: 'location', value: 'ICU-A' },
 ];
 
-export function PayloadSender({ tenant, components, onSent }: Props) {
+export function PayloadSender({ tenant, components, componentPayloads, selectedNode, onSent }: Props) {
   const [selectedComponent, setSelectedComponent] = useState('');
   const [rows, setRows] = useState<KVRow[]>(DEFAULT_ROWS);
   const [status, setStatus] = useState('');
+
+  // When a node is selected externally, update dropdown and prefill rows
+  useEffect(() => {
+    if (!selectedNode) return;
+    setSelectedComponent(selectedNode);
+    const props = componentPayloads[selectedNode] ?? [];
+    if (props.length > 0) {
+      setRows(props.map(p => ({ key: p.name, value: p.value })));
+    }
+  }, [selectedNode, componentPayloads]);
 
   const updateRow = (index: number, field: 'key' | 'value', val: string) => {
     setRows(prev => prev.map((r, i) => i === index ? { ...r, [field]: val } : r));

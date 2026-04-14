@@ -153,7 +153,7 @@ function buildFailureEntities(): StampEntitySpec[] {
       category: 'failures',
       bindingType: 'azureMonitorWorkspace',
       resourceIdExpr: 'stamp.amwResourceId',
-      signals: ['pod-restarts', 'oomkilled', 'crashloop', 'pods-notready-nodes', 'deployments-not-ready'],
+      signals: ['pod-restarts', 'oomkilled', 'crashloop', 'pods-notready-nodes', 'deployments-min-replicas', 'deployments-not-ready'],
     },
     {
       key: 'fd-failures',
@@ -241,6 +241,7 @@ function registerCoreSignals(reg: SignalRegistry): void {
   reg.register('oomkilled', failSigs.oomKilled);
   reg.register('crashloop', failSigs.crashLoop);
   reg.register('pods-notready-nodes', failSigs.podsOnNotReadyNodes);
+  reg.register('deployments-min-replicas', failSigs.deploymentsMinReplicas);
   reg.register('deployments-not-ready', failSigs.deploymentsNotReady);
   reg.register('gateway-error-rate', failSigs.gatewayErrorRate);
   reg.register('fd-5xx', failSigs.fd5xx);

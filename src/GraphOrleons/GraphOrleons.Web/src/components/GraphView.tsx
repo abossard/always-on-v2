@@ -22,6 +22,8 @@ interface Props {
   selectedTenant: string | null;
   componentPayloads?: Record<string, MergedProperty[]>;
   flashedComponents?: Set<string>;
+  selectedNode?: string | null;
+  onNodeSelect?: (node: string | null) => void;
 }
 
 type ViewMode = 'tree' | 'list';
@@ -148,10 +150,11 @@ function buildTreeLayout(
 
 // ── Component ──
 
-export function GraphView({ graph, selectedTenant, componentPayloads = {}, flashedComponents = new Set() }: Props) {
+export function GraphView({ graph, selectedTenant, componentPayloads = {}, flashedComponents = new Set(), selectedNode: selectedNodeProp = null, onNodeSelect }: Props) {
   const hasModel = graph.components.length > 0;
   const [view, setView] = useState<ViewMode>('tree');
-  const [selectedNode, setSelectedNode] = useState<string | null>(null);
+  const selectedNode = selectedNodeProp;
+  const setSelectedNode = (node: string | null) => onNodeSelect?.(node);
   const treeData = useMemo(() => buildTreeLayout(graph, componentPayloads, flashedComponents), [graph, componentPayloads, flashedComponents]);
 
   const selectedProps = selectedNode ? (componentPayloads[selectedNode] ?? []) : [];
