@@ -138,3 +138,4 @@ resource cosmosRbac 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@20
 
 output cosmosEndpoint string = cosmos.properties.documentEndpoint
 output cosmosName string = cosmos.name
+output cosmosId string = cosmos.id

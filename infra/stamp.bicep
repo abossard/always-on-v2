@@ -592,3 +592,4 @@ output stampName string = stampName
 output gatewayHostname string = 'app-${stampName}.${dnsZoneName}'
 output fluxSshPublicKey string = fluxConfig.properties.repositoryPublicKey
 output helloAgentsStorageId string = helloAgentsStorage.id
+output stampCosmosAccountId string = stampCosmos.outputs.cosmosId

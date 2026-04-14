@@ -1438,6 +1438,58 @@ resource rel_stamp_cosmos_failures 'Microsoft.CloudHealth/healthmodels/relations
 ]
 
 #disable-next-line BCP081
+resource stamp_cosmos_orleans_failures 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = [
+  for (stamp, i) in stamps: {
+    parent: hm
+    name: guid(name, stamp.key, 'cosmos-orleans-failures')
+    properties: {
+      displayName: '${stamp.key} — Orleans Cosmos Errors'
+      canvasPosition: {
+        x: json('${i * 400 + 400}')
+        y: json('400')
+      }
+      icon: {
+        iconName: 'Resource'
+      }
+      impact: 'Standard'
+      tags: {}
+      signalGroups: {
+        azureResource: {
+          authenticationSetting: auth.name
+          azureResourceId: stamp.stampCosmosAccountId
+          signals: [
+            {
+              signalKind: 'AzureResourceMetric'
+              name: guid(name, stamp.key, 'cosmos-availability')
+              signalDefinitionName: def_cosmos_availability.name
+              refreshInterval: 'PT1M'
+            }
+            {
+              signalKind: 'AzureResourceMetric'
+              name: guid(name, stamp.key, 'cosmos-client-errors')
+              signalDefinitionName: def_cosmos_client_errors.name
+              refreshInterval: 'PT1M'
+            }
+          ]
+        }
+      }
+    }
+  }
+]
+
+#disable-next-line BCP081
+resource rel_stamp_cosmos_orleans_failures 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
+  for (stamp, i) in stamps: {
+    parent: hm
+    name: guid(name, stampFailuresGroup[i].name, stamp_cosmos_orleans_failures[i].name)
+    properties: {
+      parentEntityName: stampFailuresGroup[i].name
+      childEntityName: stamp_cosmos_orleans_failures[i].name
+    }
+  }
+]
+
+#disable-next-line BCP081
 resource stamp_gateway_failures 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = [
   for (stamp, i) in stamps: {
     parent: hm
@@ -1445,7 +1497,7 @@ resource stamp_gateway_failures 'Microsoft.CloudHealth/healthmodels/entities@202
     properties: {
       displayName: '${stamp.key} — Gateway Health'
       canvasPosition: {
-        x: json('${i * 400 + 400}')
+        x: json('${i * 400 + 500}')
         y: json('400')
       }
       icon: {
@@ -1590,6 +1642,58 @@ resource rel_stamp_cosmos_latency 'Microsoft.CloudHealth/healthmodels/relationsh
 ]
 
 #disable-next-line BCP081
+resource stamp_cosmos_orleans_latency 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = [
+  for (stamp, i) in stamps: {
+    parent: hm
+    name: guid(name, stamp.key, 'cosmos-orleans-latency')
+    properties: {
+      displayName: '${stamp.key} — Orleans Cosmos Latency'
+      canvasPosition: {
+        x: json('${i * 400 + 200}')
+        y: json('400')
+      }
+      icon: {
+        iconName: 'Resource'
+      }
+      impact: 'Standard'
+      tags: {}
+      signalGroups: {
+        azureResource: {
+          authenticationSetting: auth.name
+          azureResourceId: stamp.stampCosmosAccountId
+          signals: [
+            {
+              signalKind: 'AzureResourceMetric'
+              name: guid(name, stamp.key, 'cosmos-normalized-ru')
+              signalDefinitionName: def_cosmos_normalized_ru.name
+              refreshInterval: 'PT1M'
+            }
+            {
+              signalKind: 'AzureResourceMetric'
+              name: guid(name, stamp.key, 'cosmos-throttled')
+              signalDefinitionName: def_cosmos_throttled.name
+              refreshInterval: 'PT1M'
+            }
+          ]
+        }
+      }
+    }
+  }
+]
+
+#disable-next-line BCP081
+resource rel_stamp_cosmos_orleans_latency 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
+  for (stamp, i) in stamps: {
+    parent: hm
+    name: guid(name, stampLatencyGroup[i].name, stamp_cosmos_orleans_latency[i].name)
+    properties: {
+      parentEntityName: stampLatencyGroup[i].name
+      childEntityName: stamp_cosmos_orleans_latency[i].name
+    }
+  }
+]
+
+#disable-next-line BCP081
 resource stamp_prom_latency 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = [
   for (stamp, i) in stamps: {
     parent: hm
@@ -1597,7 +1701,7 @@ resource stamp_prom_latency 'Microsoft.CloudHealth/healthmodels/entities@2026-01
     properties: {
       displayName: '${stamp.key} — Resource Pressure'
       canvasPosition: {
-        x: json('${i * 400 + 200}')
+        x: json('${i * 400 + 300}')
         y: json('400')
       }
       icon: {
@@ -1673,7 +1777,7 @@ resource stamp_gateway_latency 'Microsoft.CloudHealth/healthmodels/entities@2026
     properties: {
       displayName: '${stamp.key} — Gateway Latency'
       canvasPosition: {
-        x: json('${i * 400 + 300}')
+        x: json('${i * 400 + 400}')
         y: json('400')
       }
       icon: {

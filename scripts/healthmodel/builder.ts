@@ -174,6 +174,15 @@ function buildFailureEntities(): StampEntitySpec[] {
       signals: ['cosmos-availability', 'cosmos-client-errors'],
     },
     {
+      key: 'cosmos-orleans-failures',
+      displayNameExpr: "'Orleans Cosmos Errors'",
+      icon: 'Resource',
+      category: 'failures',
+      bindingType: 'azureResource',
+      resourceIdExpr: 'stamp.stampCosmosAccountId',
+      signals: ['cosmos-availability', 'cosmos-client-errors'],
+    },
+    {
       key: 'gateway-failures',
       displayNameExpr: "'Gateway Health'",
       icon: 'Resource',
@@ -203,6 +212,15 @@ function buildLatencyEntities(): StampEntitySpec[] {
       category: 'latency',
       bindingType: 'azureResource',
       resourceIdExpr: 'cosmosAccountId',
+      signals: ['cosmos-normalized-ru', 'cosmos-throttled'],
+    },
+    {
+      key: 'cosmos-orleans-latency',
+      displayNameExpr: "'Orleans Cosmos Latency'",
+      icon: 'Resource',
+      category: 'latency',
+      bindingType: 'azureResource',
+      resourceIdExpr: 'stamp.stampCosmosAccountId',
       signals: ['cosmos-normalized-ru', 'cosmos-throttled'],
     },
     {

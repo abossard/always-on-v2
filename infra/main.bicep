@@ -567,6 +567,12 @@ var hmStampData = [for stamp in allStamps: {
     'Microsoft.Monitor/accounts',
     'amw-${baseName}-${stamp.regionKey}'
   )
+  stampCosmosAccountId: resourceId(
+    subscription().subscriptionId,
+    'rg-${baseName}-${stamp.regionKey}-${stamp.stampKey}',
+    'Microsoft.DocumentDB/databaseAccounts',
+    'cosmos-orl-${baseName}-${stamp.regionKey}'
+  )
   originSuffix: '${stamp.regionKey}-${stamp.stampKey}.${stamp.regionKey}.${domainName}:443'
 }]
 
