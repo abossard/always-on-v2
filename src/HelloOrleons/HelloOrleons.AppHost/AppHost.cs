@@ -19,9 +19,16 @@ var api = builder.AddProject<Projects.HelloOrleons_Api>(ResourceNames.Api)
     .WaitFor(cosmos)
     .WithHttpEndpoint(name: "http")
     .WithExternalHttpEndpoints()
-    .WithEnvironment("CosmosDb__DatabaseName", ResourceNames.Database)
-    .WithEnvironment("CosmosDb__ContainerName", ResourceNames.Container)
-    .WithEnvironment("CosmosDb__ClusterContainerName", ResourceNames.ClusterContainer)
+    .WithEnvironment(ctx =>
+    {
+        var connStr = cosmos.Resource.ConnectionStringExpression;
+        ctx.EnvironmentVariables["AlwaysOn__GrainStorage__Endpoint"] = connStr;
+        ctx.EnvironmentVariables["AlwaysOn__Clustering__Endpoint"] = connStr;
+    })
+    .WithEnvironment("AlwaysOn__GrainStorage__Database", ResourceNames.Database)
+    .WithEnvironment("AlwaysOn__GrainStorage__Container", ResourceNames.Container)
+    .WithEnvironment("AlwaysOn__Clustering__Database", ResourceNames.Database)
+    .WithEnvironment("AlwaysOn__Clustering__Container", ResourceNames.ClusterContainer)
     .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development");
 
 builder.AddNpmApp("e2e", "../HelloOrleons.E2E", "test")

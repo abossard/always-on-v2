@@ -37,20 +37,7 @@ builder.Services.Configure<GrainConfig>(builder.Configuration.GetSection(GrainCo
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
-var cosmosEndpoint = builder.Configuration.GetConnectionString("cosmos") ?? "";
-
-builder.AddAlwaysOnOrleans(o =>
-{
-    o.ClusteringEndpoint = CosmosClientFactory.TryGetEndpoint(
-        builder.Configuration.GetConnectionString("orleans-cosmos")) ?? cosmosEndpoint;
-    o.GrainStorageEndpoint = cosmosEndpoint;
-    o.ClusteringDatabase = "orleans";
-    o.GrainStorageDatabase = builder.Configuration["CosmosDb__DatabaseName"] ?? "graphorleons";
-    o.ClusterContainer = builder.Configuration["CosmosDb__ClusterContainerName"] ?? "graphorleons-cluster";
-    o.GrainStorageContainer = builder.Configuration["CosmosDb__GrainStateContainerName"] ?? "graphorleons-grainstate";
-    o.GrainStorageName = StreamConstants.GrainStoreName;
-    o.PubSubContainer = builder.Configuration["CosmosDb__PubSubContainerName"] ?? "graphorleons-pubsub";
-}, silo =>
+builder.AddAlwaysOnOrleans(silo =>
 {
     silo.AddDashboard();
 

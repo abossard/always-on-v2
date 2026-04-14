@@ -35,17 +35,4 @@ public static class CosmosClientFactory
                 $"Cosmos endpoint is empty. Check that the connection string env var is set correctly. Raw value: '{endpoint}'");
         return new CosmosClient(url, new DefaultAzureCredential(), options);
     }
-
-    /// <summary>
-    /// Extracts a usable endpoint URL from a connection string like "AccountEndpoint=https://...".
-    /// Returns null if the endpoint is empty/missing (e.g., stamp Cosmos not yet provisioned).
-    /// </summary>
-    public static string? TryGetEndpoint(string? connectionString)
-    {
-        if (string.IsNullOrEmpty(connectionString)) return null;
-        var url = connectionString
-            .Replace("AccountEndpoint=", "", StringComparison.OrdinalIgnoreCase)
-            .TrimEnd(';');
-        return string.IsNullOrEmpty(url) ? null : connectionString;
-    }
 }

@@ -64,9 +64,9 @@ spec:
               value: ${AI_SERVICES_ENDPOINT}
             - name: AZURE_OPENAI_DEPLOYMENT_NAME
               value: ${AI_MODEL_GPT41_MINI}
-            - name: ConnectionStrings__orleans-cosmos
+            - name: AlwaysOn__Clustering__Endpoint
               value: "AccountEndpoint=${ORLEANS_COSMOS_ENDPOINT}"
-            - name: ConnectionStrings__cosmos
+            - name: AlwaysOn__GrainStorage__Endpoint
               value: "AccountEndpoint=${COSMOS_ENDPOINT}"
             - name: ORLEANS_CLUSTER_ID
               value: helloagents-${STAMP_NAME}
@@ -77,6 +77,16 @@ spec:
             - name: CosmosDb__DatabaseName
               value: ${HELLOAGENTS_COSMOS_DATABASE}
             - name: CosmosDb__ContainerName
+              value: ${HELLOAGENTS_COSMOS_CONTAINER}
+            - name: AlwaysOn__GrainStorage__Database
+              value: ${HELLOAGENTS_COSMOS_DATABASE}
+            - name: AlwaysOn__GrainStorage__Container
+              value: ${HELLOAGENTS_COSMOS_CONTAINER}
+            - name: AlwaysOn__Clustering__Container
+              value: helloagents-cluster
+            - name: AlwaysOn__Clustering__Database
+              value: ${ORLEANS_CLUSTER_DB}
+            - name: AlwaysOn__PubSub__Container
               value: ${HELLOAGENTS_COSMOS_CONTAINER}
             - name: ConnectionStrings__queuestorage
               value: ${HELLOAGENTS_STORAGE_QUEUE_ENDPOINT}

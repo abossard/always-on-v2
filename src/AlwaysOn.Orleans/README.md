@@ -9,25 +9,28 @@ this library should be deleted and apps should use native Aspire Orleans hosting
 - Creates dedicated CosmosClients (not Aspire DI) to avoid camelCase JSON conflicts
 - Uses Gateway mode to avoid RNTBD SIGSEGV on .NET 10 (ADR-0062)
 - Supports dual Cosmos endpoints: stamp-level for clustering, global for grain state
+- All config is read from `IConfiguration.GetSection("Orleans")` automatically
 
 ## Usage
 ```csharp
-builder.AddAlwaysOnOrleans(
-    options =>
-    {
-        options.ClusteringEndpoint = cosmosConnectionString;
-        options.GrainStorageEndpoint = cosmosConnectionString;
-        options.ClusteringDatabase = "mydb";
-        options.GrainStorageDatabase = "mydb";
-        options.ClusterContainer = "myapp-cluster";
-        options.GrainStorageContainer = "myapp-grainstate";
-        options.PubSubContainer = "myapp-pubsub"; // optional
-    },
-    silo =>
-    {
-        // App-specific: streaming, dashboard, etc.
-        silo.AddDashboard();
-    });
+// All config comes from IConfiguration ("Orleans" section)
+builder.AddAlwaysOnOrleans(silo =>
+{
+    // App-specific: streaming, dashboard, etc.
+    silo.AddDashboard();
+});
+```
+
+### Environment variables
+```
+Orleans__GrainStorage__Endpoint=AccountEndpoint=https://...
+Orleans__GrainStorage__Database=mydb
+Orleans__GrainStorage__Container=myapp-grainstate
+Orleans__GrainStorage__Name=GrainState          # optional, for named providers
+Orleans__Clustering__Endpoint=AccountEndpoint=https://...  # optional, falls back to GrainStorage.Endpoint
+Orleans__Clustering__Database=orleans
+Orleans__Clustering__Container=myapp-cluster
+Orleans__PubSub__Container=myapp-pubsub         # optional, for apps with streaming
 ```
 
 ## Related ADRs

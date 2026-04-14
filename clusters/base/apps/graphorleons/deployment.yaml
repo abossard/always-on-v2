@@ -64,18 +64,26 @@ spec:
               value: "AccountEndpoint=${ORLEANS_COSMOS_ENDPOINT}"
             - name: ConnectionStrings__cosmos
               value: "AccountEndpoint=${COSMOS_ENDPOINT}"
+            - name: AlwaysOn__GrainStorage__Endpoint
+              value: "AccountEndpoint=${COSMOS_ENDPOINT}"
             - name: ORLEANS_CLUSTER_ID
               value: graphorleons-${STAMP_NAME}
             - name: ORLEANS_SERVICE_ID
               value: graphorleons
-            - name: CosmosDb__DatabaseName
+            - name: AlwaysOn__GrainStorage__Database
               value: ${GRAPHORLEONS_COSMOS_DATABASE}
-            - name: CosmosDb__ClusterContainerName
-              value: graphorleons-cluster
-            - name: CosmosDb__PubSubContainerName
-              value: graphorleons-pubsub
-            - name: CosmosDb__GrainStateContainerName
+            - name: AlwaysOn__GrainStorage__Container
               value: graphorleons-grainstate
+            - name: AlwaysOn__GrainStorage__Name
+              value: GrainState
+            - name: AlwaysOn__Clustering__Endpoint
+              value: "AccountEndpoint=${ORLEANS_COSMOS_ENDPOINT}"
+            - name: AlwaysOn__Clustering__Container
+              value: graphorleons-cluster
+            - name: AlwaysOn__Clustering__Database
+              value: ${ORLEANS_CLUSTER_DB}
+            - name: AlwaysOn__PubSub__Container
+              value: graphorleons-pubsub
             - name: CosmosDb__ModelsContainerName
               value: graphorleons-models
             - name: ConnectionStrings__graphorleons-events

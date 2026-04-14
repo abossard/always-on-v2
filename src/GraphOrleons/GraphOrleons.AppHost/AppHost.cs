@@ -33,10 +33,18 @@ var api = builder.AddProject<Projects.GraphOrleons_Api>(ResourceNames.Api)
     .WithReference(graphEventsHub)
     .WaitFor(eventHubs)
     .WithExternalHttpEndpoints()
-    .WithEnvironment("CosmosDb__DatabaseName", ResourceNames.Database)
-    .WithEnvironment("CosmosDb__ClusterContainerName", ResourceNames.ClusterContainer)
-    .WithEnvironment("CosmosDb__PubSubContainerName", ResourceNames.PubSubContainer)
-    .WithEnvironment("CosmosDb__GrainStateContainerName", ResourceNames.GrainStateContainer)
+    .WithEnvironment(ctx =>
+    {
+        var connStr = cosmos.Resource.ConnectionStringExpression;
+        ctx.EnvironmentVariables["AlwaysOn__GrainStorage__Endpoint"] = connStr;
+        ctx.EnvironmentVariables["AlwaysOn__Clustering__Endpoint"] = connStr;
+    })
+    .WithEnvironment("AlwaysOn__GrainStorage__Database", ResourceNames.Database)
+    .WithEnvironment("AlwaysOn__GrainStorage__Container", ResourceNames.GrainStateContainer)
+    .WithEnvironment("AlwaysOn__GrainStorage__Name", "GrainState")
+    .WithEnvironment("AlwaysOn__Clustering__Database", ResourceNames.Database)
+    .WithEnvironment("AlwaysOn__Clustering__Container", ResourceNames.ClusterContainer)
+    .WithEnvironment("AlwaysOn__PubSub__Container", ResourceNames.PubSubContainer)
     .WithEnvironment("CosmosDb__ModelsContainerName", ResourceNames.ModelsContainer)
     .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development");
 

@@ -7,18 +7,7 @@ builder.AddServiceDefaults();
 
 builder.Services.Configure<GrainConfig>(builder.Configuration.GetSection(GrainConfig.Section));
 
-var cosmosEndpoint = builder.Configuration.GetConnectionString("cosmos") ?? "";
-
-builder.AddAlwaysOnOrleans(o =>
-{
-    o.ClusteringEndpoint = CosmosClientFactory.TryGetEndpoint(
-        builder.Configuration.GetConnectionString("orleans-cosmos")) ?? cosmosEndpoint;
-    o.GrainStorageEndpoint = cosmosEndpoint;
-    o.ClusteringDatabase = "orleans";
-    o.GrainStorageDatabase = builder.Configuration["CosmosDb__DatabaseName"] ?? "helloorleons";
-    o.ClusterContainer = builder.Configuration["CosmosDb__ClusterContainerName"] ?? "helloorleons-cluster";
-    o.GrainStorageContainer = builder.Configuration["CosmosDb__ContainerName"] ?? "helloorleons-storage";
-});
+builder.AddAlwaysOnOrleans();
 
 var app = builder.Build();
 if (app.Environment.IsDevelopment())

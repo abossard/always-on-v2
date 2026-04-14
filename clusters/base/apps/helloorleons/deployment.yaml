@@ -64,18 +64,22 @@ spec:
               value: ${AI_SERVICES_ENDPOINT}
             - name: AI__ModelName
               value: ${AI_MODEL_GPT41}
-            - name: ConnectionStrings__orleans-cosmos
+            - name: AlwaysOn__Clustering__Endpoint
               value: "AccountEndpoint=${ORLEANS_COSMOS_ENDPOINT}"
-            - name: ConnectionStrings__cosmos
+            - name: AlwaysOn__GrainStorage__Endpoint
               value: "AccountEndpoint=${COSMOS_ENDPOINT}"
             - name: ORLEANS_CLUSTER_ID
               value: helloorleons-${STAMP_NAME}
             - name: ORLEANS_SERVICE_ID
               value: helloorleons
-            - name: CosmosDb__DatabaseName
+            - name: AlwaysOn__GrainStorage__Database
               value: ${HELLOORLEONS_COSMOS_DATABASE}
-            - name: CosmosDb__ContainerName
+            - name: AlwaysOn__GrainStorage__Container
               value: ${HELLOORLEONS_COSMOS_CONTAINER}
+            - name: AlwaysOn__Clustering__Container
+              value: helloorleons-cluster
+            - name: AlwaysOn__Clustering__Database
+              value: ${ORLEANS_CLUSTER_DB}
           resizePolicy:
             - resourceName: cpu
               restartPolicy: NotRequired

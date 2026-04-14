@@ -13,19 +13,7 @@ var builder = WebApplication.CreateSlimBuilder(args);
 builder.WebHost.UseKestrelHttpsConfiguration();
 builder.AddServiceDefaults();
 
-var cosmosDb = builder.Configuration.GetSection(CosmosDbConfig.Section).Get<CosmosDbConfig>() ?? new();
-var cosmosEndpoint = builder.Configuration.GetConnectionString("cosmos") ?? "";
-
-builder.AddAlwaysOnOrleans(o =>
-{
-    o.ClusteringEndpoint = CosmosClientFactory.TryGetEndpoint(
-        builder.Configuration.GetConnectionString("orleans-cosmos")) ?? cosmosEndpoint;
-    o.GrainStorageEndpoint = cosmosEndpoint;
-    o.ClusteringDatabase = "orleans";
-    o.GrainStorageDatabase = cosmosDb.DatabaseName;
-    o.ClusterContainer = cosmosDb.ClusterContainerName;
-    o.GrainStorageContainer = cosmosDb.ContainerName;
-}, silo =>
+builder.AddAlwaysOnOrleans(silo =>
 {
     if (builder.Environment.IsDevelopment())
     {
@@ -54,17 +42,6 @@ builder.AddAlwaysOnOrleans(o =>
                 options.QueueServiceClient = new Azure.Storage.Queues.QueueServiceClient(queueStorageConnection);
             }
         });
-    });
-
-    silo.AddCosmosGrainStorage("PubSubStore", o =>
-    {
-        o.DatabaseName = cosmosDb.DatabaseName;
-        o.ContainerName = cosmosDb.ContainerName;
-        o.IsResourceCreationEnabled = builder.Environment.IsDevelopment();
-        o.ConfigureCosmosClient(_ => new ValueTask<Microsoft.Azure.Cosmos.CosmosClient>(
-            AlwaysOn.Orleans.CosmosClientFactory.Create(
-                CosmosClientFactory.TryGetEndpoint(
-                builder.Configuration.GetConnectionString("orleans-cosmos")) ?? cosmosEndpoint)));
     });
 });
 
