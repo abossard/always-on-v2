@@ -43,10 +43,11 @@ builder.AddAlwaysOnOrleans(o =>
     o.ClusteringEndpoint = builder.Configuration.GetConnectionString("orleans-cosmos") ?? cosmosEndpoint;
     o.GrainStorageEndpoint = cosmosEndpoint;
     o.ClusteringDatabase = "orleans";
-    o.GrainStorageDatabase = builder.Configuration["CosmosDb__DatabaseName"] ?? "graphorleans";
-    o.ClusterContainer = builder.Configuration["CosmosDb__ClusterContainerName"] ?? "graphorleans-cluster";
-    o.GrainStorageContainer = builder.Configuration["CosmosDb__GrainStateContainerName"] ?? "graphorleans-grainstate";
-    o.PubSubContainer = builder.Configuration["CosmosDb__PubSubContainerName"] ?? "graphorleans-pubsub";
+    o.GrainStorageDatabase = builder.Configuration["CosmosDb__DatabaseName"] ?? "graphorleons";
+    o.ClusterContainer = builder.Configuration["CosmosDb__ClusterContainerName"] ?? "graphorleons-cluster";
+    o.GrainStorageContainer = builder.Configuration["CosmosDb__GrainStateContainerName"] ?? "graphorleons-grainstate";
+    o.GrainStorageName = StreamConstants.GrainStoreName;
+    o.PubSubContainer = builder.Configuration["CosmosDb__PubSubContainerName"] ?? "graphorleons-pubsub";
 }, silo =>
 {
     silo.AddDashboard();

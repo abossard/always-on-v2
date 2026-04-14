@@ -64,16 +64,20 @@ spec:
               value: ${AI_SERVICES_ENDPOINT}
             - name: AZURE_OPENAI_DEPLOYMENT_NAME
               value: ${AI_MODEL_GPT41_MINI}
+            - name: ConnectionStrings__orleans-cosmos
+              value: "AccountEndpoint=${ORLEANS_COSMOS_ENDPOINT}"
+            - name: ConnectionStrings__cosmos
+              value: "AccountEndpoint=${COSMOS_ENDPOINT}"
+            - name: ORLEANS_CLUSTER_ID
+              value: helloagents-${STAMP_NAME}
+            - name: ORLEANS_SERVICE_ID
+              value: helloagents-${STAMP_NAME}
             - name: Storage__Provider
               value: "CosmosDb"
             - name: CosmosDb__DatabaseName
               value: ${HELLOAGENTS_COSMOS_DATABASE}
             - name: CosmosDb__ContainerName
-              value: ${HELLOAGENTS_COSMOS_CONTAINER}-${STAMP_NAME}
-            - name: CosmosDb__ClusterContainerName
-              value: ${HELLOAGENTS_COSMOS_CLUSTER_CONTAINER}-${STAMP_NAME}
-            - name: ConnectionStrings__cosmos
-              value: "AccountEndpoint=${COSMOS_ENDPOINT}"
+              value: ${HELLOAGENTS_COSMOS_CONTAINER}
             - name: ConnectionStrings__queuestorage
               value: ${HELLOAGENTS_STORAGE_QUEUE_ENDPOINT}
           resizePolicy:

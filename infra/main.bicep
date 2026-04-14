@@ -159,7 +159,6 @@ module global 'global.bicep' = {
     location: globalLocation
     acrSku: acrSku
     frontDoorSku: frontDoorSku
-    cosmosAutoscaleMaxThroughput: cosmosAutoscaleMaxThroughput
     domainName: domainName
     regions: regions
   }
@@ -172,23 +171,21 @@ module global 'global.bicep' = {
 // The generic module creates: identity, Cosmos RBAC, App Insights RBAC, containers.
 
 var appContainers = [
-  // [0] helloorleons
+  // [0] helloorleons — grain storage only (clustering moves to stamp Cosmos)
   [
     { name: 'helloorleons-storage', partitionKeyPaths: ['/PartitionKey'] }
-    { name: 'helloorleons-cluster', partitionKeyPaths: ['/ClusterId'] }
   ]
   // [1] darkux
   [
     { name: 'darkux-users', partitionKeyPaths: ['/userId'] }
   ]
-  // [2] helloagents
+  // [2] helloagents — grain storage only (clustering moves to stamp Cosmos)
   [
     { name: 'helloagents-storage', partitionKeyPaths: ['/PartitionKey'] }
-    { name: 'helloagents-cluster', partitionKeyPaths: ['/ClusterId'] }
   ]
-  // [3] graphorleons
+  // [3] graphorleons — grain state + models (clustering moves to stamp Cosmos)
   [
-    { name: 'graphorleons-cluster', partitionKeyPaths: ['/ClusterId'] }
+    { name: 'graphorleons-grainstate', partitionKeyPaths: ['/PartitionKey'] }
     {
       name: 'graphorleons-models'
       partitionKeyPaths: ['/tenantId', '/modelId']
@@ -218,7 +215,8 @@ module appInfra 'app-infra.bicep' = [
       location: globalLocation
       appName: app.name
       cosmosAccountName: global.outputs.cosmosName
-      cosmosDatabaseName: global.outputs.cosmosDatabaseName
+      cosmosDatabaseName: app.name == 'darkux' ? 'app-db' : app.name
+      cosmosAutoscaleMaxThroughput: cosmosAutoscaleMaxThroughput
       appInsightsId: global.outputs.appInsightsId
       containers: appContainers[i]
       eventHubsNamespaceName: app.name == 'graphorleons' ? global.outputs.eventHubsNamespaceName : ''
@@ -280,9 +278,9 @@ var appFluxVars = [
     namespace: apps[0].namespace
     identityClientId: appInfra[0].outputs.identityClientId
     identityId: appInfra[0].outputs.identityId
+    identityPrincipalId: appInfra[0].outputs.identityPrincipalId
     cosmosDatabase: appInfra[0].outputs.databaseName
     cosmosContainer: appInfra[0].outputs.containerNames[0]
-    cosmosClusterContainer: appInfra[0].outputs.containerNames[1]
     aiServicesEndpoint: ai.outputs.aiServicesEndpoint
   }
   {
@@ -302,7 +300,6 @@ var appFluxVars = [
     identityPrincipalId: appInfra[2].outputs.identityPrincipalId
     cosmosDatabase: appInfra[2].outputs.databaseName
     cosmosContainer: appInfra[2].outputs.containerNames[0]
-    cosmosClusterContainer: appInfra[2].outputs.containerNames[1]
     aiServicesEndpoint: ai.outputs.aiServicesEndpoint
   }
   {

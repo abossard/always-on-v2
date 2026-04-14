@@ -60,14 +60,22 @@ spec:
               value: "parentbased_traceidratio"
             - name: OTEL_TRACES_SAMPLER_ARG
               value: "0.01"
-            - name: CosmosDb__ClusterContainerName
-              value: ${GRAPHORLEONS_COSMOS_CONTAINER}-${STAMP_NAME}
-            - name: CosmosDb__PubSubContainerName
-              value: graphorleans-pubsub-${STAMP_NAME}
-            - name: CosmosDb__GrainStateContainerName
-              value: graphorleans-grainstate
+            - name: ConnectionStrings__orleans-cosmos
+              value: "AccountEndpoint=${ORLEANS_COSMOS_ENDPOINT}"
             - name: ConnectionStrings__cosmos
               value: "AccountEndpoint=${COSMOS_ENDPOINT}"
+            - name: ORLEANS_CLUSTER_ID
+              value: graphorleons-${STAMP_NAME}
+            - name: ORLEANS_SERVICE_ID
+              value: graphorleons-${STAMP_NAME}
+            - name: CosmosDb__DatabaseName
+              value: ${GRAPHORLEONS_COSMOS_DATABASE}
+            - name: CosmosDb__ClusterContainerName
+              value: ${GRAPHORLEONS_COSMOS_CONTAINER}
+            - name: CosmosDb__PubSubContainerName
+              value: graphorleons-pubsub
+            - name: CosmosDb__GrainStateContainerName
+              value: graphorleons-grainstate
             - name: CosmosDb__ModelsContainerName
               value: graphorleons-models
             - name: ConnectionStrings__graphorleons-events

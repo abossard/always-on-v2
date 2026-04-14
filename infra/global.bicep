@@ -11,9 +11,6 @@ param location string
 @description('ACR SKU.')
 param acrSku string
 
-@description('Cosmos DB autoscale max throughput (RU/s).')
-param cosmosAutoscaleMaxThroughput int
-
 @description('Domain name for Azure DNS zone.')
 param domainName string
 
@@ -127,22 +124,6 @@ resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2025-04-15' = {
       type: 'Continuous'
       continuousModeProperties: {
         tier: 'Continuous7Days'
-      }
-    }
-  }
-}
-
-// Autoscale throughput at the database level (closest to account-level autoscale)
-resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2025-04-15' = {
-  parent: cosmos
-  name: 'app-db'
-  properties: {
-    resource: {
-      id: 'app-db'
-    }
-    options: {
-      autoscaleSettings: {
-        maxThroughput: cosmosAutoscaleMaxThroughput
       }
     }
   }
@@ -484,7 +465,6 @@ output appInsightsConnectionString string = appInsights.properties.ConnectionStr
 output appInsightsId string = appInsights.id
 output healthModelIdentityId string = healthModelIdentity.id
 output healthModelIdentityPrincipalId string = healthModelIdentity.properties.principalId
-output cosmosDatabaseName string = cosmosDatabase.name
 output cosmosAppRoleId string = cosmosAppRole.id
 output eventHubsNamespaceName string = ehNamespace.name
 output eventHubsNamespaceId string = ehNamespace.id

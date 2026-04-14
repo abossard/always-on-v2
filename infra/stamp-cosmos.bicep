@@ -1,0 +1,142 @@
+// ============================================================================
+// Stamp-Level Serverless Cosmos DB for Orleans Clustering
+//
+// Each stamp gets its own Cosmos DB account for Orleans membership and pubsub.
+// Serverless mode — no throughput provisioning needed.
+// Single-region — ephemeral clustering data, no replication.
+// ============================================================================
+
+@description('Base name for all resources.')
+param baseName string
+
+@description('Location for resources (also used as region key in naming).')
+param location string
+
+@description('Salt for unique naming.')
+param salt string
+
+@description('App identities that need Cosmos RBAC. Each entry: { name, principalId }')
+param appIdentities array
+
+// ============================================================================
+// Cosmos DB Account (Serverless, single region)
+// ============================================================================
+
+var cosmosName = 'cosmos-orleans-${baseName}-${salt}'
+
+resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2025-04-15' = {
+  name: cosmosName
+  location: location
+  kind: 'GlobalDocumentDB'
+  properties: {
+    databaseAccountOfferType: 'Standard'
+    capabilities: [
+      { name: 'EnableServerless' }
+    ]
+    locations: [
+      {
+        locationName: location
+        failoverPriority: 0
+        isZoneRedundant: false
+      }
+    ]
+    publicNetworkAccess: 'Enabled'
+    disableLocalAuth: true
+    consistencyPolicy: {
+      defaultConsistencyLevel: 'Session'
+    }
+  }
+}
+
+// ============================================================================
+// Database (no throughput — Serverless)
+// ============================================================================
+
+resource database 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2025-04-15' = {
+  parent: cosmos
+  name: 'orleans'
+  properties: {
+    resource: {
+      id: 'orleans'
+    }
+  }
+}
+
+// ============================================================================
+// Containers
+// ============================================================================
+
+var containers = [
+  { name: 'helloorleons-cluster', partitionKeyPath: '/ClusterId' }
+  { name: 'graphorleons-cluster', partitionKeyPath: '/ClusterId' }
+  { name: 'graphorleons-pubsub', partitionKeyPath: '/PartitionKey' }
+  { name: 'helloagents-cluster', partitionKeyPath: '/ClusterId' }
+]
+
+resource cosmosContainers 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2025-04-15' = [
+  for container in containers: {
+    parent: database
+    name: container.name
+    properties: {
+      resource: {
+        id: container.name
+        partitionKey: {
+          paths: [container.partitionKeyPath]
+          kind: 'Hash'
+          version: 2
+        }
+      }
+    }
+  }
+]
+
+// ============================================================================
+// Custom RBAC Role — App Data Owner (mirrors global Cosmos role)
+// ============================================================================
+
+var cosmosAppRoleId = guid(cosmos.id, 'app-data-owner')
+
+resource cosmosAppRole 'Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions@2025-04-15' = {
+  parent: cosmos
+  name: cosmosAppRoleId
+  properties: {
+    roleName: 'App Data Owner'
+    type: 'CustomRole'
+    assignableScopes: [
+      cosmos.id
+    ]
+    permissions: [
+      {
+        dataActions: [
+          'Microsoft.DocumentDB/databaseAccounts/readMetadata'
+          'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/*'
+          'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/*'
+          'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/items/*'
+        ]
+      }
+    ]
+  }
+}
+
+// ============================================================================
+// RBAC Assignments — one per app identity
+// ============================================================================
+
+resource cosmosRbac 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2025-04-15' = [
+  for identity in appIdentities: {
+    parent: cosmos
+    name: guid(cosmos.id, identity.principalId, cosmosAppRoleId)
+    properties: {
+      principalId: identity.principalId
+      roleDefinitionId: cosmosAppRole.id
+      scope: cosmos.id
+    }
+  }
+]
+
+// ============================================================================
+// Outputs
+// ============================================================================
+
+output cosmosEndpoint string = cosmos.properties.documentEndpoint
+output cosmosName string = cosmos.name
