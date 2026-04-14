@@ -71,7 +71,7 @@ spec:
             - name: CosmosDb__DatabaseName
               value: ${GRAPHORLEONS_COSMOS_DATABASE}
             - name: CosmosDb__ClusterContainerName
-              value: ${GRAPHORLEONS_COSMOS_CONTAINER}
+              value: graphorleons-cluster
             - name: CosmosDb__PubSubContainerName
               value: graphorleons-pubsub
             - name: CosmosDb__GrainStateContainerName
