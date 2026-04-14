@@ -20,12 +20,12 @@ import type {
 export function podRestarts(namespace: string): PrometheusSignalDef {
   return {
     signalKind: 'PrometheusMetricsQuery',
-    queryText: `sum(increase(kube_pod_container_status_restarts_total{namespace="${namespace}"}[1h]))`,
+    queryText: `sum(increase(kube_pod_container_status_restarts_total{namespace="${namespace}"}[15m]))`,
     timeGrain: 'PT1M',
     displayName: 'Pod Restarts',
     refreshInterval: 'PT1M',
     dataUnit: 'Count',
-    threshold: { direction: 'higher-is-worse', degraded: 2, unhealthy: 5 },
+    threshold: { direction: 'higher-is-worse', degraded: 1, unhealthy: 3 },
   };
 }
 
@@ -158,7 +158,7 @@ export function podsOnNotReadyNodes(namespace: string): PrometheusSignalDef {
 export function deploymentsNotReady(namespace: string): PrometheusSignalDef {
   return {
     signalKind: 'PrometheusMetricsQuery',
-    queryText: `count(kube_deployment_status_replicas_ready{namespace="${namespace}"} == 0) or vector(0)`,
+    queryText: `count(kube_deployment_status_replicas_ready{namespace="${namespace}"} < kube_deployment_spec_replicas{namespace="${namespace}"}) or vector(0)`,
     timeGrain: 'PT1M',
     displayName: 'Deployments Not Ready',
     refreshInterval: 'PT1M',
@@ -186,7 +186,7 @@ export function gatewayErrorRate(namespace: string): PrometheusSignalDef {
 export function gatewayP99Latency(namespace: string): PrometheusSignalDef {
   return {
     signalKind: 'PrometheusMetricsQuery',
-    queryText: `histogram_quantile(0.99, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload_namespace="${namespace}"}[5m])) by (le)) or vector(0)`,
+    queryText: `(histogram_quantile(0.99, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload_namespace="${namespace}"}[5m])) by (le)) > 0) or vector(0)`,
     timeGrain: 'PT1M',
     displayName: 'Gateway P99 Latency',
     refreshInterval: 'PT1M',

@@ -207,14 +207,14 @@ resource def_pod_restarts 'Microsoft.CloudHealth/healthmodels/signaldefinitions@
     evaluationRules: {
       degradedRule: {
         operator: 'GreaterThan'
-        threshold: json('2')
+        threshold: json('1')
       }
       unhealthyRule: {
         operator: 'GreaterThan'
-        threshold: json('5')
+        threshold: json('3')
       }
     }
-    queryText: 'sum(increase(kube_pod_container_status_restarts_total{namespace="${namespace}"}[1h]))'
+    queryText: 'sum(increase(kube_pod_container_status_restarts_total{namespace="${namespace}"}[15m]))'
     timeGrain: 'PT1M'
   }
 }
@@ -310,7 +310,7 @@ resource def_deployments_not_ready 'Microsoft.CloudHealth/healthmodels/signaldef
         threshold: json('0')
       }
     }
-    queryText: 'count(kube_deployment_status_replicas_ready{namespace="${namespace}"} == 0) or vector(0)'
+    queryText: 'count(kube_deployment_status_replicas_ready{namespace="${namespace}"} < kube_deployment_spec_replicas{namespace="${namespace}"}) or vector(0)'
     timeGrain: 'PT1M'
   }
 }
@@ -618,7 +618,7 @@ resource def_gateway_p99_latency 'Microsoft.CloudHealth/healthmodels/signaldefin
         threshold: json('2000')
       }
     }
-    queryText: 'histogram_quantile(0.99, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload_namespace="${namespace}"}[5m])) by (le)) or vector(0)'
+    queryText: '(histogram_quantile(0.99, sum(rate(istio_request_duration_milliseconds_bucket{destination_workload_namespace="${namespace}"}[5m])) by (le)) > 0) or vector(0)'
     timeGrain: 'PT1M'
   }
 }
