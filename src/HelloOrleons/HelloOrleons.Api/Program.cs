@@ -22,9 +22,10 @@ if (string.IsNullOrEmpty(cosmosConnectionString))
 // Single CosmosClient — Aspire handles emulator keys AND managed identity transparently.
 builder.AddAzureCosmosClient("cosmos", configureClientOptions: options =>
 {
+    // Use Gateway mode to avoid RNTBD Direct transport SIGSEGV on .NET 10
+    options.ConnectionMode = ConnectionMode.Gateway;
     if (cosmosConnectionString.Contains("AccountKey=C2y6yDjf5", StringComparison.Ordinal))
     {
-        options.ConnectionMode = ConnectionMode.Gateway;
         options.LimitToEndpoint = true;
     }
 });

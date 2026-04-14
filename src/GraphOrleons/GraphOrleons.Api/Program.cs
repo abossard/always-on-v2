@@ -50,10 +50,13 @@ var isEmulator = cosmosConnectionString.Contains("AccountKey=C2y6yDjf5", StringC
 // Orleans needs its own CosmosClient — the Aspire DI client uses camelCase JSON
 // which breaks Orleans internal types (PubSubPublisherState).
 var hasAccountKey = cosmosConnectionString.Contains("AccountKey=", StringComparison.Ordinal);
-var orleansCosmosClientOptions = new CosmosClientOptions();
+var orleansCosmosClientOptions = new CosmosClientOptions
+{
+    // Use Gateway mode to avoid RNTBD Direct transport SIGSEGV on .NET 10
+    ConnectionMode = ConnectionMode.Gateway,
+};
 if (isEmulator)
 {
-    orleansCosmosClientOptions.ConnectionMode = ConnectionMode.Gateway;
     orleansCosmosClientOptions.LimitToEndpoint = true;
 }
 #pragma warning disable CA2000 // CosmosClient lifetime is managed by Orleans (process-scoped singleton)
