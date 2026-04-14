@@ -18,7 +18,8 @@ var cosmosEndpoint = builder.Configuration.GetConnectionString("cosmos") ?? "";
 
 builder.AddAlwaysOnOrleans(o =>
 {
-    o.ClusteringEndpoint = builder.Configuration.GetConnectionString("orleans-cosmos") ?? cosmosEndpoint;
+    o.ClusteringEndpoint = CosmosClientFactory.TryGetEndpoint(
+        builder.Configuration.GetConnectionString("orleans-cosmos")) ?? cosmosEndpoint;
     o.GrainStorageEndpoint = cosmosEndpoint;
     o.ClusteringDatabase = "orleans";
     o.GrainStorageDatabase = cosmosDb.DatabaseName;
@@ -62,7 +63,8 @@ builder.AddAlwaysOnOrleans(o =>
         o.IsResourceCreationEnabled = true;
         o.ConfigureCosmosClient(_ => new ValueTask<Microsoft.Azure.Cosmos.CosmosClient>(
             AlwaysOn.Orleans.CosmosClientFactory.Create(
-                builder.Configuration.GetConnectionString("orleans-cosmos") ?? cosmosEndpoint)));
+                CosmosClientFactory.TryGetEndpoint(
+                builder.Configuration.GetConnectionString("orleans-cosmos")) ?? cosmosEndpoint)));
     });
 });
 

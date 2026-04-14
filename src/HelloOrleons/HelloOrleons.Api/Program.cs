@@ -11,7 +11,8 @@ var cosmosEndpoint = builder.Configuration.GetConnectionString("cosmos") ?? "";
 
 builder.AddAlwaysOnOrleans(o =>
 {
-    o.ClusteringEndpoint = builder.Configuration.GetConnectionString("orleans-cosmos") ?? cosmosEndpoint;
+    o.ClusteringEndpoint = CosmosClientFactory.TryGetEndpoint(
+        builder.Configuration.GetConnectionString("orleans-cosmos")) ?? cosmosEndpoint;
     o.GrainStorageEndpoint = cosmosEndpoint;
     o.ClusteringDatabase = "orleans";
     o.GrainStorageDatabase = builder.Configuration["CosmosDb__DatabaseName"] ?? "helloorleons";
