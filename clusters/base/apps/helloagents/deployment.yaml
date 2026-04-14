@@ -28,7 +28,7 @@ spec:
       labels:
         app: helloagents
         azure.workload.identity/use: "true"
-        orleans/serviceId: helloagents-${STAMP_NAME}
+        orleans/serviceId: helloagents
         orleans/clusterId: helloagents-${STAMP_NAME}
     spec:
       terminationGracePeriodSeconds: 65
@@ -71,7 +71,7 @@ spec:
             - name: ORLEANS_CLUSTER_ID
               value: helloagents-${STAMP_NAME}
             - name: ORLEANS_SERVICE_ID
-              value: helloagents-${STAMP_NAME}
+              value: helloagents
             - name: Storage__Provider
               value: "CosmosDb"
             - name: CosmosDb__DatabaseName

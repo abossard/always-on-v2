@@ -28,7 +28,7 @@ spec:
       labels:
         app: graphorleons
         azure.workload.identity/use: "true"
-        orleans/serviceId: graphorleons-${STAMP_NAME}
+        orleans/serviceId: graphorleons
         orleans/clusterId: graphorleons-${STAMP_NAME}
     spec:
       terminationGracePeriodSeconds: 65
@@ -67,7 +67,7 @@ spec:
             - name: ORLEANS_CLUSTER_ID
               value: graphorleons-${STAMP_NAME}
             - name: ORLEANS_SERVICE_ID
-              value: graphorleons-${STAMP_NAME}
+              value: graphorleons
             - name: CosmosDb__DatabaseName
               value: ${GRAPHORLEONS_COSMOS_DATABASE}
             - name: CosmosDb__ClusterContainerName

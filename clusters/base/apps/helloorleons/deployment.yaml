@@ -28,7 +28,7 @@ spec:
       labels:
         app: helloorleons
         azure.workload.identity/use: "true"
-        orleans/serviceId: helloorleons-${STAMP_NAME}
+        orleans/serviceId: helloorleons
         orleans/clusterId: helloorleons-${STAMP_NAME}
     spec:
       terminationGracePeriodSeconds: 65
@@ -71,7 +71,7 @@ spec:
             - name: ORLEANS_CLUSTER_ID
               value: helloorleons-${STAMP_NAME}
             - name: ORLEANS_SERVICE_ID
-              value: helloorleons-${STAMP_NAME}
+              value: helloorleons
             - name: CosmosDb__DatabaseName
               value: ${HELLOORLEONS_COSMOS_DATABASE}
             - name: CosmosDb__ContainerName
