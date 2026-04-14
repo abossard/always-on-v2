@@ -99,7 +99,7 @@ export default function App() {
             <div>
               <h1 className="text-2xl font-bold text-teal-800">Hospital Instrument Monitor</h1>
               <p className="mt-0.5 text-sm text-gray-500">
-                Real-time instrument telemetry via server-sent events
+                Real-time instrument telemetry via server-sent events (coool)
               </p>
             </div>
             {selectedTenant && (
