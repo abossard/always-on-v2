@@ -12,9 +12,6 @@ param baseName string
 @description('Location for resources (also used as region key in naming).')
 param location string
 
-@description('Salt for unique naming.')
-param salt string
-
 @description('App identities that need Cosmos RBAC. Each entry: { name, principalId }')
 param appIdentities array
 
@@ -22,7 +19,8 @@ param appIdentities array
 // Cosmos DB Account (Serverless, single region)
 // ============================================================================
 
-var cosmosName = 'cosmos-orleans-${baseName}-${salt}'
+var regionKey = toLower(replace(location, ' ', ''))
+var cosmosName = 'cosmos-orl-${baseName}-${regionKey}'
 
 resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2025-04-15' = {
   name: cosmosName

@@ -431,7 +431,6 @@ module stampCosmos 'stamp-cosmos.bicep' = {
   params: {
     baseName: baseName
     location: location
-    salt: salt
     appIdentities: orleansPrincipalIds
   }
 }
