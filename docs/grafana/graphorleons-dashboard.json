@@ -1220,13 +1220,502 @@
     },
     {
       "type": "row",
+      "collapsed": true,
+      "id": 0,
+      "panels": [
+        {
+          "type": "timeseries",
+          "transparent": false,
+          "repeatDirection": "h",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "drawStyle": "line",
+                "gradientMode": "opacity",
+                "spanNulls": false,
+                "axisBorderShow": false,
+                "lineInterpolation": "smooth",
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 1
+                  },
+                  {
+                    "color": "red",
+                    "value": 5
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true,
+              "calcs": []
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "title": "Event Hub — Capture Backlog",
+          "datasource": {
+            "uid": "azure-monitor",
+            "type": "grafana-azure-monitor-datasource"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "queryType": "Azure Monitor",
+              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+              "azureMonitor": {
+                "metricNamespace": "microsoft.eventhub/namespaces",
+                "metricName": "CaptureBacklog",
+                "aggregation": "Average",
+                "timeGrain": "auto",
+                "resources": [
+                  {
+                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+                    "resourceGroup": "rg-alwayson-global",
+                    "resourceName": "evh-graphorleons-alwayson",
+                    "metricNamespace": "microsoft.eventhub/namespaces"
+                  }
+                ],
+                "dimensionFilters": [],
+                "customNamespace": "microsoft.eventhub/namespaces",
+                "allowedTimeGrainsMs": [
+                  60000,
+                  300000,
+                  900000,
+                  1800000,
+                  3600000,
+                  21600000,
+                  43200000,
+                  86400000
+                ]
+              }
+            }
+          ],
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 0,
+            "y": 40
+          }
+        },
+        {
+          "type": "timeseries",
+          "transparent": false,
+          "repeatDirection": "h",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "drawStyle": "line",
+                "gradientMode": "opacity",
+                "spanNulls": false,
+                "axisBorderShow": false,
+                "lineInterpolation": "smooth",
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "unit": "bytes",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true,
+              "calcs": []
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "title": "Event Hub — Captured Bytes",
+          "datasource": {
+            "uid": "azure-monitor",
+            "type": "grafana-azure-monitor-datasource"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "queryType": "Azure Monitor",
+              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+              "azureMonitor": {
+                "metricNamespace": "microsoft.eventhub/namespaces",
+                "metricName": "CapturedBytes",
+                "aggregation": "Total",
+                "timeGrain": "auto",
+                "resources": [
+                  {
+                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+                    "resourceGroup": "rg-alwayson-global",
+                    "resourceName": "evh-graphorleons-alwayson",
+                    "metricNamespace": "microsoft.eventhub/namespaces"
+                  }
+                ],
+                "dimensionFilters": [],
+                "customNamespace": "microsoft.eventhub/namespaces",
+                "allowedTimeGrainsMs": [
+                  60000,
+                  300000,
+                  900000,
+                  1800000,
+                  3600000,
+                  21600000,
+                  43200000,
+                  86400000
+                ]
+              }
+            }
+          ],
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 8,
+            "y": 40
+          }
+        },
+        {
+          "type": "timeseries",
+          "transparent": false,
+          "repeatDirection": "h",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "drawStyle": "line",
+                "gradientMode": "opacity",
+                "spanNulls": false,
+                "axisBorderShow": false,
+                "lineInterpolation": "smooth",
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "unit": "bytes",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "red",
+                    "value": 80
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true,
+              "calcs": []
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "title": "Capture Storage — Ingress",
+          "datasource": {
+            "uid": "azure-monitor",
+            "type": "grafana-azure-monitor-datasource"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "queryType": "Azure Monitor",
+              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+              "azureMonitor": {
+                "metricNamespace": "microsoft.storage/storageaccounts/blobservices",
+                "metricName": "Ingress",
+                "aggregation": "Total",
+                "timeGrain": "auto",
+                "resources": [
+                  {
+                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+                    "resourceGroup": "rg-alwayson-global",
+                    "resourceName": "stadlsehalwayson/default",
+                    "metricNamespace": "microsoft.storage/storageaccounts/blobservices"
+                  }
+                ],
+                "dimensionFilters": [],
+                "customNamespace": "microsoft.storage/storageaccounts/blobservices",
+                "allowedTimeGrainsMs": [
+                  60000,
+                  300000,
+                  900000,
+                  1800000,
+                  3600000,
+                  21600000,
+                  43200000,
+                  86400000
+                ]
+              }
+            }
+          ],
+          "gridPos": {
+            "h": 8,
+            "w": 8,
+            "x": 16,
+            "y": 40
+          }
+        },
+        {
+          "type": "timeseries",
+          "transparent": false,
+          "repeatDirection": "h",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "drawStyle": "line",
+                "gradientMode": "opacity",
+                "spanNulls": false,
+                "axisBorderShow": false,
+                "lineInterpolation": "smooth",
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "unit": "s",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 1
+                  },
+                  {
+                    "color": "red",
+                    "value": 5
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true,
+              "calcs": []
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "title": "Event Hub — Replication Lag Duration",
+          "datasource": {
+            "uid": "azure-monitor",
+            "type": "grafana-azure-monitor-datasource"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "queryType": "Azure Monitor",
+              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+              "azureMonitor": {
+                "metricNamespace": "microsoft.eventhub/namespaces",
+                "metricName": "ReplicationLagDuration",
+                "aggregation": "Maximum",
+                "timeGrain": "auto",
+                "resources": [
+                  {
+                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+                    "resourceGroup": "rg-alwayson-global",
+                    "resourceName": "evh-graphorleons-alwayson",
+                    "metricNamespace": "microsoft.eventhub/namespaces"
+                  }
+                ],
+                "dimensionFilters": [],
+                "customNamespace": "microsoft.eventhub/namespaces",
+                "allowedTimeGrainsMs": [
+                  60000,
+                  300000,
+                  900000,
+                  1800000,
+                  3600000,
+                  21600000,
+                  43200000,
+                  86400000
+                ]
+              }
+            }
+          ],
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 48
+          }
+        },
+        {
+          "type": "timeseries",
+          "transparent": false,
+          "repeatDirection": "h",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "drawStyle": "line",
+                "gradientMode": "opacity",
+                "spanNulls": false,
+                "axisBorderShow": false,
+                "lineInterpolation": "smooth",
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 1
+                  },
+                  {
+                    "color": "red",
+                    "value": 5
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true,
+              "calcs": []
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "title": "Event Hub — Replication Lag Count",
+          "datasource": {
+            "uid": "azure-monitor",
+            "type": "grafana-azure-monitor-datasource"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "queryType": "Azure Monitor",
+              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+              "azureMonitor": {
+                "metricNamespace": "microsoft.eventhub/namespaces",
+                "metricName": "ReplicationLagCount",
+                "aggregation": "Maximum",
+                "timeGrain": "auto",
+                "resources": [
+                  {
+                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+                    "resourceGroup": "rg-alwayson-global",
+                    "resourceName": "evh-graphorleons-alwayson",
+                    "metricNamespace": "microsoft.eventhub/namespaces"
+                  }
+                ],
+                "dimensionFilters": [],
+                "customNamespace": "microsoft.eventhub/namespaces",
+                "allowedTimeGrainsMs": [
+                  60000,
+                  300000,
+                  900000,
+                  1800000,
+                  3600000,
+                  21600000,
+                  43200000,
+                  86400000
+                ]
+              }
+            }
+          ],
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 12,
+            "y": 48
+          }
+        }
+      ],
+      "title": "📬 Event Hub Capture",
+      "gridPos": {
+        "x": 0,
+        "y": 39,
+        "h": 1,
+        "w": 24
+      }
+    },
+    {
+      "type": "row",
       "collapsed": false,
       "id": 0,
       "panels": [],
       "title": "🔴 Failures Overview",
       "gridPos": {
         "x": 0,
-        "y": 39,
+        "y": 56,
         "h": 1,
         "w": 24
       }
@@ -1295,7 +1784,7 @@
         "h": 4,
         "w": 8,
         "x": 0,
-        "y": 40
+        "y": 57
       }
     },
     {
@@ -1362,7 +1851,7 @@
         "h": 4,
         "w": 8,
         "x": 8,
-        "y": 40
+        "y": 57
       }
     },
     {
@@ -1429,7 +1918,7 @@
         "h": 4,
         "w": 8,
         "x": 16,
-        "y": 40
+        "y": 57
       }
     },
     {
@@ -1440,7 +1929,7 @@
       "title": "🟡 Latency & Pressure",
       "gridPos": {
         "x": 0,
-        "y": 44,
+        "y": 61,
         "h": 1,
         "w": 24
       }
@@ -1508,7 +1997,7 @@
         "h": 6,
         "w": 12,
         "x": 0,
-        "y": 45
+        "y": 62
       }
     },
     {
@@ -1574,7 +2063,7 @@
         "h": 6,
         "w": 12,
         "x": 12,
-        "y": 45
+        "y": 62
       }
     },
     {
@@ -1663,7 +2152,7 @@
             "h": 8,
             "w": 8,
             "x": 0,
-            "y": 52
+            "y": 69
           }
         },
         {
@@ -1747,7 +2236,7 @@
             "h": 8,
             "w": 8,
             "x": 8,
-            "y": 52
+            "y": 69
           }
         },
         {
@@ -1820,7 +2309,7 @@
             "h": 8,
             "w": 8,
             "x": 16,
-            "y": 52
+            "y": 69
           }
         },
         {
@@ -1892,7 +2381,7 @@
             "h": 8,
             "w": 8,
             "x": 0,
-            "y": 60
+            "y": 77
           }
         },
         {
@@ -1965,7 +2454,7 @@
             "h": 8,
             "w": 8,
             "x": 8,
-            "y": 60
+            "y": 77
           }
         },
         {
@@ -2038,14 +2527,14 @@
             "h": 8,
             "w": 8,
             "x": 16,
-            "y": 60
+            "y": 77
           }
         }
       ],
       "title": "📦 App Pods",
       "gridPos": {
         "x": 0,
-        "y": 51,
+        "y": 68,
         "h": 1,
         "w": 24
       }
@@ -2140,7 +2629,7 @@
             "h": 4,
             "w": 8,
             "x": 0,
-            "y": 69
+            "y": 86
           }
         },
         {
@@ -2233,7 +2722,7 @@
             "h": 8,
             "w": 8,
             "x": 8,
-            "y": 69
+            "y": 86
           }
         },
         {
@@ -2325,7 +2814,7 @@
             "h": 8,
             "w": 8,
             "x": 16,
-            "y": 69
+            "y": 86
           }
         },
         {
@@ -2413,7 +2902,7 @@
             "h": 4,
             "w": 8,
             "x": 0,
-            "y": 77
+            "y": 94
           }
         },
         {
@@ -2506,7 +2995,7 @@
             "h": 8,
             "w": 8,
             "x": 8,
-            "y": 77
+            "y": 94
           }
         },
         {
@@ -2598,14 +3087,14 @@
             "h": 8,
             "w": 8,
             "x": 16,
-            "y": 77
+            "y": 94
           }
         }
       ],
       "title": "🗄️ Orleans Cosmos (Clustering)",
       "gridPos": {
         "x": 0,
-        "y": 68,
+        "y": 85,
         "h": 1,
         "w": 24
       }

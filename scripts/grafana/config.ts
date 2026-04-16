@@ -24,6 +24,7 @@ export interface ResourceConfig {
   frontDoorProfile: string;
   aiServicesAccount: string;
   eventHubsNamespace?: string;
+  captureStorageAccount?: string;
 }
 
 export interface PlatformConfig {

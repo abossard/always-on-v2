@@ -1041,3 +1041,104 @@ export function eventHubCapturedMessagesTimeseries(config: PlatformConfig): Time
     .span(8)
     .height(8);
 }
+
+// ── Event Hub Capture panels ────────────────────────────────────────
+
+export function eventHubCaptureBacklogTimeseries(config: PlatformConfig): TimeseriesPanelBuilder {
+  return defaultTimeseries()
+    .title('Event Hub — Capture Backlog')
+    .datasource(AZURE_DS)
+    .thresholds(failureThresholds())
+    .withTarget(
+      azureMonitorTarget(
+        'A', config,
+        'microsoft.eventhub/namespaces', 'CaptureBacklog', 'Average',
+        config.resources.eventHubsNamespace!,
+        [],
+      ),
+    )
+    .span(8)
+    .height(8);
+}
+
+export function eventHubCapturedBytesTimeseries(config: PlatformConfig): TimeseriesPanelBuilder {
+  return defaultTimeseries()
+    .title('Event Hub — Captured Bytes')
+    .datasource(AZURE_DS)
+    .unit('bytes')
+    .thresholds(defaultThresholds())
+    .withTarget(
+      azureMonitorTarget(
+        'A', config,
+        'microsoft.eventhub/namespaces', 'CapturedBytes', 'Total',
+        config.resources.eventHubsNamespace!,
+        [],
+      ),
+    )
+    .span(8)
+    .height(8);
+}
+
+export function captureStorageIngressTimeseries(config: PlatformConfig): TimeseriesPanelBuilder {
+  return defaultTimeseries()
+    .title('Capture Storage — Ingress')
+    .datasource(AZURE_DS)
+    .unit('bytes')
+    .thresholds(defaultThresholds())
+    .withTarget(
+      new AzureMonitorQueryBuilder()
+        .queryType(AzureQueryType.AzureMonitor)
+        .refId('A')
+        .subscription(config.subscription)
+        .azureMonitor(
+          azureMetricQuery(
+            'microsoft.storage/storageaccounts/blobservices',
+            'Ingress',
+            'Total',
+            [],
+            new AzureMonitorResourceBuilder()
+              .subscription(config.subscription)
+              .resourceGroup(config.globalResourceGroup)
+              .resourceName(`${config.resources.captureStorageAccount!}/default`)
+              .metricNamespace('microsoft.storage/storageaccounts/blobservices'),
+          ),
+        ),
+    )
+    .span(8)
+    .height(8);
+}
+
+export function eventHubReplicationLagDurationTimeseries(config: PlatformConfig): TimeseriesPanelBuilder {
+  return defaultTimeseries()
+    .title('Event Hub — Replication Lag Duration')
+    .datasource(AZURE_DS)
+    .unit('s')
+    .thresholds(failureThresholds())
+    .withTarget(
+      azureMonitorTarget(
+        'A', config,
+        'microsoft.eventhub/namespaces', 'ReplicationLagDuration', 'Maximum',
+        config.resources.eventHubsNamespace!,
+        [],
+      ),
+    )
+    .span(12)
+    .height(8);
+}
+
+export function eventHubReplicationLagCountTimeseries(config: PlatformConfig): TimeseriesPanelBuilder {
+  return defaultTimeseries()
+    .title('Event Hub — Replication Lag Count')
+    .datasource(AZURE_DS)
+    .thresholds(failureThresholds())
+    .withTarget(
+      azureMonitorTarget(
+        'A', config,
+        'microsoft.eventhub/namespaces', 'ReplicationLagCount', 'Maximum',
+        config.resources.eventHubsNamespace!,
+        [],
+      ),
+    )
+    .span(12)
+    .height(8);
+}

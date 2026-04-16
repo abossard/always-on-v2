@@ -1086,6 +1086,58 @@ resource def_eventhubs_event_hub_capture_backlog 'Microsoft.CloudHealth/healthmo
 }
 
 #disable-next-line BCP081
+resource def_eventhubs_event_hub_captured_messages 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesEventHubs) {
+  parent: hm
+  name: guid(name, 'def-eventhubs-event-hub-captured-messages')
+  properties: {
+    signalKind: 'AzureResourceMetric'
+    displayName: 'Event Hub Captured Messages'
+    refreshInterval: 'PT5M'
+    dataUnit: 'Count'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'LessThan'
+        threshold: json('1')
+      }
+      unhealthyRule: {
+        operator: 'LessThan'
+        threshold: json('0')
+      }
+    }
+    metricNamespace: 'microsoft.eventhub/namespaces'
+    metricName: 'CapturedMessages'
+    timeGrain: 'PT5M'
+    aggregationType: 'Total'
+  }
+}
+
+#disable-next-line BCP081
+resource def_eventhubs_event_hub_captured_bytes 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesEventHubs) {
+  parent: hm
+  name: guid(name, 'def-eventhubs-event-hub-captured-bytes')
+  properties: {
+    signalKind: 'AzureResourceMetric'
+    displayName: 'Event Hub Captured Bytes'
+    refreshInterval: 'PT5M'
+    dataUnit: 'Bytes'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'LessThan'
+        threshold: json('1')
+      }
+      unhealthyRule: {
+        operator: 'LessThan'
+        threshold: json('0')
+      }
+    }
+    metricNamespace: 'microsoft.eventhub/namespaces'
+    metricName: 'CapturedBytes'
+    timeGrain: 'PT5M'
+    aggregationType: 'Total'
+  }
+}
+
+#disable-next-line BCP081
 resource def_eventhubs_event_hub_geo_replication_lag 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesEventHubs) {
   parent: hm
   name: guid(name, 'def-eventhubs-event-hub-geo-replication-lag')
@@ -1106,6 +1158,32 @@ resource def_eventhubs_event_hub_geo_replication_lag 'Microsoft.CloudHealth/heal
     }
     metricNamespace: 'microsoft.eventhub/namespaces'
     metricName: 'ReplicationLagCount'
+    timeGrain: 'PT5M'
+    aggregationType: 'Maximum'
+  }
+}
+
+#disable-next-line BCP081
+resource def_eventhubs_event_hub_replication_lag_duration 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesEventHubs) {
+  parent: hm
+  name: guid(name, 'def-eventhubs-event-hub-replication-lag-duration')
+  properties: {
+    signalKind: 'AzureResourceMetric'
+    displayName: 'Event Hub Replication Lag Duration'
+    refreshInterval: 'PT5M'
+    dataUnit: 'Seconds'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('30')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('120')
+      }
+    }
+    metricNamespace: 'microsoft.eventhub/namespaces'
+    metricName: 'ReplicationLagDuration'
     timeGrain: 'PT5M'
     aggregationType: 'Maximum'
   }
@@ -2027,8 +2105,26 @@ resource eventhubsEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01
           }
           {
             signalKind: 'AzureResourceMetric'
+            name: guid(name, 'eventhubs-event-hub-captured-messages')
+            signalDefinitionName: def_eventhubs_event_hub_captured_messages.name
+            refreshInterval: 'PT5M'
+          }
+          {
+            signalKind: 'AzureResourceMetric'
+            name: guid(name, 'eventhubs-event-hub-captured-bytes')
+            signalDefinitionName: def_eventhubs_event_hub_captured_bytes.name
+            refreshInterval: 'PT5M'
+          }
+          {
+            signalKind: 'AzureResourceMetric'
             name: guid(name, 'eventhubs-event-hub-geo-replication-lag')
             signalDefinitionName: def_eventhubs_event_hub_geo_replication_lag.name
+            refreshInterval: 'PT5M'
+          }
+          {
+            signalKind: 'AzureResourceMetric'
+            name: guid(name, 'eventhubs-event-hub-replication-lag-duration')
+            signalDefinitionName: def_eventhubs_event_hub_replication_lag_duration.name
             refreshInterval: 'PT5M'
           }
         ]

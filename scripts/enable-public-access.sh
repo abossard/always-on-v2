@@ -270,6 +270,29 @@ for RG in "${RESOURCE_GROUPS[@]}"; do
     echo ""
 
     # ---------------------------------------------------------------
+    # Event Hubs Namespaces
+    # ---------------------------------------------------------------
+    echo "   📨 Event Hubs namespaces..."
+    EVENTHUB_NAMESPACES=$(az eventhubs namespace list \
+        --resource-group "$RG" \
+        --query "[].name" \
+        --output tsv 2>/dev/null)
+
+    if [ -n "$EVENTHUB_NAMESPACES" ]; then
+        while IFS= read -r ns; do
+            echo "      Found: $ns"
+            run_or_dry "Enable public access on Event Hub namespace '$ns'" \
+                az eventhubs namespace update \
+                    --name "$ns" \
+                    --resource-group "$RG" \
+                    --public-network-access Enabled
+        done <<< "$EVENTHUB_NAMESPACES"
+    else
+        echo "      (none found)"
+    fi
+    echo ""
+
+    # ---------------------------------------------------------------
     # Key Vaults
     # ---------------------------------------------------------------
     echo "   🔑 Key Vaults..."

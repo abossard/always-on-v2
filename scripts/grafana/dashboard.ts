@@ -86,6 +86,16 @@ export function buildAppDashboard(app: AppConfig, config: PlatformConfig): objec
       .withPanel(panels.eventHubThrottledTimeseries(config))
       .withPanel(panels.eventHubServerErrorsTimeseries(config))
       .withPanel(panels.eventHubCapturedMessagesTimeseries(config));
+
+    // ── Event Hub Capture row (collapsed) ─────────────────────────
+    builder = builder
+      .withRow(new RowBuilder('📬 Event Hub Capture').collapsed(true)
+        .withPanel(panels.eventHubCaptureBacklogTimeseries(config))
+        .withPanel(panels.eventHubCapturedBytesTimeseries(config))
+        .withPanel(panels.captureStorageIngressTimeseries(config))
+        .withPanel(panels.eventHubReplicationLagDurationTimeseries(config))
+        .withPanel(panels.eventHubReplicationLagCountTimeseries(config)),
+      );
   }
 
   // ── Row 2: Failures Overview (Prometheus) ──────────────────────

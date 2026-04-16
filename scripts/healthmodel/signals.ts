@@ -599,6 +599,34 @@ export function eventHubCaptureBacklog(): AzureResourceSignalDef {
   };
 }
 
+export function eventHubCapturedMessages(): AzureResourceSignalDef {
+  return {
+    signalKind: 'AzureResourceMetric',
+    metricNamespace: 'microsoft.eventhub/namespaces',
+    metricName: 'CapturedMessages',
+    timeGrain: 'PT5M',
+    aggregationType: 'Total',
+    displayName: 'Event Hub Captured Messages',
+    refreshInterval: 'PT5M',
+    dataUnit: 'Count',
+    threshold: { direction: 'lower-is-worse', degraded: 1, unhealthy: 0 },
+  };
+}
+
+export function eventHubCapturedBytes(): AzureResourceSignalDef {
+  return {
+    signalKind: 'AzureResourceMetric',
+    metricNamespace: 'microsoft.eventhub/namespaces',
+    metricName: 'CapturedBytes',
+    timeGrain: 'PT5M',
+    aggregationType: 'Total',
+    displayName: 'Event Hub Captured Bytes',
+    refreshInterval: 'PT5M',
+    dataUnit: 'Bytes',
+    threshold: { direction: 'lower-is-worse', degraded: 1, unhealthy: 0 },
+  };
+}
+
 export function eventHubReplicationLag(): AzureResourceSignalDef {
   return {
     signalKind: 'AzureResourceMetric',
@@ -610,6 +638,20 @@ export function eventHubReplicationLag(): AzureResourceSignalDef {
     refreshInterval: 'PT5M',
     dataUnit: 'Count',
     threshold: { direction: 'higher-is-worse', degraded: 100, unhealthy: 1000 },
+  };
+}
+
+export function eventHubReplicationLagDuration(): AzureResourceSignalDef {
+  return {
+    signalKind: 'AzureResourceMetric',
+    metricNamespace: 'microsoft.eventhub/namespaces',
+    metricName: 'ReplicationLagDuration',
+    timeGrain: 'PT5M',
+    aggregationType: 'Maximum',
+    displayName: 'Event Hub Replication Lag Duration',
+    refreshInterval: 'PT5M',
+    dataUnit: 'Seconds',
+    threshold: { direction: 'higher-is-worse', degraded: 30, unhealthy: 120 },
   };
 }
 

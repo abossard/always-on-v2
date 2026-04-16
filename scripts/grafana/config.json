@@ -6,7 +6,8 @@
     "cosmosAccount": "cosmos-alwayson-a2nyh4",
     "frontDoorProfile": "fd-alwayson",
     "aiServicesAccount": "ai-svc-alwayson-a2nyh4",
-    "eventHubsNamespace": "evh-graphorleons-alwayson"
+    "eventHubsNamespace": "evh-graphorleons-alwayson",
+    "captureStorageAccount": "stadlsehalwayson"
   },
   "stamps": [
     { "key": "swedencentral-001", "region": "swedencentral", "cluster": "aks-alwayson-swedencentral-001", "resourceGroup": "rg-alwayson-swedencentral-001", "storageAccount": "sthaalwaysonsweden", "cosmosOrleansAccount": "cosmos-orl-alwayson-swedencentral" },
