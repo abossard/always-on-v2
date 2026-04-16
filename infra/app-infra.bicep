@@ -22,8 +22,11 @@ param appName string
 @description('Cosmos DB account name (must exist).')
 param cosmosAccountName string
 
-@description('Cosmos DB database name.')
+@description('Cosmos DB database name (per-app database).')
 param cosmosDatabaseName string
+
+@description('Cosmos DB autoscale max throughput (RU/s) for the per-app database.')
+param cosmosAutoscaleMaxThroughput int = 1000
 
 @description('Application Insights resource ID (for RBAC).')
 param appInsightsId string
@@ -56,16 +59,30 @@ resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2025-04-15' existi
   name: cosmosAccountName
 }
 
-resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2025-04-15' existing = {
+// ============================================================================
+// Cosmos DB — Per-App Database
+// ============================================================================
+
+resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2025-04-15' = {
   parent: cosmosAccount
   name: cosmosDatabaseName
+  properties: {
+    resource: {
+      id: cosmosDatabaseName
+    }
+    options: {
+      autoscaleSettings: {
+        maxThroughput: cosmosAutoscaleMaxThroughput
+      }
+    }
+  }
 }
 
 // ============================================================================
-// Cosmos DB RBAC — Custom App Data Owner (includes sqlDatabases/*)
+// Cosmos DB RBAC — Scoped to per-app database (least privilege)
 // ============================================================================
-// Custom role extends Data Contributor with sqlDatabases/* for
-// CreateDatabaseIfNotExistsAsync (Orleans, Aspire).
+// Apps cannot create databases or containers — Bicep handles that.
+// RBAC is scoped to the app's own database only.
 
 resource cosmosRbac 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2025-04-15' = {
   parent: cosmosAccount
@@ -73,7 +90,7 @@ resource cosmosRbac 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@20
   properties: {
     principalId: appIdentity.properties.principalId
     roleDefinitionId: cosmosAppRoleId
-    scope: cosmosAccount.id
+    scope: '${cosmosAccount.id}/dbs/${cosmosDatabaseName}'
   }
 }
 

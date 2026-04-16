@@ -11,9 +11,6 @@ param location string
 @description('ACR SKU.')
 param acrSku string
 
-@description('Cosmos DB autoscale max throughput (RU/s).')
-param cosmosAutoscaleMaxThroughput int
-
 @description('Domain name for Azure DNS zone.')
 param domainName string
 
@@ -55,6 +52,11 @@ resource loadTestIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023
 
 resource healthModelIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: 'id-healthmodel-${baseName}'
+  location: location
+}
+
+resource ehCaptureIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+  name: 'id-eh-capture-${baseName}'
   location: location
 }
 
@@ -132,30 +134,14 @@ resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2025-04-15' = {
   }
 }
 
-// Autoscale throughput at the database level (closest to account-level autoscale)
-resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2025-04-15' = {
-  parent: cosmos
-  name: 'app-db'
-  properties: {
-    resource: {
-      id: 'app-db'
-    }
-    options: {
-      autoscaleSettings: {
-        maxThroughput: cosmosAutoscaleMaxThroughput
-      }
-    }
-  }
-}
-
-// Custom SQL role: Data Contributor + sqlDatabases/* (for CreateDatabaseIfNotExistsAsync)
-var cosmosAppRoleId = guid(cosmos.id, 'app-data-owner')
+// Custom SQL role: scoped data access (no database/container creation)
+var cosmosAppRoleId = guid(cosmos.id, 'app-data-readwrite')
 
 resource cosmosAppRole 'Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions@2025-04-15' = {
   parent: cosmos
   name: cosmosAppRoleId
   properties: {
-    roleName: 'App Data Owner'
+    roleName: 'App Data Read/Write'
     type: 'CustomRole'
     assignableScopes: [
       cosmos.id
@@ -164,9 +150,9 @@ resource cosmosAppRole 'Microsoft.DocumentDB/databaseAccounts/sqlRoleDefinitions
       {
         dataActions: [
           'Microsoft.DocumentDB/databaseAccounts/readMetadata'
-          'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/*'
-          'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/*'
           'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/items/*'
+          'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/executeQuery'
+          'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers/readChangeFeed'
         ]
       }
     ]
@@ -414,7 +400,10 @@ resource ehNamespace 'Microsoft.EventHub/namespaces@2025-05-01-preview' = {
     capacity: 1
   }
   identity: {
-    type: 'SystemAssigned'
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${ehCaptureIdentity.id}': {}
+    }
   }
   properties: {
     geoDataReplication: {
@@ -441,6 +430,10 @@ resource graphEventsHub 'Microsoft.EventHub/namespaces/eventhubs@2025-05-01-prev
       skipEmptyArchives: true
       destination: {
         name: 'EventHubArchive.AzureBlockBlob'
+        identity: {
+          type: 'UserAssigned'
+          userAssignedIdentity: ehCaptureIdentity.id
+        }
         properties: {
           storageAccountResourceId: ehCaptureStorage.id
           blobContainer: 'graph-events-archive'
@@ -451,14 +444,14 @@ resource graphEventsHub 'Microsoft.EventHub/namespaces/eventhubs@2025-05-01-prev
   }
 }
 
-// RBAC — Storage Blob Data Contributor for Capture (EH system identity → storage)
+// RBAC — Storage Blob Data Contributor for Capture (user-assigned identity → storage)
 var roles = loadJsonContent('roles.json')
 
 resource ehCaptureStorageRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
-  name: guid(ehCaptureStorage.id, ehNamespace.id, roles.storageBlobDataContributor)
+  name: guid(ehCaptureStorage.id, ehCaptureIdentity.id, roles.storageBlobDataContributor)
   scope: ehCaptureStorage
   properties: {
-    principalId: ehNamespace.identity.principalId
+    principalId: ehCaptureIdentity.properties.principalId
     roleDefinitionId: subscriptionResourceId(
       'Microsoft.Authorization/roleDefinitions',
       roles.storageBlobDataContributor
@@ -484,7 +477,6 @@ output appInsightsConnectionString string = appInsights.properties.ConnectionStr
 output appInsightsId string = appInsights.id
 output healthModelIdentityId string = healthModelIdentity.id
 output healthModelIdentityPrincipalId string = healthModelIdentity.properties.principalId
-output cosmosDatabaseName string = cosmosDatabase.name
 output cosmosAppRoleId string = cosmosAppRole.id
 output eventHubsNamespaceName string = ehNamespace.name
 output eventHubsNamespaceId string = ehNamespace.id

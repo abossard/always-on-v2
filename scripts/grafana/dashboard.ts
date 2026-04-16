@@ -127,6 +127,20 @@ export function buildAppDashboard(app: AppConfig, config: PlatformConfig): objec
       );
   }
 
+  // ── Orleans Cosmos DB (stamp-level clustering) ────────────────
+  if (app.usesOrleans) {
+    const orleansCosmosRow = new RowBuilder('🗄️ Orleans Cosmos (Clustering)').collapsed(true);
+    for (const stamp of config.stamps) {
+      if (stamp.cosmosOrleansAccount) {
+        orleansCosmosRow
+          .withPanel(panels.cosmosOrleansAvailabilityStat(config, stamp.cosmosOrleansAccount, stamp.resourceGroup, stamp.region))
+          .withPanel(panels.cosmosOrleansRUPanel(config, stamp.cosmosOrleansAccount, stamp.resourceGroup, stamp.region))
+          .withPanel(panels.cosmosOrleansThrottledPanel(config, stamp.cosmosOrleansAccount, stamp.resourceGroup, stamp.region));
+      }
+    }
+    builder = builder.withRow(orleansCosmosRow);
+  }
+
   // ── Queue Storage row (conditional) ───────────────────────────
   if (app.usesQueues) {
     builder = builder

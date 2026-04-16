@@ -6,19 +6,14 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Aspire.Azure.Storage.Queues" />
-    <PackageReference Include="Azure.Identity" />
-    <PackageReference Include="Microsoft.Orleans.Persistence.Cosmos" />
-    <PackageReference Include="Microsoft.Orleans.Sdk" />
-    <PackageReference Include="Microsoft.Orleans.Server" />
-    <PackageReference Include="Microsoft.Orleans.Streaming" />
-    <PackageReference Include="Microsoft.Orleans.Hosting.Kubernetes" />
-    <PackageReference Include="Microsoft.Orleans.Clustering.Cosmos" />
-    <PackageReference Include="Microsoft.Orleans.Dashboard" />
     <PackageReference Include="Aspire.Microsoft.Azure.Cosmos" />
     <PackageReference Include="Aspire.Azure.Messaging.EventHubs" />
+    <PackageReference Include="Microsoft.Orleans.Dashboard" />
+    <PackageReference Include="Microsoft.Orleans.Streaming" />
     <PackageReference Include="Microsoft.Orleans.Streaming.AzureStorage" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\GraphOrleons.ServiceDefaults\GraphOrleons.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\..\AlwaysOn.ServiceDefaults\AlwaysOn.ServiceDefaults.csproj" />
+    <ProjectReference Include="..\..\AlwaysOn.Orleans\AlwaysOn.Orleans.csproj" />
   </ItemGroup>
 </Project>

@@ -1,0 +1,14 @@
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="Azure.Identity" Version="1.20.0" />
+    <PackageVersion Include="Microsoft.Azure.Cosmos" Version="3.58.0" />
+    <PackageVersion Include="Microsoft.Orleans.Clustering.Cosmos" Version="10.0.1" />
+    <PackageVersion Include="Microsoft.Orleans.Hosting.Kubernetes" Version="10.0.1" />
+    <PackageVersion Include="Microsoft.Orleans.Persistence.Cosmos" Version="10.0.1" />
+    <PackageVersion Include="Microsoft.Orleans.Sdk" Version="10.0.1" />
+    <PackageVersion Include="Microsoft.Orleans.Server" Version="10.0.1" />
+  </ItemGroup>
+</Project>

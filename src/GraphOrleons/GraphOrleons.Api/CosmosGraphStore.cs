@@ -24,12 +24,11 @@ public sealed class CosmosGraphStore : IGraphStore
 
     public async Task InitializeAsync()
     {
-        var dbResponse = await _client.CreateDatabaseIfNotExistsAsync(_databaseName);
-        var db = dbResponse.Database;
+        var db = _client.GetDatabase(_databaseName);
+        _container = db.GetContainer(_containerName);
 
-        var containerProperties = new ContainerProperties(_containerName, ["/tenantId", "/modelId"]);
-        var containerResponse = await db.CreateContainerIfNotExistsAsync(containerProperties);
-        _container = containerResponse.Container;
+        // Verify the container is accessible
+        await _container.ReadContainerAsync();
 
         if (_logger.IsEnabled(LogLevel.Information))
         {

@@ -1,5 +1,6 @@
 using System.ClientModel;
 using System.ClientModel.Primitives;
+using AlwaysOn.Orleans;
 using Azure.AI.OpenAI;
 using Azure.Identity;
 using HelloAgents.Api;
@@ -11,56 +12,13 @@ using Orleans.Dashboard;
 var builder = WebApplication.CreateSlimBuilder(args);
 builder.WebHost.UseKestrelHttpsConfiguration();
 builder.AddServiceDefaults();
-builder.Host.ConfigureHostOptions(o => o.ShutdownTimeout = TimeSpan.FromSeconds(55));
 
-// Cosmos connection — crash early if missing
-var cosmosConnectionString = builder.Configuration.GetConnectionString("cosmos");
-if (string.IsNullOrEmpty(cosmosConnectionString))
+builder.AddAlwaysOnOrleans(silo =>
 {
-    throw new InvalidOperationException(
-        "ConnectionStrings:cosmos is required. Set via Aspire WithReference(cosmos) or env var ConnectionStrings__cosmos.");
-}
-
-// Single CosmosClient — Aspire handles emulator keys AND managed identity transparently.
-builder.AddAzureCosmosClient("cosmos", configureClientOptions: options =>
-{
-    if (cosmosConnectionString.Contains("AccountKey=C2y6yDjf5", StringComparison.Ordinal))
+    if (builder.Environment.IsDevelopment())
     {
-        options.ConnectionMode = Microsoft.Azure.Cosmos.ConnectionMode.Gateway;
-        options.LimitToEndpoint = true;
+        silo.AddDashboard();
     }
-});
-
-// Orleans silo with Cosmos persistence and Dashboard
-builder.Host.UseOrleans(silo =>
-{
-    var cosmosDb = builder.Configuration.GetSection(CosmosDbConfig.Section).Get<CosmosDbConfig>() ?? new();
-
-    silo.AddActivityPropagation();
-
-    var isKubernetes = !string.IsNullOrEmpty(Environment.GetEnvironmentVariable("KUBERNETES_SERVICE_HOST"));
-    if (isKubernetes)
-    {
-        silo.UseKubernetesHosting();
-    }
-
-    silo.AddCosmosGrainStorage("Default", o =>
-    {
-        o.DatabaseName = cosmosDb.DatabaseName;
-        o.ContainerName = cosmosDb.ContainerName;
-        o.IsResourceCreationEnabled = true;
-        o.ConfigureCosmosClient(sp => new ValueTask<Microsoft.Azure.Cosmos.CosmosClient>(sp.GetRequiredService<Microsoft.Azure.Cosmos.CosmosClient>()));
-    });
-
-    silo.UseCosmosClustering(o =>
-    {
-        o.DatabaseName = cosmosDb.DatabaseName;
-        o.ContainerName = cosmosDb.ClusterContainerName;
-        o.IsResourceCreationEnabled = true;
-        o.ConfigureCosmosClient(sp => new ValueTask<Microsoft.Azure.Cosmos.CosmosClient>(sp.GetRequiredService<Microsoft.Azure.Cosmos.CosmosClient>()));
-    });
-
-    silo.AddDashboard();
 
     // Streams
     var queueStorageConnection = builder.Configuration.GetConnectionString("queuestorage");
@@ -84,14 +42,6 @@ builder.Host.UseOrleans(silo =>
                 options.QueueServiceClient = new Azure.Storage.Queues.QueueServiceClient(queueStorageConnection);
             }
         });
-    });
-
-    silo.AddCosmosGrainStorage("PubSubStore", o =>
-    {
-        o.DatabaseName = cosmosDb.DatabaseName;
-        o.ContainerName = cosmosDb.ContainerName;
-        o.IsResourceCreationEnabled = true;
-        o.ConfigureCosmosClient(sp => new ValueTask<Microsoft.Azure.Cosmos.CosmosClient>(sp.GetRequiredService<Microsoft.Azure.Cosmos.CosmosClient>()));
     });
 });
 

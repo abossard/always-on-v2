@@ -28,14 +28,14 @@ spec:
       labels:
         app: helloorleons
         azure.workload.identity/use: "true"
-        orleans/serviceId: helloorleons-${STAMP_NAME}
+        orleans/serviceId: helloorleons
         orleans/clusterId: helloorleons-${STAMP_NAME}
     spec:
       terminationGracePeriodSeconds: 65
       serviceAccountName: ${HELLOORLEONS_SA_NAME}
       containers:
         - name: helloorleons
-          image: ${ACR_LOGIN_SERVER}/helloorleons:1776129424-b48957ff
+          image: ${ACR_LOGIN_SERVER}/helloorleons:1776217904-f20f7346
           ports:
             - containerPort: 8080
               name: http
@@ -64,14 +64,22 @@ spec:
               value: ${AI_SERVICES_ENDPOINT}
             - name: AI__ModelName
               value: ${AI_MODEL_GPT41}
-            - name: CosmosDb__DatabaseName
-              value: ${HELLOORLEONS_COSMOS_DATABASE}
-            - name: CosmosDb__ContainerName
-              value: ${HELLOORLEONS_COSMOS_CONTAINER}-${STAMP_NAME}
-            - name: CosmosDb__ClusterContainerName
-              value: ${HELLOORLEONS_COSMOS_CLUSTER_CONTAINER}-${STAMP_NAME}
-            - name: ConnectionStrings__cosmos
+            - name: AlwaysOn__Clustering__Endpoint
+              value: "AccountEndpoint=${ORLEANS_COSMOS_ENDPOINT}"
+            - name: AlwaysOn__GrainStorage__Endpoint
               value: "AccountEndpoint=${COSMOS_ENDPOINT}"
+            - name: ORLEANS_CLUSTER_ID
+              value: helloorleons-${STAMP_NAME}
+            - name: ORLEANS_SERVICE_ID
+              value: helloorleons
+            - name: AlwaysOn__GrainStorage__Database
+              value: ${HELLOORLEONS_COSMOS_DATABASE}
+            - name: AlwaysOn__GrainStorage__Container
+              value: ${HELLOORLEONS_COSMOS_CONTAINER}
+            - name: AlwaysOn__Clustering__Container
+              value: helloorleons-cluster
+            - name: AlwaysOn__Clustering__Database
+              value: ${ORLEANS_CLUSTER_DB}
           resizePolicy:
             - resourceName: cpu
               restartPolicy: NotRequired

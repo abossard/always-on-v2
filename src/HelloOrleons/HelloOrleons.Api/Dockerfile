@@ -3,14 +3,19 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0-noble AS build
 WORKDIR /src
 
 # Copy central package management + project files for layer caching
-COPY Directory.Packages.props .
-COPY HelloOrleons.Api/HelloOrleons.Api.csproj HelloOrleons.Api/
-COPY HelloOrleons.ServiceDefaults/HelloOrleons.ServiceDefaults.csproj HelloOrleons.ServiceDefaults/
-RUN dotnet restore HelloOrleons.Api/HelloOrleons.Api.csproj
+COPY HelloOrleons/Directory.Packages.props HelloOrleons/
+COPY AlwaysOn.ServiceDefaults/Directory.Packages.props AlwaysOn.ServiceDefaults/
+COPY AlwaysOn.Orleans/Directory.Packages.props AlwaysOn.Orleans/
+COPY AlwaysOn.ServiceDefaults/AlwaysOn.ServiceDefaults.csproj AlwaysOn.ServiceDefaults/
+COPY AlwaysOn.Orleans/AlwaysOn.Orleans.csproj AlwaysOn.Orleans/
+COPY HelloOrleons/HelloOrleons.Api/HelloOrleons.Api.csproj HelloOrleons/HelloOrleons.Api/
+RUN dotnet restore HelloOrleons/HelloOrleons.Api/HelloOrleons.Api.csproj
 
 # Copy source and publish
-COPY . .
-RUN dotnet publish HelloOrleons.Api/HelloOrleons.Api.csproj \
+COPY AlwaysOn.ServiceDefaults/ AlwaysOn.ServiceDefaults/
+COPY AlwaysOn.Orleans/ AlwaysOn.Orleans/
+COPY HelloOrleons/ HelloOrleons/
+RUN dotnet publish HelloOrleons/HelloOrleons.Api/HelloOrleons.Api.csproj \
     -c Release \
     -o /app \
     --no-restore

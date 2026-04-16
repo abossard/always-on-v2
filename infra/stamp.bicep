@@ -69,6 +69,7 @@ param devIdentities array = []
 // ============================================================================
 
 var stampName = '${regionKey}-${stampKey}'
+var salt = substring(uniqueString(subscription().id, baseName), 0, 6)
 
 // ── Node pool profiles ────────────────────────────────────────────────────────
 // System pool: D v5 series for Istio, Flux, kube-system (CriticalAddonsOnly taint)
@@ -413,6 +414,27 @@ resource graphOrleonsStorageQueueRbac 'Microsoft.Authorization/roleAssignments@2
     principalType: 'ServicePrincipal'
   }
 }
+// ============================================================================
+// Stamp-Level Cosmos DB for Orleans Clustering
+// ============================================================================
+
+var orleansPrincipalIds = filter(
+  map(appFluxVars, app => {
+    name: app.name
+    principalId: app.?identityPrincipalId ?? ''
+  }),
+  identity => !empty(identity.principalId)
+)
+
+module stampCosmos 'stamp-cosmos.bicep' = {
+  name: 'deploy-stamp-cosmos-${stampName}'
+  params: {
+    baseName: baseName
+    location: location
+    appIdentities: orleansPrincipalIds
+  }
+}
+
 var githubSshKnownHosts = 'Z2l0aHViLmNvbSBlY2RzYS1zaGEyLW5pc3RwMjU2IEFBQUFFMlZqWkhOaExYTm9ZVEl0Ym1semRIQXlOVFlBQUFBSWJtbHpkSEF5TlRZQUFBQkJCRW1LU0VOalFFZXpPbXhrWk15N29wS2d3RkI5bmt0NVlScllNak51RzVOODd1UmdnNkNMcmJvNXdBZFQveTZ2MG1LVjBVMncwV1oyWUIvKytUcG9ja2c9'
 
 // Shared vars (available to all apps)
@@ -437,6 +459,8 @@ var sharedFluxVars = {
   AI_MODEL_GPT41: length(aiModelDeployments) > 0 ? aiModelDeployments[0] : ''
   AI_MODEL_GPT41_MINI: length(aiModelDeployments) > 1 ? aiModelDeployments[1] : ''
   AI_MODEL_GPT54: length(aiModelDeployments) > 2 ? aiModelDeployments[2] : ''
+  ORLEANS_COSMOS_ENDPOINT: stampCosmos.outputs.cosmosEndpoint
+  ORLEANS_CLUSTER_DB: 'orleans'
 }
 
 // Per-app vars — prefixed with uppercase app name
@@ -448,7 +472,7 @@ var helloOrleonsFluxVars = length(appFluxVars) > 0 && appFluxVars[0].name == 'he
   HELLOORLEONS_IDENTITY_ID: appFluxVars[0].identityId
   HELLOORLEONS_COSMOS_DATABASE: appFluxVars[0].cosmosDatabase
   HELLOORLEONS_COSMOS_CONTAINER: appFluxVars[0].cosmosContainer
-  HELLOORLEONS_COSMOS_CLUSTER_CONTAINER: appFluxVars[0].cosmosClusterContainer
+  HELLOORLEONS_ORLEANS_CLUSTER_CONTAINER: stampCosmos.outputs.containerNames[0]
   HELLOORLEONS_DNS_LABEL: 'helloorleons-${stampName}'
   HELLOORLEONS_GATEWAY_HOSTNAME: 'helloorleons-${stampName}.${dnsZoneName}'
 } : {}
@@ -471,7 +495,7 @@ var helloAgentsFluxVars = length(appFluxVars) > 2 && appFluxVars[2].name == 'hel
   HELLOAGENTS_IDENTITY_ID: appFluxVars[2].identityId
   HELLOAGENTS_COSMOS_DATABASE: appFluxVars[2].cosmosDatabase
   HELLOAGENTS_COSMOS_CONTAINER: appFluxVars[2].cosmosContainer
-  HELLOAGENTS_COSMOS_CLUSTER_CONTAINER: appFluxVars[2].cosmosClusterContainer
+  HELLOAGENTS_ORLEANS_CLUSTER_CONTAINER: stampCosmos.outputs.containerNames[3]
   HELLOAGENTS_STORAGE_QUEUE_ENDPOINT: helloAgentsStorage.properties.primaryEndpoints.queue
   HELLOAGENTS_DNS_LABEL: 'helloagents-${stampName}'
   HELLOAGENTS_GATEWAY_HOSTNAME: 'helloagents-${stampName}.${dnsZoneName}'
@@ -484,6 +508,8 @@ var graphorleonsFluxVars = length(appFluxVars) > 3 && appFluxVars[3].name == 'gr
   GRAPHORLEONS_IDENTITY_ID: appFluxVars[3].identityId
   GRAPHORLEONS_COSMOS_DATABASE: appFluxVars[3].cosmosDatabase
   GRAPHORLEONS_COSMOS_CONTAINER: appFluxVars[3].cosmosContainer
+  GRAPHORLEONS_ORLEANS_CLUSTER_CONTAINER: stampCosmos.outputs.containerNames[1]
+  GRAPHORLEONS_ORLEANS_PUBSUB_CONTAINER: stampCosmos.outputs.containerNames[2]
   GRAPHORLEONS_COSMOS_MODELS_CONTAINER: appFluxVars[3].cosmosModelsContainer
   GRAPHORLEONS_EVENTHUB_ENDPOINT: appFluxVars[3].eventHubEndpoint
   GRAPHORLEONS_STORAGE_QUEUE_ENDPOINT: graphOrleonsStorage.properties.primaryEndpoints.queue
@@ -677,4 +703,5 @@ output stampName string = stampName
 output gatewayHostname string = 'app-${stampName}.${dnsZoneName}'
 output fluxSshPublicKey string = fluxConfig.properties.repositoryPublicKey
 output helloAgentsStorageId string = helloAgentsStorage.id
+output stampCosmosAccountId string = stampCosmos.outputs.cosmosId
 output chaosIdentityPrincipalId string = chaosIdentity.properties.principalId

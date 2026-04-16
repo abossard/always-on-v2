@@ -496,6 +496,35 @@ export function fdLatencyPanel(subdomain: string, config: PlatformConfig): Times
 
 // ── Cosmos DB panels ────────────────────────────────────────────────
 
+function azureStampMonitorTarget(
+  refId: string,
+  config: PlatformConfig,
+  metricNs: string,
+  metricName: string,
+  aggregation: string,
+  resourceName: string,
+  resourceGroup: string,
+  dimensions: AzureMetricDimensionBuilder[],
+): AzureMonitorQueryBuilder {
+  return new AzureMonitorQueryBuilder()
+    .queryType(AzureQueryType.AzureMonitor)
+    .refId(refId)
+    .subscription(config.subscription)
+    .azureMonitor(
+      azureMetricQuery(
+        metricNs,
+        metricName,
+        aggregation,
+        dimensions,
+        new AzureMonitorResourceBuilder()
+          .subscription(config.subscription)
+          .resourceGroup(resourceGroup)
+          .resourceName(resourceName)
+          .metricNamespace(metricNs),
+      ),
+    );
+}
+
 export function cosmosAvailabilityStat(config: PlatformConfig, dbName: string): StatPanelBuilder {
   return new StatPanelBuilder()
     .title('Cosmos Availability %')
@@ -565,6 +594,64 @@ export function cosmosThrottledPanel(config: PlatformConfig, dbName: string): Ti
         'A', config,
         'microsoft.documentdb/databaseaccounts', 'TotalRequests', 'Count',
         config.resources.cosmosAccount,
+        [],
+      ),
+    )
+    .span(8)
+    .height(8);
+}
+
+// ── Stamp Cosmos DB panels (Orleans clustering) ─────────────────────
+
+export function cosmosOrleansAvailabilityStat(config: PlatformConfig, cosmosAccount: string, resourceGroup: string, region: string): StatPanelBuilder {
+  return new StatPanelBuilder()
+    .title(`Orleans Cosmos Availability % — ${region}`)
+    .datasource(AZURE_DS)
+    .unit('percent')
+    .thresholds(availabilityThresholds())
+    .colorMode(common.BigValueColorMode.Background)
+    .graphMode(common.BigValueGraphMode.None)
+    .reduceOptions(new common.ReduceDataOptionsBuilder().calcs(['lastNotNull']).values(false))
+    .withTarget(
+      azureStampMonitorTarget(
+        'A', config,
+        'microsoft.documentdb/databaseaccounts', 'ServiceAvailability', 'Average',
+        cosmosAccount, resourceGroup,
+        [],
+      ),
+    )
+    .span(8)
+    .height(4);
+}
+
+export function cosmosOrleansRUPanel(config: PlatformConfig, cosmosAccount: string, resourceGroup: string, region: string): TimeseriesPanelBuilder {
+  return defaultTimeseries()
+    .title(`Orleans Cosmos Normalized RU % — ${region}`)
+    .datasource(AZURE_DS)
+    .unit('percent')
+    .thresholds(defaultThresholds())
+    .withTarget(
+      azureStampMonitorTarget(
+        'A', config,
+        'microsoft.documentdb/databaseaccounts', 'NormalizedRUConsumption', 'Maximum',
+        cosmosAccount, resourceGroup,
+        [],
+      ),
+    )
+    .span(8)
+    .height(8);
+}
+
+export function cosmosOrleansThrottledPanel(config: PlatformConfig, cosmosAccount: string, resourceGroup: string, region: string): TimeseriesPanelBuilder {
+  return defaultTimeseries()
+    .title(`Orleans Cosmos Throttled (429) — ${region}`)
+    .datasource(AZURE_DS)
+    .thresholds(defaultThresholds())
+    .withTarget(
+      azureStampMonitorTarget(
+        'A', config,
+        'microsoft.documentdb/databaseaccounts', 'TotalRequests', 'Count',
+        cosmosAccount, resourceGroup,
         [],
       ),
     )

@@ -28,14 +28,14 @@ spec:
       labels:
         app: helloagents
         azure.workload.identity/use: "true"
-        orleans/serviceId: helloagents-${STAMP_NAME}
+        orleans/serviceId: helloagents
         orleans/clusterId: helloagents-${STAMP_NAME}
     spec:
       terminationGracePeriodSeconds: 65
       serviceAccountName: ${HELLOAGENTS_SA_NAME}
       containers:
         - name: helloagents
-          image: ${ACR_LOGIN_SERVER}/helloagents:1776100913-4065e25c
+          image: ${ACR_LOGIN_SERVER}/helloagents:1776217993-f20f7346
           ports:
             - containerPort: 8080
               name: http
@@ -64,16 +64,30 @@ spec:
               value: ${AI_SERVICES_ENDPOINT}
             - name: AZURE_OPENAI_DEPLOYMENT_NAME
               value: ${AI_MODEL_GPT41_MINI}
+            - name: AlwaysOn__Clustering__Endpoint
+              value: "AccountEndpoint=${ORLEANS_COSMOS_ENDPOINT}"
+            - name: AlwaysOn__GrainStorage__Endpoint
+              value: "AccountEndpoint=${COSMOS_ENDPOINT}"
+            - name: ORLEANS_CLUSTER_ID
+              value: helloagents-${STAMP_NAME}
+            - name: ORLEANS_SERVICE_ID
+              value: helloagents
             - name: Storage__Provider
               value: "CosmosDb"
             - name: CosmosDb__DatabaseName
               value: ${HELLOAGENTS_COSMOS_DATABASE}
             - name: CosmosDb__ContainerName
-              value: ${HELLOAGENTS_COSMOS_CONTAINER}-${STAMP_NAME}
-            - name: CosmosDb__ClusterContainerName
-              value: ${HELLOAGENTS_COSMOS_CLUSTER_CONTAINER}-${STAMP_NAME}
-            - name: ConnectionStrings__cosmos
-              value: "AccountEndpoint=${COSMOS_ENDPOINT}"
+              value: ${HELLOAGENTS_COSMOS_CONTAINER}
+            - name: AlwaysOn__GrainStorage__Database
+              value: ${HELLOAGENTS_COSMOS_DATABASE}
+            - name: AlwaysOn__GrainStorage__Container
+              value: ${HELLOAGENTS_COSMOS_CONTAINER}
+            - name: AlwaysOn__Clustering__Container
+              value: helloagents-cluster
+            - name: AlwaysOn__Clustering__Database
+              value: ${ORLEANS_CLUSTER_DB}
+            - name: AlwaysOn__PubSub__Container
+              value: ${HELLOAGENTS_COSMOS_CONTAINER}
             - name: ConnectionStrings__queuestorage
               value: ${HELLOAGENTS_STORAGE_QUEUE_ENDPOINT}
           resizePolicy:
@@ -131,7 +145,7 @@ spec:
     spec:
       containers:
         - name: helloagents-web
-          image: ${ACR_LOGIN_SERVER}/helloagents-web:1776100913-4065e25c
+          image: ${ACR_LOGIN_SERVER}/helloagents-web:1776217993-f20f7346
           ports:
             - containerPort: 8080
           env:

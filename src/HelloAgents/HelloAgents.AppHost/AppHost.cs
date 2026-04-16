@@ -25,6 +25,17 @@ var api = builder.AddProject<Projects.HelloAgents_Api>(ResourceNames.Api)
     .WaitFor(cosmos)
     .WaitFor(storage)
     .WithExternalHttpEndpoints()
+    .WithEnvironment(ctx =>
+    {
+        var connStr = cosmos.Resource.ConnectionStringExpression;
+        ctx.EnvironmentVariables["AlwaysOn__GrainStorage__Endpoint"] = connStr;
+        ctx.EnvironmentVariables["AlwaysOn__Clustering__Endpoint"] = connStr;
+    })
+    .WithEnvironment("AlwaysOn__GrainStorage__Database", ResourceNames.Database)
+    .WithEnvironment("AlwaysOn__GrainStorage__Container", ResourceNames.Container)
+    .WithEnvironment("AlwaysOn__Clustering__Database", ResourceNames.Database)
+    .WithEnvironment("AlwaysOn__Clustering__Container", ResourceNames.ClusterContainer)
+    .WithEnvironment("AlwaysOn__PubSub__Container", ResourceNames.Container)
     .WithEnvironment("Storage__Provider", "CosmosDb")
     .WithEnvironment("CosmosDb__DatabaseName", ResourceNames.Database)
     .WithEnvironment("CosmosDb__ContainerName", ResourceNames.Container)

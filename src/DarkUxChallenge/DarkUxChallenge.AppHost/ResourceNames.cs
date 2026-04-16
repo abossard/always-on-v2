@@ -7,8 +7,8 @@ namespace DarkUxChallenge.AppHost;
 public static class ResourceNames
 {
     public const string CosmosDb = "cosmos";
-    public const string Database = "darkuxchallenge";
-    public const string Container = "users";
+    public const string Database = "darkux";
+    public const string Container = "darkux-users";
     public const string PartitionKey = "/userId";
 
     public const string Api = "api";

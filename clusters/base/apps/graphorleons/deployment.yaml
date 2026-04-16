@@ -28,14 +28,14 @@ spec:
       labels:
         app: graphorleons
         azure.workload.identity/use: "true"
-        orleans/serviceId: graphorleons-${STAMP_NAME}
+        orleans/serviceId: graphorleons
         orleans/clusterId: graphorleons-${STAMP_NAME}
     spec:
       terminationGracePeriodSeconds: 65
       serviceAccountName: ${GRAPHORLEONS_SA_NAME}
       containers:
         - name: graphorleons
-          image: ${ACR_LOGIN_SERVER}/graphorleons:1776146766-3ad9f992
+          image: ${ACR_LOGIN_SERVER}/graphorleons:1776208009-b4e26cfb
           ports:
             - containerPort: 8080
               name: http
@@ -60,14 +60,30 @@ spec:
               value: "parentbased_traceidratio"
             - name: OTEL_TRACES_SAMPLER_ARG
               value: "0.01"
-            - name: CosmosDb__ClusterContainerName
-              value: ${GRAPHORLEONS_COSMOS_CONTAINER}-${STAMP_NAME}
-            - name: CosmosDb__PubSubContainerName
-              value: graphorleans-pubsub-${STAMP_NAME}
-            - name: CosmosDb__GrainStateContainerName
-              value: graphorleans-grainstate
+            - name: ConnectionStrings__orleans-cosmos
+              value: "AccountEndpoint=${ORLEANS_COSMOS_ENDPOINT}"
             - name: ConnectionStrings__cosmos
               value: "AccountEndpoint=${COSMOS_ENDPOINT}"
+            - name: AlwaysOn__GrainStorage__Endpoint
+              value: "AccountEndpoint=${COSMOS_ENDPOINT}"
+            - name: ORLEANS_CLUSTER_ID
+              value: graphorleons-${STAMP_NAME}
+            - name: ORLEANS_SERVICE_ID
+              value: graphorleons
+            - name: AlwaysOn__GrainStorage__Database
+              value: ${GRAPHORLEONS_COSMOS_DATABASE}
+            - name: AlwaysOn__GrainStorage__Container
+              value: graphorleons-grainstate
+            - name: AlwaysOn__GrainStorage__Name
+              value: GrainState
+            - name: AlwaysOn__Clustering__Endpoint
+              value: "AccountEndpoint=${ORLEANS_COSMOS_ENDPOINT}"
+            - name: AlwaysOn__Clustering__Container
+              value: graphorleons-cluster
+            - name: AlwaysOn__Clustering__Database
+              value: ${ORLEANS_CLUSTER_DB}
+            - name: AlwaysOn__PubSub__Container
+              value: graphorleons-pubsub
             - name: CosmosDb__ModelsContainerName
               value: graphorleons-models
             - name: ConnectionStrings__graphorleons-events
@@ -129,7 +145,7 @@ spec:
     spec:
       containers:
         - name: graphorleons-web
-          image: ${ACR_LOGIN_SERVER}/graphorleons-web:1776146766-3ad9f992
+          image: ${ACR_LOGIN_SERVER}/graphorleons-web:1776208009-b4e26cfb
           ports:
             - containerPort: 8080
           env:
