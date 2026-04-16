@@ -221,7 +221,7 @@ function buildLatencyEntities(): StampEntitySpec[] {
       category: 'latency',
       bindingType: 'azureResource',
       resourceIdExpr: 'stamp.stampCosmosAccountId',
-      signals: ['cosmos-normalized-ru', 'cosmos-throttled'],
+      signals: ['cosmos-throttled'],
     },
     {
       key: 'prom-latency',

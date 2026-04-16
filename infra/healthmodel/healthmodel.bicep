@@ -529,7 +529,7 @@ resource def_cosmos_throttled 'Microsoft.CloudHealth/healthmodels/signaldefiniti
   name: guid(name, 'def-cosmos-throttled')
   properties: {
     signalKind: 'AzureResourceMetric'
-    displayName: 'Cosmos Throttled'
+    displayName: 'Cosmos Throttled (429)'
     refreshInterval: 'PT1M'
     dataUnit: 'Count'
     evaluationRules: {
@@ -544,10 +544,10 @@ resource def_cosmos_throttled 'Microsoft.CloudHealth/healthmodels/signaldefiniti
     }
     metricNamespace: 'microsoft.documentdb/databaseaccounts'
     metricName: 'TotalRequests'
-    timeGrain: 'P1D'
+    timeGrain: 'PT5M'
     aggregationType: 'Count'
-    dimension: 'Status'
-    dimensionFilter: 'ClientThrottlingError'
+    dimension: 'StatusCode'
+    dimensionFilter: '429'
   }
 }
 
@@ -1082,58 +1082,6 @@ resource def_eventhubs_event_hub_capture_backlog 'Microsoft.CloudHealth/healthmo
     metricName: 'CaptureBacklog'
     timeGrain: 'PT5M'
     aggregationType: 'Average'
-  }
-}
-
-#disable-next-line BCP081
-resource def_eventhubs_event_hub_captured_messages 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesEventHubs) {
-  parent: hm
-  name: guid(name, 'def-eventhubs-event-hub-captured-messages')
-  properties: {
-    signalKind: 'AzureResourceMetric'
-    displayName: 'Event Hub Captured Messages'
-    refreshInterval: 'PT5M'
-    dataUnit: 'Count'
-    evaluationRules: {
-      degradedRule: {
-        operator: 'LessThan'
-        threshold: json('1')
-      }
-      unhealthyRule: {
-        operator: 'LessThan'
-        threshold: json('0')
-      }
-    }
-    metricNamespace: 'microsoft.eventhub/namespaces'
-    metricName: 'CapturedMessages'
-    timeGrain: 'PT5M'
-    aggregationType: 'Total'
-  }
-}
-
-#disable-next-line BCP081
-resource def_eventhubs_event_hub_captured_bytes 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesEventHubs) {
-  parent: hm
-  name: guid(name, 'def-eventhubs-event-hub-captured-bytes')
-  properties: {
-    signalKind: 'AzureResourceMetric'
-    displayName: 'Event Hub Captured Bytes'
-    refreshInterval: 'PT5M'
-    dataUnit: 'Bytes'
-    evaluationRules: {
-      degradedRule: {
-        operator: 'LessThan'
-        threshold: json('1')
-      }
-      unhealthyRule: {
-        operator: 'LessThan'
-        threshold: json('0')
-      }
-    }
-    metricNamespace: 'microsoft.eventhub/namespaces'
-    metricName: 'CapturedBytes'
-    timeGrain: 'PT5M'
-    aggregationType: 'Total'
   }
 }
 
@@ -1742,12 +1690,6 @@ resource stamp_cosmos_orleans_latency 'Microsoft.CloudHealth/healthmodels/entiti
           signals: [
             {
               signalKind: 'AzureResourceMetric'
-              name: guid(name, stamp.key, 'cosmos-normalized-ru')
-              signalDefinitionName: def_cosmos_normalized_ru.name
-              refreshInterval: 'PT1M'
-            }
-            {
-              signalKind: 'AzureResourceMetric'
               name: guid(name, stamp.key, 'cosmos-throttled')
               signalDefinitionName: def_cosmos_throttled.name
               refreshInterval: 'PT1M'
@@ -2101,18 +2043,6 @@ resource eventhubsEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01
             signalKind: 'AzureResourceMetric'
             name: guid(name, 'eventhubs-event-hub-capture-backlog')
             signalDefinitionName: def_eventhubs_event_hub_capture_backlog.name
-            refreshInterval: 'PT5M'
-          }
-          {
-            signalKind: 'AzureResourceMetric'
-            name: guid(name, 'eventhubs-event-hub-captured-messages')
-            signalDefinitionName: def_eventhubs_event_hub_captured_messages.name
-            refreshInterval: 'PT5M'
-          }
-          {
-            signalKind: 'AzureResourceMetric'
-            name: guid(name, 'eventhubs-event-hub-captured-bytes')
-            signalDefinitionName: def_eventhubs_event_hub_captured_bytes.name
             refreshInterval: 'PT5M'
           }
           {

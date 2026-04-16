@@ -19,15 +19,15 @@
 
 ```mermaid
 graph TB
-    Users((Users)) --> FD[Azure Front Door<br/>fd-alwayson]
+    Users((Users)) -->|SSE live push| FD[Azure Front Door<br/>fd-alwayson]
 
     FD --> CUS[Stamp: centralus<br/>aks-alwayson-centralus-001]
     FD --> SEC[Stamp: swedencentral<br/>aks-alwayson-swedencentral-001]
 
     subgraph CUS_APPS[Central US Stamp]
         CUS --> HO1[HelloOrleons]
-        CUS --> HA1[HelloAgents]
-        CUS --> GO1[GraphOrleons]
+        CUS --> HA1[HelloAgents<br/>SSE live chat]
+        CUS --> GO1[GraphOrleons<br/>SSE live graph]
         CUS --> DX1[DarkUxChallenge]
         HO1 & HA1 & GO1 --> COSMOS_CUS[(Cosmos DB Stamp<br/>cosmos-orl-alwayson-centralus<br/>clustering only)]
         HA1 --> QS_CUS_HA[(Queue Storage<br/>sthaalwaysoncentra<br/>ChatMessages streams)]
@@ -36,8 +36,8 @@ graph TB
 
     subgraph SEC_APPS[Sweden Central Stamp]
         SEC --> HO2[HelloOrleons]
-        SEC --> HA2[HelloAgents]
-        SEC --> GO2[GraphOrleons]
+        SEC --> HA2[HelloAgents<br/>SSE live chat]
+        SEC --> GO2[GraphOrleons<br/>SSE live graph]
         SEC --> DX2[DarkUxChallenge]
         HO2 & HA2 & GO2 --> COSMOS_SEC[(Cosmos DB Stamp<br/>cosmos-orl-alwayson-swedencentral<br/>clustering only)]
         HA2 --> QS_SEC_HA[(Queue Storage<br/>sthaalwaysonsweden<br/>ChatMessages streams)]
@@ -57,12 +57,12 @@ graph TB
     GO1 & GO2 --> EH
     CUS_APPS & SEC_APPS -.->|pull images| ACR
 
-    style GLOBAL fill:#E6D0F5,stroke:#7B3FA0,color:#4A1A6B
-    style COSMOS_GLOBAL fill:#D4B8E8,stroke:#7B3FA0
-    style EH fill:#D4B8E8,stroke:#7B3FA0
-    style CAPTURE fill:#D4B8E8,stroke:#7B3FA0
-    style ACR fill:#D4B8E8,stroke:#7B3FA0
-    style AI fill:#D4B8E8,stroke:#7B3FA0
+    style GLOBAL fill:#4A1A6B,stroke:#2D0E42,color:#FFFFFF
+    style COSMOS_GLOBAL fill:#4A1A6B,stroke:#7B3FA0,color:#FFFFFF
+    style EH fill:#4A1A6B,stroke:#7B3FA0,color:#FFFFFF
+    style CAPTURE fill:#4A1A6B,stroke:#7B3FA0,color:#FFFFFF
+    style ACR fill:#4A1A6B,stroke:#7B3FA0,color:#FFFFFF
+    style AI fill:#4A1A6B,stroke:#7B3FA0,color:#FFFFFF
 ```
 
 ---
@@ -71,72 +71,104 @@ graph TB
 
 ### HelloAgents
 
-> [Architecture diagram (DrawIO)](diagrams/helloagents-architecture.drawio)
+> Source: [`src/HelloAgents/`](../src/HelloAgents/) · Live: [agents.alwayson.actor](https://agents.alwayson.actor)
 
-| Component | Detail |
-|-----------|--------|
-| **Grains** | `AgentGrain` (persona, groups) · `ChatGroupGrain` (messages) · `LlmIntentGrain` (fire-and-forget LLM) · `AgentRegistryGrain` · `GroupRegistryGrain` |
-| **Grain State** | Global Cosmos: `cosmos-alwayson-a2nyh4` → `helloagents` / `helloagents-storage` |
-| **Clustering** | Stamp Cosmos: `cosmos-orl-alwayson-{region}` → `helloagents-cluster` |
-| **Streaming** | `AzureQueueStreams("ChatMessages")` → Queue Storage (`sthaalwayson{region}`) |
-| **AI** | Azure OpenAI (`ai-svc-alwayson`) — chat completions via `LlmIntentGrain` |
-| **Frontend** | Next.js SPA → `NEXT_PUBLIC_API_URL` |
-| **Pods** | 2× silo (`:8080` + `:11111`) + 2× web |
+```mermaid
+graph LR
+    subgraph K8s[AKS Namespace: helloagents]
+        WEB[Web Pod ×2<br/>Next.js<br/>SSE live push] -->|API calls| SILO[Silo Pod ×2<br/>:8080 · :11111]
+    end
+
+    subgraph Grains
+        SILO --> AG[AgentGrain<br/>persona · groups]
+        SILO --> CG[ChatGroupGrain<br/>messages · agents]
+        SILO --> LI[LlmIntentGrain<br/>fire-and-forget LLM]
+        SILO --> AR[AgentRegistryGrain<br/>singleton]
+        SILO --> GR[GroupRegistryGrain<br/>singleton]
+    end
+
+    LI -->|chat completions| OAI[Azure OpenAI<br/>ai-svc-alwayson]
+    AG & CG & LI & AR & GR -->|grain state| GC[(🟣 Cosmos Global<br/>cosmos-alwayson-a2nyh4<br/>helloagents-storage)]
+    SILO -->|clustering| SC[(Cosmos Stamp<br/>cosmos-orl-alwayson-region<br/>helloagents-cluster)]
+    SILO -->|ChatMessages stream| QS[(Queue Storage<br/>sthaalwayson-region<br/>chatmessages-0..7)]
+
+    style GC fill:#4A1A6B,stroke:#7B3FA0,color:#fff
+    style OAI fill:#4A1A6B,stroke:#7B3FA0,color:#fff
+```
+
+| Component | Detail | Source |
+|-----------|--------|--------|
+| **Grains** | `AgentGrain` · `ChatGroupGrain` · `LlmIntentGrain` · `AgentRegistryGrain` · `GroupRegistryGrain` | [`Grains/`](../src/HelloAgents/HelloAgents.Api/Grains/) · [`Domain.cs`](../src/HelloAgents/HelloAgents.Api/Domain.cs) |
+| **Grain State** | 🟣 Global Cosmos → `helloagents` / `helloagents-storage` | [`Config.cs:15`](../src/HelloAgents/HelloAgents.Api/Config.cs) |
+| **Clustering** | Stamp Cosmos → `helloagents-cluster` | [`Config.cs:16`](../src/HelloAgents/HelloAgents.Api/Config.cs) |
+| **Streaming** | `AzureQueueStreams("ChatMessages")` → Queue Storage | [`Program.cs:31`](../src/HelloAgents/HelloAgents.Api/Program.cs) |
+| **AI** | 🟣 Azure OpenAI via `LlmIntentGrain` streaming | [`LlmIntentGrain.cs:237`](../src/HelloAgents/HelloAgents.Api/Grains/LlmIntentGrain.cs) |
+| **SSE** | `/api/groups/{id}/stream` — `text/event-stream` live push | [`Endpoints.cs:212`](../src/HelloAgents/HelloAgents.Api/Endpoints.cs) |
+| **Frontend** | Next.js SPA · port 4200 locally | [`HelloAgents.Web/`](../src/HelloAgents/HelloAgents.Web/) |
+| **Pods** | 2× silo (`:8080` + `:11111`) + 2× web | [`clusters/base/apps/helloagents/`](../clusters/base/apps/helloagents/) |
 
 ### GraphOrleons
 
-> [Architecture diagram (DrawIO)](diagrams/graphorleons-architecture.drawio)
+> Source: [`src/GraphOrleons/`](../src/GraphOrleons/) · Live: [events.alwayson.actor](https://events.alwayson.actor)
 
-| Component | Detail |
-|-----------|--------|
-| **Grains** | `TenantGrain` (models) · `ComponentGrain` (properties, periodic flush) · `ModelGrain` (FSM graph state) · `TenantRegistryGrain` |
-| **Grain State** | Global Cosmos: `cosmos-alwayson-a2nyh4` → `graphorleons` / `graphorleons-grainstate` |
-| **Models Store** | Global Cosmos: `cosmos-alwayson-a2nyh4` → `graphorleons` / `graphorleons-models` (partition: `/tenantId`) |
-| **Clustering** | Stamp Cosmos: `cosmos-orl-alwayson-{region}` → `graphorleons-cluster` + `graphorleons-pubsub` |
-| **Streaming** | `AzureQueueStreams("ComponentUpdates")` → Queue Storage (`tenant-stream-{0..3}`) |
-| **Event Archival** | `EventHubEventArchive` → Event Hub `eh-alwayson/graph-events` (4 partitions) |
-| **Capture** | Event Hub Capture → Blob `stadlsehalwayson/graph-events-archive` (Avro, 5min/300MB, UserAssigned MI) |
-| **Frontend** | Vite React SPA → `VITE_API_URL` |
-| **Pods** | 2× silo + 2× web |
+```mermaid
+graph LR
+    subgraph K8s[AKS Namespace: graphorleons]
+        WEB[Web Pod ×2<br/>Vite React<br/>SSE live push] -->|API calls| SILO[Silo Pod ×2<br/>:8080 · :11111]
+    end
+
+    subgraph Grains
+        SILO --> TG[TenantGrain<br/>models · activeModelId]
+        SILO --> CG[ComponentGrain<br/>properties · periodic flush]
+        SILO --> MG[ModelGrain<br/>FSM graph state]
+        SILO --> TR[TenantRegistryGrain<br/>singleton]
+    end
+
+    TG & CG & MG & TR -->|grain state| GC[(🟣 Cosmos Global<br/>cosmos-alwayson-a2nyh4<br/>graphorleons-grainstate)]
+    MG -->|model docs| MC[(🟣 Cosmos Global<br/>graphorleons-models<br/>partition: /tenantId)]
+    SILO -->|clustering + pubsub| SC[(Cosmos Stamp<br/>cosmos-orl-alwayson-region<br/>cluster · pubsub)]
+    SILO -->|ComponentUpdates stream| QS[(Queue Storage<br/>sthaalwayson-region<br/>tenant-stream-0..3)]
+    SILO -->|event archival| EH[🟣 Event Hub<br/>eh-alwayson/graph-events<br/>4 partitions]
+    EH -->|Avro capture| BL[🟣 Blob Storage<br/>stadlsehalwayson<br/>graph-events-archive]
+
+    style GC fill:#4A1A6B,stroke:#7B3FA0,color:#fff
+    style MC fill:#4A1A6B,stroke:#7B3FA0,color:#fff
+    style EH fill:#4A1A6B,stroke:#7B3FA0,color:#fff
+    style BL fill:#4A1A6B,stroke:#7B3FA0,color:#fff
+```
+
+| Component | Detail | Source |
+|-----------|--------|--------|
+| **Grains** | `TenantGrain` · `ComponentGrain` (periodic flush) · `ModelGrain` (FSM) · `TenantRegistryGrain` | [`GraphOrleons.Api/`](../src/GraphOrleons/GraphOrleons.Api/) |
+| **Grain State** | 🟣 Global Cosmos → `graphorleons` / `graphorleons-grainstate` | [`ResourceNames.cs`](../src/GraphOrleons/GraphOrleons.AppHost/ResourceNames.cs) |
+| **Models Store** | 🟣 Global Cosmos → `graphorleons-models` (partition: `/tenantId`) | [`AppHost.cs:14`](../src/GraphOrleons/GraphOrleons.AppHost/AppHost.cs) |
+| **Clustering** | Stamp Cosmos → `graphorleons-cluster` + `graphorleons-pubsub` | [`ResourceNames.cs`](../src/GraphOrleons/GraphOrleons.AppHost/ResourceNames.cs) |
+| **Streaming** | `AzureQueueStreams("ComponentUpdates")` → `tenant-stream-{0..3}` | [`Program.cs:49,62`](../src/GraphOrleons/GraphOrleons.Api/Program.cs) · [`Domain.cs:111`](../src/GraphOrleons/GraphOrleons.Api/Domain.cs) |
+| **Event Archival** | 🟣 `EventHubEventArchive` → `eh-alwayson/graph-events` | [`EventHubEventArchive.cs`](../src/GraphOrleons/GraphOrleons.Api/EventHubEventArchive.cs) |
+| **Capture** | 🟣 Avro → Blob `stadlsehalwayson/graph-events-archive` (UserAssigned MI) | `az eventhubs eventhub show --namespace-name eh-alwayson -g rg-alwayson-global -n graph-events --query captureDescription` |
+| **SSE** | `/api/tenants/{tenantId}/stream` — `text/event-stream` live push | [`Endpoints.cs:110`](../src/GraphOrleons/GraphOrleons.Api/Endpoints.cs) |
+| **FSM** | `ModelStateMachine.Apply()` — pure function state transitions | [`ModelStateMachine.cs`](../src/GraphOrleons/GraphOrleons.Api/ModelStateMachine.cs) |
+| **Frontend** | Vite React SPA · port 4300 locally | [`GraphOrleons.Web/`](../src/GraphOrleons/GraphOrleons.Web/) |
+| **Pods** | 2× silo + 2× web | [`clusters/base/apps/graphorleons/`](../clusters/base/apps/graphorleons/) |
 
 ---
 
 ## ADR Overview
 
-> Full ADRs: [`docs/adr/`](adr/)
+> Full ADRs: [`docs/adr/`](adr/) (excerpt)
 
 | # | Decision | Summary |
 |---|----------|---------|
-| 0001 | Compute Platform — AKS | Full K8s control, regional fault isolation |
-| 0001 | Deployment Strategy — Flux | Per-cluster Flux for distributed resilient deployments |
-| 0002 | Multi-Stamp Architecture | Active-active regional stamps for fault isolation |
-| 0003 | Application Framework — Orleans | Virtual actor model for per-entity concurrency |
-| 0004 | Programming Language — C# / .NET 10 | First-class Orleans support |
-| 0005 | Architecture Pattern — Event-Driven | Delayed/batched writes, Event Hub archival |
-| 0006 | Database — Cosmos DB | Global distribution + Orleans persistence |
-| 0007 | Messaging — Event Hubs | Event-driven with Cosmos streams |
-| 0010 | Observability — Azure Monitor + Prometheus + Grafana | Unified observability stack |
-| 0011 | IaC — Bicep | Azure-native infrastructure as code |
-| 0012 | CI/CD — GitHub Actions | Build/test/deploy workflows |
-| 0021 | Disaster Recovery | Multi-region failover with RTO/RPO targets |
-| 0024 | Data Access Patterns | Cosmos DB patterns in Orleans grains |
-| 0025 | Deployment Strategy | Blue-green/canary via Gateway API routing |
-| 0032 | Cluster Bootstrapping | Bicep-based Flux provisioning |
-| 0033 | Coding Principles | Grokking Simplicity & A Philosophy of Software Design |
-| 0034 | Module Design | Full business functionality, no hosting concerns |
-| 0035 | Simplified Hexagonal Architecture | Clean ports & adapters |
-| 0036 | File Organization | Combine what belongs together |
-| 0038 | Idempotent FSMs | FSM-based state verification for resilience |
-| 0039 | Matrix Testing | Behavior tests across all port implementations |
-| 0041 | Front Door Ingress | Multi-silo global ingress with session affinity |
-| 0043 | Accessibility-First E2E Selectors | ARIA/semantic selectors for Playwright |
-| 0053 | OpenTelemetry & Azure Monitor | Direct OTel exporters (not via Grafana agent) |
-| 0054 | Cosmos Emulator HTTPS | Dev certificate trust for Aspire 13.2 |
-| 0058 | Explicit Orleans Config | No Aspire auto-config (conflicts with Orleans) |
-| 0059 | Orleans/Cosmos/Aspire Issues | Known integration issue compendium |
-| 0060 | Console Log Level | Warning+ to console, Information via OTel |
-| 0061 | Event Archive Strategy | Event Hub for compliance archival |
-| 0062 | Cosmos Gateway Mode | Prevents RNTBD SIGSEGV on .NET 10 |
+| [0001](adr/0001-deployment-strategy-DI.md) | Deployment Strategy — Flux | Per-cluster Flux for distributed resilient deployments |
+| [0002](adr/0002-multi-stamp-architecture-DI.md) | Multi-Stamp Architecture | Active-active regional stamps for fault isolation |
+| [0003](adr/0003-application-framework-DI.md) | Application Framework — Orleans | Virtual actor model for per-entity concurrency |
+| [0005](adr/0005-architecture-pattern-DI.md) | Architecture Pattern — Event-Driven | Delayed/batched writes, Event Hub archival |
+| [0006](adr/0006-database-choice-DI.md) | Database — Cosmos DB | Global distribution + Orleans persistence |
+| [0007](adr/0007-messaging-platform-DI.md) | Messaging — Event Hubs | Event-driven with Cosmos streams |
+| [0033](adr/0033-coding-principles-DI.md) | Coding Principles | Grokking Simplicity & A Philosophy of Software Design |
+| [0034](adr/0034-module-design-DI.md) | Module Design | Full business functionality, no hosting concerns |
+| [0041](adr/0041-global-application-frontdoor-ingress-DI.md) | Front Door Ingress | Multi-silo global ingress with session affinity |
+| [0062](adr/0062-orleans-cosmos-gateway-mode-sigsegv-DI.md) | Cosmos Gateway Mode | Prevents RNTBD SIGSEGV on .NET 10 |
 
 ---
 
@@ -161,10 +193,10 @@ graph LR
     end
 ```
 
-- **Base** (`clusters/base/`) — shared manifests for all regions
-- **Regional overlays** — stamp-specific env vars (Cosmos endpoints, storage accounts, namespaces)
-- **Image automation** — Flux scans ACR for `{timestamp}-{hash}` tags, auto-updates deployment images
-- **Orleans infra** — shared headless service + RBAC for K8s hosting (`orleans-infra-component/`)
+- **Base** ([`clusters/base/`](../clusters/base/)) — shared manifests for all regions
+- **Regional overlays** ([`clusters/centralus/`](../clusters/centralus/), [`clusters/swedencentral/`](../clusters/swedencentral/)) — stamp-specific env vars
+- **Image automation** — Flux scans ACR for `{timestamp}-{hash}` tags, auto-updates deployment images (e.g. [`helloagents/image-automation.yaml`](../clusters/base/apps/helloagents/image-automation.yaml))
+- **Orleans infra** — shared headless service + RBAC ([`orleans-infra-component/`](../clusters/base/apps/orleans-infra-component/))
 
 ---
 
@@ -176,7 +208,7 @@ graph LR
 - Generated from [`scripts/grafana/`](../scripts/grafana/) — `npm run build && npm run generate`
 - Panels: Front Door metrics, Cosmos DB, pod restarts/OOM/CPU/memory, gateway latency
 
-### Health Model Signals (43 total)
+### Health Model Signals (43 total) — [`scripts/healthmodel/signals.ts`](../scripts/healthmodel/signals.ts) → [`infra/healthmodel/healthmodel.bicep`](../infra/healthmodel/healthmodel.bicep)
 
 | Category | Signals |
 |----------|---------|
@@ -203,13 +235,13 @@ graph LR
 
 ## Testing
 
-| Type | Framework | Apps | How to Run |
-|------|-----------|------|------------|
-| **Unit / Integration** | TUnit + Aspire.Hosting.Testing | All 4 | `cd src/<App> && dotnet test` |
-| **E2E (Browser)** | Playwright | All 4 | `cd src/<App>/<App>.E2E && npm ci && npx playwright test` |
-| **Load** | Locust | All 4 | `cd src/<App>/<App>.LoadTest && locust -f locustfile.py` |
-| **Accessibility** | axe-core/playwright | DarkUxChallenge | Integrated in E2E suite |
-| **Health Model** | pytest | az-healthmodel | `cd src/az-healthmodel && pytest azext_healthmodel/tests/ -v` |
+| Type | Framework | Apps | How to Run | Source |
+|------|-----------|------|------------|--------|
+| **Unit / Integration** | TUnit + Aspire.Hosting.Testing | All 4 | `cd src/<App> && dotnet test` | e.g. [`HelloAgents.Tests/`](../src/HelloAgents/HelloAgents.Tests/) |
+| **E2E (Browser)** | Playwright | All 4 | `cd src/<App>/<App>.E2E && npm ci && npx playwright test` | e.g. [`HelloAgents.E2E/`](../src/HelloAgents/HelloAgents.E2E/) |
+| **Load** | Locust | All 4 | `cd src/<App>/<App>.LoadTest && locust -f locustfile.py` | e.g. [`HelloAgents.LoadTest/`](../src/HelloAgents/HelloAgents.LoadTest/) |
+| **Accessibility** | axe-core/playwright | DarkUxChallenge | Integrated in E2E suite | [`DarkUxChallenge.E2E/`](../src/DarkUxChallenge/DarkUxChallenge.E2E/) |
+| **Health Model** | pytest | az-healthmodel | `cd src/az-healthmodel && pytest azext_healthmodel/tests/ -v` | [`az-healthmodel/tests/`](../src/az-healthmodel/azext_healthmodel/tests/) |
 
 ### CI Test Strategy
 
@@ -219,18 +251,18 @@ graph LR
 
 ---
 
-## CI/CD — GitHub Actions
+## CI/CD — [GitHub Actions](../.github/workflows/)
 
 | Workflow | Trigger | What it Does |
 |----------|---------|-------------|
-| `helloorleons-cicd.yml` | `src/HelloOrleons/**` push | Build → TUnit tests → Docker buildx bake → Push ACR → Verify Flux deploy |
-| `helloagents-cicd.yml` | `src/HelloAgents/**` push | Build → TUnit + Playwright E2E → Docker → ACR → Verify deploy |
-| `graphorleons-cicd.yml` | `src/GraphOrleons/**` push | Build → TUnit + Playwright E2E → Docker → ACR → Verify deploy |
-| `darkux-cicd.yml` | `src/DarkUxChallenge/**` push | Build → TUnit + Playwright E2E → Docker → ACR → Verify deploy |
-| `azure-dev.yml` | `infra/**` push / daily schedule | Bicep deploy (provision + configure) |
-| `app-build-push.yml` | Reusable | Multi-arch container build, ACR push, K8s manifest update |
-| `app-e2e-aspire.yml` | Reusable | Playwright E2E via Aspire CLI orchestrator |
-| `app-verify-deploy.yml` | Reusable | Verify Flux rollout + production smoke tests |
+| [`helloorleons-cicd.yml`](../.github/workflows/helloorleons-cicd.yml) | `src/HelloOrleons/**` push | Build → TUnit tests → Docker buildx bake → Push ACR → Verify Flux deploy |
+| [`helloagents-cicd.yml`](../.github/workflows/helloagents-cicd.yml) | `src/HelloAgents/**` push | Build → TUnit + Playwright E2E → Docker → ACR → Verify deploy |
+| [`graphorleons-cicd.yml`](../.github/workflows/graphorleons-cicd.yml) | `src/GraphOrleons/**` push | Build → TUnit + Playwright E2E → Docker → ACR → Verify deploy |
+| [`darkux-cicd.yml`](../.github/workflows/darkux-cicd.yml) | `src/DarkUxChallenge/**` push | Build → TUnit + Playwright E2E → Docker → ACR → Verify deploy |
+| [`azure-dev.yml`](../.github/workflows/azure-dev.yml) | `infra/**` push / daily schedule | Bicep deploy (provision + configure) |
+| [`app-build-push.yml`](../.github/workflows/app-build-push.yml) | Reusable | Multi-arch container build, ACR push, K8s manifest update |
+| [`app-e2e-aspire.yml`](../.github/workflows/app-e2e-aspire.yml) | Reusable | Playwright E2E via Aspire CLI orchestrator |
+| [`app-verify-deploy.yml`](../.github/workflows/app-verify-deploy.yml) | Reusable | Verify Flux rollout + production smoke tests |
 
 ---
 
@@ -240,13 +272,13 @@ graph LR
 
 ### What it Solves
 
-- **Aspire JSON camelCase conflicts** — Aspire DI uses camelCase, Orleans expects PascalCase
-- **Explicit provider config** — no Aspire auto-config (causes "Could not find Clustering" errors)
-- **Gateway mode for .NET 10** — prevents RNTBD SIGSEGV crashes (ADR-0062)
-- **Dual Cosmos endpoints** — separates regional clustering from global grain state
-- **K8s + Emulator support** — conditional resource creation, dev certificate handling
+- **Aspire JSON camelCase conflicts** — Aspire DI uses camelCase, Orleans expects PascalCase ([ADR-0059](adr/0059-orleans-cosmos-aspire-known-issues-DI.md))
+- **Explicit provider config** — no Aspire auto-config (causes "Could not find Clustering" errors) ([ADR-0058](adr/0058-orleans-explicit-provider-config-DI.md))
+- **Gateway mode for .NET 10** — prevents RNTBD SIGSEGV crashes ([ADR-0062](adr/0062-orleans-cosmos-gateway-mode-sigsegv-DI.md) · [`CosmosClientFactory.cs:20`](../src/AlwaysOn.Orleans/CosmosClientFactory.cs))
+- **Dual Cosmos endpoints** — separates regional clustering from global grain state ([`OrleansHostingExtensions.cs:48-49`](../src/AlwaysOn.Orleans/OrleansHostingExtensions.cs))
+- **K8s + Emulator support** — conditional resource creation, dev certificate handling ([`OrleansHostingExtensions.cs:55`](../src/AlwaysOn.Orleans/OrleansHostingExtensions.cs))
 
-### Usage
+### Usage ([`OrleansHostingExtensions.cs:18`](../src/AlwaysOn.Orleans/OrleansHostingExtensions.cs))
 
 ```csharp
 builder.AddAlwaysOnOrleans(silo =>
@@ -256,7 +288,7 @@ builder.AddAlwaysOnOrleans(silo =>
 });
 ```
 
-### Configuration (env vars)
+### Configuration ([`OrleansCosmosOptions.cs`](../src/AlwaysOn.Orleans/OrleansCosmosOptions.cs) · env vars)
 
 ```bash
 # Grain state (global, multi-region replicated)
@@ -274,10 +306,10 @@ AlwaysOn__PubSub__Container=graphorleons-pubsub
 
 ### Key Design Decisions
 
-- **Gateway mode always** — `ConnectionMode.Gateway` for all Cosmos clients
-- **K8s auto-detection** — checks `KUBERNETES_SERVICE_HOST` env var
-- **DefaultAzureCredential** — Managed Identity in K8s, CLI/emulator locally
-- **Graceful fallback** — `TryGetEndpoint()` returns null if stamp Cosmos isn't provisioned yet
+- **Gateway mode always** — [`CosmosClientFactory.cs:20`](../src/AlwaysOn.Orleans/CosmosClientFactory.cs): `ConnectionMode.Gateway`
+- **K8s auto-detection** — [`OrleansHostingExtensions.cs:55`](../src/AlwaysOn.Orleans/OrleansHostingExtensions.cs): checks `KUBERNETES_SERVICE_HOST`
+- **DefaultAzureCredential** — [`CosmosClientFactory.cs:36`](../src/AlwaysOn.Orleans/CosmosClientFactory.cs): Managed Identity in K8s, CLI/emulator locally
+- **Strict validation** — [`OrleansHostingExtensions.cs:42`](../src/AlwaysOn.Orleans/OrleansHostingExtensions.cs): `ArgumentException.ThrowIfNullOrEmpty` if clustering endpoint missing
 
 ---
 

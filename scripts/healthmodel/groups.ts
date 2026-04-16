@@ -122,8 +122,6 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
           signals.eventHubThrottled(),
           signals.eventHubServerErrors(),
           signals.eventHubCaptureBacklog(),
-          signals.eventHubCapturedMessages(),
-          signals.eventHubCapturedBytes(),
           signals.eventHubReplicationLag(),
           signals.eventHubReplicationLagDuration(),
         ],

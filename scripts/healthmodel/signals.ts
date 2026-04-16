@@ -344,11 +344,11 @@ export function cosmosThrottled(): AzureResourceSignalDef {
     signalKind: 'AzureResourceMetric',
     metricNamespace: 'microsoft.documentdb/databaseaccounts',
     metricName: 'TotalRequests',
-    timeGrain: 'P1D',
+    timeGrain: 'PT5M',
     aggregationType: 'Count',
-    dimension: 'Status',
-    dimensionFilter: 'ClientThrottlingError',
-    displayName: 'Cosmos Throttled',
+    dimension: 'StatusCode',
+    dimensionFilter: '429',
+    displayName: 'Cosmos Throttled (429)',
     refreshInterval: 'PT1M',
     dataUnit: 'Count',
     threshold: { direction: 'higher-is-worse', degraded: 100, unhealthy: 400 },
@@ -599,33 +599,8 @@ export function eventHubCaptureBacklog(): AzureResourceSignalDef {
   };
 }
 
-export function eventHubCapturedMessages(): AzureResourceSignalDef {
-  return {
-    signalKind: 'AzureResourceMetric',
-    metricNamespace: 'microsoft.eventhub/namespaces',
-    metricName: 'CapturedMessages',
-    timeGrain: 'PT5M',
-    aggregationType: 'Total',
-    displayName: 'Event Hub Captured Messages',
-    refreshInterval: 'PT5M',
-    dataUnit: 'Count',
-    threshold: { direction: 'lower-is-worse', degraded: 1, unhealthy: 0 },
-  };
-}
-
-export function eventHubCapturedBytes(): AzureResourceSignalDef {
-  return {
-    signalKind: 'AzureResourceMetric',
-    metricNamespace: 'microsoft.eventhub/namespaces',
-    metricName: 'CapturedBytes',
-    timeGrain: 'PT5M',
-    aggregationType: 'Total',
-    displayName: 'Event Hub Captured Bytes',
-    refreshInterval: 'PT5M',
-    dataUnit: 'Bytes',
-    threshold: { direction: 'lower-is-worse', degraded: 1, unhealthy: 0 },
-  };
-}
+// eventHubCapturedMessages and eventHubCapturedBytes removed:
+// These are legitimately 0 when no events are flowing, causing false unhealthy signals.
 
 export function eventHubReplicationLag(): AzureResourceSignalDef {
   return {
