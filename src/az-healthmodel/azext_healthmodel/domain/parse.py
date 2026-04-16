@@ -1,0 +1,222 @@
+"""Parse transport models into domain models — pure functions, no I/O.
+
+This is the boundary between the permissive REST wire format and the
+strict frozen domain types. All functions here are calculations.
+"""
+from __future__ import annotations
+
+from typing import Mapping, Sequence
+
+from azext_healthmodel.models.domain import (
+    EntityNode,
+    EntityState,
+    EvaluationRule,
+    Forest,
+    HealthModelInfo,
+    Relationship,
+    SignalDefinition,
+    SignalValue,
+    Snapshot,
+)
+from azext_healthmodel.models.enums import (
+    ComparisonOperator,
+    DataUnit,
+    HealthState,
+    SignalKind,
+)
+from azext_healthmodel.models.transport import (
+    TransportEntity,
+    TransportHealthModel,
+    TransportRelationship,
+    TransportSignalDefinition,
+    TransportSignalRef,
+)
+
+
+# ─── Health state parsing ─────────────────────────────────────────────
+
+
+def _parse_health_state(raw: str | None) -> HealthState:
+    """Parse a health state string into the enum, defaulting to Unknown."""
+    if raw is None:
+        return HealthState.UNKNOWN
+    try:
+        return HealthState(raw)
+    except ValueError:
+        return HealthState.UNKNOWN
+
+
+def _parse_signal_kind(raw: str | None) -> SignalKind:
+    """Parse a signal kind string into the enum."""
+    if raw is None:
+        return SignalKind.EXTERNAL
+    try:
+        return SignalKind(raw)
+    except ValueError:
+        return SignalKind.EXTERNAL
+
+
+def _parse_data_unit(raw: str | None) -> DataUnit:
+    """Parse a data unit string into the enum."""
+    if raw is None:
+        return DataUnit.COUNT
+    try:
+        return DataUnit(raw)
+    except ValueError:
+        return DataUnit.COUNT
+
+
+def _parse_operator(raw: str | None) -> ComparisonOperator:
+    """Parse a comparison operator string into the enum."""
+    if raw is None:
+        return ComparisonOperator.GREATER_THAN
+    try:
+        return ComparisonOperator(raw)
+    except ValueError:
+        return ComparisonOperator.GREATER_THAN
+
+
+# ─── Signal definition parsing ────────────────────────────────────────
+
+
+def parse_signal_definition(raw: TransportSignalDefinition) -> SignalDefinition:
+    """Parse a single signal definition from the API wire format."""
+    props = raw.get("properties", {})
+    rules = props.get("evaluationRules", {})
+
+    degraded_raw = rules.get("degradedRule")
+    unhealthy_raw = rules.get("unhealthyRule", {})
+
+    degraded_rule = None
+    if degraded_raw:
+        degraded_rule = EvaluationRule(
+            operator=_parse_operator(degraded_raw.get("operator")),
+            threshold=float(degraded_raw.get("threshold", 0)),
+        )
+
+    unhealthy_rule = EvaluationRule(
+        operator=_parse_operator(unhealthy_raw.get("operator")),
+        threshold=float(unhealthy_raw.get("threshold", 0)),
+    )
+
+    return SignalDefinition(
+        name=raw.get("name", ""),
+        display_name=props.get("displayName", raw.get("name", "")),
+        signal_kind=_parse_signal_kind(props.get("signalKind")),
+        data_unit=_parse_data_unit(props.get("dataUnit")),
+        degraded_rule=degraded_rule,
+        unhealthy_rule=unhealthy_rule,
+    )
+
+
+def parse_signal_definitions(
+    raw_list: Sequence[TransportSignalDefinition],
+) -> Mapping[str, SignalDefinition]:
+    """Parse a list of signal definitions into a name→definition mapping."""
+    return {sd.name: sd for raw in raw_list if (sd := parse_signal_definition(raw))}
+
+
+# ─── Signal value parsing (inline in entities) ────────────────────────
+
+
+def _parse_signal_ref(
+    raw: TransportSignalRef,
+    sig_defs: Mapping[str, SignalDefinition],
+) -> SignalValue:
+    """Parse a signal reference (with inline status) from an entity's signal group."""
+    def_name = raw.get("signalDefinitionName", "")
+    sig_def = sig_defs.get(def_name)
+
+    status = raw.get("status", {})
+    raw_value = status.get("value")
+
+    return SignalValue(
+        name=raw.get("name", ""),
+        definition_name=def_name,
+        display_name=sig_def.display_name if sig_def else def_name[:12],
+        signal_kind=_parse_signal_kind(raw.get("signalKind")),
+        health_state=_parse_health_state(status.get("healthState")),
+        value=float(raw_value) if raw_value is not None else None,
+        data_unit=sig_def.data_unit if sig_def else DataUnit.COUNT,
+        reported_at=status.get("reportedAt", ""),
+    )
+
+
+# ─── Entity parsing ──────────────────────────────────────────────────
+
+
+def parse_entity(
+    raw: TransportEntity,
+    sig_defs: Mapping[str, SignalDefinition],
+) -> EntityNode:
+    """Parse a single entity from the API wire format."""
+    props = raw.get("properties", {})
+    icon_raw = props.get("icon", {})
+    icon_name = icon_raw.get("iconName", "") if isinstance(icon_raw, dict) else str(icon_raw)
+
+    # Collect all signals from all signal groups
+    signals: list[SignalValue] = []
+    signal_groups = props.get("signalGroups", {})
+    if isinstance(signal_groups, dict):
+        for _group_key, group_val in signal_groups.items():
+            if isinstance(group_val, dict) and "signals" in group_val:
+                for sig_ref in group_val["signals"]:
+                    signals.append(_parse_signal_ref(sig_ref, sig_defs))
+
+    return EntityNode(
+        entity_id=raw.get("id", ""),
+        name=raw.get("name", ""),
+        display_name=props.get("displayName", raw.get("name", "")),
+        health_state=_parse_health_state(props.get("healthState")),
+        icon_name=icon_name,
+        impact=props.get("impact", "Standard"),
+        signals=tuple(signals),
+    )
+
+
+def parse_entities(
+    raw_list: Sequence[TransportEntity],
+    sig_defs: Mapping[str, SignalDefinition],
+) -> Mapping[str, EntityNode]:
+    """Parse a list of entities into a name→EntityNode mapping."""
+    return {
+        ent.name: ent
+        for raw in raw_list
+        if (ent := parse_entity(raw, sig_defs))
+    }
+
+
+# ─── Relationship parsing ────────────────────────────────────────────
+
+
+def parse_relationship(raw: TransportRelationship) -> Relationship:
+    """Parse a single relationship from the API wire format."""
+    props = raw.get("properties", {})
+    return Relationship(
+        relationship_id=raw.get("id", ""),
+        name=raw.get("name", ""),
+        parent_entity_name=props.get("parentEntityName", ""),
+        child_entity_name=props.get("childEntityName", ""),
+    )
+
+
+def parse_relationships(
+    raw_list: Sequence[TransportRelationship],
+) -> Sequence[Relationship]:
+    """Parse a list of relationships."""
+    return [parse_relationship(raw) for raw in raw_list]
+
+
+# ─── Health model parsing ────────────────────────────────────────────
+
+
+def parse_health_model(raw: TransportHealthModel) -> HealthModelInfo:
+    """Parse a health model from the API wire format."""
+    props = raw.get("properties", {})
+    return HealthModelInfo(
+        resource_id=raw.get("id", ""),
+        name=raw.get("name", ""),
+        location=raw.get("location", ""),
+        provisioning_state=props.get("provisioningState", ""),
+        tags=dict(raw.get("tags", {})),
+    )

@@ -58,3 +58,10 @@ infra/**/*.json
 tmp.*
 node_modules/
 grafana/build/
+src/az-healthmodel/dist/
+src/az-healthmodel/build/
+
+# az-healthmodel build artifacts
+src/az-healthmodel/dist/
+src/az-healthmodel/build/
+src/az-healthmodel/*.egg-info/

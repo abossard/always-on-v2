@@ -39,7 +39,7 @@ def make_mock_client(entities_file: str = "hm-entities.json") -> MagicMock:
 # ---------------------------------------------------------------------------
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_tui_renders_tree():
     """Launch the TUI headlessly, trigger a poll, verify tree renders."""
     from azext_healthmodel.watch.app import HealthWatchApp
@@ -61,7 +61,7 @@ async def test_tui_renders_tree():
         app.save_screenshot("test_tui_healthy.svg", path=str(SCREENSHOT_DIR))
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_tui_shows_all_entities():
     """Verify all 30 entities are rendered in the tree."""
     from azext_healthmodel.watch.app import HealthWatchApp
@@ -80,7 +80,7 @@ async def test_tui_shows_all_entities():
         assert entity_count == 30, f"Expected 30 entities, got {entity_count}"
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_tui_degraded_shows_changes():
     """Poll with healthy then degraded data, verify changes detected."""
     from azext_healthmodel.watch.app import HealthWatchApp
@@ -102,7 +102,7 @@ async def test_tui_degraded_shows_changes():
         app.save_screenshot("test_tui_degraded.svg", path=str(SCREENSHOT_DIR))
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_tui_keyboard_navigation():
     """Test arrow keys navigate the tree."""
     from azext_healthmodel.watch.app import HealthWatchApp
@@ -128,7 +128,7 @@ async def test_tui_keyboard_navigation():
         assert tree.cursor_line > 0, "Cursor should move after pressing down"
 
 
-@pytest.mark.asyncio
+@pytest.mark.anyio
 async def test_quit_binding():
     """Test that 'q' quits the app."""
     from azext_healthmodel.watch.app import HealthWatchApp

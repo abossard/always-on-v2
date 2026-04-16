@@ -18,7 +18,7 @@ A hands-on learning framework for senior software engineers: design, build, and 
 | **DNS & TLS**      | Azure DNS + cert-manager (Let's Encrypt) + external-dns           |
 | **IaC**            | Bicep (via Azure Developer CLI)                                   |
 | **CI/CD**          | GitHub Actions (OIDC auth, multi-arch Docker builds)              |
-| **Health**         | Microsoft.CloudHealth health models (preview)                     |
+| **Health**         | Microsoft.CloudHealth health models (preview), [`az healthmodel`](src/az-healthmodel/) CLI extension |
 
 ## Example Applications
 
@@ -31,6 +31,14 @@ A hands-on learning framework for senior software engineers: design, build, and 
 | **[PlayersOn](src/PlayersOn/)** | Orleans grain architecture reference | .NET 10, Orleans | — | ✅ | — | — |
 | **[PlayersOnOrleans](src/PlayersOnOrleons/)** | Minimal Orleans alternative demo | .NET 10, Orleans | — | ✅ | — | — |
 | **[Orthereum](src/Orthereum/)** | Ethereum-like state machine with AOT | .NET 10, Orleans, AOT | — | ✅ | — | ✅ |
+
+### Developer Tools
+
+| Tool | Description | Details |
+|------|-------------|---------|
+| **[`az healthmodel`](src/az-healthmodel/)** | Azure CLI extension for Health Models | CRUD + live TUI watch mode + SVG export. [See README](src/az-healthmodel/README.md) |
+| **[`scripts/healthmodel/`](scripts/healthmodel/)** | Health model Bicep generator | Generates `healthmodel.bicep` from shared `config.json` |
+| **[`scripts/grafana/`](scripts/grafana/)** | Grafana dashboard generator | Builds JSON dashboards for Azure Monitor |
 
 ### Deployment Status
 
@@ -56,7 +64,7 @@ A hands-on learning framework for senior software engineers: design, build, and 
 | Image automation | ✅ | ACR polling (1 min), timestamp-based tag ordering, auto-commit |
 | OpenTelemetry → App Insights | ✅ | Direct exporter APIs (ADR-0053), `DisableLocalAuth=true` |
 | Prometheus metrics | ✅ | AMA scraping, Istio Envoy sidecar metrics |
-| Health model | ✅ | `Microsoft.CloudHealth` (preview), subscription-scoped discovery |
+| Health model | ✅ | `Microsoft.CloudHealth` (preview), [`az healthmodel`](src/az-healthmodel/) CLI extension with live TUI watch mode |
 | Workload Identity | ✅ | Per-app managed identity, federated credentials, RBAC |
 | cert-manager + external-dns | ✅ | Let's Encrypt TLS, auto DNS records in Azure DNS |
 | Native AOT | ✅ | DarkUxChallenge (chiseled containers) |

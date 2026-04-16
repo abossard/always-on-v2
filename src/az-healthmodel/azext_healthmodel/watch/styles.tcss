@@ -1,0 +1,114 @@
+/* ─── Health Model Watch — Textual CSS ────────────────────────────── */
+/* Stylesheet for the HealthWatchApp TUI.                              */
+
+/* ─── Overall app ───────────────────────────────────────────────── */
+Screen {
+    background: $surface;
+    color: $text;
+}
+
+/* ─── Health Tree ───────────────────────────────────────────────── */
+HealthTree {
+    width: 1fr;
+    height: 1fr;
+    border: round $primary;
+    padding: 1 2;
+    scrollbar-size-vertical: 1;
+}
+
+HealthTree:focus {
+    border: round $accent;
+}
+
+/* Tree guide lines — subtle dotted look */
+HealthTree > .tree--guides {
+    color: $text-muted;
+}
+
+/* Cursor highlight — full-row highlight */
+HealthTree > .tree--cursor {
+    background: $primary-darken-2;
+    color: $text;
+    text-style: bold;
+}
+
+HealthTree > .tree--highlight {
+    background: $surface-lighten-1;
+}
+
+/* ─── Health-state entity backgrounds (applied via add_class) ──── */
+.health-healthy {
+    color: $success;
+}
+
+.health-degraded {
+    color: $warning;
+}
+
+.health-unhealthy {
+    color: $error;
+    text-style: bold;
+}
+
+.health-unknown {
+    color: $text-disabled;
+    text-style: italic;
+}
+
+/* ─── Change flash animation ──────────────────────────────────── */
+.state-changed {
+    background: $warning 30%;
+    text-style: bold reverse;
+}
+
+/* Fade out after timer removes .state-changed and adds -fade */
+.state-changed-fade {
+    background: $warning 10%;
+    text-style: bold;
+}
+
+/* ─── Signal rows (leaf nodes) ────────────────────────────────── */
+.signal-node {
+    color: $text-muted;
+    padding-left: 2;
+}
+
+.signal-node.health-degraded {
+    color: $warning;
+}
+
+.signal-node.health-unhealthy {
+    color: $error;
+    text-style: bold;
+}
+
+/* ─── Header ──────────────────────────────────────────────────── */
+Header {
+    dock: top;
+    height: 3;
+    background: $panel;
+    border-bottom: solid $primary;
+}
+
+/* ─── Status Bar (footer) ────────────────────────────────────── */
+StatusBar {
+    dock: bottom;
+    height: 3;
+    background: $panel;
+    border-top: solid $primary;
+    padding: 0 2;
+    content-align: center middle;
+}
+
+.poll-indicator {
+    color: $success;
+}
+
+.poll-indicator.polling {
+    color: $warning;
+    text-style: bold;
+}
+
+.change-counter {
+    color: $accent;
+}
