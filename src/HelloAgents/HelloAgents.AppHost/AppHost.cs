@@ -13,6 +13,7 @@ var cosmos = builder.AddAzureCosmosDB(ResourceNames.CosmosDb)
 var db = cosmos.AddCosmosDatabase(ResourceNames.Database);
 db.AddContainer(ResourceNames.Container, "/PartitionKey");
 db.AddContainer(ResourceNames.ClusterContainer, "/ClusterId");
+db.AddContainer(ResourceNames.PubSubContainer, "/PartitionKey");
 
 // Azure Queue Storage for Orleans Streams (cross-silo SSE)
 var storage = builder.AddAzureStorage("storage")
@@ -35,7 +36,7 @@ var api = builder.AddProject<Projects.HelloAgents_Api>(ResourceNames.Api)
     .WithEnvironment("AlwaysOn__GrainStorage__Container", ResourceNames.Container)
     .WithEnvironment("AlwaysOn__Clustering__Database", ResourceNames.Database)
     .WithEnvironment("AlwaysOn__Clustering__Container", ResourceNames.ClusterContainer)
-    .WithEnvironment("AlwaysOn__PubSub__Container", ResourceNames.Container)
+    .WithEnvironment("AlwaysOn__PubSub__Container", ResourceNames.PubSubContainer)
     .WithEnvironment("Storage__Provider", "CosmosDb")
     .WithEnvironment("CosmosDb__DatabaseName", ResourceNames.Database)
     .WithEnvironment("CosmosDb__ContainerName", ResourceNames.Container)

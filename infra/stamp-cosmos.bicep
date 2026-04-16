@@ -69,6 +69,7 @@ var containers = [
   { name: 'graphorleons-cluster', partitionKeyPath: '/ClusterId' }
   { name: 'graphorleons-pubsub', partitionKeyPath: '/PartitionKey' }
   { name: 'helloagents-cluster', partitionKeyPath: '/ClusterId' }
+  { name: 'helloagents-pubsub', partitionKeyPath: '/PartitionKey' }
 ]
 
 resource cosmosContainers 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/containers@2025-04-15' = [

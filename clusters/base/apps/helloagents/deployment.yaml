@@ -87,7 +87,7 @@ spec:
             - name: AlwaysOn__Clustering__Database
               value: ${ORLEANS_CLUSTER_DB}
             - name: AlwaysOn__PubSub__Container
-              value: ${HELLOAGENTS_COSMOS_CONTAINER}
+              value: helloagents-pubsub
             - name: ConnectionStrings__queuestorage
               value: ${HELLOAGENTS_STORAGE_QUEUE_ENDPOINT}
           resizePolicy:
