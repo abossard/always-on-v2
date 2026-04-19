@@ -113,7 +113,12 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapDefaultEndpoints();
-app.UseOpenTelemetryPrometheusScrapingEndpoint();
+
+// Prometheus scrape endpoint — may not be available in Aspire test host
+// where the OTEL pipeline is overridden with OTLP-only configuration
+try { app.UseOpenTelemetryPrometheusScrapingEndpoint(); }
+catch (ArgumentException) { /* PrometheusExporter not registered — skip */ }
+
 app.MapAllEndpoints();
 app.MapAnalyticsEndpoints();
 

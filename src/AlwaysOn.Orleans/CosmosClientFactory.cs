@@ -12,13 +12,16 @@ public static class CosmosClientFactory
 {
     private const string EmulatorKeyPrefix = "AccountKey=C2y6yDjf5";
 
-    public static CosmosClient Create(string endpoint)
+    public static CosmosClient Create(string endpoint, CosmosSerializer? customSerializer = null)
     {
         var isEmulator = endpoint.Contains(EmulatorKeyPrefix, StringComparison.Ordinal);
         var options = new CosmosClientOptions
         {
             ConnectionMode = ConnectionMode.Gateway, // Avoid RNTBD SIGSEGV (ADR-0062)
         };
+
+        if (customSerializer is not null)
+            options.Serializer = customSerializer;
 
         if (isEmulator)
         {

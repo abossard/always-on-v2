@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using AlwaysOn.Orleans;
 using Microsoft.Azure.Cosmos;
 
@@ -37,7 +38,8 @@ public sealed partial class ChangeFeedMetricsService : BackgroundService
         var containerName = _config["AlwaysOn:GrainStorage:Container"]
             ?? throw new InvalidOperationException("Missing config AlwaysOn:GrainStorage:Container");
 
-        var client = CosmosClientFactory.Create(endpoint);
+        var client = CosmosClientFactory.Create(endpoint,
+            new SystemTextJsonCosmosSerializer(new JsonSerializerOptions()));
         try
         {
             var database = client.GetDatabase(databaseName);
@@ -69,11 +71,21 @@ public sealed partial class ChangeFeedMetricsService : BackgroundService
                 eventsContainer = database.GetContainer("analytics-events");
             }
 
-            var processor = sourceContainer
-                .GetChangeFeedProcessorBuilder<JsonElement>("entity-metrics", (changes, ct) => HandleChangesAsync(changes, metricsContainer, eventsContainer, ct))
+            var processorBuilder = sourceContainer
+                .GetChangeFeedProcessorBuilder<System.Text.Json.Nodes.JsonNode>("entity-metrics", (changes, ct) => HandleChangesAsync(changes, metricsContainer, eventsContainer, ct))
                 .WithInstanceName(Environment.MachineName)
                 .WithLeaseContainer(leasesContainer)
-                .Build();
+                .WithStartTime(DateTime.MinValue.ToUniversalTime())
+                .WithErrorNotification((leaseToken, ex) =>
+                {
+                    _logger.LogError(ex, "Change Feed error on lease {LeaseToken}", leaseToken);
+                    return Task.CompletedTask;
+                });
+
+            if (_env.IsDevelopment())
+                processorBuilder.WithPollInterval(TimeSpan.FromSeconds(2));
+
+            var processor = processorBuilder.Build();
 
             await processor.StartAsync();
             LogProcessorStarted(_logger, Environment.MachineName);
@@ -94,19 +106,25 @@ public sealed partial class ChangeFeedMetricsService : BackgroundService
     }
 
     private async Task HandleChangesAsync(
-        IReadOnlyCollection<JsonElement> changes,
+        IReadOnlyCollection<JsonNode> changes,
         Container metricsContainer,
         Container eventsContainer,
         CancellationToken ct)
     {
+        LogChangeFeedBatch(_logger, changes.Count);
         foreach (var doc in changes)
         {
+            if (doc is null) continue;
             try
             {
-                if (!doc.TryGetProperty("id", out var idProp))
-                    continue;
-
-                var id = idProp.GetString();
+                var id = doc["id"]?.GetValue<string>();
+                if (_logger.IsEnabled(LogLevel.Information))
+                {
+                    _logger.LogInformation("CF doc id={Id}, type={Type}, keys=[{Keys}]",
+                        id ?? "(null)",
+                        doc.GetType().Name,
+                        doc is JsonObject obj ? string.Join(",", obj.Select(kv => kv.Key)) : "N/A");
+                }
                 if (string.IsNullOrEmpty(id))
                     continue;
 
@@ -127,36 +145,46 @@ public sealed partial class ChangeFeedMetricsService : BackgroundService
             {
                 LogDocumentError(_logger, ex);
             }
+            catch (Exception ex) when (ex is not OperationCanceledException)
+            {
+                _logger.LogError(ex, "Unexpected error processing change feed document");
+            }
         }
     }
 
-    private async Task ProcessGroupAsync(JsonElement doc, string id, Container container, Container eventsContainer, CancellationToken ct)
+    private async Task ProcessGroupAsync(JsonNode doc, string id, Container container, Container eventsContainer, CancellationToken ct)
     {
         var entityId = id["chatgroup|".Length..];
 
-        if (!doc.TryGetProperty("State", out var state))
+        var state = doc["State"];
+        if (state is null)
             return;
 
-        var name = state.TryGetProperty("Name", out var n) ? n.GetString() ?? "" : "";
-        var description = state.TryGetProperty("Description", out var desc) ? desc.GetString() ?? "" : "";
+        var name = state["Name"]?.GetValue<string>() ?? "";
+        var description = state["Description"]?.GetValue<string>() ?? "";
         var messageCount = 0;
         int userCount = 0, agentCount = 0, systemCount = 0;
         long totalContentLength = 0;
         var uniqueSendersSet = new HashSet<string>();
         var senderCounts = new Dictionary<string, (string emoji, int count)>();
         DateTimeOffset? lastActivityAt = null;
-        DateTimeOffset? createdAt = state.TryGetProperty("CreatedAt", out var ca) && ca.ValueKind != JsonValueKind.Null
-            ? ca.GetDateTimeOffset()
+        var caNode = state["CreatedAt"];
+        DateTimeOffset? createdAt = caNode is not null
+            ? caNode.GetValue<DateTimeOffset>()
             : null;
 
-        if (state.TryGetProperty("Messages", out var messages) && messages.ValueKind == JsonValueKind.Array)
+        var messages = state["Messages"]?.AsArray();
+        if (messages is not null)
         {
-            messageCount = messages.GetArrayLength();
-            foreach (var msg in messages.EnumerateArray())
+            messageCount = messages.Count;
+            foreach (var msg in messages)
             {
-                if (msg.TryGetProperty("SenderType", out var st))
+                if (msg is null) continue;
+
+                var stNode = msg["SenderType"];
+                if (stNode is not null)
                 {
-                    switch (st.GetInt32())
+                    switch (stNode.GetValue<int>())
                     {
                         case 0: userCount++; break;
                         case 1: agentCount++; break;
@@ -164,33 +192,31 @@ public sealed partial class ChangeFeedMetricsService : BackgroundService
                     }
                 }
 
-                if (msg.TryGetProperty("Content", out var content) && content.ValueKind == JsonValueKind.String)
-                    totalContentLength += content.GetString()?.Length ?? 0;
+                var contentNode = msg["Content"];
+                if (contentNode is JsonValue cv && cv.TryGetValue<string>(out var contentStr))
+                    totalContentLength += contentStr.Length;
 
-                if (msg.TryGetProperty("SenderName", out var sn) && sn.ValueKind == JsonValueKind.String)
+                var snNode = msg["SenderName"];
+                if (snNode is JsonValue snv && snv.TryGetValue<string>(out var senderName))
                 {
-                    var senderName = sn.GetString() ?? "";
                     uniqueSendersSet.Add(senderName);
 
-                    var senderEmoji = "";
-                    if (msg.TryGetProperty("SenderEmoji", out var se))
-                        senderEmoji = se.GetString() ?? "";
-
+                    var senderEmoji = msg["SenderEmoji"]?.GetValue<string>() ?? "";
                     senderCounts[senderName] = (senderEmoji, senderCounts.GetValueOrDefault(senderName).count + 1);
                 }
 
-                if (msg.TryGetProperty("Timestamp", out var ts) && ts.ValueKind != JsonValueKind.Null)
+                var tsNode = msg["Timestamp"];
+                if (tsNode is not null)
                 {
-                    var t = ts.GetDateTimeOffset();
+                    var t = tsNode.GetValue<DateTimeOffset>();
                     if (lastActivityAt is null || t > lastActivityAt)
                         lastActivityAt = t;
                 }
             }
         }
 
-        var agentDictCount = state.TryGetProperty("Agents", out var agents) && agents.ValueKind == JsonValueKind.Object
-            ? agents.EnumerateObject().Count()
-            : 0;
+        var agentsNode = state["Agents"]?.AsObject();
+        var agentDictCount = agentsNode?.Count ?? 0;
 
         // Emit analytics events for state transitions
         try
@@ -275,21 +301,22 @@ public sealed partial class ChangeFeedMetricsService : BackgroundService
         await container.UpsertItemAsync(metrics, new PartitionKey("group"), cancellationToken: ct);
     }
 
-    private static async Task ProcessAgentAsync(JsonElement doc, string id, Container container, CancellationToken ct)
+    private static async Task ProcessAgentAsync(JsonNode doc, string id, Container container, CancellationToken ct)
     {
         var entityId = id["agent|".Length..];
 
-        if (!doc.TryGetProperty("State", out var state))
+        var state = doc["State"];
+        if (state is null)
             return;
 
-        var name = state.TryGetProperty("Name", out var n) ? n.GetString() ?? "" : "";
-        var avatar = state.TryGetProperty("AvatarEmoji", out var a) ? a.GetString() ?? "" : "";
-        var groupCount = state.TryGetProperty("GroupIds", out var g) && g.ValueKind == JsonValueKind.Array
-            ? g.GetArrayLength()
-            : 0;
+        var name = state["Name"]?.GetValue<string>() ?? "";
+        var avatar = state["AvatarEmoji"]?.GetValue<string>() ?? "";
+        var groupIdsNode = state["GroupIds"]?.AsArray();
+        var groupCount = groupIdsNode?.Count ?? 0;
 
-        var journalLength = state.TryGetProperty("ReflectionJournal", out var rj) && rj.ValueKind == JsonValueKind.String
-            ? rj.GetString()?.Length ?? 0
+        var rjNode = state["ReflectionJournal"];
+        var journalLength = rjNode is JsonValue rjv && rjv.TryGetValue<string>(out var rjStr)
+            ? rjStr.Length
             : 0;
 
         var metrics = new AgentMetrics
@@ -318,14 +345,17 @@ public sealed partial class ChangeFeedMetricsService : BackgroundService
     [LoggerMessage(Level = LogLevel.Warning, Message = "Failed to emit analytics event; metrics upsert will continue")]
     private static partial void LogAnalyticsEventError(ILogger logger, Exception ex);
 
-    private async Task ProcessRegistryAsync(JsonElement doc, string field, Container container, Container eventsContainer, CancellationToken ct)
+    [LoggerMessage(Level = LogLevel.Information, Message = "Change Feed batch received {Count} documents")]
+    private static partial void LogChangeFeedBatch(ILogger logger, int count);
+
+    private async Task ProcessRegistryAsync(JsonNode doc, string field, Container container, Container eventsContainer, CancellationToken ct)
     {
-        if (!doc.TryGetProperty("State", out var state))
+        var state = doc["State"];
+        if (state is null)
             return;
 
-        var entryCount = state.TryGetProperty("Entries", out var entries) && entries.ValueKind == JsonValueKind.Object
-            ? entries.EnumerateObject().Count()
-            : 0;
+        var entriesNode = state["Entries"]?.AsObject();
+        var entryCount = entriesNode?.Count ?? 0;
 
         // Emit analytics events for registry changes
         try

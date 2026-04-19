@@ -80,7 +80,7 @@ public abstract class AnalyticsApiTests(HttpClient client)
     }
 
     [Test]
-    [Timeout(30_000)]
+    [Timeout(60_000)]
     public async Task GroupMetricsPopulatedAfterActivity(CancellationToken ct)
     {
         ct.ThrowIfCancellationRequested();
@@ -89,7 +89,7 @@ public abstract class AnalyticsApiTests(HttpClient client)
         await _api.AddAgentToGroup(group.Id, agent.Id);
         await _api.SendMessage(group.Id, "Tester", "Hello analytics!");
 
-        // Wait for Change Feed to process
+        // Wait for Change Feed to process — initial poll interval can be up to 30s
         await Assert.That(async () =>
         {
             var response = await client.GetAsync(Rel($"/api/analytics/groups/{group.Id}"));
@@ -98,7 +98,7 @@ public abstract class AnalyticsApiTests(HttpClient client)
             return metrics is not null && metrics.MessageCount >= 1;
         }).Eventually(
             assert => assert.IsTrue(),
-            timeout: TimeSpan.FromSeconds(20)
+            timeout: TimeSpan.FromSeconds(45)
         );
     }
 }

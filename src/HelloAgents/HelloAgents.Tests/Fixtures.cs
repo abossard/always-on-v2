@@ -24,8 +24,11 @@ public class AspireFixture : IAsyncInitializer, IAsyncDisposable
 
         _app = await builder.BuildAsync();
         await _app.StartAsync();
-        await _app.ResourceNotifications.WaitForResourceHealthyAsync(ResourceNames.Api);
+        // Cosmos emulator cold-start can take 2-3 minutes
+        using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+        await _app.ResourceNotifications.WaitForResourceHealthyAsync(ResourceNames.Api, cts.Token);
         Client = _app.CreateHttpClient(ResourceNames.Api);
+        Client.Timeout = TimeSpan.FromSeconds(30);
     }
 
     public async ValueTask DisposeAsync()
