@@ -1,3 +1,4 @@
+using HelloAgents.Api.Telemetry;
 using Orleans.Streams;
 
 namespace HelloAgents.Api.Grains;
@@ -56,6 +57,7 @@ public sealed class ChatGroupGrain(
                     GroupId = msg.GroupId
                 });
                 await state.WriteStateAsync();
+                AppMetrics.StreamEventsTotal.Add(1, new KeyValuePair<string, object?>("event_type", "AgentJoined"));
                 logger.AgentJoinedGroup(msg.SenderEmoji, msg.SenderName, grainId);
                 break;
 
@@ -74,6 +76,7 @@ public sealed class ChatGroupGrain(
                     GroupId = msg.GroupId
                 });
                 await state.WriteStateAsync();
+                AppMetrics.StreamEventsTotal.Add(1, new KeyValuePair<string, object?>("event_type", "AgentLeft"));
                 logger.AgentLeftGroup(msg.SenderEmoji, msg.SenderName, grainId);
                 break;
 
@@ -94,6 +97,9 @@ public sealed class ChatGroupGrain(
                     GroupId = msg.GroupId
                 });
                 await state.WriteStateAsync();
+                AppMetrics.MessagesTotal.Add(1,
+                    new KeyValuePair<string, object?>("sender_type", msg.SenderType.ToString()),
+                    new KeyValuePair<string, object?>("event_type", "Message"));
                 break;
 
             case EventType.Thinking:

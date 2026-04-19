@@ -4,6 +4,7 @@ using AlwaysOn.Orleans;
 using Azure.AI.OpenAI;
 using Azure.Identity;
 using HelloAgents.Api;
+using HelloAgents.Api.Telemetry;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using OpenAI;
@@ -19,6 +20,8 @@ builder.AddAlwaysOnOrleans(silo =>
     {
         silo.AddDashboard();
     }
+
+    silo.AddIncomingGrainCallFilter<GrainCallMetricsFilter>();
 
     // Streams
     var queueStorageConnection = builder.Configuration.GetConnectionString("queuestorage");
@@ -84,6 +87,9 @@ else
 builder.Services.AddScoped<OrchestratorService>();
 builder.Services.AddScoped<GroupLifecycleService>();
 
+// Change Feed → entity-metrics aggregation
+builder.Services.AddHostedService<ChangeFeedMetricsService>();
+
 // CORS for static SPA on different origin (dev only — production runs on single domain)
 if (builder.Environment.IsDevelopment())
 {
@@ -106,6 +112,7 @@ if (app.Environment.IsDevelopment())
 }
 
 app.MapDefaultEndpoints();
+app.UseOpenTelemetryPrometheusScrapingEndpoint();
 app.MapAllEndpoints();
 
 app.Run();

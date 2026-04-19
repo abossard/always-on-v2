@@ -9,4 +9,6 @@ public static class ResourceNames
     public const string Container = "helloagents-storage";
     public const string ClusterContainer = "helloagents-cluster";
     public const string PubSubContainer = "helloagents-pubsub";
+    public const string EntityMetricsContainer = "entity-metrics";
+    public const string MetricsLeasesContainer = "metrics-leases";
 }

@@ -1,3 +1,5 @@
+using HelloAgents.Api.Telemetry;
+
 namespace HelloAgents.Api.Grains;
 
 public sealed class GroupRegistryGrain(
@@ -8,12 +10,16 @@ public sealed class GroupRegistryGrain(
     {
         state.State.Entries[id] = name;
         await state.WriteStateAsync();
+        AppMetrics.GroupsCreatedTotal.Add(1);
+        AppMetrics.SetActiveGroups(state.State.Entries.Count);
     }
 
     public async Task UnregisterAsync(string id)
     {
         state.State.Entries.Remove(id);
         await state.WriteStateAsync();
+        AppMetrics.GroupsDeletedTotal.Add(1);
+        AppMetrics.SetActiveGroups(state.State.Entries.Count);
     }
 
     public Task<Dictionary<string, string>> ListAsync()
@@ -28,12 +34,16 @@ public sealed class AgentRegistryGrain(
     {
         state.State.Entries[id] = name;
         await state.WriteStateAsync();
+        AppMetrics.AgentsCreatedTotal.Add(1);
+        AppMetrics.SetActiveAgents(state.State.Entries.Count);
     }
 
     public async Task UnregisterAsync(string id)
     {
         state.State.Entries.Remove(id);
         await state.WriteStateAsync();
+        AppMetrics.AgentsDeletedTotal.Add(1);
+        AppMetrics.SetActiveAgents(state.State.Entries.Count);
     }
 
     public Task<Dictionary<string, string>> ListAsync()

@@ -180,6 +180,58 @@ export function deploymentsNotReady(namespace: string): PrometheusSignalDef {
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// HelloAgents Application Signals — Custom Silo Metrics
+// ═══════════════════════════════════════════════════════════════════
+
+export function helloagentsActiveGroups(): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: 'sum(helloagents_groups_active)',
+    timeGrain: 'PT1M',
+    displayName: 'Active Groups',
+    refreshInterval: 'PT1M',
+    dataUnit: 'Count',
+    threshold: { direction: 'lower-is-worse', degraded: 1, unhealthy: 0 },
+  };
+}
+
+export function helloagentsMessageRate(): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: 'sum(rate(helloagents_messages_total[5m])) * 60',
+    timeGrain: 'PT1M',
+    displayName: 'Message Rate (msg/min)',
+    refreshInterval: 'PT1M',
+    dataUnit: 'CountPerSecond',
+    threshold: { direction: 'lower-is-worse', degraded: 0.1, unhealthy: 0 },
+  };
+}
+
+export function helloagentsIntentFailureRate(): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: '(sum(rate(helloagents_intents_failed[5m])) / sum(rate(helloagents_intents_total[5m])) * 100) or vector(0)',
+    timeGrain: 'PT1M',
+    displayName: 'Intent Failure Rate',
+    refreshInterval: 'PT1M',
+    dataUnit: 'Percent',
+    threshold: { direction: 'higher-is-worse', degraded: 10, unhealthy: 50 },
+  };
+}
+
+export function helloagentsIntentLatencyP99(): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: 'histogram_quantile(0.99, sum by (le) (rate(helloagents_intent_duration_seconds_bucket[5m])))',
+    timeGrain: 'PT1M',
+    displayName: 'Intent Latency P99',
+    refreshInterval: 'PT1M',
+    dataUnit: 'Seconds',
+    threshold: { direction: 'higher-is-worse', degraded: 30, unhealthy: 60 },
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // Istio Service Mesh Signals — Gateway-level HTTP health
 // ═══════════════════════════════════════════════════════════════════
 

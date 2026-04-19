@@ -87,4 +87,9 @@ public class HelloAgentsApi(HttpClient http)
 
     public Task<HttpResponseMessage> Orchestrate(string message)
         => http.PostAsJsonAsync(Routes.Orchestrate, new OrchestrateRequest(message));
+
+    // ─── Metrics ──────────────────────────────────────────────
+
+    public Task<HttpResponseMessage> GetMetricsRaw()
+        => http.GetAsync(new Uri("/metrics", UriKind.Relative));
 }

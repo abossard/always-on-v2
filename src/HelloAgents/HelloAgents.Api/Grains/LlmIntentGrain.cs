@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text;
+using HelloAgents.Api.Telemetry;
 using Microsoft.Extensions.AI;
 using Orleans.Streams;
 
@@ -32,6 +33,7 @@ public sealed class LlmIntentGrain(
             {
                 logger.LogWarning("LlmIntentGrain {IntentId} expired (age > {Max}min), failing",
                     this.GetPrimaryKeyString(), MaxAgeMinutes);
+                AppMetrics.IntentsExpired.Add(1);
                 await PublishFailure();
                 return;
             }
@@ -64,6 +66,7 @@ public sealed class LlmIntentGrain(
         state.State.NextRetryAt = null;
         state.State.CreatedAt = DateTimeOffset.UtcNow;
         await state.WriteStateAsync();
+        AppMetrics.IntentsTotal.Add(1, new KeyValuePair<string, object?>("intent_type", request.IntentType.ToString()));
 
         // Fire-and-forget: don't block the caller (Orleans has a 30s grain call timeout).
         // State is persisted — crash recovery handles failures.
@@ -88,6 +91,7 @@ public sealed class LlmIntentGrain(
             if (IsExpired())
             {
                 logger.LogWarning("LlmIntentGrain {IntentId} expired during retry", intentId);
+                AppMetrics.IntentsExpired.Add(1);
                 await PublishFailure();
                 return;
             }
@@ -110,6 +114,9 @@ public sealed class LlmIntentGrain(
 
             logger.IntentCompleted(
                 intentId, state.State.IntentType, state.State.AgentId);
+            AppMetrics.IntentDurationSeconds.Record(
+                (DateTimeOffset.UtcNow - state.State.CreatedAt).TotalSeconds,
+                new KeyValuePair<string, object?>("intent_type", state.State.IntentType.ToString()));
 
             state.State.Completed = true;
             await state.ClearStateAsync();
@@ -120,6 +127,7 @@ public sealed class LlmIntentGrain(
 #pragma warning restore CA1031
         {
             state.State.RetryCount++;
+            AppMetrics.IntentsRetried.Add(1);
 
             if (state.State.RetryCount > MaxRetries)
             {
@@ -164,6 +172,7 @@ public sealed class LlmIntentGrain(
 
     private async Task PublishFailure()
     {
+        AppMetrics.IntentsFailed.Add(1, new KeyValuePair<string, object?>("intent_type", state.State.IntentType.ToString()));
         var intentId = this.GetPrimaryKeyString();
         await PublishResult(new IntentResult(
             state.State.GroupId, "", intentId, state.State.IntentType, Failed: true));

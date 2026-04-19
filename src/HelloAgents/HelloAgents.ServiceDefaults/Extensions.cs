@@ -54,7 +54,11 @@ public static class ServiceDefaultsExtensions
     {
         var connStr = builder.Configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"];
         var otel = builder.Services.AddOpenTelemetry()
-            .WithMetrics(m => m.AddMeter("Microsoft.Orleans"))
+            .WithMetrics(m => m
+                .AddMeter("Microsoft.Orleans")
+                .AddMeter("HelloAgents.App")
+                .AddMeter("HelloAgents.GrainCalls")
+                .AddPrometheusExporter())
             .WithTracing(t => t
                 .AddSource("Microsoft.Orleans.Application"));
 

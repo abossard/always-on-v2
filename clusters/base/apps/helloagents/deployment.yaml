@@ -30,6 +30,10 @@ spec:
         azure.workload.identity/use: "true"
         orleans/serviceId: helloagents
         orleans/clusterId: helloagents-${STAMP_NAME}
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
     spec:
       terminationGracePeriodSeconds: 65
       serviceAccountName: ${HELLOAGENTS_SA_NAME}
