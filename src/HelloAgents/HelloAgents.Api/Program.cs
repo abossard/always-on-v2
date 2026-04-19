@@ -86,6 +86,7 @@ else
 // AI orchestrator for natural language commands
 builder.Services.AddScoped<OrchestratorService>();
 builder.Services.AddScoped<GroupLifecycleService>();
+builder.Services.AddScoped<AnalyticsService>();
 
 // Change Feed → entity-metrics aggregation
 builder.Services.AddHostedService<ChangeFeedMetricsService>();
@@ -114,6 +115,7 @@ if (app.Environment.IsDevelopment())
 app.MapDefaultEndpoints();
 app.UseOpenTelemetryPrometheusScrapingEndpoint();
 app.MapAllEndpoints();
+app.MapAnalyticsEndpoints();
 
 app.Run();
 

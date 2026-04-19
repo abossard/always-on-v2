@@ -204,6 +204,7 @@ var appContainers = [
     { name: 'helloagents-storage', partitionKeyPaths: ['/PartitionKey'] }
     { name: 'entity-metrics', partitionKeyPaths: ['/entityType'] }
     { name: 'metrics-leases', partitionKeyPaths: ['/id'] }
+    { name: 'analytics-events', partitionKeyPaths: ['/eventType'], defaultTtl: 7776000 }
   ]
   // [3] graphorleons — grain state + models (clustering moves to stamp Cosmos)
   [

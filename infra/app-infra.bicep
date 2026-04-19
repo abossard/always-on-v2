@@ -149,6 +149,7 @@ resource cosmosContainers 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/co
           kind: container.?partitionKeyKind ?? 'Hash'
           version: 2
         }
+        defaultTtl: container.?defaultTtl ?? -1
         indexingPolicy: container.?indexingPolicy ?? {
           automatic: true
           indexingMode: 'consistent'

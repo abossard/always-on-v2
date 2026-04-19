@@ -35,6 +35,24 @@ public record GroupMetrics
     [JsonPropertyName("systemMessageCount")]
     public int SystemMessageCount { get; init; }
 
+    [JsonPropertyName("description")]
+    public string Description { get; init; } = "";
+
+    [JsonPropertyName("avgMessageLength")]
+    public double AvgMessageLength { get; init; }
+
+    [JsonPropertyName("uniqueSenders")]
+    public int UniqueSenders { get; init; }
+
+    [JsonPropertyName("agentResponseRatio")]
+    public double AgentResponseRatio { get; init; }
+
+    [JsonPropertyName("messagesPerHour")]
+    public double MessagesPerHour { get; init; }
+
+    [JsonPropertyName("topSenders")]
+    public IReadOnlyList<SenderSummary> TopSenders { get; init; } = [];
+
     [JsonPropertyName("lastActivityAt")]
     public DateTimeOffset? LastActivityAt { get; init; }
 
@@ -69,6 +87,9 @@ public record AgentMetrics
     [JsonPropertyName("groupCount")]
     public int GroupCount { get; init; }
 
+    [JsonPropertyName("reflectionJournalLength")]
+    public int ReflectionJournalLength { get; init; }
+
     [JsonPropertyName("updatedAt")]
     public DateTimeOffset UpdatedAt { get; init; }
 }
@@ -96,4 +117,17 @@ public record GlobalMetrics
 
     [JsonPropertyName("updatedAt")]
     public DateTimeOffset UpdatedAt { get; init; }
+}
+
+/// <summary>Summary of a sender's activity within a group — bounded to top N.</summary>
+public record SenderSummary
+{
+    [JsonPropertyName("name")]
+    public required string Name { get; init; }
+
+    [JsonPropertyName("emoji")]
+    public required string Emoji { get; init; }
+
+    [JsonPropertyName("messageCount")]
+    public int MessageCount { get; init; }
 }

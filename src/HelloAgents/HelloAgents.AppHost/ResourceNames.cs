@@ -11,4 +11,5 @@ public static class ResourceNames
     public const string PubSubContainer = "helloagents-pubsub";
     public const string EntityMetricsContainer = "entity-metrics";
     public const string MetricsLeasesContainer = "metrics-leases";
+    public const string AnalyticsEventsContainer = "analytics-events";
 }
