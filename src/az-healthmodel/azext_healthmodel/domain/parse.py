@@ -22,6 +22,7 @@ from azext_healthmodel.models.enums import (
     ComparisonOperator,
     DataUnit,
     HealthState,
+    Impact,
     SignalKind,
 )
 from azext_healthmodel.models.transport import (
@@ -76,6 +77,16 @@ def _parse_operator(raw: str | None) -> ComparisonOperator:
         return ComparisonOperator.GREATER_THAN
 
 
+def _parse_impact(raw: str | None) -> Impact:
+    """Parse an impact string into the enum, defaulting to Standard."""
+    if raw is None:
+        return Impact.STANDARD
+    try:
+        return Impact(raw)
+    except ValueError:
+        return Impact.STANDARD
+
+
 # ─── Signal definition parsing ────────────────────────────────────────
 
 
@@ -123,7 +134,14 @@ def _parse_signal_ref(
     raw: TransportSignalRef,
     sig_defs: Mapping[str, SignalDefinition],
 ) -> SignalValue:
-    """Parse a signal reference (with inline status) from an entity's signal group."""
+    """Parse a signal reference from an entity's signal group.
+
+    Raises ValueError if the signal has no name.
+    """
+    sig_name = raw.get("name", "")
+    if not sig_name:
+        raise ValueError(f"Signal reference missing 'name': {raw!r}")
+
     def_name = raw.get("signalDefinitionName", "")
     sig_def = sig_defs.get(def_name)
 
@@ -131,7 +149,7 @@ def _parse_signal_ref(
     raw_value = status.get("value")
 
     return SignalValue(
-        name=raw.get("name", ""),
+        name=sig_name,
         definition_name=def_name,
         display_name=sig_def.display_name if sig_def else def_name[:12],
         signal_kind=_parse_signal_kind(raw.get("signalKind")),
@@ -149,7 +167,17 @@ def parse_entity(
     raw: TransportEntity,
     sig_defs: Mapping[str, SignalDefinition],
 ) -> EntityNode:
-    """Parse a single entity from the API wire format."""
+    """Parse a single entity from the API wire format.
+
+    Raises ValueError if the entity has no id or name.
+    """
+    entity_id = raw.get("id", "")
+    entity_name = raw.get("name", "")
+    if not entity_id:
+        raise ValueError(f"Entity missing 'id': {raw!r}")
+    if not entity_name:
+        raise ValueError(f"Entity missing 'name': {raw!r}")
+
     props = raw.get("properties", {})
     icon_raw = props.get("icon", {})
     icon_name = icon_raw.get("iconName", "") if isinstance(icon_raw, dict) else str(icon_raw)
@@ -164,12 +192,12 @@ def parse_entity(
                     signals.append(_parse_signal_ref(sig_ref, sig_defs))
 
     return EntityNode(
-        entity_id=raw.get("id", ""),
-        name=raw.get("name", ""),
+        entity_id=entity_id,
+        name=entity_name,
         display_name=props.get("displayName", raw.get("name", "")),
         health_state=_parse_health_state(props.get("healthState")),
         icon_name=icon_name,
-        impact=props.get("impact", "Standard"),
+        impact=_parse_impact(props.get("impact")),
         signals=tuple(signals),
     )
 
@@ -178,11 +206,14 @@ def parse_entities(
     raw_list: Sequence[TransportEntity],
     sig_defs: Mapping[str, SignalDefinition],
 ) -> Mapping[str, EntityNode]:
-    """Parse a list of entities into a name→EntityNode mapping."""
+    """Parse a list of entities into a name→EntityNode mapping.
+
+    Raises ValueError if any entity is malformed.
+    """
     return {
         ent.name: ent
         for raw in raw_list
-        if (ent := parse_entity(raw, sig_defs))
+        for ent in [parse_entity(raw, sig_defs)]
     }
 
 

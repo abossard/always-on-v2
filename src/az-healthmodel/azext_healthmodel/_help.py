@@ -92,34 +92,93 @@ type: command
 short-summary: Delete an entity from a health model.
 """
 
-# ── Signal ────────────────────────────────────────────────────────────
+# ── Signal Definition ─────────────────────────────────────────────────
 
-helps["healthmodel signal"] = """
+helps["healthmodel signal-definition"] = """
 type: group
 short-summary: Manage signal definitions within a health model.
 """
 
-helps["healthmodel signal create"] = """
+helps["healthmodel signal-definition create"] = """
 type: command
 short-summary: Create or update a signal definition.
 examples:
-  - name: Create a signal from a JSON file
-    text: az healthmodel signal create -g myRg --model myModel -n cpuSignal --body @signal.json
+  - name: Create a signal definition from a JSON file
+    text: az healthmodel signal-definition create -g myRg --model myModel -n cpuSignal --body @signal.json
 """
 
-helps["healthmodel signal show"] = """
+helps["healthmodel signal-definition show"] = """
 type: command
 short-summary: Get a signal definition.
 """
 
-helps["healthmodel signal list"] = """
+helps["healthmodel signal-definition list"] = """
 type: command
 short-summary: List signal definitions in a health model.
 """
 
-helps["healthmodel signal delete"] = """
+helps["healthmodel signal-definition delete"] = """
 type: command
 short-summary: Delete a signal definition.
+"""
+
+helps["healthmodel signal-definition execute"] = """
+type: command
+short-summary: Execute a signal's query and evaluate its health state.
+long-summary: |
+    Runs the actual PromQL or Azure Metrics query for a signal instance
+    on an entity, extracts the value, evaluates health against thresholds,
+    and returns the full result with metadata.
+examples:
+  - name: Execute a signal on an entity
+    text: az healthmodel signal-definition execute -g myRg --model myModel --entity myEntity --signal mySignalInstanceName
+"""
+
+# ── Entity Signal (instances) ─────────────────────────────────────────
+
+helps["healthmodel entity signal"] = """
+type: group
+short-summary: Manage signal instances on entities (list, add, remove, history, ingest).
+"""
+
+helps["healthmodel entity signal list"] = """
+type: command
+short-summary: List all signal instances assigned to an entity.
+examples:
+  - name: List signals on an entity
+    text: az healthmodel entity signal list -g myRg --model myModel --entity myEntity
+"""
+
+helps["healthmodel entity signal add"] = """
+type: command
+short-summary: Add a signal instance to an entity's signal group.
+examples:
+  - name: Add a Prometheus signal to an entity
+    text: az healthmodel entity signal add -g myRg --model myModel --entity myEntity --group azureMonitorWorkspace --body @signal.json
+"""
+
+helps["healthmodel entity signal remove"] = """
+type: command
+short-summary: Remove a signal instance from an entity.
+examples:
+  - name: Remove a signal by name
+    text: az healthmodel entity signal remove -g myRg --model myModel --entity myEntity --signal mySignalName
+"""
+
+helps["healthmodel entity signal history"] = """
+type: command
+short-summary: Query signal value history for an entity.
+examples:
+  - name: Get signal history for the last 24 hours
+    text: az healthmodel entity signal history -g myRg --model myModel --entity myEntity --signal mySignal --start-at 2026-04-17T00:00:00Z --end-at 2026-04-18T00:00:00Z
+"""
+
+helps["healthmodel entity signal ingest"] = """
+type: command
+short-summary: Submit an external health report for a signal on an entity.
+examples:
+  - name: Report a degraded signal value
+    text: az healthmodel entity signal ingest -g myRg --model myModel --entity myEntity --signal mySignal --health-state Degraded --value 85.5
 """
 
 # ── Relationship ──────────────────────────────────────────────────────
@@ -182,4 +241,19 @@ examples:
     text: az healthmodel export -g myRg --model-name myModel
   - name: Export to a custom path
     text: az healthmodel export -g myRg --model-name myModel -f health-tree.svg
+"""
+
+# ── MCP Server ────────────────────────────────────────────────────────
+
+helps["healthmodel mcp"] = """
+type: command
+short-summary: Start a stdio MCP server exposing all healthmodel operations as tools.
+long-summary: |
+    Launches a Model Context Protocol (MCP) server on stdin/stdout.
+    All healthmodel operations are exposed as MCP tools with bulk support.
+    Each tool accepts resource_group and model_name as parameters.
+    Use with VS Code Copilot, Claude, or any MCP-compatible client.
+examples:
+  - name: Start the MCP server
+    text: az healthmodel mcp
 """

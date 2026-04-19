@@ -6,6 +6,7 @@ transient failures.
 """
 from __future__ import annotations
 
+import json
 import logging
 import time
 from typing import Any, Final, Sequence
@@ -91,7 +92,7 @@ class CloudHealthClient:
                     self._cli_ctx,
                     method,
                     full_url,
-                    body=body,
+                    body=json.dumps(body) if body is not None else None,
                 )
                 status = response.status_code
                 elapsed = (time.monotonic() - t0) * 1000
@@ -261,3 +262,31 @@ class CloudHealthClient:
         return self.list_sub_resources(
             resource_group, model_name, "authenticationsettings"
         )
+
+    # ─── Entity signal operations (history, ingest) ───────────────────
+
+    def get_signal_history(
+        self,
+        resource_group: str,
+        model_name: str,
+        entity_name: str,
+        body: dict[str, Any],
+    ) -> dict[str, Any]:
+        url = (
+            self._sub_resource_url(resource_group, model_name, "entities", entity_name)
+            + "/getSignalHistory"
+        )
+        return self._send("POST", url, body)
+
+    def ingest_health_report(
+        self,
+        resource_group: str,
+        model_name: str,
+        entity_name: str,
+        body: dict[str, Any],
+    ) -> dict[str, Any]:
+        url = (
+            self._sub_resource_url(resource_group, model_name, "entities", entity_name)
+            + "/ingestHealthReport"
+        )
+        return self._send("POST", url, body)

@@ -42,7 +42,8 @@ def healthmodel_create(
     payload.setdefault("location", location)
     payload.setdefault("properties", {})
     if identity_type:
-        payload["identity"] = {"type": identity_type}
+        payload.setdefault("identity", {})
+        payload["identity"]["type"] = identity_type
     return client.create_or_update_model(resource_group, name, payload)
 
 
@@ -140,6 +141,125 @@ def entity_delete(
     return client.delete_sub_resource(resource_group, model_name, "entities", name)
 
 
+# ─── Entity Signal (instances) ────────────────────────────────────────
+
+
+def entity_signal_list(
+    cmd: object,
+    resource_group: str,
+    model_name: str,
+    entity_name: str,
+) -> list[dict[str, Any]]:
+    """List all signal instances assigned to an entity."""
+    client = _get_client(cmd)
+    entity = client.get_sub_resource(resource_group, model_name, "entities", entity_name)
+    props = entity.get("properties", {})
+    signal_groups = props.get("signalGroups", {})
+    result: list[dict[str, Any]] = []
+    for group_name, group_data in signal_groups.items():
+        if not isinstance(group_data, dict):
+            continue
+        for sig in group_data.get("signals", []):
+            sig_copy = dict(sig)
+            sig_copy["_signalGroup"] = group_name
+            result.append(sig_copy)
+    return result
+
+
+def entity_signal_add(
+    cmd: object,
+    resource_group: str,
+    model_name: str,
+    entity_name: str,
+    signal_group: str,
+    body: str,
+) -> dict[str, Any]:
+    """Add a signal instance to an entity's signal group."""
+    client = _get_client(cmd)
+    signal_def = _load_body(body)
+    entity = client.get_sub_resource(resource_group, model_name, "entities", entity_name)
+    props = entity.setdefault("properties", {})
+    groups = props.setdefault("signalGroups", {})
+    group = groups.setdefault(signal_group, {})
+    signals = group.setdefault("signals", [])
+    signals.append(signal_def)
+    return client.create_or_update_sub_resource(
+        resource_group, model_name, "entities", entity_name, entity,
+    )
+
+
+def entity_signal_remove(
+    cmd: object,
+    resource_group: str,
+    model_name: str,
+    entity_name: str,
+    signal_name: str,
+) -> dict[str, Any]:
+    """Remove a signal instance from an entity."""
+    client = _get_client(cmd)
+    entity = client.get_sub_resource(resource_group, model_name, "entities", entity_name)
+    props = entity.get("properties", {})
+    signal_groups = props.get("signalGroups", {})
+    found = False
+    for group_data in signal_groups.values():
+        if not isinstance(group_data, dict):
+            continue
+        signals = group_data.get("signals", [])
+        new_signals = [s for s in signals if s.get("name") != signal_name]
+        if len(new_signals) < len(signals):
+            group_data["signals"] = new_signals
+            found = True
+    if not found:
+        from azext_healthmodel.client.errors import HealthModelError
+        raise HealthModelError(f"Signal '{signal_name}' not found on entity '{entity_name}'")
+    return client.create_or_update_sub_resource(
+        resource_group, model_name, "entities", entity_name, entity,
+    )
+
+
+def entity_signal_history(
+    cmd: object,
+    resource_group: str,
+    model_name: str,
+    entity_name: str,
+    signal_name: str,
+    start_at: str,
+    end_at: str,
+) -> dict[str, Any]:
+    """Query signal value history for an entity."""
+    client = _get_client(cmd)
+    body = {
+        "signalName": signal_name,
+        "startAt": start_at,
+        "endAt": end_at,
+    }
+    return client.get_signal_history(resource_group, model_name, entity_name, body)
+
+
+def entity_signal_ingest(
+    cmd: object,
+    resource_group: str,
+    model_name: str,
+    entity_name: str,
+    signal_name: str,
+    health_state: str,
+    value: float,
+    expires_in_minutes: int = 60,
+    additional_context: str | None = None,
+) -> dict[str, Any]:
+    """Submit an external health report for a signal on an entity."""
+    client = _get_client(cmd)
+    body: dict[str, Any] = {
+        "signalName": signal_name,
+        "healthState": health_state,
+        "value": value,
+        "expiresInMinutes": expires_in_minutes,
+    }
+    if additional_context:
+        body["additionalContext"] = additional_context
+    return client.ingest_health_report(resource_group, model_name, entity_name, body)
+
+
 # ─── Signal CRUD ──────────────────────────────────────────────────────
 
 
@@ -192,6 +312,20 @@ def signal_delete(
     return client.delete_sub_resource(
         resource_group, model_name, "signaldefinitions", name,
     )
+
+
+def signal_execute(
+    cmd: object,
+    resource_group: str,
+    model_name: str,
+    entity_name: str,
+    signal_name: str,
+) -> dict[str, Any]:
+    """Execute a signal's query and evaluate its health state."""
+    from azext_healthmodel.client.query_executor import execute_signal
+
+    client = _get_client(cmd)
+    return execute_signal(client, resource_group, model_name, entity_name, signal_name)
 
 
 # ─── Relationship CRUD ───────────────────────────────────────────────
@@ -255,7 +389,8 @@ def auth_create(
     client = _get_client(cmd)
     payload = {
         "properties": {
-            "identityName": identity_name,
+            "authenticationKind": "ManagedIdentity",
+            "managedIdentityName": identity_name,
         },
     }
     return client.create_or_update_sub_resource(
@@ -350,3 +485,15 @@ def _enable_verbose_logging() -> None:
         logger = logging.getLogger(name)
         logger.setLevel(logging.INFO)
         logger.addHandler(handler)
+
+
+# ─── MCP Server ───────────────────────────────────────────────────────
+
+
+def mcp_serve(cmd: object) -> None:
+    """Start a stdio MCP server exposing all healthmodel operations as tools."""
+    from azext_healthmodel.mcp.server import create_server
+
+    client = _get_client(cmd)
+    mcp = create_server(client)
+    mcp.run(transport="stdio")

@@ -25,6 +25,19 @@ class HealthState(Enum):
         }
         return _map[self.value]
 
+    def is_worse_than(self, other: HealthState) -> bool:
+        """True if this state is strictly worse (higher severity) than *other*."""
+        return self.severity > other.severity
+
+    def is_better_than(self, other: HealthState) -> bool:
+        """True if this state is strictly better (lower severity) than *other*."""
+        return self.severity < other.severity
+
+    @property
+    def is_actionable(self) -> bool:
+        """True if this state requires attention (Degraded or Unhealthy)."""
+        return self in (HealthState.DEGRADED, HealthState.UNHEALTHY)
+
     @property
     def icon(self) -> str:
         """Emoji icon representing this health state."""
@@ -94,6 +107,24 @@ class ComparisonOperator(Enum):
     LESS_THAN = "LessThan"
     GREATER_THAN_OR_EQUAL = "GreaterThanOrEqual"
     LESS_THAN_OR_EQUAL = "LessThanOrEqual"
+
+    def evaluate(self, value: float, threshold: float) -> bool:
+        """Return True if *value* violates the threshold (triggers the rule)."""
+        if self == ComparisonOperator.GREATER_THAN:
+            return value > threshold
+        if self == ComparisonOperator.LESS_THAN:
+            return value < threshold
+        if self == ComparisonOperator.GREATER_THAN_OR_EQUAL:
+            return value >= threshold
+        return value <= threshold  # LESS_THAN_OR_EQUAL
+
+
+class Impact(Enum):
+    """Propagation weight of an entity's health to its parent."""
+
+    STANDARD = "Standard"
+    LIMITED = "Limited"
+    NONE = "None"
 
 
 class ChangeKind(Enum):

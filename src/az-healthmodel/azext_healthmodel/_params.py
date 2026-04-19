@@ -53,7 +53,7 @@ def load_arguments(self, _):  # noqa: ANN001
     # ── Shared sub-resource params ────────────────────────────────────
     for scope in [
         "healthmodel entity",
-        "healthmodel signal",
+        "healthmodel signal-definition",
         "healthmodel relationship",
         "healthmodel auth",
     ]:
@@ -83,12 +83,109 @@ def load_arguments(self, _):  # noqa: ANN001
             help="JSON body or @file path for the entity definition.",
         )
 
-    # ── Signal ────────────────────────────────────────────────────────
-    with self.argument_context("healthmodel signal create") as c:
+    # ── Signal Definition ────────────────────────────────────────────
+    with self.argument_context("healthmodel signal-definition create") as c:
         c.argument(
             "body",
             options_list=["--body"],
             help="JSON body or @file path for the signal definition.",
+        )
+
+    with self.argument_context("healthmodel signal-definition execute") as c:
+        c.argument(
+            "entity_name",
+            options_list=["--entity-name", "--entity"],
+            help="Name of the entity that has the signal instance.",
+        )
+        c.argument(
+            "signal_name",
+            options_list=["--signal-name", "--signal"],
+            help="Name of the signal instance on the entity.",
+        )
+
+    # ── Entity Signal (instances) ─────────────────────────────────────
+    with self.argument_context("healthmodel entity signal") as c:
+        c.argument(
+            "resource_group",
+            options_list=["--resource-group", "-g"],
+            help="Name of the resource group.",
+            completer=get_resource_group_completion_list,
+        )
+        c.argument(
+            "model_name",
+            options_list=["--model-name", "--model"],
+            help="Name of the parent health model.",
+        )
+        c.argument(
+            "entity_name",
+            options_list=["--entity-name", "--entity"],
+            help="Name of the entity.",
+        )
+
+    with self.argument_context("healthmodel entity signal add") as c:
+        c.argument(
+            "signal_group",
+            options_list=["--signal-group", "--group"],
+            help="Signal group to add to (azureResource, azureLogAnalytics, azureMonitorWorkspace).",
+        )
+        c.argument(
+            "body",
+            options_list=["--body"],
+            help="JSON body or @file path for the signal instance definition.",
+        )
+
+    with self.argument_context("healthmodel entity signal remove") as c:
+        c.argument(
+            "signal_name",
+            options_list=["--signal-name", "--signal"],
+            help="Name of the signal instance to remove.",
+        )
+
+    with self.argument_context("healthmodel entity signal history") as c:
+        c.argument(
+            "signal_name",
+            options_list=["--signal-name", "--signal"],
+            help="Name of the signal instance.",
+        )
+        c.argument(
+            "start_at",
+            options_list=["--start-at"],
+            help="Start time (ISO 8601 format).",
+        )
+        c.argument(
+            "end_at",
+            options_list=["--end-at"],
+            help="End time (ISO 8601 format).",
+        )
+
+    with self.argument_context("healthmodel entity signal ingest") as c:
+        c.argument(
+            "signal_name",
+            options_list=["--signal-name", "--signal"],
+            help="Name of the signal instance.",
+        )
+        c.argument(
+            "health_state",
+            options_list=["--health-state"],
+            help="Health state to report (Healthy, Degraded, Unhealthy, Unknown).",
+        )
+        c.argument(
+            "value",
+            options_list=["--value"],
+            type=float,
+            help="Numeric value to report.",
+        )
+        c.argument(
+            "expires_in_minutes",
+            options_list=["--expires-in"],
+            type=int,
+            default=60,
+            help="Minutes until the report expires (default: 60, max: 10080).",
+        )
+        c.argument(
+            "additional_context",
+            options_list=["--additional-context", "--context"],
+            help="Additional context string for the health report.",
         )
 
     # ── Relationship ──────────────────────────────────────────────────
@@ -147,3 +244,5 @@ def load_arguments(self, _):  # noqa: ANN001
             action="store_true",
             help="Show API calls, timing, and diff details on stderr.",
         )
+
+

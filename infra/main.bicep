@@ -22,9 +22,25 @@ param acrSku string = 'Premium'
 @allowed(['Premium_AzureFrontDoor', 'Standard_AzureFrontDoor'])
 param frontDoorSku string = 'Standard_AzureFrontDoor'
 
-@description('Cosmos DB autoscale max throughput (RU/s) at database level. Minimum 1000.')
+@description('Cosmos DB autoscale max throughput (RU/s) at database level. Minimum 1000. Ignored when cosmosMode is Serverless.')
 @minValue(1000)
 param cosmosAutoscaleMaxThroughput int = 1000
+
+@description('Cosmos DB account mode. Serverless = pay-per-request, single-region, no multi-write. Provisioned = autoscale throughput, multi-region write.')
+@allowed(['Provisioned', 'Serverless'])
+param cosmosMode string = 'Provisioned'
+
+@description('Event Hubs namespace SKU. Standard = no geo-replication. Premium = geo-replication + higher throughput.')
+@allowed(['Standard', 'Premium'])
+param eventHubsSku string = 'Premium'
+
+@description('Enable Azure Load Testing resource. Set to false for budget deployments.')
+param enableLoadTesting bool = true
+
+@description('Log Analytics retention in days for the global workspace.')
+@minValue(30)
+@maxValue(730)
+param logRetentionDays int = 90
 
 @description('Domain name for Azure DNS zone (e.g. alwayson.actor).')
 param domainName string = 'alwayson.actor'
@@ -161,6 +177,10 @@ module global 'global.bicep' = {
     frontDoorSku: frontDoorSku
     domainName: domainName
     regions: regions
+    cosmosMode: cosmosMode
+    eventHubsSku: eventHubsSku
+    enableLoadTesting: enableLoadTesting
+    logRetentionDays: logRetentionDays
   }
 }
 
@@ -217,6 +237,7 @@ module appInfra 'app-infra.bicep' = [
       cosmosAccountName: global.outputs.cosmosName
       cosmosDatabaseName: app.name
       cosmosAutoscaleMaxThroughput: cosmosAutoscaleMaxThroughput
+      cosmosMode: cosmosMode
       appInsightsId: global.outputs.appInsightsId
       containers: appContainers[i]
       eventHubsNamespaceName: app.name == 'graphorleons' ? global.outputs.eventHubsNamespaceName : ''

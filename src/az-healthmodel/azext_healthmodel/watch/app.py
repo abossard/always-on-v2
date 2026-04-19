@@ -9,8 +9,10 @@ from textual.reactive import reactive
 from textual.widgets import Header
 
 from azext_healthmodel.client.rest_client import CloudHealthClient
+from azext_healthmodel.models.domain import Forest, SearchResult
 from azext_healthmodel.watch.health_tree import HealthTree
 from azext_healthmodel.watch.poller import Poller
+from azext_healthmodel.watch.search_modal import SearchModal
 from azext_healthmodel.watch.status_bar import StatusBar
 
 
@@ -22,8 +24,11 @@ class HealthWatchApp(App[None]):
 
     BINDINGS = [
         Binding("q", "quit", "Quit", priority=True),
+        Binding("slash", "open_search", "Search", priority=True),
         Binding("j", "toggle_autojump", "Auto-jump"),
         Binding("r", "force_refresh", "Refresh"),
+        Binding("n", "next_match", "Next match"),
+        Binding("p", "prev_match", "Prev match"),
         Binding("plus", "increase_interval", "+10s"),
         Binding("minus", "decrease_interval", "-10s"),
     ]
@@ -41,6 +46,10 @@ class HealthWatchApp(App[None]):
         self._poller = Poller(client, rg, model)
         self._poll_interval = poll_interval
         self._model = model
+        self._forest: Forest | None = None
+        self._search_results: list[SearchResult] = []
+        self._search_query: str = ""
+        self._search_cursor: int = 0
 
     # ── layout ────────────────────────────────────────────────────────
 
@@ -70,6 +79,7 @@ class HealthWatchApp(App[None]):
             status.connected = False
         else:
             status.connected = True
+            self._forest = result.forest
             tree.apply_forest(result.forest, result.changes)
             escalations = [c for c in result.changes if c.is_escalation]
             status.change_count += len(escalations)
@@ -101,3 +111,48 @@ class HealthWatchApp(App[None]):
     def action_decrease_interval(self) -> None:
         """Decrease the poll interval by 10 s (min 10 s)."""
         self._poll_interval = max(10, self._poll_interval - 10)
+
+    # ── search ────────────────────────────────────────────────────────
+
+    def action_open_search(self) -> None:
+        """Open the search modal with the previous query pre-filled."""
+        if self._forest is None:
+            return
+
+        def _handle_result(result: SearchResult | None) -> None:
+            if result is not None:
+                self._search_cursor = next(
+                    (i for i, r in enumerate(self._search_results) if r.entity_id == result.entity_id),
+                    0,
+                )
+                tree = self.query_one("#health-tree", HealthTree)
+                tree.scroll_to_entity(result.entity_id)
+            status = self.query_one("#status-bar", StatusBar)
+            status.has_search_results = len(self._search_results) > 0
+
+        modal = SearchModal(self._forest, self._search_query)
+        self.push_screen(modal, _handle_result)
+
+        # Keep search state in sync — the modal writes back via _update_search_state
+        modal._on_search_state = self._update_search_state
+
+    def _update_search_state(self, query: str, results: list[SearchResult]) -> None:
+        """Called by SearchModal on each keystroke to keep app state in sync."""
+        self._search_query = query
+        self._search_results = results
+
+    def action_next_match(self) -> None:
+        """Jump to the next search result in the tree."""
+        if not self._search_results:
+            return
+        self._search_cursor = (self._search_cursor + 1) % len(self._search_results)
+        tree = self.query_one("#health-tree", HealthTree)
+        tree.scroll_to_entity(self._search_results[self._search_cursor].entity_id)
+
+    def action_prev_match(self) -> None:
+        """Jump to the previous search result in the tree."""
+        if not self._search_results:
+            return
+        self._search_cursor = (self._search_cursor - 1) % len(self._search_results)
+        tree = self.query_one("#health-tree", HealthTree)
+        tree.scroll_to_entity(self._search_results[self._search_cursor].entity_id)

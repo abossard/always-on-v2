@@ -77,6 +77,7 @@ az healthmodel watch -g myRG --model-name MyApp --plain
 | `az healthmodel signal show` | Get a signal definition |
 | `az healthmodel signal list` | List signal definitions |
 | `az healthmodel signal delete` | Delete a signal definition |
+| `az healthmodel signal-definition execute` | Execute a signal query and evaluate health |
 | `az healthmodel relationship create` | Create a relationship |
 | `az healthmodel relationship list` | List relationships |
 | `az healthmodel relationship delete` | Delete a relationship |
@@ -85,6 +86,40 @@ az healthmodel watch -g myRG --model-name MyApp --plain
 | `az healthmodel auth delete` | Delete an auth config |
 | `az healthmodel watch` | Live watch mode (TUI or plain-text) |
 | `az healthmodel export` | Export full model tree as SVG screenshot |
+| `az healthmodel mcp` | Start MCP server (stdio) for AI agents |
+
+## Signal Execution
+
+Test and verify signal queries by executing them against the real data sources:
+
+```bash
+az healthmodel signal-definition execute \
+  -g rg-alwayson-global --model hm-darkux \
+  --entity 0897f794-d571-5cf5-a2d8-59320a84d8a4 \
+  --signal 640bb6df-d8a4-5004-afd0-b3bab2783502
+```
+
+Returns full execution metadata:
+
+```json
+{
+  "signalDefinitionName": "CPU Pressure",
+  "signalKind": "PrometheusMetricsQuery",
+  "query": "sum(rate(container_cpu_usage_seconds_total{...}[5m])) / ...",
+  "rawValue": 32.29,
+  "healthState": "Healthy",
+  "evaluationRules": {
+    "degradedRule": { "operator": "GreaterThan", "threshold": 90.0 },
+    "unhealthyRule": { "operator": "GreaterThan", "threshold": 98.0 }
+  },
+  "dataSource": "/subscriptions/.../accounts/amw-...",
+  "durationMs": 1912,
+  "rawOutput": { "...full API response..." },
+  "error": null
+}
+```
+
+Supports **PromQL** and **Azure Resource Metrics** signal kinds. On failure, `error` is populated with the full error message and `healthState` is `"Error"`.
 
 ## Watch Mode
 
@@ -146,6 +181,73 @@ az healthmodel export -g rg-alwayson-global --model-name hm-darkux --file darkux
 ```
 
 The exported SVG renders the complete tree with all entities expanded and signal values shown, sized to fit the full model.
+
+## MCP Server (AI Agent Integration)
+
+Start a [Model Context Protocol](https://modelcontextprotocol.io) server on stdin/stdout, exposing all healthmodel operations as tools for AI agents (VS Code Copilot, Claude, etc.):
+
+```bash
+az healthmodel mcp
+```
+
+Every tool supports **bulk calls** — pass `items` (a list of parameter dicts) to batch operations:
+
+```json
+// Single call
+{"name": "entity_show", "arguments": {"resource_group": "rg", "model_name": "hm", "name": "e1"}}
+
+// Bulk call
+{"name": "entity_show", "arguments": {"items": [
+  {"resource_group": "rg", "model_name": "hm", "name": "e1"},
+  {"resource_group": "rg", "model_name": "hm", "name": "e2"}
+]}}
+// → {"results": [{"ok": true, "data": {...}}, {"ok": true, "data": {...}}]}
+```
+
+### VS Code Copilot Configuration
+
+Add to `.vscode/mcp.json`:
+
+```json
+{
+  "servers": {
+    "healthmodel": {
+      "type": "stdio",
+      "command": "az",
+      "args": ["healthmodel", "mcp"]
+    }
+  }
+}
+```
+
+### Available MCP Tools
+
+| Tool | Description |
+| --- | --- |
+| `healthmodel_list` | List health models |
+| `healthmodel_show` | Get health model(s) |
+| `healthmodel_create` | Create/update health model(s) |
+| `healthmodel_delete` | Delete health model(s) |
+| `entity_list` | List entities |
+| `entity_show` | Get entity/entities |
+| `entity_create` | Create/update entity/entities |
+| `entity_delete` | Delete entity/entities |
+| `entity_signal_list` | List signals on entity/entities |
+| `entity_signal_add` | Add signal to entity/entities |
+| `entity_signal_remove` | Remove signal from entity/entities |
+| `entity_signal_history` | Query signal history |
+| `entity_signal_ingest` | Submit external health report(s) |
+| `signal_definition_list` | List signal definitions |
+| `signal_definition_show` | Get signal definition(s) |
+| `signal_definition_create` | Create/update signal definition(s) |
+| `signal_definition_delete` | Delete signal definition(s) |
+| `signal_definition_execute` | Execute signal query and evaluate health |
+| `relationship_list` | List relationships |
+| `relationship_create` | Create relationship(s) |
+| `relationship_delete` | Delete relationship(s) |
+| `auth_list` | List auth settings |
+| `auth_create` | Create/update auth setting(s) |
+| `auth_delete` | Delete auth setting(s) |
 
 ## Debug / Verbose Mode
 

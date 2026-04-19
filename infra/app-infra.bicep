@@ -25,8 +25,12 @@ param cosmosAccountName string
 @description('Cosmos DB database name (per-app database).')
 param cosmosDatabaseName string
 
-@description('Cosmos DB autoscale max throughput (RU/s) for the per-app database.')
+@description('Cosmos DB autoscale max throughput (RU/s) for the per-app database. Ignored when cosmosMode is Serverless.')
 param cosmosAutoscaleMaxThroughput int = 1000
+
+@description('Cosmos DB account mode. Serverless = no provisioned throughput. Provisioned = autoscale.')
+@allowed(['Provisioned', 'Serverless'])
+param cosmosMode string = 'Provisioned'
 
 @description('Application Insights resource ID (for RBAC).')
 param appInsightsId string
@@ -61,9 +65,11 @@ resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2025-04-15' existi
 
 // ============================================================================
 // Cosmos DB — Per-App Database
+// Provisioned: database-level autoscale throughput
+// Serverless: no throughput settings (pay-per-request)
 // ============================================================================
 
-resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2025-04-15' = {
+resource cosmosDatabaseProvisioned 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2025-04-15' = if (cosmosMode == 'Provisioned') {
   parent: cosmosAccount
   name: cosmosDatabaseName
   properties: {
@@ -76,6 +82,22 @@ resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2025
       }
     }
   }
+}
+
+resource cosmosDatabaseServerless 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2025-04-15' = if (cosmosMode == 'Serverless') {
+  parent: cosmosAccount
+  name: cosmosDatabaseName
+  properties: {
+    resource: {
+      id: cosmosDatabaseName
+    }
+  }
+}
+
+// Reference the database by name for container parenting (works regardless of mode)
+resource cosmosDatabase 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2025-04-15' existing = {
+  parent: cosmosAccount
+  name: cosmosDatabaseName
 }
 
 // ============================================================================
@@ -118,6 +140,7 @@ resource cosmosContainers 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases/co
   for container in containers: {
     parent: cosmosDatabase
     name: container.name
+    dependsOn: [cosmosDatabaseProvisioned, cosmosDatabaseServerless]
     properties: {
       resource: {
         id: container.name

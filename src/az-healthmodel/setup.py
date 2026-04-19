@@ -17,6 +17,7 @@ CLASSIFIERS = [
 
 DEPENDENCIES = [
     "textual>=0.50.0",
+    "mcp>=1.0.0",
 ]
 
 setup(

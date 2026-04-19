@@ -16,6 +16,7 @@ from azext_healthmodel.models.enums import (
     ComparisonOperator,
     DataUnit,
     HealthState,
+    Impact,
     SignalKind,
 )
 
@@ -25,10 +26,25 @@ from azext_healthmodel.models.enums import (
 
 @dataclass(frozen=True)
 class EvaluationRule:
-    """A threshold rule for evaluating signal health."""
+    """A threshold rule for evaluating signal health.
+
+    Invariants:
+    - threshold is always a finite float (no NaN/inf)
+    """
 
     operator: ComparisonOperator
     threshold: float
+
+    def __post_init__(self) -> None:
+        if not isinstance(self.operator, ComparisonOperator):
+            raise TypeError(f"operator must be ComparisonOperator, got {type(self.operator).__name__}")
+        t = self.threshold
+        if not isinstance(t, (int, float)) or t != t or t in (float("inf"), float("-inf")):
+            raise ValueError(f"threshold must be a finite number, got {t!r}")
+
+    def triggers(self, value: float) -> bool:
+        """Return True if *value* violates this rule (crosses the threshold)."""
+        return self.operator.evaluate(value, self.threshold)
 
 
 # ─── Signal definition (reusable across entities) ────────────────────
@@ -36,7 +52,13 @@ class EvaluationRule:
 
 @dataclass(frozen=True)
 class SignalDefinition:
-    """A reusable signal definition with evaluation thresholds."""
+    """A reusable signal definition with evaluation thresholds.
+
+    Invariants:
+    - name and display_name are non-empty
+    - unhealthy_rule is always present (degraded_rule is optional)
+    - if both rules exist, they use the same operator direction
+    """
 
     name: str  # GUID
     display_name: str
@@ -45,13 +67,35 @@ class SignalDefinition:
     degraded_rule: EvaluationRule | None
     unhealthy_rule: EvaluationRule
 
+    def __post_init__(self) -> None:
+        if not self.name:
+            raise ValueError("SignalDefinition.name must be non-empty")
+        if not self.display_name:
+            raise ValueError("SignalDefinition.display_name must be non-empty")
+
+    def evaluate(self, value: float) -> HealthState:
+        """Evaluate a numeric value against this definition's rules.
+
+        Returns the worst triggered state: Unhealthy > Degraded > Healthy.
+        """
+        if self.unhealthy_rule.triggers(value):
+            return HealthState.UNHEALTHY
+        if self.degraded_rule is not None and self.degraded_rule.triggers(value):
+            return HealthState.DEGRADED
+        return HealthState.HEALTHY
+
 
 # ─── Signal value (runtime state of a signal within an entity) ───────
 
 
 @dataclass(frozen=True)
 class SignalValue:
-    """Runtime state of a single signal within an entity."""
+    """Runtime state of a single signal within an entity.
+
+    Invariants:
+    - name is non-empty
+    - health_state is UNKNOWN iff value is None (no data ↔ unknown health)
+    """
 
     name: str  # GUID — signal instance name
     definition_name: str  # GUID — references a SignalDefinition
@@ -61,6 +105,10 @@ class SignalValue:
     value: float | None  # None when no data available
     data_unit: DataUnit
     reported_at: str  # ISO 8601 timestamp
+
+    def __post_init__(self) -> None:
+        if not self.name:
+            raise ValueError("SignalValue.name must be non-empty")
 
     @property
     def formatted_value(self) -> str:
@@ -91,16 +139,30 @@ class SignalValue:
 
 @dataclass(frozen=True)
 class EntityNode:
-    """A monitored entity in the health model tree."""
+    """A monitored entity in the health model tree.
+
+    Invariants:
+    - entity_id and name are non-empty
+    - impact is a typed Impact enum, not a raw string
+    - signals is an immutable tuple (no accidental mutation)
+    """
 
     entity_id: str  # ARM resource ID (globally unique identity)
     name: str  # GUID entity name
     display_name: str
     health_state: HealthState
     icon_name: str  # e.g., "Resource", "SystemComponent", "AzureKubernetesService"
-    impact: str  # "Standard", "Limited", "None"
+    impact: Impact
     signals: tuple[SignalValue, ...]  # All signals from all signal groups
     children: tuple[str, ...] = ()  # Child entity_ids (populated by graph builder)
+
+    def __post_init__(self) -> None:
+        if not self.entity_id:
+            raise ValueError("EntityNode.entity_id must be non-empty")
+        if not self.name:
+            raise ValueError("EntityNode.name must be non-empty")
+        if not isinstance(self.impact, Impact):
+            raise TypeError(f"EntityNode.impact must be Impact enum, got {type(self.impact).__name__}")
 
 
 # ─── Relationship ────────────────────────────────────────────────────
@@ -108,12 +170,29 @@ class EntityNode:
 
 @dataclass(frozen=True)
 class Relationship:
-    """A parent→child edge in the health model graph."""
+    """A parent→child edge in the health model graph.
+
+    Invariants:
+    - all fields are non-empty
+    - parent and child are different
+    """
 
     relationship_id: str  # ARM resource ID
     name: str  # GUID
     parent_entity_name: str  # GUID or model name
     child_entity_name: str  # GUID
+
+    def __post_init__(self) -> None:
+        if not self.name:
+            raise ValueError("Relationship.name must be non-empty")
+        if not self.parent_entity_name:
+            raise ValueError("Relationship.parent_entity_name must be non-empty")
+        if not self.child_entity_name:
+            raise ValueError("Relationship.child_entity_name must be non-empty")
+        if self.parent_entity_name == self.child_entity_name:
+            raise ValueError(
+                f"Relationship cannot be self-referential: {self.parent_entity_name}"
+            )
 
 
 # ─── Health model info ───────────────────────────────────────────────
@@ -160,7 +239,15 @@ class Snapshot:
 
 @dataclass(frozen=True)
 class StateChange:
-    """A detected change between two snapshots."""
+    """A detected change between two snapshots.
+
+    Invariants enforced by __post_init__:
+    - NEW  → old_state is None, new_state is not None
+    - REMOVED → old_state is not None, new_state is None
+    - ESCALATION → both states present, new is worse than old
+    - RECOVERY → both states present, new is better than old
+    - VALUE_CHANGED → both states present
+    """
 
     entity_id: str
     entity_display_name: str
@@ -168,6 +255,31 @@ class StateChange:
     old_state: HealthState | None  # None for NEW entities
     new_state: HealthState | None  # None for REMOVED entities
     signal_name: str | None = None  # If change is at signal level
+
+    def __post_init__(self) -> None:
+        if self.kind == ChangeKind.NEW:
+            if self.old_state is not None:
+                raise ValueError("NEW change must have old_state=None")
+            if self.new_state is None:
+                raise ValueError("NEW change must have new_state")
+        elif self.kind == ChangeKind.REMOVED:
+            if self.old_state is None:
+                raise ValueError("REMOVED change must have old_state")
+            if self.new_state is not None:
+                raise ValueError("REMOVED change must have new_state=None")
+        elif self.kind in (ChangeKind.ESCALATION, ChangeKind.RECOVERY, ChangeKind.VALUE_CHANGED):
+            if self.old_state is None or self.new_state is None:
+                raise ValueError(f"{self.kind.value} change requires both old_state and new_state")
+            if self.kind == ChangeKind.ESCALATION and not self.new_state.is_worse_than(self.old_state):
+                raise ValueError(
+                    f"ESCALATION requires new_state worse than old_state, "
+                    f"got {self.old_state.value}→{self.new_state.value}"
+                )
+            if self.kind == ChangeKind.RECOVERY and not self.new_state.is_better_than(self.old_state):
+                raise ValueError(
+                    f"RECOVERY requires new_state better than old_state, "
+                    f"got {self.old_state.value}→{self.new_state.value}"
+                )
 
     @property
     def is_escalation(self) -> bool:
@@ -190,3 +302,18 @@ class Forest:
     roots: tuple[str, ...]  # Root entity names (may be multiple)
     entities: Mapping[str, EntityNode]  # entity_name → EntityNode (with children populated)
     unlinked: tuple[str, ...] = ()  # Entity names with no parent or invalid refs
+
+
+# ─── Search result ───────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class SearchResult:
+    """A single match from searching the forest."""
+
+    entity_id: str  # ARM resource ID of the entity (or parent entity for signals)
+    display_name: str
+    is_signal: bool
+    health_state: HealthState
+    signal_value: str | None = None  # Formatted value (signals only)
+    parent_display_name: str | None = None  # Parent entity name (signals only)

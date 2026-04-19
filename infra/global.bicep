@@ -26,6 +26,22 @@ param frontDoorSku string = 'Premium_AzureFrontDoor'
 @description('Enable ACR geo-replication to stamp regions.')
 param enableAcrReplication bool = false
 
+@description('Cosmos DB account mode. Serverless = pay-per-request, single-region. Provisioned = autoscale, multi-region write.')
+@allowed(['Provisioned', 'Serverless'])
+param cosmosMode string = 'Provisioned'
+
+@description('Event Hubs namespace SKU. Standard = no geo-replication. Premium = geo-replication + higher throughput.')
+@allowed(['Standard', 'Premium'])
+param eventHubsSku string = 'Premium'
+
+@description('Enable Azure Load Testing resource.')
+param enableLoadTesting bool = true
+
+@description('Log Analytics retention in days for the global workspace.')
+@minValue(30)
+@maxValue(730)
+param logRetentionDays int = 90
+
 // ============================================================================
 // User-Assigned Managed Identities (one per global service)
 // ============================================================================
@@ -45,7 +61,7 @@ resource fdIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31
   location: location
 }
 
-resource loadTestIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
+resource loadTestIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = if (enableLoadTesting) {
   name: 'id-lt-${baseName}'
   location: location
 }
@@ -94,10 +110,28 @@ resource acrReplications 'Microsoft.ContainerRegistry/registries/replications@20
 ]
 
 // ============================================================================
-// Azure Cosmos DB (Provisioned Autoscale, Multi-Region Write)
+// Azure Cosmos DB
+// Provisioned mode: autoscale, multi-region write, continuous backup
+// Serverless mode: pay-per-request, single-region, periodic backup
 // ============================================================================
 
 var cosmosName = 'cosmos-${baseName}-${salt}'
+var isServerless = cosmosMode == 'Serverless'
+
+// Pre-compute locations: serverless = single region, provisioned = multi-region
+var cosmosLocationsProvisioned = [for (region, i) in regions: {
+  locationName: region.location
+  failoverPriority: i
+  isZoneRedundant: false
+}]
+var cosmosLocationsServerless = [
+  {
+    locationName: location
+    failoverPriority: 0
+    isZoneRedundant: false
+  }
+]
+var cosmosLocations = isServerless ? cosmosLocationsServerless : cosmosLocationsProvisioned
 
 resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2025-04-15' = {
   name: cosmosName
@@ -112,25 +146,29 @@ resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2025-04-15' = {
   properties: {
     databaseAccountOfferType: 'Standard'
     publicNetworkAccess: 'Enabled'
-    enableAutomaticFailover: true
-    enableMultipleWriteLocations: true
+    enableAutomaticFailover: !isServerless
+    enableMultipleWriteLocations: !isServerless
     disableLocalAuth: true
-    locations: [
-      for (region, i) in regions: {
-        locationName: region.location
-        failoverPriority: i
-        isZoneRedundant: false
-      }
-    ]
+    capabilities: isServerless ? [{ name: 'EnableServerless' }] : []
+    locations: cosmosLocations
     consistencyPolicy: {
       defaultConsistencyLevel: 'Session'
     }
-    backupPolicy: {
-      type: 'Continuous'
-      continuousModeProperties: {
-        tier: 'Continuous7Days'
-      }
-    }
+    backupPolicy: isServerless
+      ? {
+          type: 'Periodic'
+          periodicModeProperties: {
+            backupIntervalInMinutes: 240
+            backupRetentionIntervalInHours: 8
+            backupStorageRedundancy: 'Local'
+          }
+        }
+      : {
+          type: 'Continuous'
+          continuousModeProperties: {
+            tier: 'Continuous7Days'
+          }
+        }
   }
 }
 
@@ -302,10 +340,10 @@ resource dnsApexAlias 'Microsoft.Network/dnsZones/A@2023-07-01-preview' = {
 }
 
 // ============================================================================
-// Azure Load Testing
+// Azure Load Testing (conditional — skipped for budget deployments)
 // ============================================================================
 
-resource loadTest 'Microsoft.LoadTestService/loadTests@2024-12-01-preview' = {
+resource loadTest 'Microsoft.LoadTestService/loadTests@2024-12-01-preview' = if (enableLoadTesting) {
   name: 'lt-${baseName}'
   location: location
   identity: {
@@ -326,7 +364,7 @@ resource globalLogAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01
   location: location
   properties: {
     sku: { name: 'PerGB2018' }
-    retentionInDays: 90
+    retentionInDays: logRetentionDays
     publicNetworkAccessForIngestion: 'Enabled'
     publicNetworkAccessForQuery: 'Enabled'
   }
@@ -350,19 +388,20 @@ resource appInsights 'Microsoft.Insights/components@2020-02-02' = {
 }
 
 // ============================================================================
-// Event Hubs — Premium namespace with geo-data-replication + Capture
+// Event Hubs — configurable SKU (Premium with geo-replication, or Standard)
 // ============================================================================
 
 var ehCaptureStorageName = replace('stadlseh${take(baseName, 12)}', '-', '')
 var ehCaptureStorageNameSafe = length(ehCaptureStorageName) > 24
   ? substring(ehCaptureStorageName, 0, 24)
   : ehCaptureStorageName
+var isEhPremium = eventHubsSku == 'Premium'
 
 resource ehCaptureStorage 'Microsoft.Storage/storageAccounts@2025-01-01' = {
   name: ehCaptureStorageNameSafe
   location: location
   kind: 'StorageV2'
-  sku: { name: 'Standard_RAGZRS' }
+  sku: { name: isEhPremium ? 'Standard_RAGZRS' : 'Standard_LRS' }
   properties: {
     accessTier: 'Hot'
     allowBlobPublicAccess: false
@@ -395,8 +434,8 @@ resource ehNamespace 'Microsoft.EventHub/namespaces@2025-05-01-preview' = {
   name: ehNamespaceName
   location: location
   sku: {
-    name: 'Premium'
-    tier: 'Premium'
+    name: eventHubsSku
+    tier: eventHubsSku
     capacity: 1
   }
   identity: {
@@ -406,10 +445,12 @@ resource ehNamespace 'Microsoft.EventHub/namespaces@2025-05-01-preview' = {
     }
   }
   properties: {
-    geoDataReplication: {
-      locations: ehReplicationLocationsDeduped
-      maxReplicationLagDurationInSeconds: 0
-    }
+    geoDataReplication: isEhPremium
+      ? {
+          locations: ehReplicationLocationsDeduped
+          maxReplicationLagDurationInSeconds: 0
+        }
+      : null
     disableLocalAuth: true
     minimumTlsVersion: '1.2'
     publicNetworkAccess: 'Enabled'
@@ -421,7 +462,7 @@ resource graphEventsHub 'Microsoft.EventHub/namespaces/eventhubs@2025-05-01-prev
   name: 'graph-events'
   properties: {
     partitionCount: 4
-    messageRetentionInDays: 7
+    messageRetentionInDays: isEhPremium ? 7 : 1
     captureDescription: {
       enabled: true
       encoding: 'Avro'

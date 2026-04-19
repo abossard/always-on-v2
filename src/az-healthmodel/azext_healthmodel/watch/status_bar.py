@@ -23,6 +23,7 @@ class StatusBar(Static):
     change_count: reactive[int] = reactive(0)
     connected: reactive[bool] = reactive(True)
     auto_jump: reactive[bool] = reactive(True)
+    has_search_results: reactive[bool] = reactive(False)
 
     def render(self) -> Text:  # noqa: D102
         parts = Text()
@@ -52,8 +53,18 @@ class StatusBar(Static):
 
         parts.append(" │ ", style="dim")
 
-        # Key hints
+        # Key hints — always-available shortcuts
         parts.append("↑↓ Nav  ⏎ Toggle  ", style="dim")
+        parts.append("/", style="bold")
+        parts.append(" Search  ", style="dim")
+
+        # Conditional: n/p only when search results exist
+        if self.has_search_results:
+            parts.append("n", style="bold")
+            parts.append(" Next  ", style="dim")
+            parts.append("p", style="bold")
+            parts.append(" Prev  ", style="dim")
+
         parts.append("j", style="bold")
         parts.append(" Jump  ", style="dim")
         parts.append("r", style="bold")
