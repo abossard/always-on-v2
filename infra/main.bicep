@@ -445,25 +445,70 @@ module dnsFederatedCreds 'dns-federated-credentials.bicep' = [
 // One federated credential per app identity per stamp, so pods on each cluster
 // can authenticate as the app's managed identity via the K8s ServiceAccount.
 //
-// Bicep does not support nested for-expressions, so we flatten (app, stamp)
-// pairs via a single integer index: idx / len(stamps) → appIdx, idx % len(stamps) → stampIdx.
-
-var _stampCount = length(allStamps)
-var _fedCredCount = length(apps) * _stampCount
+// Separate loops per app (not a flattened single loop) because Bicep's ARM
+// codegen emits bare copyIndex() when referencing stamps[idx % N].outputs.*
+// from a loop with a different count than the stamps loop.
 
 @batchSize(1)
-module appFederatedCreds 'app-federated-creds.bicep' = [
-  for idx in range(0, _fedCredCount): {
-    name: 'deploy-${apps[idx / _stampCount].name}-fedcred-${allStamps[idx % _stampCount].regionKey}-${allStamps[idx % _stampCount].stampKey}'
+module fedCredHelloorleons 'app-federated-creds.bicep' = [
+  for (stamp, i) in allStamps: {
+    name: 'deploy-${apps[0].name}-fedcred-${stamp.regionKey}-${stamp.stampKey}'
     scope: globalRg
     dependsOn: [appInfra]
     params: {
-      // Matches the identity naming pattern in app-infra.bicep: id-${appName}-${baseName}
-      identityName: 'id-${apps[idx / _stampCount].name}-${baseName}'
-      stampName: stamps[idx % _stampCount].outputs.stampName
-      oidcIssuerUrl: stamps[idx % _stampCount].outputs.aksOidcIssuerUrl
-      serviceAccountNamespace: apps[idx / _stampCount].namespace
-      serviceAccountName: apps[idx / _stampCount].name
+      identityName: 'id-${apps[0].name}-${baseName}'
+      stampName: stamps[i].outputs.stampName
+      oidcIssuerUrl: stamps[i].outputs.aksOidcIssuerUrl
+      serviceAccountNamespace: apps[0].namespace
+      serviceAccountName: apps[0].name
+    }
+  }
+]
+
+@batchSize(1)
+module fedCredDarkux 'app-federated-creds.bicep' = [
+  for (stamp, i) in allStamps: {
+    name: 'deploy-${apps[1].name}-fedcred-${stamp.regionKey}-${stamp.stampKey}'
+    scope: globalRg
+    dependsOn: [appInfra]
+    params: {
+      identityName: 'id-${apps[1].name}-${baseName}'
+      stampName: stamps[i].outputs.stampName
+      oidcIssuerUrl: stamps[i].outputs.aksOidcIssuerUrl
+      serviceAccountNamespace: apps[1].namespace
+      serviceAccountName: apps[1].name
+    }
+  }
+]
+
+@batchSize(1)
+module fedCredHelloagents 'app-federated-creds.bicep' = [
+  for (stamp, i) in allStamps: {
+    name: 'deploy-${apps[2].name}-fedcred-${stamp.regionKey}-${stamp.stampKey}'
+    scope: globalRg
+    dependsOn: [appInfra]
+    params: {
+      identityName: 'id-${apps[2].name}-${baseName}'
+      stampName: stamps[i].outputs.stampName
+      oidcIssuerUrl: stamps[i].outputs.aksOidcIssuerUrl
+      serviceAccountNamespace: apps[2].namespace
+      serviceAccountName: apps[2].name
+    }
+  }
+]
+
+@batchSize(1)
+module fedCredGraphorleons 'app-federated-creds.bicep' = [
+  for (stamp, i) in allStamps: {
+    name: 'deploy-${apps[3].name}-fedcred-${stamp.regionKey}-${stamp.stampKey}'
+    scope: globalRg
+    dependsOn: [appInfra]
+    params: {
+      identityName: 'id-${apps[3].name}-${baseName}'
+      stampName: stamps[i].outputs.stampName
+      oidcIssuerUrl: stamps[i].outputs.aksOidcIssuerUrl
+      serviceAccountNamespace: apps[3].namespace
+      serviceAccountName: apps[3].name
     }
   }
 ]
