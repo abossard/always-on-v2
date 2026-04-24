@@ -431,6 +431,8 @@ module stampCosmos 'stamp-cosmos.bicep' = {
   params: {
     baseName: baseName
     location: location
+    regionKey: regionKey
+    stampKey: stampKey
     appIdentities: orleansPrincipalIds
   }
 }
@@ -460,7 +462,7 @@ var sharedFluxVars = {
   AI_MODEL_GPT41_MINI: length(aiModelDeployments) > 1 ? aiModelDeployments[1] : ''
   AI_MODEL_GPT54: length(aiModelDeployments) > 2 ? aiModelDeployments[2] : ''
   ORLEANS_COSMOS_ENDPOINT: stampCosmos.outputs.cosmosEndpoint
-  ORLEANS_CLUSTER_DB: 'orleans'
+  ORLEANS_CLUSTER_DB: stampCosmos.outputs.orleansDbName
 }
 
 // Per-app vars — prefixed with uppercase app name
@@ -472,7 +474,7 @@ var helloOrleonsFluxVars = length(appFluxVars) > 0 && appFluxVars[0].name == 'he
   HELLOORLEONS_IDENTITY_ID: appFluxVars[0].identityId
   HELLOORLEONS_COSMOS_DATABASE: appFluxVars[0].cosmosDatabase
   HELLOORLEONS_COSMOS_CONTAINER: appFluxVars[0].cosmosContainer
-  HELLOORLEONS_ORLEANS_CLUSTER_CONTAINER: stampCosmos.outputs.containerNames[0]
+  HELLOORLEONS_ORLEANS_CLUSTER_CONTAINER: stampCosmos.outputs.orleansContainers.helloorleonsCluster
   HELLOORLEONS_DNS_LABEL: 'helloorleons-${stampName}'
   HELLOORLEONS_GATEWAY_HOSTNAME: 'helloorleons-${stampName}.${dnsZoneName}'
 } : {}
@@ -495,7 +497,7 @@ var helloAgentsFluxVars = length(appFluxVars) > 2 && appFluxVars[2].name == 'hel
   HELLOAGENTS_IDENTITY_ID: appFluxVars[2].identityId
   HELLOAGENTS_COSMOS_DATABASE: appFluxVars[2].cosmosDatabase
   HELLOAGENTS_COSMOS_CONTAINER: appFluxVars[2].cosmosContainer
-  HELLOAGENTS_ORLEANS_CLUSTER_CONTAINER: stampCosmos.outputs.containerNames[3]
+  HELLOAGENTS_ORLEANS_CLUSTER_CONTAINER: stampCosmos.outputs.orleansContainers.helloagentsCluster
   HELLOAGENTS_STORAGE_QUEUE_ENDPOINT: helloAgentsStorage.properties.primaryEndpoints.queue
   HELLOAGENTS_DNS_LABEL: 'helloagents-${stampName}'
   HELLOAGENTS_GATEWAY_HOSTNAME: 'helloagents-${stampName}.${dnsZoneName}'
@@ -508,8 +510,8 @@ var graphorleonsFluxVars = length(appFluxVars) > 3 && appFluxVars[3].name == 'gr
   GRAPHORLEONS_IDENTITY_ID: appFluxVars[3].identityId
   GRAPHORLEONS_COSMOS_DATABASE: appFluxVars[3].cosmosDatabase
   GRAPHORLEONS_COSMOS_CONTAINER: appFluxVars[3].cosmosContainer
-  GRAPHORLEONS_ORLEANS_CLUSTER_CONTAINER: stampCosmos.outputs.containerNames[1]
-  GRAPHORLEONS_ORLEANS_PUBSUB_CONTAINER: stampCosmos.outputs.containerNames[2]
+  GRAPHORLEONS_ORLEANS_CLUSTER_CONTAINER: stampCosmos.outputs.orleansContainers.graphorleonsCluster
+  GRAPHORLEONS_ORLEANS_PUBSUB_CONTAINER: stampCosmos.outputs.orleansContainers.graphorleonsPubsub
   GRAPHORLEONS_COSMOS_MODELS_CONTAINER: appFluxVars[3].cosmosModelsContainer
   GRAPHORLEONS_EVENTHUB_ENDPOINT: appFluxVars[3].eventHubEndpoint
   GRAPHORLEONS_STORAGE_QUEUE_ENDPOINT: graphOrleonsStorage.properties.primaryEndpoints.queue

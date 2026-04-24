@@ -70,24 +70,35 @@ param apps array = [
     subdomain: 'hello'
     namespace: 'helloorleons'
     cacheDuration: ''
+    probePath: '/health'
+    displayName: 'HelloOrleons'
   }
   {
     name: 'darkux'
     subdomain: 'darkux'
     namespace: 'darkux'
     cacheDuration: ''
+    probePath: '/'
+    displayName: 'DarkUX Challenge'
   }
   {
     name: 'helloagents'
     subdomain: 'agents'
     namespace: 'helloagents'
     cacheDuration: ''
+    probePath: '/health'
+    displayName: 'HelloAgents'
+    usesAI: true
+    usesQueues: true
   }
   {
     name: 'graphorleons'
     subdomain: 'events'
     namespace: 'graphorleons'
     cacheDuration: ''
+    probePath: '/health'
+    displayName: 'GraphOrleons'
+    usesEventHubs: true
   }
 ]
 
@@ -397,7 +408,7 @@ module dnsFederatedCreds 'dns-federated-credentials.bicep' = [
     name: 'deploy-dns-fedcred-${stamp.regionKey}-${stamp.stampKey}'
     scope: regionalRgs[stampRegionIndex[i]]
     params: {
-      identityName: 'id-certmanager-${baseName}-${stamp.regionKey}'
+      identityName: regional[stampRegionIndex[i]].outputs.certManagerIdentityName
       stampName: stamps[i].outputs.stampName
       oidcIssuerUrl: stamps[i].outputs.aksOidcIssuerUrl
     }
@@ -405,81 +416,30 @@ module dnsFederatedCreds 'dns-federated-credentials.bicep' = [
 ]
 
 // ============================================================================
-// App Federated Credentials (DarkUxChallenge workload identity per stamp)
+// App Federated Credentials — workload identity per (app × stamp)
 // ============================================================================
+// One federated credential per app identity per stamp, so pods on each cluster
+// can authenticate as the app's managed identity via the K8s ServiceAccount.
+//
+// Bicep does not support nested for-expressions, so we flatten (app, stamp)
+// pairs via a single integer index: idx / len(stamps) → appIdx, idx % len(stamps) → stampIdx.
+
+var _stampCount = length(allStamps)
+var _fedCredCount = length(apps) * _stampCount
 
 @batchSize(1)
-module darkUxFederatedCreds 'app-federated-creds.bicep' = [
-  for (stamp, i) in allStamps: {
-    name: 'deploy-darkux-fedcred-${stamp.regionKey}-${stamp.stampKey}'
+module appFederatedCreds 'app-federated-creds.bicep' = [
+  for idx in range(0, _fedCredCount): {
+    name: 'deploy-${apps[idx / _stampCount].name}-fedcred-${allStamps[idx % _stampCount].regionKey}-${allStamps[idx % _stampCount].stampKey}'
     scope: globalRg
     dependsOn: [appInfra]
     params: {
-      identityName: 'id-darkux-${baseName}'
-      stampName: stamps[i].outputs.stampName
-      oidcIssuerUrl: stamps[i].outputs.aksOidcIssuerUrl
-      serviceAccountNamespace: apps[1].namespace
-      serviceAccountName: apps[1].name
-    }
-  }
-]
-
-// ============================================================================
-// App Federated Credentials (HelloOrleons workload identity per stamp)
-// ============================================================================
-
-@batchSize(1)
-module helloOrleonsFederatedCreds 'app-federated-creds.bicep' = [
-  for (stamp, i) in allStamps: {
-    name: 'deploy-helloorleons-fedcred-${stamp.regionKey}-${stamp.stampKey}'
-    scope: globalRg
-    dependsOn: [appInfra]
-    params: {
-      identityName: 'id-helloorleons-${baseName}'
-      stampName: stamps[i].outputs.stampName
-      oidcIssuerUrl: stamps[i].outputs.aksOidcIssuerUrl
-      serviceAccountNamespace: apps[0].namespace
-      serviceAccountName: apps[0].name
-    }
-  }
-]
-
-// ============================================================================
-// App Federated Credentials (HelloAgents workload identity per stamp)
-// ============================================================================
-
-@batchSize(1)
-module helloAgentsFederatedCreds 'app-federated-creds.bicep' = [
-  for (stamp, i) in allStamps: {
-    name: 'deploy-helloagents-fedcred-${stamp.regionKey}-${stamp.stampKey}'
-    scope: globalRg
-    dependsOn: [appInfra]
-    params: {
-      identityName: 'id-helloagents-${baseName}'
-      stampName: stamps[i].outputs.stampName
-      oidcIssuerUrl: stamps[i].outputs.aksOidcIssuerUrl
-      serviceAccountNamespace: apps[2].namespace
-      serviceAccountName: apps[2].name
-    }
-  }
-]
-
-// ============================================================================
-// App Federated Credentials (GraphOrleons workload identity per stamp)
-// ============================================================================
-
-@batchSize(1)
-module graphOrleonsFederatedCreds 'app-federated-creds.bicep' = [
-  for (stamp, i) in allStamps: {
-    name: 'deploy-graphorleons-fedcred-${stamp.regionKey}-${stamp.stampKey}'
-    scope: globalRg
-    dependsOn: [appInfra]
-    params: {
-      identityName: 'id-graphorleons-${baseName}'
-      stampName: stamps[i].outputs.stampName
-      oidcIssuerUrl: stamps[i].outputs.aksOidcIssuerUrl
-      serviceAccountNamespace: apps[3].namespace
-      serviceAccountName: apps[3].name
+      // Matches the identity naming pattern in app-infra.bicep: id-${appName}-${baseName}
+      identityName: 'id-${apps[idx / _stampCount].name}-${baseName}'
+      stampName: stamps[idx % _stampCount].outputs.stampName
+      oidcIssuerUrl: stamps[idx % _stampCount].outputs.aksOidcIssuerUrl
+      serviceAccountNamespace: apps[idx / _stampCount].namespace
+      serviceAccountName: apps[idx / _stampCount].name
     }
   }
 ]
@@ -489,57 +449,62 @@ module graphOrleonsFederatedCreds 'app-federated-creds.bicep' = [
 // ============================================================================
 
 module helloOrleonsRouting 'app-routing.bicep' = {
-  name: 'deploy-routing-helloorleons'
+  name: 'deploy-routing-${apps[0].name}'
   scope: globalRg
   params: {
-    baseName: baseName
     domainName: domainName
-    appName: 'helloorleons'
+    appName: apps[0].name
     subdomain: apps[0].subdomain
     stamps: allStamps
     cacheDuration: apps[0].cacheDuration
-    probePath: '/health'
+    probePath: apps[0].probePath
+    frontDoorName: global.outputs.frontDoorName
+    frontDoorEndpointName: global.outputs.frontDoorEndpointName
   }
 }
 
 module darkUxRouting 'app-routing.bicep' = {
-  name: 'deploy-routing-darkux'
+  name: 'deploy-routing-${apps[1].name}'
   scope: globalRg
   params: {
-    baseName: baseName
     domainName: domainName
-    appName: 'darkux'
+    appName: apps[1].name
     subdomain: apps[1].subdomain
     stamps: allStamps
     cacheDuration: apps[1].cacheDuration
+    probePath: apps[1].probePath
+    frontDoorName: global.outputs.frontDoorName
+    frontDoorEndpointName: global.outputs.frontDoorEndpointName
   }
 }
 
 module helloAgentsRouting 'app-routing.bicep' = {
-  name: 'deploy-routing-helloagents'
+  name: 'deploy-routing-${apps[2].name}'
   scope: globalRg
   params: {
-    baseName: baseName
     domainName: domainName
-    appName: 'helloagents'
+    appName: apps[2].name
     subdomain: apps[2].subdomain
     stamps: allStamps
     cacheDuration: apps[2].cacheDuration
-    probePath: '/health'
+    probePath: apps[2].probePath
+    frontDoorName: global.outputs.frontDoorName
+    frontDoorEndpointName: global.outputs.frontDoorEndpointName
   }
 }
 
 module graphOrleonsRouting 'app-routing.bicep' = {
-  name: 'deploy-routing-graphorleons'
+  name: 'deploy-routing-${apps[3].name}'
   scope: globalRg
   params: {
-    baseName: baseName
     domainName: domainName
-    appName: 'graphorleons'
+    appName: apps[3].name
     subdomain: apps[3].subdomain
     stamps: allStamps
     cacheDuration: apps[3].cacheDuration
-    probePath: '/health'
+    probePath: apps[3].probePath
+    frontDoorName: global.outputs.frontDoorName
+    frontDoorEndpointName: global.outputs.frontDoorEndpointName
   }
 }
 
@@ -578,38 +543,50 @@ module healthModelRbac 'healthmodel/rbac.bicep' = {
 
 // ─── Per-App Health Models ──────────────────────────────────────
 
-// Pre-compute stamp infrastructure IDs to avoid Bicep copyIndex() compiler bug
-// when inline for-expressions reference loop module outputs (stamps[i], regional[...])
-// from non-loop modules. Naming formulas mirror stamp.bicep and region.bicep.
-var hmStampData = [for stamp in allStamps: {
+// Pre-compute stamp infrastructure IDs using resourceId() against the actual RG
+// references rather than rebuilding RG names from formulas. We cannot consume
+// loop module outputs (stamps[i].outputs.*, regional[i].outputs.*) inside this
+// for-expression because Bicep requires values calculable at deployment start
+// (BCP182). Naming formulas here MUST stay in sync with:
+//   - stamp.bicep:   aksCluster name 'aks-${baseName}-${stampName}'
+//   - stamp.bicep:   haStorageName formula (HelloAgents storage account)
+//   - stamp-cosmos.bicep: cosmosName 'cosmos-orl-${baseName}-${regionKey}-${stampKey}'
+//   - region.bicep:  monitorWorkspace name 'amw-${baseName}-${regionKey}'
+// Equivalent module outputs (kept for reference):
+//   aksClusterId         → stamps[i].outputs.aksClusterId
+//   amwResourceId        → regional[stampRegionIndex[i]].outputs.monitorWorkspaceId
+//   stampCosmosAccountId → stamps[i].outputs.stampCosmosAccountId
+//   helloAgentsStorageId → stamps[i].outputs.helloAgentsStorageId
+var hmStampData = [for (stamp, i) in allStamps: {
   key: '${stamp.regionKey}-${stamp.stampKey}'
   aksClusterId: resourceId(
     subscription().subscriptionId,
-    'rg-${baseName}-${stamp.regionKey}-${stamp.stampKey}',
+    stampRgs[i].name,
     'Microsoft.ContainerService/managedClusters',
     'aks-${baseName}-${stamp.regionKey}-${stamp.stampKey}'
   )
   amwResourceId: resourceId(
     subscription().subscriptionId,
-    'rg-${baseName}-${stamp.regionKey}',
+    regionalRgs[stampRegionIndex[i]].name,
     'Microsoft.Monitor/accounts',
     'amw-${baseName}-${stamp.regionKey}'
   )
   stampCosmosAccountId: resourceId(
     subscription().subscriptionId,
-    'rg-${baseName}-${stamp.regionKey}-${stamp.stampKey}',
+    stampRgs[i].name,
     'Microsoft.DocumentDB/databaseAccounts',
-    'cosmos-orl-${baseName}-${stamp.regionKey}'
+    'cosmos-orl-${baseName}-${stamp.regionKey}-${stamp.stampKey}'
   )
   originSuffix: '${stamp.regionKey}-${stamp.stampKey}.${stamp.regionKey}.${domainName}:443'
 }]
 
-// HelloAgents storage account ID (mirrors stamp.bicep haStorageName formula)
+// HelloAgents storage account ID (mirrors stamp.bicep haStorageName formula).
+// Equivalent module output: stamps[0].outputs.helloAgentsStorageId (same BCP182 limitation).
 var haStampName0 = '${allStamps[0].regionKey}-${allStamps[0].stampKey}'
 var haStorageNameRaw = replace('stha${take(baseName, 10)}${take(haStampName0, 6)}', '-', '')
 var helloAgentsStorageIdComputed = resourceId(
   subscription().subscriptionId,
-  'rg-${baseName}-${allStamps[0].regionKey}-${allStamps[0].stampKey}',
+  stampRgs[0].name,
   'Microsoft.Storage/storageAccounts',
   length(haStorageNameRaw) > 24 ? substring(haStorageNameRaw, 0, 24) : haStorageNameRaw
 )
@@ -629,13 +606,13 @@ var hmStampsGraphorleons = [for i in range(0, length(hmStampData)): union(hmStam
 })]
 
 module healthModelDarkux 'healthmodel/healthmodel.bicep' = {
-  name: 'deploy-hm-darkux'
+  name: 'deploy-hm-${apps[1].name}'
   scope: globalRg
   dependsOn: [stamps, regional]
   params: {
-    name: 'hm-darkux'
-    displayName: 'DarkUX Challenge'
-    namespace: 'darkux'
+    name: 'hm-${apps[1].name}'
+    displayName: apps[1].displayName
+    namespace: apps[1].namespace
     location: healthModelLocation
     identityId: global.outputs.healthModelIdentityId
     cosmosAccountId: global.outputs.cosmosId
@@ -645,13 +622,13 @@ module healthModelDarkux 'healthmodel/healthmodel.bicep' = {
 }
 
 module healthModelHelloorleons 'healthmodel/healthmodel.bicep' = {
-  name: 'deploy-hm-helloorleons'
+  name: 'deploy-hm-${apps[0].name}'
   scope: globalRg
   dependsOn: [stamps, regional]
   params: {
-    name: 'hm-helloorleons'
-    displayName: 'HelloOrleons'
-    namespace: 'helloorleons'
+    name: 'hm-${apps[0].name}'
+    displayName: apps[0].displayName
+    namespace: apps[0].namespace
     location: healthModelLocation
     identityId: global.outputs.healthModelIdentityId
     cosmosAccountId: global.outputs.cosmosId
@@ -661,38 +638,38 @@ module healthModelHelloorleons 'healthmodel/healthmodel.bicep' = {
 }
 
 module healthModelHelloagents 'healthmodel/healthmodel.bicep' = {
-  name: 'deploy-hm-helloagents'
+  name: 'deploy-hm-${apps[2].name}'
   scope: globalRg
   dependsOn: [stamps, regional]
   params: {
-    name: 'hm-helloagents'
-    displayName: 'HelloAgents'
-    namespace: 'helloagents'
+    name: 'hm-${apps[2].name}'
+    displayName: apps[2].displayName
+    namespace: apps[2].namespace
     location: healthModelLocation
     identityId: global.outputs.healthModelIdentityId
     cosmosAccountId: global.outputs.cosmosId
     frontDoorProfileId: global.outputs.frontDoorId
-    usesAI: true
+    usesAI: apps[2].?usesAI ?? false
     aiServicesAccountId: ai.outputs.aiServicesId
-    usesQueues: true
+    usesQueues: apps[2].?usesQueues ?? false
     storageAccountId: helloAgentsStorageIdComputed
     stamps: hmStampsHelloagents
   }
 }
 
 module healthModelGraphorleons 'healthmodel/healthmodel.bicep' = {
-  name: 'deploy-hm-graphorleons'
+  name: 'deploy-hm-${apps[3].name}'
   scope: globalRg
   dependsOn: [stamps, regional]
   params: {
-    name: 'hm-graphorleons'
-    displayName: 'GraphOrleons'
-    namespace: 'graphorleons'
+    name: 'hm-${apps[3].name}'
+    displayName: apps[3].displayName
+    namespace: apps[3].namespace
     location: healthModelLocation
     identityId: global.outputs.healthModelIdentityId
     cosmosAccountId: global.outputs.cosmosId
     frontDoorProfileId: global.outputs.frontDoorId
-    usesEventHubs: true
+    usesEventHubs: apps[3].?usesEventHubs ?? false
     eventHubsNamespaceId: global.outputs.eventHubsNamespaceId
     stamps: hmStampsGraphorleons
   }
@@ -714,7 +691,7 @@ output aksClusterNames array = [
 ]
 output helloOrleonsIdentityClientId string = appInfra[0].outputs.identityClientId
 output appInsightsConnectionString string = global.outputs.appInsightsConnectionString
-output darkUxChallengeIdentityClientId string = appInfra[1].outputs.identityClientId
+output darkUxIdentityClientId string = appInfra[1].outputs.identityClientId
 output aiServicesEndpoint string = ai.outputs.aiServicesEndpoint
 output aiServicesName string = ai.outputs.aiServicesName
 output aiHubName string = ai.outputs.hubName

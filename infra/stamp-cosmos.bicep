@@ -9,8 +9,14 @@
 @description('Base name for all resources.')
 param baseName string
 
-@description('Location for resources (also used as region key in naming).')
+@description('Location for resources.')
 param location string
+
+@description('Region key (short name, e.g. swedencentral). Used in resource naming.')
+param regionKey string
+
+@description('Stamp key (e.g. 001). Used in resource naming to disambiguate multiple stamps per region.')
+param stampKey string
 
 @description('App identities that need Cosmos RBAC. Each entry: { name, principalId }')
 param appIdentities array
@@ -19,8 +25,9 @@ param appIdentities array
 // Cosmos DB Account (Serverless, single region)
 // ============================================================================
 
-var regionKey = toLower(replace(location, ' ', ''))
-var cosmosName = 'cosmos-orl-${baseName}-${regionKey}'
+// stampKey is included so multiple stamps in the same region don't collide.
+var cosmosName = 'cosmos-orl-${baseName}-${regionKey}-${stampKey}'
+var orleansDbName = 'orleans'
 
 resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2025-04-15' = {
   name: cosmosName
@@ -52,10 +59,10 @@ resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2025-04-15' = {
 
 resource database 'Microsoft.DocumentDB/databaseAccounts/sqlDatabases@2025-04-15' = {
   parent: cosmos
-  name: 'orleans'
+  name: orleansDbName
   properties: {
     resource: {
-      id: 'orleans'
+      id: orleansDbName
     }
   }
 }
@@ -128,7 +135,7 @@ resource cosmosRbac 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@20
     properties: {
       principalId: identity.principalId
       roleDefinitionId: cosmosAppRole.id
-      scope: '${cosmos.id}/dbs/orleans'
+      scope: '${cosmos.id}/dbs/${orleansDbName}'
     }
   }
 ]
@@ -140,4 +147,15 @@ resource cosmosRbac 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@20
 output cosmosEndpoint string = cosmos.properties.documentEndpoint
 output cosmosName string = cosmos.name
 output cosmosId string = cosmos.id
+output orleansDbName string = orleansDbName
 output containerNames array = [for (c, i) in containers: cosmosContainers[i].name]
+
+// Named map of Orleans containers so consumers don't rely on positional indexing.
+// Keys mirror the container names (camelCased) for stability.
+output orleansContainers object = {
+  helloorleonsCluster: cosmosContainers[0].name
+  graphorleonsCluster: cosmosContainers[1].name
+  graphorleonsPubsub: cosmosContainers[2].name
+  helloagentsCluster: cosmosContainers[3].name
+  helloagentsPubsub: cosmosContainers[4].name
+}

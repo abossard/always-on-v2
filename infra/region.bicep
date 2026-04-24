@@ -90,3 +90,4 @@ output childDnsZoneName string = childDnsZone.name
 output childDnsNameServers array = childDnsZone.properties.nameServers
 output certManagerIdentityClientId string = certManagerIdentity.properties.clientId
 output certManagerIdentityId string = certManagerIdentity.id
+output certManagerIdentityName string = certManagerIdentity.name

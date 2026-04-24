@@ -9,9 +9,6 @@
 //   service.beta.kubernetes.io/azure-dns-label-name: {appName}-{regionKey}-{stampKey}
 // ============================================================================
 
-@description('Base name for all resources.')
-param baseName string
-
 @description('Domain name (e.g. alwayson.actor).')
 param domainName string
 
@@ -30,17 +27,23 @@ param probePath string = '/'
 @description('Front Door cache duration (ISO 8601, e.g. PT5M, PT1H). Empty string disables caching entirely.')
 param cacheDuration string = ''
 
+@description('Front Door profile name (from global module output).')
+param frontDoorName string
+
+@description('Front Door AFD endpoint name (from global module output).')
+param frontDoorEndpointName string
+
 // ============================================================================
 // Existing resources
 // ============================================================================
 
 resource frontDoor 'Microsoft.Cdn/profiles@2025-04-15' existing = {
-  name: 'fd-${baseName}'
+  name: frontDoorName
 }
 
 resource fdEndpoint 'Microsoft.Cdn/profiles/afdEndpoints@2025-04-15' existing = {
   parent: frontDoor
-  name: 'ep-${baseName}'
+  name: frontDoorEndpointName
 }
 
 resource dnsZone 'Microsoft.Network/dnsZones@2023-07-01-preview' existing = {

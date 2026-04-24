@@ -74,8 +74,29 @@ var budget = {
   ]
 }
 
+var budgetDual = {
+  acrSku: 'Basic'
+  frontDoorSku: 'Standard_AzureFrontDoor'
+  cosmosAutoscaleMaxThroughput: 1000   // ignored when serverless, but required by param @minValue
+  cosmosMode: 'Serverless'             // pay-per-request — no provisioned RU/s
+  eventHubsSku: 'Standard'             // no geo-replication, lower cost
+  enableLoadTesting: false             // saves ~$869/mo
+  logRetentionDays: 30                 // minimum retention
+  regions: [
+    {
+      key: 'swedencentral'
+      location: 'swedencentral'
+      stampDefaults: budgetStamp
+      stamps: [
+        { key: '001' }
+        { key: '002' }
+      ]
+    }
+  ]
+}
+
 // ── Active environment ────────────────────────────────────────────────────────
-var env = dev  // ← switch to budget for low-cost deployments
+var env = budgetDual  // ← switch between: dev | budget | budgetDual (two stamps, one region)
 
 param baseName = 'alwayson'
 param globalLocation = 'swedencentral'
