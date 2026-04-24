@@ -413,6 +413,7 @@ module darkUxFederatedCreds 'app-federated-creds.bicep' = [
   for (stamp, i) in allStamps: {
     name: 'deploy-darkux-fedcred-${stamp.regionKey}-${stamp.stampKey}'
     scope: globalRg
+    dependsOn: [appInfra]
     params: {
       identityName: 'id-darkuxchallenge-${baseName}'
       stampName: stamps[i].outputs.stampName
@@ -432,6 +433,7 @@ module helloOrleonsFederatedCreds 'app-federated-creds.bicep' = [
   for (stamp, i) in allStamps: {
     name: 'deploy-helloorleons-fedcred-${stamp.regionKey}-${stamp.stampKey}'
     scope: globalRg
+    dependsOn: [appInfra]
     params: {
       identityName: 'id-helloorleons-${baseName}'
       stampName: stamps[i].outputs.stampName
@@ -451,6 +453,7 @@ module helloAgentsFederatedCreds 'app-federated-creds.bicep' = [
   for (stamp, i) in allStamps: {
     name: 'deploy-helloagents-fedcred-${stamp.regionKey}-${stamp.stampKey}'
     scope: globalRg
+    dependsOn: [appInfra]
     params: {
       identityName: 'id-helloagents-${baseName}'
       stampName: stamps[i].outputs.stampName
@@ -470,6 +473,7 @@ module graphOrleonsFederatedCreds 'app-federated-creds.bicep' = [
   for (stamp, i) in allStamps: {
     name: 'deploy-graphorleons-fedcred-${stamp.regionKey}-${stamp.stampKey}'
     scope: globalRg
+    dependsOn: [appInfra]
     params: {
       identityName: 'id-graphorleons-${baseName}'
       stampName: stamps[i].outputs.stampName
