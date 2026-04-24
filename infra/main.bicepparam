@@ -96,7 +96,7 @@ var budgetDual = {
 }
 
 // ── Active environment ────────────────────────────────────────────────────────
-var env = budgetDual  // ← switch between: dev | budget | budgetDual (two stamps, one region)
+var env = budget  // ← switch between: dev | budget | budgetDual (two stamps, one region)
 
 param baseName = 'alwayson'
 param globalLocation = 'swedencentral'
