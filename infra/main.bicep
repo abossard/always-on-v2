@@ -299,6 +299,30 @@ module regional 'region.bicep' = [
 ]
 
 // ============================================================================
+// Regional Lookup (per stamp) — workaround for Bicep codegen bug
+// ============================================================================
+// Bicep generates incorrect ARM copyIndex() when regional[stampRegionIndex[i]].outputs.*
+// is referenced from a stamp loop: the extensionResourceId scope path uses bare copyIndex()
+// against regions[] instead of indirecting through stampRegionIndex. This breaks when
+// stamps > regions (e.g. budgetDual: 1 region, 2 stamps).
+// Fix: deploy a lookup module per stamp (same loop length = correct copyIndex).
+
+module regionalLookup 'regional-lookup.bicep' = [
+  for (stamp, i) in allStamps: {
+    name: 'lookup-regional-${stamp.regionKey}-${stamp.stampKey}'
+    // Use explicit resourceGroup() to avoid Bicep codegen bug: regionalRgs[stampRegionIndex[i]]
+    // as scope generates incorrect copyIndex() in ARM extensionResourceId paths.
+    scope: resourceGroup('rg-${baseName}-${stamp.regionKey}')
+    dependsOn: [regional]
+    params: {
+      baseName: baseName
+      regionKey: stamp.regionKey
+      domainName: domainName
+    }
+  }
+]
+
+// ============================================================================
 // Stamp Resources (one AKS per stamp)
 // ============================================================================
 
@@ -361,16 +385,16 @@ module stamps 'stamp.bicep' = [
       stampKey: stamp.stampKey
       stampConfig: stamp.stampConfig
       location: stamp.location
-      logAnalyticsWorkspaceId: regional[stampRegionIndex[i]].outputs.logAnalyticsWorkspaceId
-      monitorWorkspaceId: regional[stampRegionIndex[i]].outputs.monitorWorkspaceId
+      logAnalyticsWorkspaceId: regionalLookup[i].outputs.logAnalyticsWorkspaceId
+      monitorWorkspaceId: regionalLookup[i].outputs.monitorWorkspaceId
       fluxGitRepoUrl: fluxGitRepoUrl
       acrLoginServer: global.outputs.acrLoginServer
       cosmosEndpoint: global.outputs.cosmosEndpoint
       appInsightsConnectionString: global.outputs.appInsightsConnectionString
       appFluxVars: appFluxVars
       tenantId: tenant().tenantId
-      dnsIdentityClientId: regional[stampRegionIndex[i]].outputs.certManagerIdentityClientId
-      dnsZoneName: regional[stampRegionIndex[i]].outputs.childDnsZoneName
+      dnsIdentityClientId: regionalLookup[i].outputs.certManagerIdentityClientId
+      dnsZoneName: regionalLookup[i].outputs.childDnsZoneName
       dnsZoneResourceGroup: regionalRgs[stampRegionIndex[i]].name
       domainName: domainName
       devIdentities: enableDevPermissions ? devIdentities : []
@@ -393,7 +417,7 @@ module wiring 'wiring.bicep' = [
       dnsRegionKey: stamp.regionKey
       kubeletPrincipalId: stamps[i].outputs.kubeletIdentityPrincipalId
       parentDnsZoneName: domainName
-      childDnsNameServers: regional[stampRegionIndex[i]].outputs.childDnsNameServers
+      childDnsNameServers: regionalLookup[i].outputs.childDnsNameServers
     }
   }
 ]
@@ -408,7 +432,7 @@ module dnsFederatedCreds 'dns-federated-credentials.bicep' = [
     name: 'deploy-dns-fedcred-${stamp.regionKey}-${stamp.stampKey}'
     scope: regionalRgs[stampRegionIndex[i]]
     params: {
-      identityName: regional[stampRegionIndex[i]].outputs.certManagerIdentityName
+      identityName: regionalLookup[i].outputs.certManagerIdentityName
       stampName: stamps[i].outputs.stampName
       oidcIssuerUrl: stamps[i].outputs.aksOidcIssuerUrl
     }
