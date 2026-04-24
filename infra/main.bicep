@@ -415,7 +415,7 @@ module darkUxFederatedCreds 'app-federated-creds.bicep' = [
     scope: globalRg
     dependsOn: [appInfra]
     params: {
-      identityName: 'id-darkuxchallenge-${baseName}'
+      identityName: 'id-darkux-${baseName}'
       stampName: stamps[i].outputs.stampName
       oidcIssuerUrl: stamps[i].outputs.aksOidcIssuerUrl
       serviceAccountNamespace: apps[1].namespace
