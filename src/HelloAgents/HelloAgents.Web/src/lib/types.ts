@@ -66,3 +66,42 @@ export interface SendMessageRequest {
 export interface DiscussRequest {
   topic?: string;
 }
+
+// ─── Workflow Types ─────────────────────────────────────────
+
+export type WorkflowNodeType = "agent" | "hitl" | "tool";
+export type WorkflowNodeStatus = "pending" | "running" | "awaiting_hitl" | "done" | "failed";
+
+export interface WorkflowNode {
+  id: string;
+  type: string;
+  agentId?: string;
+  toolName?: string;
+  config: Record<string, string>;
+}
+
+export interface WorkflowEdge {
+  fromNodeId: string;
+  toNodeId: string;
+  condition?: string;
+}
+
+export interface WorkflowDefinition {
+  id: string;
+  name: string;
+  nodes: WorkflowNode[];
+  edges: WorkflowEdge[];
+}
+
+export interface NodeExecutionState {
+  status: string;
+  result?: string;
+  completedAt?: string;
+}
+
+export interface WorkflowExecution {
+  executionId: string;
+  groupId: string;
+  completed: boolean;
+  nodeStates: Record<string, NodeExecutionState>;
+}

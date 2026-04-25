@@ -6,6 +6,8 @@ import type {
   CreateAgentRequest,
   SendMessageRequest,
   ChatMessage,
+  WorkflowDefinition,
+  WorkflowExecution,
 } from "./types";
 
 const API_BASE =
@@ -90,3 +92,44 @@ export const orchestrate = (message: string) =>
     method: "POST",
     body: JSON.stringify({ message }),
   });
+
+// ─── Workflow ───────────────────────────────────────────────
+
+export async function getWorkflow(groupId: string): Promise<WorkflowDefinition | null> {
+  const res = await fetch(`${API_BASE}/api/groups/${groupId}/workflow`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text().catch(() => "")}`);
+  return res.json();
+}
+
+export async function saveWorkflow(groupId: string, workflow: WorkflowDefinition): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/groups/${groupId}/workflow`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ workflow }),
+  });
+  if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text().catch(() => "")}`);
+}
+
+export async function executeWorkflow(groupId: string, input?: string): Promise<{ executionId: string }> {
+  return api<{ executionId: string }>(`/api/groups/${groupId}/workflow/execute`, {
+    method: "POST",
+    body: JSON.stringify({ input: input ?? null }),
+  });
+}
+
+export async function getWorkflowExecution(groupId: string): Promise<WorkflowExecution | null> {
+  const res = await fetch(`${API_BASE}/api/groups/${groupId}/workflow/execution`);
+  if (res.status === 404) return null;
+  if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text().catch(() => "")}`);
+  return res.json();
+}
+
+export async function submitHitlResponse(groupId: string, nodeId: string, response: string): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/groups/${groupId}/workflow/execution/hitl/${nodeId}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ response }),
+  });
+  if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text().catch(() => "")}`);
+}

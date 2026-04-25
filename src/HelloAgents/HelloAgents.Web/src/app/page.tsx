@@ -6,6 +6,7 @@ import { ChatView } from "@/components/ChatView";
 import { AgentRoster } from "@/components/AgentRoster";
 import { OrchestratorSidebar } from "@/components/OrchestratorSidebar";
 import { StreamDiagnostics } from "@/components/StreamDiagnostics";
+import { WorkflowPanel } from "@/components/WorkflowPanel";
 import { useEventSource } from "@/hooks/useEventSource";
 import * as api from "@/lib/api";
 import type { ChatGroupSummary, ChatGroupDetail, AgentInfo, ChatMessage } from "@/lib/types";
@@ -24,6 +25,8 @@ export default function HomePage() {
   const [isCreatingAgent, setIsCreatingAgent] = useState(false);
   const [streamEvents, setStreamEvents] = useState<ChatMessage[]>([]);
   const [thinkingAgents, setThinkingAgents] = useState<Map<string, string>>(new Map());
+  const [view, setView] = useState<"chat" | "workflow">("chat");
+  const [hasWorkflow, setHasWorkflow] = useState(false);
 
   // Fetch groups and agents on mount
   const refreshGroups = useCallback(async () => {
@@ -51,10 +54,15 @@ export default function HomePage() {
       setMessages([]);
       setGroupAgents([]);
       setStreamEvents([]);
+      setHasWorkflow(false);
+      setView("chat");
       return;
     }
 
     setIsLoadingGroup(true);
+    api.getWorkflow(selectedGroupId)
+      .then((wf) => setHasWorkflow(!!wf))
+      .catch(() => setHasWorkflow(false));
     api.getGroup(selectedGroupId).then(async (detail) => {
       setGroupDetail(detail);
       // Separate persisted messages from ephemeral pending messages (thinking/streaming)
@@ -240,7 +248,7 @@ export default function HomePage() {
           />
         </div>
 
-        {/* Center: Chat */}
+        {/* Center: Chat or Workflow */}
         <div className="flex-1 flex flex-col min-w-0">
           {isLoadingGroup ? (
             <div className="flex-1 flex items-center justify-center">
@@ -250,15 +258,53 @@ export default function HomePage() {
               </div>
             </div>
           ) : selectedGroupId && groupDetail ? (
-            <ChatView
-              messages={messages}
-              onSendMessage={handleSendMessage}
-              onStartDiscussion={handleStartDiscussion}
-              isDiscussing={isDiscussing}
-              isSending={isSending}
-              groupName={groupDetail.name}
-              thinkingAgents={thinkingAgents}
-            />
+            <>
+              {/* Tab bar */}
+              <div className="flex items-center gap-1 px-3 pt-2 border-b border-white/10 bg-gray-900/60">
+                <button
+                  onClick={() => setView("chat")}
+                  data-test-id="chat-tab"
+                  className={`text-sm px-3 py-1.5 rounded-t ${
+                    view === "chat"
+                      ? "bg-gray-800 text-white"
+                      : "text-white/50 hover:text-white"
+                  }`}
+                >
+                  💬 Chat
+                </button>
+                {hasWorkflow && (
+                  <button
+                    onClick={() => setView("workflow")}
+                    data-test-id="workflow-tab"
+                    className={`text-sm px-3 py-1.5 rounded-t ${
+                      view === "workflow"
+                        ? "bg-gray-800 text-white"
+                        : "text-white/50 hover:text-white"
+                    }`}
+                  >
+                    🔀 Workflow
+                  </button>
+                )}
+              </div>
+              {view === "chat" || !hasWorkflow ? (
+                <ChatView
+                  messages={messages}
+                  onSendMessage={handleSendMessage}
+                  onStartDiscussion={handleStartDiscussion}
+                  isDiscussing={isDiscussing}
+                  isSending={isSending}
+                  groupName={groupDetail.name}
+                  thinkingAgents={thinkingAgents}
+                />
+              ) : (
+                <WorkflowPanel
+                  groupId={selectedGroupId}
+                  groupName={groupDetail.name}
+                  agents={groupAgents}
+                  onClose={() => setView("chat")}
+                />
+              )}
+            </>
           ) : (
             <div className="flex-1 flex items-center justify-center">
               <div className="text-center text-white/30">
