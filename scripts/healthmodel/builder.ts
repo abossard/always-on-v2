@@ -486,7 +486,7 @@ export function buildHealthModelBicep(): string {
     param({ name: 'identityId', type: 'string', description: 'Resource ID of the user-assigned managed identity' }),
     param({ name: 'cosmosAccountId', type: 'string', description: 'Cosmos DB account resource ID' }),
     param({ name: 'frontDoorProfileId', type: 'string', description: 'Front Door profile resource ID' }),
-    param({ name: 'stamps', type: 'array', description: 'Stamps: [{key, aksClusterId, amwResourceId, originHostname}]' }),
+    param({ name: 'stamps', type: 'array', description: 'Stamps: [{key, aksClusterId, amwResourceId, stampCosmosAccountId, originHostname}]' }),
   ];
   const optionalParams = optionalGroups.flatMap(deriveParams);
   blocks.push(joinBlocks(...coreParams, ...optionalParams));

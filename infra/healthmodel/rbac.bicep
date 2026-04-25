@@ -24,3 +24,13 @@ resource reader 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
     principalType: 'ServicePrincipal'
   }
 }
+
+// Monitoring Data Reader — read actual metric data (Prometheus + classic metrics)
+resource monitoringDataReader 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+  name: guid(subscription().subscriptionId, principalId, roles.monitoringDataReader)
+  properties: {
+    principalId: principalId
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roles.monitoringDataReader)
+    principalType: 'ServicePrincipal'
+  }
+}

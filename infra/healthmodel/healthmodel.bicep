@@ -28,7 +28,7 @@ param cosmosAccountId string
 @description('Front Door profile resource ID')
 param frontDoorProfileId string
 
-@description('Stamps: [{key, aksClusterId, amwResourceId, originHostname}]')
+@description('Stamps: [{key, aksClusterId, amwResourceId, stampCosmosAccountId, originHostname}]')
 param stamps array
 
 @description('Whether this app uses Azure Storage Queues')

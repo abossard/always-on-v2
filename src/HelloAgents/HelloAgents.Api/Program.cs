@@ -8,11 +8,22 @@ using HelloAgents.Api.Telemetry;
 using Microsoft.Extensions.AI;
 using Microsoft.Extensions.DependencyInjection.Extensions;
 using OpenAI;
+using OpenTelemetry.Metrics;
 using Orleans.Dashboard;
 
 var builder = WebApplication.CreateSlimBuilder(args);
 builder.WebHost.UseKestrelHttpsConfiguration();
 builder.AddServiceDefaults();
+
+// HelloAgents-specific OTel metrics + Prometheus scrape endpoint.
+// AlwaysOn.ServiceDefaults is shared and intentionally doesn't know about
+// app-specific meters; register them here.
+builder.Services.AddOpenTelemetry()
+    .WithMetrics(m => m
+        .AddMeter("Microsoft.Orleans")
+        .AddMeter("HelloAgents.App")
+        .AddMeter("HelloAgents.GrainCalls")
+        .AddPrometheusExporter());
 
 builder.AddAlwaysOnOrleans(silo =>
 {
@@ -86,15 +97,11 @@ else
 // AI orchestrator for natural language commands
 builder.Services.AddScoped<OrchestratorService>();
 builder.Services.AddScoped<GroupLifecycleService>();
-builder.Services.AddScoped<AnalyticsService>();
 
 // Workflow tools (resolved by name in ToolExecutorGrain)
 builder.Services.AddSingleton<HelloAgents.Api.Tools.ITool, HelloAgents.Api.Tools.RandomNumberTool>();
 builder.Services.AddSingleton<HelloAgents.Api.Tools.ITool, HelloAgents.Api.Tools.CurrentTimeTool>();
 builder.Services.AddSingleton<HelloAgents.Api.Tools.ITool, HelloAgents.Api.Tools.CalculatorTool>();
-
-// Change Feed → entity-metrics aggregation
-builder.Services.AddHostedService<ChangeFeedMetricsService>();
 
 // CORS for static SPA on different origin (dev only — production runs on single domain)
 if (builder.Environment.IsDevelopment())
@@ -119,13 +126,10 @@ if (app.Environment.IsDevelopment())
 
 app.MapDefaultEndpoints();
 
-// Prometheus scrape endpoint — may not be available in Aspire test host
-// where the OTEL pipeline is overridden with OTLP-only configuration
-try { app.UseOpenTelemetryPrometheusScrapingEndpoint(); }
-catch (ArgumentException) { /* PrometheusExporter not registered — skip */ }
+// Prometheus scrape endpoint at /metrics
+app.UseOpenTelemetryPrometheusScrapingEndpoint();
 
 app.MapAllEndpoints();
-app.MapAnalyticsEndpoints();
 app.MapWorkflowEndpoints();
 
 app.Run();

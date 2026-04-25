@@ -4,6 +4,14 @@ public static class WorkflowEndpoints
 {
     public static WebApplication MapWorkflowEndpoints(this WebApplication app)
     {
+        // Get the workflow attached to a group (or 404 if none)
+        app.MapGet(Routes.GroupWorkflowTemplate, async (string groupId, IGrainFactory grains) =>
+        {
+            var group = grains.GetGrain<IChatGroupGrain>(groupId);
+            var wf = await group.GetWorkflowAsync();
+            return wf is null ? Results.NotFound() : Results.Ok(wf);
+        });
+
         // Define / replace the workflow attached to a group
         app.MapPut(Routes.GroupWorkflowTemplate, async (string groupId, SetWorkflowRequest request, IGrainFactory grains) =>
         {

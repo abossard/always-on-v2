@@ -22,11 +22,13 @@ param stampKey string
 param appIdentities array
 
 // ============================================================================
+import { stampCosmosName } from 'naming.bicep'
+
 // Cosmos DB Account (Serverless, single region)
 // ============================================================================
 
 // stampKey is included so multiple stamps in the same region don't collide.
-var cosmosName = 'cosmos-orl-${baseName}-${regionKey}-${stampKey}'
+var cosmosName = stampCosmosName(baseName, regionKey, stampKey)
 var orleansDbName = 'orleans'
 
 resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2025-04-15' = {

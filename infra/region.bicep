@@ -2,6 +2,13 @@
 // Regional Resources — shared per-region, deployed into the regional RG
 // ============================================================================
 
+import {
+  lawName
+  amwName
+  childDnsZoneName as dnsZoneName
+  certManagerIdentityName
+} from 'naming.bicep'
+
 @description('Base name for all resources.')
 param baseName string
 
@@ -25,7 +32,7 @@ var location = regionConfig.location
 // ============================================================================
 
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
-  name: 'law-${baseName}-${regionKey}'
+  name: lawName(baseName, regionKey)
   location: location
   properties: {
     sku: { name: 'PerGB2018' }
@@ -40,7 +47,7 @@ resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
 // ============================================================================
 
 resource monitorWorkspace 'Microsoft.Monitor/accounts@2023-04-03' = {
-  name: 'amw-${baseName}-${regionKey}'
+  name: amwName(baseName, regionKey)
   location: location
   properties: {
     publicNetworkAccess: 'Enabled'
@@ -52,7 +59,7 @@ resource monitorWorkspace 'Microsoft.Monitor/accounts@2023-04-03' = {
 // ============================================================================
 
 resource childDnsZone 'Microsoft.Network/dnsZones@2023-07-01-preview' = {
-  name: '${regionKey}.${domainName}'
+  name: dnsZoneName(regionKey, domainName)
   location: 'global'
 }
 
@@ -61,7 +68,7 @@ resource childDnsZone 'Microsoft.Network/dnsZones@2023-07-01-preview' = {
 // ============================================================================
 
 resource certManagerIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
-  name: 'id-certmanager-${baseName}-${regionKey}'
+  name: certManagerIdentityName(baseName, regionKey)
   location: location
 }
 

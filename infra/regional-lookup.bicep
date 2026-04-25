@@ -7,6 +7,13 @@
 // regional[stampRegionIndex[i]].outputs.X generates incorrect ARM copyIndex()
 // in the extensionResourceId scope path when stamps > regions.
 
+import {
+  certManagerIdentityName
+  childDnsZoneName as dnsZoneName
+  lawName
+  amwName
+} from 'naming.bicep'
+
 @description('Base name for resource naming.')
 param baseName string
 
@@ -17,19 +24,19 @@ param regionKey string
 param domainName string
 
 resource certManagerIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' existing = {
-  name: 'id-certmanager-${baseName}-${regionKey}'
+  name: certManagerIdentityName(baseName, regionKey)
 }
 
 resource childDnsZone 'Microsoft.Network/dnsZones@2023-07-01-preview' existing = {
-  name: '${regionKey}.${domainName}'
+  name: dnsZoneName(regionKey, domainName)
 }
 
 resource logAnalytics 'Microsoft.OperationalInsights/workspaces@2023-09-01' existing = {
-  name: 'law-${baseName}-${regionKey}'
+  name: lawName(baseName, regionKey)
 }
 
 resource monitorWorkspace 'Microsoft.Monitor/accounts@2023-04-03' existing = {
-  name: 'amw-${baseName}-${regionKey}'
+  name: amwName(baseName, regionKey)
 }
 
 output logAnalyticsWorkspaceId string = logAnalytics.id

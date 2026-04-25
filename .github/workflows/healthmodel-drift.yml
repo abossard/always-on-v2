@@ -1,0 +1,45 @@
+name: Health Model Drift Check
+
+on:
+  pull_request:
+    paths:
+      - 'infra/healthmodel/**'
+      - 'scripts/healthmodel/**'
+      - 'scripts/grafana/config.json'
+  push:
+    branches: [main]
+    paths:
+      - 'infra/healthmodel/**'
+      - 'scripts/healthmodel/**'
+      - 'scripts/grafana/config.json'
+
+jobs:
+  healthmodel-drift:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: scripts/healthmodel/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+        working-directory: scripts/healthmodel
+
+      - name: Regenerate healthmodel.bicep
+        run: npm run generate
+        working-directory: scripts/healthmodel
+
+      - name: Check for drift
+        run: |
+          if ! git diff --exit-code -- infra/healthmodel/healthmodel.bicep; then
+            echo "::error::infra/healthmodel/healthmodel.bicep is out of sync with the generator."
+            echo "::error::Run: cd scripts/healthmodel && npm run generate"
+            exit 1
+          fi

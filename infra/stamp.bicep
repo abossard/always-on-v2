@@ -65,11 +65,20 @@ param aiModelDeployments array = []
 param devIdentities array = []
 
 // ============================================================================
+// Shared Naming
+// ============================================================================
+
+import {
+  aksClusterName
+  helloAgentsStorageName
+  graphOrleonsStorageName
+} from 'naming.bicep'
+
+// ============================================================================
 // Derived Values
 // ============================================================================
 
 var stampName = '${regionKey}-${stampKey}'
-var salt = substring(uniqueString(subscription().id, baseName), 0, 6)
 
 // ── Node pool profiles ────────────────────────────────────────────────────────
 // System pool: D v5 series for Istio, Flux, kube-system (CriticalAddonsOnly taint)
@@ -155,7 +164,7 @@ resource prometheusDcr 'Microsoft.Insights/dataCollectionRules@2023-03-11' = {
 // ============================================================================
 
 resource aksCluster 'Microsoft.ContainerService/managedClusters@2026-01-01' = {
-  name: 'aks-${baseName}-${stampName}'
+  name: aksClusterName(baseName, regionKey, stampKey)
   location: location
   identity: {
     type: 'UserAssigned'
@@ -168,7 +177,7 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2026-01-01' = {
     tier: aksTier
   }
   properties: {
-    dnsPrefix: 'aks-${baseName}-${stampName}'
+    dnsPrefix: aksClusterName(baseName, regionKey, stampKey)
     nodeResourceGroup: 'rg-${baseName}-${stampName}-nodes'
     enableRBAC: true
     disableLocalAccounts: true
@@ -351,10 +360,8 @@ resource fluxExtension 'Microsoft.KubernetesConfiguration/extensions@2023-05-01'
 
 // Storage names must be ≤24 chars, lowercase, no hyphens.
 // Use regionKey prefix (3 chars) + stampKey (3 chars) to ensure uniqueness across stamps.
-var haStorageName = replace('stha${take(baseName, 10)}${take(regionKey, 3)}${stampKey}', '-', '')
-
 resource helloAgentsStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
-  name: length(haStorageName) > 24 ? substring(haStorageName, 0, 24) : haStorageName
+  name: helloAgentsStorageName(baseName, regionKey, stampKey)
   location: location
   kind: 'StorageV2'
   sku: { name: 'Standard_LRS' }
@@ -388,10 +395,8 @@ resource helloAgentsStorageQueueRbac 'Microsoft.Authorization/roleAssignments@20
 // GraphOrleons Storage Account (Azure Queue Storage for Orleans Streams)
 // ============================================================================
 
-var goStorageName = replace('stgo${take(baseName, 10)}${take(regionKey, 3)}${stampKey}', '-', '')
-
 resource graphOrleonsStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
-  name: length(goStorageName) > 24 ? substring(goStorageName, 0, 24) : goStorageName
+  name: graphOrleonsStorageName(baseName, regionKey, stampKey)
   location: location
   kind: 'StorageV2'
   sku: { name: 'Standard_LRS' }
