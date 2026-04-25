@@ -37,6 +37,13 @@ spec:
     spec:
       terminationGracePeriodSeconds: 65
       serviceAccountName: ${HELLOAGENTS_SA_NAME}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: helloagents
       containers:
         - name: helloagents
           image: ${ACR_LOGIN_SERVER}/helloagents:1776382735-a5549ffb
@@ -132,6 +139,17 @@ spec:
     - port: 8080
       targetPort: 8080
 ---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: helloagents
+  namespace: ${HELLOAGENTS_NAMESPACE}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: helloagents
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -147,6 +165,13 @@ spec:
       labels:
         app: helloagents-web
     spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: helloagents-web
       containers:
         - name: helloagents-web
           image: ${ACR_LOGIN_SERVER}/helloagents-web:1776382735-a5549ffb
@@ -187,3 +212,14 @@ spec:
   ports:
     - port: 8080
       targetPort: 8080
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: helloagents-web
+  namespace: ${HELLOAGENTS_NAMESPACE}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: helloagents-web

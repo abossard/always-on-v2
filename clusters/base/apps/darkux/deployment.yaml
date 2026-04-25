@@ -19,7 +19,7 @@ metadata:
   name: darkux
   namespace: ${DARKUX_NAMESPACE}
 spec:
-  replicas: 1
+  replicas: 2
   selector:
     matchLabels:
       app: darkux
@@ -30,6 +30,13 @@ spec:
         azure.workload.identity/use: "true"
     spec:
       serviceAccountName: ${DARKUX_SA_NAME}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: darkux
       containers:
         - name: darkux
           image: ${ACR_LOGIN_SERVER}/darkux:1775731356-b030c4fd
@@ -91,6 +98,17 @@ spec:
     - port: 8080
       targetPort: 8080
 ---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: darkux
+  namespace: ${DARKUX_NAMESPACE}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: darkux
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -106,6 +124,13 @@ spec:
       labels:
         app: darkux-web
     spec:
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: darkux-web
       containers:
         - name: darkux-web
           image: ${ACR_LOGIN_SERVER}/darkux-web:1775731356-b030c4fd
@@ -152,3 +177,14 @@ spec:
   ports:
     - port: 8080
       targetPort: 8080
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: darkux-web
+  namespace: ${DARKUX_NAMESPACE}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: darkux-web

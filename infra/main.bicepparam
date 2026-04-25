@@ -7,6 +7,7 @@ var normalStamp = {
   aksAvailabilityZones: ['1', '2', '3']
   aksTier: 'Standard'
   aksIngressType: 'External'           // public LB — reachable from Standard Front Door
+  aksUseSpot: false                    // on-demand only; Karpenter spot NodePool disabled
 }
 
 var budgetStamp = {
@@ -15,6 +16,7 @@ var budgetStamp = {
   aksAvailabilityZones: []             // no AZs — budget tradeoff
   aksTier: 'Free'                      // no SLA — fine for dev/demo
   aksIngressType: 'External'
+  aksUseSpot: true                     // enable Karpenter spot-preferred NodePool for app workloads
 }
 
 // ── Environment configurations ────────────────────────────────────────────────

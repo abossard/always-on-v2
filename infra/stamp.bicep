@@ -82,6 +82,10 @@ var aksTier              = stampConfig.?aksTier               ?? 'Free'
 // External = public LB (dev, Standard Front Door)
 // Internal = private LB only (prod, Premium Front Door via Private Link)
 var aksIngressType       = stampConfig.?aksIngressType        ?? 'External'
+// Karpenter spot NodePool toggle. When true, the spot-workloads NodePool gets
+// a non-zero CPU limit so Karpenter provisions spot (cheapest) → on-demand.
+// When false, the NodePool's CPU limit is "0" → effectively disabled.
+var aksUseSpot           = stampConfig.?aksUseSpot            ?? false
 
 // ============================================================================
 // Identities
@@ -465,6 +469,8 @@ var sharedFluxVars = {
   AI_MODEL_GPT54: length(aiModelDeployments) > 2 ? aiModelDeployments[2] : ''
   ORLEANS_COSMOS_ENDPOINT: stampCosmos.outputs.cosmosEndpoint
   ORLEANS_CLUSTER_DB: stampCosmos.outputs.orleansDbName
+  SPOT_CPU_LIMIT: aksUseSpot ? '100' : '0'
+  DEFAULT_POOL_CPU_LIMIT: aksUseSpot ? '0' : '1000'
 }
 
 // Per-app vars — prefixed with uppercase app name

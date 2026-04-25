@@ -8,6 +8,18 @@ components:
   - ../gateway-component
   - ../orleans-infra-component
 patches:
+  # Inject Azure spot toleration into all app Deployments. Harmless on
+  # non-spot clusters (no taint to match). Keeps deployment.yaml spot-unaware.
+  - target:
+      kind: Deployment
+    patch: |
+      - op: add
+        path: /spec/template/spec/tolerations
+        value:
+          - key: kubernetes.azure.com/scalesetpriority
+            operator: Equal
+            value: spot
+            effect: NoSchedule
   - target:
       kind: Gateway
       name: APPNAME-gateway

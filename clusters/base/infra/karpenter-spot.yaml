@@ -1,0 +1,84 @@
+# Karpenter NodePools for app workloads.
+#
+# Two pools, controlled via Flux postBuild vars from stamp.bicep:
+#
+#   Budget stamps (aksUseSpot=true):
+#     spot-workloads   SPOT_CPU_LIMIT=100          → active, provisions spot (cheapest)
+#     default          DEFAULT_POOL_CPU_LIMIT=0    → disabled, no on-demand provisioning
+#
+#   Normal stamps (aksUseSpot=false):
+#     spot-workloads   SPOT_CPU_LIMIT=0            → disabled
+#     default          DEFAULT_POOL_CPU_LIMIT=1000 → active, standard on-demand
+#
+# Spot toleration injected via Kustomize patches in each app's kustomization.yaml
+# so deployment.yaml stays spot-unaware. Azure auto-taints spot nodes with
+# kubernetes.azure.com/scalesetpriority=spot:NoSchedule.
+---
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: spot-workloads
+spec:
+  weight: 100
+  template:
+    metadata:
+      labels:
+        workload-type: app
+    spec:
+      expireAfter: 168h
+      requirements:
+        - key: karpenter.sh/capacity-type
+          operator: In
+          values: ["spot", "on-demand"]
+        - key: karpenter.azure.com/sku-family
+          operator: In
+          values: ["D", "E"]
+        - key: karpenter.azure.com/sku-version
+          operator: In
+          values: ["4", "5"]
+        - key: karpenter.azure.com/sku-cpu
+          operator: In
+          values: ["2", "4", "8"]
+      nodeClassRef:
+        group: karpenter.azure.com
+        kind: AKSNodeClass
+        name: app-nodeclass
+  limits:
+    cpu: "${SPOT_CPU_LIMIT}"
+  disruption:
+    consolidationPolicy: WhenEmptyOrUnderutilized
+    consolidateAfter: 60s
+---
+apiVersion: karpenter.azure.com/v1alpha2
+kind: AKSNodeClass
+metadata:
+  name: app-nodeclass
+spec:
+  osDiskSizeGB: 64
+---
+# AKS NAP default NodePool override.
+# Disabled on budget stamps (DEFAULT_POOL_CPU_LIMIT=0) so all app workloads
+# go through spot-workloads pool. Active on normal stamps (limit=1000).
+# Mirrors AKS-managed defaults; AKS does not actively reconcile this resource.
+apiVersion: karpenter.sh/v1
+kind: NodePool
+metadata:
+  name: default
+spec:
+  weight: 10
+  template:
+    spec:
+      expireAfter: Never
+      nodeClassRef:
+        group: karpenter.azure.com
+        kind: AKSNodeClass
+        name: default
+      requirements:
+        - { key: kubernetes.io/arch, operator: In, values: [amd64] }
+        - { key: kubernetes.io/os, operator: In, values: [linux] }
+        - { key: karpenter.sh/capacity-type, operator: In, values: [on-demand] }
+        - { key: karpenter.azure.com/sku-family, operator: In, values: [D] }
+  limits:
+    cpu: "${DEFAULT_POOL_CPU_LIMIT}"
+  disruption:
+    consolidationPolicy: WhenEmptyOrUnderutilized

@@ -9,6 +9,21 @@ components:
   - ../gateway-component
   - ../orleans-infra-component
 patches:
+  # Inject Azure spot toleration into all app Deployments. Harmless on
+  # non-spot clusters (no taint to match). On budget stamps (aksUseSpot=true)
+  # the Karpenter spot NodePool gets the auto-applied
+  # `kubernetes.azure.com/scalesetpriority=spot:NoSchedule` taint and pods
+  # need this toleration to schedule there. Keeps deployment.yaml spot-unaware.
+  - target:
+      kind: Deployment
+    patch: |
+      - op: add
+        path: /spec/template/spec/tolerations
+        value:
+          - key: kubernetes.azure.com/scalesetpriority
+            operator: Equal
+            value: spot
+            effect: NoSchedule
   # Gateway patches
   - target:
       kind: Gateway

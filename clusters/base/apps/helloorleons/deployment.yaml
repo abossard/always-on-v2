@@ -33,6 +33,13 @@ spec:
     spec:
       terminationGracePeriodSeconds: 65
       serviceAccountName: ${HELLOORLEONS_SA_NAME}
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: helloorleons
       containers:
         - name: helloorleons
           image: ${ACR_LOGIN_SERVER}/helloorleons:1776217904-f20f7346
@@ -117,3 +124,14 @@ spec:
   ports:
     - port: 8080
       targetPort: 8080
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: helloorleons
+  namespace: ${HELLOORLEONS_NAMESPACE}
+spec:
+  maxUnavailable: 1
+  selector:
+    matchLabels:
+      app: helloorleons
