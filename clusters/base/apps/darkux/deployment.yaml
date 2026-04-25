@@ -39,7 +39,7 @@ spec:
               app: darkux
       containers:
         - name: darkux
-          image: ${ACR_LOGIN_SERVER}/darkux:1777130192-01111e55
+          image: ${ACR_LOGIN_SERVER}/darkux:1777148383-1167bc61
           ports:
             - containerPort: 8080
           env:
@@ -133,7 +133,7 @@ spec:
               app: darkux-web
       containers:
         - name: darkux-web
-          image: ${ACR_LOGIN_SERVER}/darkux-web:1777130192-01111e55
+          image: ${ACR_LOGIN_SERVER}/darkux-web:1777148383-1167bc61
           ports:
             - containerPort: 8080
           env:
