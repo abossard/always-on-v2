@@ -26,7 +26,7 @@ var queues = storage.AddQueues("queuestorage");
 var api = builder.AddProject<Projects.HelloAgents_Api>(ResourceNames.Api)
     .WithReference(cosmos)
     .WithReference(queues)
-    .WaitFor(cosmos)
+    .WaitFor(db)
     .WaitFor(storage)
     .WithExternalHttpEndpoints()
     .WithEnvironment(ctx =>
