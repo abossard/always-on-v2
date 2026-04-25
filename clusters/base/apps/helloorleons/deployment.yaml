@@ -42,7 +42,7 @@ spec:
               app: helloorleons
       containers:
         - name: helloorleons
-          image: ${ACR_LOGIN_SERVER}/helloorleons:1777127596-58a49d4a
+          image: ${ACR_LOGIN_SERVER}/helloorleons:1777130180-01111e55
           ports:
             - containerPort: 8080
               name: http
