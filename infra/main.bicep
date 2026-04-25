@@ -406,26 +406,6 @@ module stamps 'stamp.bicep' = [
 ]
 
 // ============================================================================
-// Stamp Lookup (per stamp) — exposes stamp resource IDs for health models
-// ============================================================================
-// Same pattern as regional-lookup.bicep: works around BCP182 by deploying
-// a per-stamp module that reads existing resources, so outputs can be used
-// in var for-expressions (hmStampData).
-
-module stampLookup 'stamp-lookup.bicep' = [
-  for (stamp, i) in allStamps: {
-    name: 'lookup-stamp-${stamp.regionKey}-${stamp.stampKey}'
-    scope: stampRgs[i]
-    dependsOn: [stamps]
-    params: {
-      baseName: baseName
-      regionKey: stamp.regionKey
-      stampKey: stamp.stampKey
-    }
-  }
-]
-
-// ============================================================================
 // Cross-RG Wiring (ACR pull roles + DNS delegation, one per stamp)
 // ============================================================================
 
@@ -633,10 +613,58 @@ module healthModelRbac 'healthmodel/rbac.bicep' = {
 
 // ─── Per-App Health Models ──────────────────────────────────────
 
-// Per-stamp data for health models. Uses stampLookup/regionalLookup intermediary
-// modules to get actual resource IDs (avoids BCP182 limitation on loop module outputs).
-// Built inline in each module's `stamps` param because loop module outputs are
-// disallowed in `var` for-expressions but ARE allowed in non-loop module params.
+// Per-stamp data for health models. Uses resourceId() formulas because BCP182
+// blocks loop module outputs in both var for-expressions AND inline for-expressions
+// in non-loop module params. Naming formulas MUST stay in sync with:
+//   - stamp.bicep:       aksCluster name 'aks-${baseName}-${regionKey}-${stampKey}'
+//   - stamp.bicep:       haStorageName formula (HelloAgents storage account)
+//   - stamp-cosmos.bicep: cosmosName 'cosmos-orl-${baseName}-${regionKey}-${stampKey}'
+//   - region.bicep:      monitorWorkspace name 'amw-${baseName}-${regionKey}'
+var hmStampData = [for (stamp, i) in allStamps: {
+  key: '${stamp.regionKey}-${stamp.stampKey}'
+  aksClusterId: resourceId(
+    subscription().subscriptionId,
+    stampRgs[i].name,
+    'Microsoft.ContainerService/managedClusters',
+    'aks-${baseName}-${stamp.regionKey}-${stamp.stampKey}'
+  )
+  amwResourceId: resourceId(
+    subscription().subscriptionId,
+    regionalRgs[stampRegionIndex[i]].name,
+    'Microsoft.Monitor/accounts',
+    'amw-${baseName}-${stamp.regionKey}'
+  )
+  stampCosmosAccountId: resourceId(
+    subscription().subscriptionId,
+    stampRgs[i].name,
+    'Microsoft.DocumentDB/databaseAccounts',
+    'cosmos-orl-${baseName}-${stamp.regionKey}-${stamp.stampKey}'
+  )
+  originSuffix: '${stamp.regionKey}-${stamp.stampKey}.${stamp.regionKey}.${domainName}:443'
+}]
+
+// HelloAgents storage account ID (mirrors stamp.bicep haStorageName formula).
+var haStorageNameRaw = replace('stha${take(baseName, 10)}${take(allStamps[0].regionKey, 3)}${allStamps[0].stampKey}', '-', '')
+var helloAgentsStorageIdComputed = resourceId(
+  subscription().subscriptionId,
+  stampRgs[0].name,
+  'Microsoft.Storage/storageAccounts',
+  length(haStorageNameRaw) > 24 ? substring(haStorageNameRaw, 0, 24) : haStorageNameRaw
+)
+
+// Per-app stamp arrays for health models (only the origin hostname differs)
+var hmStampsDarkux = [for i in range(0, length(hmStampData)): union(hmStampData[i], {
+  originHostname: 'darkux-${hmStampData[i].originSuffix}'
+})]
+var hmStampsHelloorleons = [for i in range(0, length(hmStampData)): union(hmStampData[i], {
+  originHostname: 'helloorleons-${hmStampData[i].originSuffix}'
+})]
+var hmStampsHelloagents = [for i in range(0, length(hmStampData)): union(hmStampData[i], {
+  originHostname: 'helloagents-${hmStampData[i].originSuffix}'
+})]
+var hmStampsGraphorleons = [for i in range(0, length(hmStampData)): union(hmStampData[i], {
+  originHostname: 'graphorleons-${hmStampData[i].originSuffix}'
+})]
 
 module healthModelDarkux 'healthmodel/healthmodel.bicep' = {
   name: 'deploy-hm-${apps[1].name}'
@@ -650,14 +678,7 @@ module healthModelDarkux 'healthmodel/healthmodel.bicep' = {
     identityId: global.outputs.healthModelIdentityId
     cosmosAccountId: global.outputs.cosmosId
     frontDoorProfileId: global.outputs.frontDoorId
-    stamps: [for (stamp, i) in allStamps: {
-      key: '${stamp.regionKey}-${stamp.stampKey}'
-      aksClusterId: stampLookup[i].outputs.aksClusterId
-      amwResourceId: regionalLookup[i].outputs.monitorWorkspaceId
-      stampCosmosAccountId: stampLookup[i].outputs.stampCosmosAccountId
-      helloAgentsStorageId: stampLookup[i].outputs.helloAgentsStorageId
-      originHostname: 'darkux-${stamp.regionKey}-${stamp.stampKey}.${stamp.regionKey}.${domainName}:443'
-    }]
+    stamps: hmStampsDarkux
   }
 }
 
@@ -673,14 +694,7 @@ module healthModelHelloorleons 'healthmodel/healthmodel.bicep' = {
     identityId: global.outputs.healthModelIdentityId
     cosmosAccountId: global.outputs.cosmosId
     frontDoorProfileId: global.outputs.frontDoorId
-    stamps: [for (stamp, i) in allStamps: {
-      key: '${stamp.regionKey}-${stamp.stampKey}'
-      aksClusterId: stampLookup[i].outputs.aksClusterId
-      amwResourceId: regionalLookup[i].outputs.monitorWorkspaceId
-      stampCosmosAccountId: stampLookup[i].outputs.stampCosmosAccountId
-      helloAgentsStorageId: stampLookup[i].outputs.helloAgentsStorageId
-      originHostname: 'helloorleons-${stamp.regionKey}-${stamp.stampKey}.${stamp.regionKey}.${domainName}:443'
-    }]
+    stamps: hmStampsHelloorleons
   }
 }
 
@@ -699,15 +713,8 @@ module healthModelHelloagents 'healthmodel/healthmodel.bicep' = {
     usesAI: apps[2].?usesAI ?? false
     aiServicesAccountId: ai.outputs.aiServicesId
     usesQueues: apps[2].?usesQueues ?? false
-    storageAccountId: stampLookup[0].outputs.helloAgentsStorageId
-    stamps: [for (stamp, i) in allStamps: {
-      key: '${stamp.regionKey}-${stamp.stampKey}'
-      aksClusterId: stampLookup[i].outputs.aksClusterId
-      amwResourceId: regionalLookup[i].outputs.monitorWorkspaceId
-      stampCosmosAccountId: stampLookup[i].outputs.stampCosmosAccountId
-      helloAgentsStorageId: stampLookup[i].outputs.helloAgentsStorageId
-      originHostname: 'helloagents-${stamp.regionKey}-${stamp.stampKey}.${stamp.regionKey}.${domainName}:443'
-    }]
+    storageAccountId: helloAgentsStorageIdComputed
+    stamps: hmStampsHelloagents
   }
 }
 
@@ -725,14 +732,7 @@ module healthModelGraphorleons 'healthmodel/healthmodel.bicep' = {
     frontDoorProfileId: global.outputs.frontDoorId
     usesEventHubs: apps[3].?usesEventHubs ?? false
     eventHubsNamespaceId: global.outputs.eventHubsNamespaceId
-    stamps: [for (stamp, i) in allStamps: {
-      key: '${stamp.regionKey}-${stamp.stampKey}'
-      aksClusterId: stampLookup[i].outputs.aksClusterId
-      amwResourceId: regionalLookup[i].outputs.monitorWorkspaceId
-      stampCosmosAccountId: stampLookup[i].outputs.stampCosmosAccountId
-      helloAgentsStorageId: stampLookup[i].outputs.helloAgentsStorageId
-      originHostname: 'graphorleons-${stamp.regionKey}-${stamp.stampKey}.${stamp.regionKey}.${domainName}:443'
-    }]
+    stamps: hmStampsGraphorleons
   }
 }
 
