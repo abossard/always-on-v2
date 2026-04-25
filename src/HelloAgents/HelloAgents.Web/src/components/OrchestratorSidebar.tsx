@@ -79,7 +79,7 @@ export function OrchestratorSidebar({ onActionComplete }: Props) {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 bg-indigo-500 hover:bg-indigo-600 text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-2xl transition-all hover:scale-110 z-50"
+        className="fixed bottom-6 left-6 bg-indigo-500 hover:bg-indigo-600 text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-2xl transition-all hover:scale-110 z-50"
         title="AI Orchestrator"
         data-test-id="orchestrator-toggle"
       >
@@ -89,7 +89,7 @@ export function OrchestratorSidebar({ onActionComplete }: Props) {
   }
 
   return (
-    <div className="fixed bottom-6 right-6 z-50 flex h-150 w-96 flex-col rounded-xl border border-white/10 bg-gray-800 shadow-2xl" data-test-id="orchestrator-panel">
+    <div className="fixed bottom-6 left-6 z-50 flex h-150 w-96 flex-col rounded-xl border border-white/10 bg-gray-800 shadow-2xl" data-test-id="orchestrator-panel">
       {/* Header */}
       <div className="p-3 border-b border-white/10 flex items-center justify-between">
         <div className="flex items-center gap-2">
