@@ -651,8 +651,7 @@ var hmStampData = [for (stamp, i) in allStamps: {
 
 // HelloAgents storage account ID (mirrors stamp.bicep haStorageName formula).
 // Equivalent module output: stamps[0].outputs.helloAgentsStorageId (same BCP182 limitation).
-var haStampName0 = '${allStamps[0].regionKey}-${allStamps[0].stampKey}'
-var haStorageNameRaw = replace('stha${take(baseName, 10)}${take(haStampName0, 6)}', '-', '')
+var haStorageNameRaw = replace('stha${take(baseName, 10)}${take(allStamps[0].regionKey, 3)}${allStamps[0].stampKey}', '-', '')
 var helloAgentsStorageIdComputed = resourceId(
   subscription().subscriptionId,
   stampRgs[0].name,

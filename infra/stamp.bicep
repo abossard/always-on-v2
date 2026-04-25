@@ -345,7 +345,9 @@ resource fluxExtension 'Microsoft.KubernetesConfiguration/extensions@2023-05-01'
 // HelloAgents Storage Account (Orleans Queue Streams — per-stamp)
 // ============================================================================
 
-var haStorageName = replace('stha${take(baseName, 10)}${take(stampName, 6)}', '-', '')
+// Storage names must be ≤24 chars, lowercase, no hyphens.
+// Use regionKey prefix (3 chars) + stampKey (3 chars) to ensure uniqueness across stamps.
+var haStorageName = replace('stha${take(baseName, 10)}${take(regionKey, 3)}${stampKey}', '-', '')
 
 resource helloAgentsStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: length(haStorageName) > 24 ? substring(haStorageName, 0, 24) : haStorageName
@@ -382,7 +384,7 @@ resource helloAgentsStorageQueueRbac 'Microsoft.Authorization/roleAssignments@20
 // GraphOrleons Storage Account (Azure Queue Storage for Orleans Streams)
 // ============================================================================
 
-var goStorageName = replace('stgo${take(baseName, 10)}${take(stampName, 6)}', '-', '')
+var goStorageName = replace('stgo${take(baseName, 10)}${take(regionKey, 3)}${stampKey}', '-', '')
 
 resource graphOrleonsStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   name: length(goStorageName) > 24 ? substring(goStorageName, 0, 24) : goStorageName
