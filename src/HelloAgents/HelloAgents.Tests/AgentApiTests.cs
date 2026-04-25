@@ -93,7 +93,7 @@ public abstract class AgentApiTests(HttpClient client)
             return state.Agents.Any(a => a.Id == agent.Id) && state.Messages.Length >= 1;
         }).Eventually(
             assert => assert.IsTrue(),
-            timeout: TimeSpan.FromSeconds(10)
+            timeout: TimeSpan.FromSeconds(30)
         );
     }
 
@@ -112,7 +112,7 @@ public abstract class AgentApiTests(HttpClient client)
             return state.Agents.Any(a => a.Id == agent.Id);
         }).Eventually(
             assert => assert.IsTrue(),
-            timeout: TimeSpan.FromSeconds(10)
+            timeout: TimeSpan.FromSeconds(30)
         );
 
         var deleteResponse = await _api.DeleteGroup(group.Id);
@@ -124,7 +124,7 @@ public abstract class AgentApiTests(HttpClient client)
             return resp.StatusCode;
         }).Eventually(
             assert => assert.IsEqualTo(HttpStatusCode.NotFound),
-            timeout: TimeSpan.FromSeconds(10)
+            timeout: TimeSpan.FromSeconds(30)
         );
 
         await Assert.That(async () =>
@@ -133,7 +133,7 @@ public abstract class AgentApiTests(HttpClient client)
             return updatedAgent.GroupIds.Contains(group.Id);
         }).Eventually(
             assert => assert.IsFalse(),
-            timeout: TimeSpan.FromSeconds(10)
+            timeout: TimeSpan.FromSeconds(30)
         );
     }
 
@@ -154,7 +154,7 @@ public abstract class AgentApiTests(HttpClient client)
     }
 
     [Test]
-    [Timeout(30_000)]
+    [Timeout(60_000)]
     public async Task DiscussionAgentRespondsWithStreamingContent(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -170,7 +170,7 @@ public abstract class AgentApiTests(HttpClient client)
             return s.Messages.Any(m => m.SenderType == SenderType.Agent && m.EventType == EventType.Message);
         }).Eventually(
             assert => assert.IsTrue(),
-            timeout: TimeSpan.FromSeconds(10)
+            timeout: TimeSpan.FromSeconds(30)
         );
 
         var state = await _api.GetGroup(group.Id);

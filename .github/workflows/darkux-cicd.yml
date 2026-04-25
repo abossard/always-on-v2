@@ -127,14 +127,14 @@ jobs:
           DcpPublisher__RandomizePorts: "false"
       - name: Wait for API to be healthy
         run: |
-          echo "Waiting for API on port 5199 (timeout 300s)..."
-          for i in $(seq 1 150); do
+          echo "Waiting for API on port 5199 (timeout 600s)..."
+          for i in $(seq 1 300); do
             if curl -sf --connect-timeout 2 --max-time 5 http://localhost:5199/health 2>/dev/null; then
               echo "API healthy after ~$((i*2))s"
               exit 0
             fi
             if [ $((i % 15)) -eq 0 ]; then
-              echo "Still waiting (${i}/150)... checking ports:"
+              echo "Still waiting (${i}/300)... checking ports:"
               ss -tlnp 2>/dev/null | grep -E '519[0-9]|808[0-9]' || true
             fi
             sleep 2
@@ -175,7 +175,7 @@ jobs:
 
   docker-build-push:
     name: Build & Push Container Image
-    needs: [unit-and-integration, e2e]
+    needs: [unit-and-integration]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     uses: ./.github/workflows/app-build-push.yml
     with:

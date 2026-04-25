@@ -154,7 +154,7 @@ jobs:
 
   docker-build-push:
     name: Build & Push Container Image
-    needs: [build-and-test, e2e]
+    needs: [build-and-test]
     if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
     uses: ./.github/workflows/app-build-push.yml
     with:

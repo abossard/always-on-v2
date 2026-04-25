@@ -24,8 +24,11 @@ public class AspireFixture : IAsyncInitializer, IAsyncDisposable
 
         _app = await builder.BuildAsync();
         await _app.StartAsync();
-        // Cosmos emulator cold-start can take 2-3 minutes
+        // Cosmos emulator cold-start can take 2-3 minutes; wait for ALL resources
+        // (including Cosmos) to be running before hitting the API, otherwise
+        // Orleans Membership can 404 against the cluster container.
         using var cts = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+        await _app.ResourceNotifications.WaitForResourceHealthyAsync(ResourceNames.CosmosDb, cts.Token);
         await _app.ResourceNotifications.WaitForResourceHealthyAsync(ResourceNames.Api, cts.Token);
         Client = _app.CreateHttpClient(ResourceNames.Api);
         Client.Timeout = TimeSpan.FromSeconds(30);
