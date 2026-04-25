@@ -101,6 +101,8 @@ public sealed class ChatGroupGrainState
 #pragma warning disable CA2227 // Orleans grain state requires mutable setters for deserialization
     [Id(6)] public Dictionary<string, AgentMemberInfo> Agents { get; set; } = [];
 #pragma warning restore CA2227
+    [Id(7)] public WorkflowDefinition? Workflow { get; set; }
+    [Id(8)] public string? CurrentExecutionId { get; set; }
 }
 
 /// <summary>Agent membership info stored in group state, learned from stream events.</summary>
@@ -161,6 +163,10 @@ public interface IChatGroupGrain : IGrainWithStringKey
     Task InitializeAsync(string name, string description);
     Task<ChatGroupDetail> GetStateAsync();
     Task DeleteAsync();
+    Task SetWorkflowAsync(WorkflowDefinition workflow);
+    Task<WorkflowDefinition?> GetWorkflowAsync();
+    Task<string> StartWorkflowAsync(string? input);
+    Task<string?> GetCurrentExecutionIdAsync();
 }
 
 public interface IAgentGrain : IGrainWithStringKey
@@ -191,4 +197,121 @@ public interface IAgentRegistryGrain : IGrainWithStringKey
     Task RegisterAsync(string id, string name);
     Task UnregisterAsync(string id);
     Task<Dictionary<string, string>> ListAsync();
+}
+
+// ── Workflow Domain ──
+
+#pragma warning disable CA1819 // Orleans [GenerateSerializer] records require concrete array types
+[GenerateSerializer]
+public sealed record WorkflowDefinition
+{
+    [Id(0)] public required string Id { get; init; }
+    [Id(1)] public required string Name { get; init; }
+    [Id(2)] public required WorkflowNode[] Nodes { get; init; }
+    [Id(3)] public required WorkflowEdge[] Edges { get; init; }
+}
+#pragma warning restore CA1819
+
+[GenerateSerializer]
+public sealed record WorkflowNode
+{
+    [Id(0)] public required string Id { get; init; }
+    [Id(1)] public required string Type { get; init; }  // "agent", "hitl", "tool"
+    [Id(2)] public string? AgentId { get; init; }
+    [Id(3)] public string? ToolName { get; init; }
+#pragma warning disable CA2227 // Orleans serialization requires mutable dictionary
+    [Id(4)] public Dictionary<string, string> Config { get; init; } = new();
+#pragma warning restore CA2227
+}
+
+[GenerateSerializer]
+public sealed record WorkflowEdge
+{
+    [Id(0)] public required string FromNodeId { get; init; }
+    [Id(1)] public required string ToNodeId { get; init; }
+    [Id(2)] public string? Condition { get; init; }
+}
+
+[GenerateSerializer]
+public sealed record NodeExecutionState
+{
+    [Id(0)] public required string Status { get; set; }  // pending, running, awaiting_hitl, done, failed
+    [Id(1)] public string? Result { get; set; }
+    [Id(2)] public DateTimeOffset? CompletedAt { get; set; }
+}
+
+[GenerateSerializer]
+public sealed record WorkflowNodeExecutionRequest
+{
+    [Id(0)] public required string ExecutionId { get; init; }
+    [Id(1)] public required string NodeId { get; init; }
+    [Id(2)] public required WorkflowNode Node { get; init; }
+    [Id(3)] public required string GroupId { get; init; }
+#pragma warning disable CA2227 // Orleans serialization requires mutable dictionary
+    [Id(4)] public Dictionary<string, string?> PredecessorResults { get; init; } = new();
+#pragma warning restore CA2227
+}
+
+[GenerateSerializer]
+public sealed class WorkflowExecutionGrainState
+{
+    [Id(0)] public WorkflowDefinition? Workflow { get; set; }
+    [Id(1)] public string GroupId { get; set; } = "";
+    [Id(2)] public string? InitialInput { get; set; }
+#pragma warning disable CA2227
+    [Id(3)] public Dictionary<string, NodeExecutionState> NodeStates { get; set; } = new();
+#pragma warning restore CA2227
+    [Id(4)] public bool Completed { get; set; }
+    [Id(5)] public DateTimeOffset CreatedAt { get; set; }
+}
+
+[GenerateSerializer]
+public sealed class WorkflowNodeExecutorGrainState
+{
+    [Id(0)] public WorkflowNodeExecutionRequest? Request { get; set; }
+    [Id(1)] public bool Completed { get; set; }
+    [Id(2)] public int RetryCount { get; set; }
+    [Id(3)] public DateTimeOffset? NextRetryAt { get; set; }
+    [Id(4)] public DateTimeOffset CreatedAt { get; set; }
+    [Id(5)] public string? CallbackResult { get; set; }
+    [Id(6)] public bool CallbackFailed { get; set; }
+}
+
+[GenerateSerializer]
+public sealed class HitlExecutorGrainState
+{
+    [Id(0)] public WorkflowNodeExecutionRequest? Request { get; set; }
+    [Id(1)] public string Status { get; set; } = "pending"; // pending | awaiting_human | done
+    [Id(2)] public string? Response { get; set; }
+    [Id(3)] public DateTimeOffset CreatedAt { get; set; }
+}
+
+public sealed record SetWorkflowRequest(WorkflowDefinition Workflow);
+public sealed record StartWorkflowExecutionRequest(string? Input);
+public sealed record HitlResponseRequest(string Response);
+
+public sealed record WorkflowExecutionView(
+    string ExecutionId,
+    string GroupId,
+    bool Completed,
+    Dictionary<string, NodeExecutionState> NodeStates);
+
+public interface IWorkflowExecutionGrain : IGrainWithStringKey
+{
+    Task StartAsync(WorkflowDefinition workflow, string groupId, string? initialInput);
+    Task OnNodeCompletedAsync(string nodeId, string? result, bool failed);
+    Task<Dictionary<string, NodeExecutionState>> GetNodeStatesAsync();
+    Task<bool> IsCompletedAsync();
+    Task<string> GetGroupIdAsync();
+}
+
+public interface IWorkflowNodeExecutorGrain : IGrainWithStringKey
+{
+    Task StartAsync(WorkflowNodeExecutionRequest request);
+}
+
+public interface IHitlExecutorGrain : IGrainWithStringKey
+{
+    Task StartAsync(WorkflowNodeExecutionRequest request);
+    Task SubmitResponseAsync(string response);
 }

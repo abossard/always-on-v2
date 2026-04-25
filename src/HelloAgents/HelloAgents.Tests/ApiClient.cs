@@ -92,4 +92,27 @@ public class HelloAgentsApi(HttpClient http)
 
     public Task<HttpResponseMessage> GetMetricsRaw()
         => http.GetAsync(new Uri("/metrics", UriKind.Relative));
+
+    // ─── Workflow ─────────────────────────────────────────────
+
+    public Task<HttpResponseMessage> SetWorkflow(string groupId, WorkflowDefinition workflow)
+        => http.PutAsJsonAsync(Routes.GroupWorkflow(groupId), new SetWorkflowRequest(workflow));
+
+    public Task<HttpResponseMessage> StartWorkflow(string groupId, string? input)
+        => http.PostAsJsonAsync(Routes.GroupWorkflowExecute(groupId), new StartWorkflowExecutionRequest(input));
+
+    public Task<HttpResponseMessage> GetWorkflowExecutionRaw(string groupId)
+        => http.GetAsync(new Uri(Routes.GroupWorkflowExecution(groupId), UriKind.Relative));
+
+    public async Task<WorkflowExecutionView?> GetWorkflowExecution(string groupId)
+    {
+        var resp = await GetWorkflowExecutionRaw(groupId);
+        if (resp.StatusCode == HttpStatusCode.NotFound)
+            return null;
+        resp.EnsureSuccessStatusCode();
+        return await resp.Content.ReadFromJsonAsync<WorkflowExecutionView>();
+    }
+
+    public Task<HttpResponseMessage> SubmitHitlResponse(string groupId, string nodeId, string response)
+        => http.PostAsJsonAsync(Routes.GroupWorkflowHitl(groupId, nodeId), new HitlResponseRequest(response));
 }

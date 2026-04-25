@@ -11,3 +11,8 @@ namespace HelloAgents.Tests;
 [ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
 public class AgentTests(AspireFixture f)
     : AgentApiTests(f.Client);
+
+[InheritsTests]
+[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
+public class WorkflowSuite(AspireFixture f)
+    : WorkflowTests(f.Client);

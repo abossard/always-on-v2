@@ -160,6 +160,38 @@ public sealed class ChatGroupGrain(
         await state.ClearStateAsync();
     }
 
+    public async Task SetWorkflowAsync(WorkflowDefinition workflow)
+    {
+        if (!state.State.Initialized)
+            throw new InvalidOperationException($"Group '{this.GetPrimaryKeyString()}' not initialized.");
+        ArgumentNullException.ThrowIfNull(workflow);
+        state.State.Workflow = workflow;
+        await state.WriteStateAsync();
+    }
+
+    public Task<WorkflowDefinition?> GetWorkflowAsync()
+        => Task.FromResult(state.State.Workflow);
+
+    public async Task<string> StartWorkflowAsync(string? input)
+    {
+        if (!state.State.Initialized)
+            throw new InvalidOperationException($"Group '{this.GetPrimaryKeyString()}' not initialized.");
+        if (state.State.Workflow is null)
+            throw new InvalidOperationException("No workflow defined for this group.");
+
+        var groupId = this.GetPrimaryKeyString();
+        var executionId = $"{groupId}-wf-{Guid.NewGuid().ToString("N")[..8]}";
+        state.State.CurrentExecutionId = executionId;
+        await state.WriteStateAsync();
+
+        var wfGrain = GrainFactory.GetGrain<IWorkflowExecutionGrain>(executionId);
+        await wfGrain.StartAsync(state.State.Workflow, groupId, input);
+        return executionId;
+    }
+
+    public Task<string?> GetCurrentExecutionIdAsync()
+        => Task.FromResult(state.State.CurrentExecutionId);
+
     private void AppendMessage(ChatMessageState msg)
     {
         state.State.Messages.Add(msg);

@@ -25,6 +25,18 @@ public static class Routes
     // Orchestrator
     public const string Orchestrate = "/api/orchestrate";
 
+    // Workflow
+    public const string GroupWorkflowTemplate = "/api/groups/{groupId}/workflow";
+    public const string GroupWorkflowExecuteTemplate = "/api/groups/{groupId}/workflow/execute";
+    public const string GroupWorkflowExecutionTemplate = "/api/groups/{groupId}/workflow/execution";
+    public const string GroupWorkflowHitlTemplate = "/api/groups/{groupId}/workflow/execution/hitl/{nodeId}";
+
+    public static string GroupWorkflow(string groupId) => GroupWorkflowTemplate.Replace("{groupId}", groupId, StringComparison.Ordinal);
+    public static string GroupWorkflowExecute(string groupId) => GroupWorkflowExecuteTemplate.Replace("{groupId}", groupId, StringComparison.Ordinal);
+    public static string GroupWorkflowExecution(string groupId) => GroupWorkflowExecutionTemplate.Replace("{groupId}", groupId, StringComparison.Ordinal);
+    public static string GroupWorkflowHitl(string groupId, string nodeId) =>
+        GroupWorkflowHitlTemplate.Replace("{groupId}", groupId, StringComparison.Ordinal).Replace("{nodeId}", nodeId, StringComparison.Ordinal);
+
     // Helper methods for parameterized routes
     public static string GroupDetail(string id) => GroupDetailTemplate.Replace("{id}", id, StringComparison.Ordinal);
     public static string AgentDetail(string id) => AgentDetailTemplate.Replace("{id}", id, StringComparison.Ordinal);

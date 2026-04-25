@@ -88,6 +88,11 @@ builder.Services.AddScoped<OrchestratorService>();
 builder.Services.AddScoped<GroupLifecycleService>();
 builder.Services.AddScoped<AnalyticsService>();
 
+// Workflow tools (resolved by name in ToolExecutorGrain)
+builder.Services.AddSingleton<HelloAgents.Api.Tools.ITool, HelloAgents.Api.Tools.RandomNumberTool>();
+builder.Services.AddSingleton<HelloAgents.Api.Tools.ITool, HelloAgents.Api.Tools.CurrentTimeTool>();
+builder.Services.AddSingleton<HelloAgents.Api.Tools.ITool, HelloAgents.Api.Tools.CalculatorTool>();
+
 // Change Feed → entity-metrics aggregation
 builder.Services.AddHostedService<ChangeFeedMetricsService>();
 
@@ -121,6 +126,7 @@ catch (ArgumentException) { /* PrometheusExporter not registered — skip */ }
 
 app.MapAllEndpoints();
 app.MapAnalyticsEndpoints();
+app.MapWorkflowEndpoints();
 
 app.Run();
 

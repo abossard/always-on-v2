@@ -70,4 +70,10 @@ internal static partial class Log
 
     [LoggerMessage(EventId = 47, Level = LogLevel.Information, Message = "Orchestrator deleted {DeletedCount} random groups")]
     public static partial void OrchestratorDeletedRandomGroups(this ILogger logger, int deletedCount);
+
+    [LoggerMessage(EventId = 50, Level = LogLevel.Information, Message = "Workflow execution {ExecutionId} already started")]
+    public static partial void WorkflowAlreadyStarted(this ILogger logger, string executionId);
+
+    [LoggerMessage(EventId = 51, Level = LogLevel.Information, Message = "HitlExecutor {Key} reactivated, still awaiting human response")]
+    public static partial void HitlReactivatedAwaiting(this ILogger logger, string key);
 }
