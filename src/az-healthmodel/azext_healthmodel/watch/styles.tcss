@@ -145,3 +145,140 @@ SearchModal OptionList > .option-list--option-highlighted {
     color: $text;
     text-style: bold;
 }
+
+/* ─── Query Editor Modal ─────────────────────────────────────── */
+QueryEditor {
+    align: center middle;
+}
+
+QueryEditor #query-editor-root {
+    width: 95%;
+    height: 90%;
+    background: $surface;
+    border: round $accent;
+    padding: 1 2;
+}
+
+QueryEditor #qe-title {
+    dock: top;
+    height: 1;
+    padding: 0 0 1 0;
+}
+
+QueryEditor #qe-meta-scroll {
+    height: auto;
+    max-height: 14;
+    margin-bottom: 1;
+    background: $panel;
+    border: round $primary-darken-2;
+    padding: 0 1;
+}
+
+QueryEditor .qe-section-label {
+    color: $accent;
+    text-style: bold;
+    padding: 1 0 0 0;
+}
+
+QueryEditor #qe-query {
+    height: 12;
+    border: round $primary;
+    background: $panel;
+}
+
+QueryEditor #qe-query:focus {
+    border: round $accent;
+}
+
+QueryEditor #qe-buttons {
+    height: 3;
+    align: left middle;
+    padding: 1 0;
+}
+
+QueryEditor #qe-buttons Button {
+    margin-right: 2;
+}
+
+QueryEditor #qe-results-scroll {
+    height: 1fr;
+    background: $panel;
+    border: round $primary-darken-2;
+    padding: 0 1;
+}
+
+/* ─── Entity Detail Drawer ───────────────────────────────────── */
+EntityDrawer {
+    dock: right;
+    width: 60;
+    max-width: 50%;
+    height: 1fr;
+    background: $panel;
+    border-left: solid $primary;
+    border: round $primary;
+    padding: 1 2;
+    scrollbar-size-vertical: 1;
+    display: none;
+}
+
+EntityDrawer.-visible {
+    display: block;
+}
+
+EntityDrawer:focus-within {
+    border: round $accent;
+}
+
+EntityDrawer #entity-drawer-body {
+    width: 100%;
+    height: auto;
+}
+
+/* ─── Signal Verification Panel (right drawer) ─────────────────── */
+SignalPanel {
+    dock: right;
+    width: 60;
+    max-width: 50%;
+    height: 1fr;
+    background: $panel;
+    border-left: solid $primary;
+    padding: 1 2;
+    scrollbar-size-vertical: 1;
+}
+
+SignalPanel:focus-within {
+    border-left: solid $accent;
+}
+
+SignalPanel .sp-header {
+    height: auto;
+    margin-bottom: 1;
+    border-bottom: solid $primary-darken-2;
+    padding-bottom: 1;
+}
+
+SignalPanel .sp-section {
+    height: auto;
+    margin-bottom: 1;
+}
+
+SignalPanel .sp-status {
+    height: auto;
+    margin: 1 0;
+}
+
+SignalPanel .sp-raw {
+    height: auto;
+    margin-top: 1;
+    color: $text-muted;
+}
+
+SignalPanel .sp-sparkline {
+    height: auto;
+    margin-bottom: 1;
+}
+
+SignalPanel Button {
+    margin: 1 0;
+    width: 100%;
+}

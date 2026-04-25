@@ -9,6 +9,7 @@ from typing import Sequence
 
 from rich.text import Text
 
+from azext_healthmodel.domain.snapshot import build_change_map
 from azext_healthmodel.models.domain import (
     EntityNode,
     Forest,
@@ -100,12 +101,7 @@ def format_plain_tree(
     Uses ``├──``, ``└──``, ``│`` to draw the hierarchy, with emojis and
     signal values.  Suitable for terminal output without Rich rendering.
     """
-    change_map: dict[str, StateChange] = {}
-    if changes:
-        for ch in changes:
-            # Keep the first (highest-priority) change per entity
-            if ch.entity_id not in change_map:
-                change_map[ch.entity_id] = ch
+    change_map = build_change_map(changes or [])
 
     lines: list[str] = []
 
@@ -170,7 +166,6 @@ def _render_node(
         child_entity = forest.entities.get(child_name)
         if child_entity is None:
             continue
-        is_last_child = (idx == len(child_items) - 1) and len(entity.signals) == 0
         # If signals were rendered, the last signal already used └──,
         # so children continue with ├── unless it's truly the last item.
         is_last_child = (

@@ -8,15 +8,22 @@ from textual.widgets import Tree
 from textual.widgets._tree import TreeNode
 
 from azext_healthmodel.domain.formatters import format_entity_label, format_signal_label
+from azext_healthmodel.domain.snapshot import build_change_map
 from azext_healthmodel.models.domain import EntityNode, Forest, StateChange
 
 
 @dataclass
 class EntityData:
-    """Data attached to each tree node for identification."""
+    """Data attached to each tree node for identification.
+
+    For signal leaves, *owner_entity_name* references the GUID name of the
+    entity that owns the signal — required to resolve the signal when
+    verifying its query via :func:`client.query_executor.execute_signal`.
+    """
 
     entity_name: str
     is_signal: bool = False
+    owner_entity_name: str | None = None
 
 
 class HealthTree(Tree[EntityData]):
@@ -43,10 +50,7 @@ class HealthTree(Tree[EntityData]):
 
     def apply_forest(self, forest: Forest, changes: list[StateChange]) -> None:
         """Rebuild the tree from *forest* and highlight *changes*."""
-        change_map: dict[str, StateChange] = {}
-        for c in changes:
-            if c.entity_id not in change_map:
-                change_map[c.entity_id] = c
+        change_map = build_change_map(changes)
 
         self.clear()
         self._node_map.clear()
@@ -109,7 +113,11 @@ class HealthTree(Tree[EntityData]):
             sig_label = format_signal_label(sig)
             node.add_leaf(
                 sig_label,
-                data=EntityData(entity_name=sig.name, is_signal=True),
+                data=EntityData(
+                    entity_name=sig.name,
+                    is_signal=True,
+                    owner_entity_name=entity.name,
+                ),
             )
 
         # Recurse into children

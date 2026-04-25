@@ -1,17 +1,20 @@
 """Execute signal queries against real data sources.
 
 Resolves the full chain: entity → signal instance → signal group
-(data source) → signal definition (query/rules), executes the query,
-extracts the value, evaluates health, and returns a structured result.
+(data source) → signal definition (query/rules), executes the query
+through the :class:`CloudHealthClient` abstraction, extracts the value,
+evaluates health using domain-model rules, and returns a structured
+result.
 """
 from __future__ import annotations
 
 import time
-import urllib.parse
 from datetime import datetime, timezone
 from typing import Any
 
 from azext_healthmodel.client.rest_client import CloudHealthClient
+from azext_healthmodel.models.domain import EvaluationRule
+from azext_healthmodel.models.enums import ComparisonOperator, HealthState
 
 
 def execute_signal(
@@ -63,14 +66,16 @@ def execute_signal(
             workspace_id = group_data.get("azureMonitorWorkspaceResourceId", "")
             if not workspace_id:
                 raise ValueError(f"Signal group '{group_key}' has no azureMonitorWorkspaceResourceId")
-            raw_output = _run_prometheus_query(client, workspace_id, query_text, time_grain)
+            raw_output = client.query_prometheus(workspace_id, query_text, time_grain)
             raw_value = _extract_prometheus_value(raw_output)
 
         elif signal_kind == "AzureResourceMetric":
             resource_id = group_data.get("azureResourceId", "")
             if not resource_id:
                 raise ValueError(f"Signal group '{group_key}' has no azureResourceId")
-            raw_output = _run_azure_metric_query(client, resource_id, metric_name, metric_ns, aggregation, time_grain)
+            raw_output = client.query_azure_metric(
+                resource_id, metric_name, metric_ns, aggregation, time_grain,
+            )
             raw_value = _extract_azure_metric_value(raw_output)
 
         elif signal_kind == "LogAnalyticsQuery":
@@ -85,12 +90,16 @@ def execute_signal(
     except Exception as exc:
         error = str(exc)
 
-    # 4. Evaluate health
-    health_state = "Unknown"
+    # 4. Evaluate health (delegate to domain rule objects)
+    health_state = HealthState.UNKNOWN
     if error:
-        health_state = "Error"
+        # Preserve the existing "Error" label for query failures.
+        health_state_str = "Error"
     elif raw_value is not None:
         health_state = _evaluate_health(raw_value, eval_rules)
+        health_state_str = health_state.value
+    else:
+        health_state_str = health_state.value
 
     duration_ms = int((time.monotonic() - t0) * 1000)
 
@@ -108,7 +117,7 @@ def execute_signal(
             or group_data.get("logAnalyticsWorkspaceResourceId", ""),
         "dataUnit": data_unit,
         "rawValue": raw_value,
-        "healthState": health_state,
+        "healthState": health_state_str,
         "evaluationRules": eval_rules,
         "rawOutput": raw_output,
         "durationMs": duration_ms,
@@ -140,57 +149,6 @@ def _find_signal_on_entity(
         f"Signal '{signal_name}' not found on entity. "
         f"Available groups: {list(signal_groups.keys())}"
     )
-
-
-def _run_prometheus_query(
-    client: CloudHealthClient,
-    workspace_resource_id: str,
-    query: str,
-    time_grain: str,
-) -> dict[str, Any]:
-    """Resolve workspace endpoint and execute PromQL query."""
-    from azure.cli.core.util import send_raw_request
-
-    # Step 1: Resolve the Prometheus query endpoint
-    ws_url = f"https://management.azure.com{workspace_resource_id}?api-version=2023-04-03"
-    ws_response = send_raw_request(client._cli_ctx, "GET", ws_url)
-    ws_data = ws_response.json()
-    endpoint = ws_data.get("properties", {}).get("metrics", {}).get("prometheusQueryEndpoint")
-    if not endpoint:
-        raise ValueError(f"No prometheusQueryEndpoint on workspace {workspace_resource_id}")
-
-    # Step 2: Query Prometheus
-    encoded_query = urllib.parse.quote(query, safe="")
-    prom_url = f"{endpoint}/api/v1/query?query={encoded_query}"
-    prom_response = send_raw_request(
-        client._cli_ctx, "GET", prom_url,
-        resource="https://prometheus.monitor.azure.com",
-    )
-    return prom_response.json()
-
-
-def _run_azure_metric_query(
-    client: CloudHealthClient,
-    resource_id: str,
-    metric_name: str,
-    metric_namespace: str,
-    aggregation: str,
-    time_grain: str,
-) -> dict[str, Any]:
-    """Execute an Azure Resource Metrics query."""
-    from azure.cli.core.util import send_raw_request
-
-    url = (
-        f"https://management.azure.com{resource_id}"
-        f"/providers/Microsoft.Insights/metrics"
-        f"?api-version=2024-02-01"
-        f"&metricnames={urllib.parse.quote(metric_name)}"
-        f"&metricNamespace={urllib.parse.quote(metric_namespace)}"
-        f"&aggregation={urllib.parse.quote(aggregation)}"
-        f"&interval={urllib.parse.quote(time_grain)}"
-    )
-    response = send_raw_request(client._cli_ctx, "GET", url)
-    return response.json()
 
 
 def _extract_prometheus_value(data: dict[str, Any]) -> float | None:
@@ -231,27 +189,33 @@ def _extract_azure_metric_value(data: dict[str, Any]) -> float | None:
     return None
 
 
-def _evaluate_health(value: float, rules: dict[str, Any]) -> str:
-    """Evaluate a value against evaluation rules, returning a health state string."""
-    unhealthy_rule = rules.get("unhealthyRule")
-    if unhealthy_rule and _triggers(value, unhealthy_rule):
-        return "Unhealthy"
-    degraded_rule = rules.get("degradedRule")
-    if degraded_rule and _triggers(value, degraded_rule):
-        return "Degraded"
-    return "Healthy"
+def _parse_rule(rule: dict[str, Any]) -> EvaluationRule | None:
+    """Build a domain ``EvaluationRule`` from an API rule dict, or return None."""
+    if not rule:
+        return None
+    op_raw = rule.get("operator", "")
+    threshold_raw = rule.get("threshold")
+    if not op_raw or threshold_raw is None:
+        return None
+    try:
+        op = ComparisonOperator(op_raw)
+        threshold = float(threshold_raw)
+        return EvaluationRule(operator=op, threshold=threshold)
+    except (ValueError, TypeError):
+        return None
 
 
-def _triggers(value: float, rule: dict[str, Any]) -> bool:
-    """Check if a value triggers a rule."""
-    op = rule.get("operator", "")
-    threshold = float(rule.get("threshold", 0))
-    if op == "GreaterThan":
-        return value > threshold
-    if op == "LessThan":
-        return value < threshold
-    if op == "GreaterThanOrEqual":
-        return value >= threshold
-    if op == "LessThanOrEqual":
-        return value <= threshold
-    return False
+def _evaluate_health(value: float, rules: dict[str, Any]) -> HealthState:
+    """Evaluate a value against evaluation rules using domain rule objects.
+
+    Mirrors :meth:`SignalDefinition.evaluate` but tolerates missing or
+    malformed rules (the API may omit either rule, whereas the domain
+    model requires an unhealthy rule).
+    """
+    unhealthy = _parse_rule(rules.get("unhealthyRule") or {})
+    if unhealthy is not None and unhealthy.triggers(value):
+        return HealthState.UNHEALTHY
+    degraded = _parse_rule(rules.get("degradedRule") or {})
+    if degraded is not None and degraded.triggers(value):
+        return HealthState.DEGRADED
+    return HealthState.HEALTHY

@@ -17,6 +17,23 @@ from azext_healthmodel.models.domain import (
 from azext_healthmodel.models.enums import ChangeKind, HealthState
 
 
+# ─── change-map helper ───────────────────────────────────────────────
+
+
+def build_change_map(changes: list[StateChange]) -> dict[str, StateChange]:
+    """Collapse a list of changes into entity_id → first change seen.
+
+    Pure calculation. Since ``diff_snapshots`` returns changes sorted by
+    priority (escalations first, then recoveries, etc.), the first entry
+    per ``entity_id`` is the highest-priority change for that entity.
+    """
+    change_map: dict[str, StateChange] = {}
+    for ch in changes:
+        if ch.entity_id not in change_map:
+            change_map[ch.entity_id] = ch
+    return change_map
+
+
 # ─── snapshot construction ───────────────────────────────────────────
 
 

@@ -57,6 +57,8 @@ class StatusBar(Static):
         parts.append("↑↓ Nav  ⏎ Toggle  ", style="dim")
         parts.append("/", style="bold")
         parts.append(" Search  ", style="dim")
+        parts.append("e", style="bold")
+        parts.append(" Query  ", style="dim")
 
         # Conditional: n/p only when search results exist
         if self.has_search_results:
@@ -67,8 +69,12 @@ class StatusBar(Static):
 
         parts.append("j", style="bold")
         parts.append(" Jump  ", style="dim")
+        parts.append("v", style="bold")
+        parts.append(" Verify  ", style="dim")
         parts.append("r", style="bold")
         parts.append(" Refresh  ", style="dim")
+        parts.append("d", style="bold")
+        parts.append(" Details  ", style="dim")
         parts.append("q", style="bold")
         parts.append(" Quit", style="dim")
 

@@ -80,12 +80,13 @@ class SearchModal(ModalScreen[SearchResult | None]):
         self,
         forest: Forest,
         initial_query: str = "",
+        on_state: Callable[[str, list[SearchResult]], None] | None = None,
     ) -> None:
         super().__init__()
         self._forest = forest
         self._initial_query = initial_query
         self._results: list[SearchResult] = []
-        self._on_search_state: Callable[[str, list[SearchResult]], None] | None = None
+        self._on_search_state: Callable[[str, list[SearchResult]], None] | None = on_state
 
     def compose(self) -> ComposeResult:
         with Vertical():

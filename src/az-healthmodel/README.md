@@ -1,6 +1,6 @@
 # `az healthmodel` — Azure CLI Extension for Health Models
 
-![Version](https://img.shields.io/badge/version-0.1.0-blue)
+![Version](https://img.shields.io/badge/version-0.2.0-blue)
 ![Status](https://img.shields.io/badge/status-experimental-orange)
 ![Azure CLI](https://img.shields.io/badge/azure--cli-%3E%3D2.61.0-0078D4)
 
@@ -132,9 +132,15 @@ Launches automatically when a TTY is detected and `textual` is installed.
 | Key | Action |
 | --- | --- |
 | **↑ / ↓** | Navigate the tree |
+| **/** | Search entities and signals |
+| **n / p** | Next / previous search result |
+| **v** | Verify signal — live-execute query, show results + sparkline |
+| **e** | Query editor — view/edit PromQL or metric config, test queries |
+| **d** | Details — entity detail drawer (signals, thresholds, children) |
 | **j** | Toggle auto-jump to escalations |
 | **r** | Force immediate refresh |
 | **+ / −** | Adjust poll interval (±10s) |
+| **Escape** | Close panel / drawer |
 | **q** | Quit |
 
 Features:
@@ -142,6 +148,10 @@ Features:
 - Diffs snapshots between polls — detects escalations, recoveries, new/removed entities
 - **Auto-jumps** to the first escalation (toggle with **j**)
 - Highlights changed nodes with ⚡ markers (e.g., `⚡ was 🟢`)
+- **Signal verification** — press **v** on any signal to live-execute its PromQL or ARM metric query, see raw value, health evaluation, and a sparkline of recent history
+- **Query editor** — press **e** on a signal to view/edit the query text, thresholds, and data source, then test the query without persisting changes
+- **Entity details** — press **d** to open a detail drawer showing all signals, evaluation rules, impact, ARM resource ID, parent/child relationships
+- **Fuzzy search** — press **/** to search entities and signals by name, navigate results with **n**/**p**
 - Mouse scrolling supported
 
 ### Plain-text fallback
@@ -274,23 +284,25 @@ Follows **Grokking Simplicity** — strict separation of data, calculations, and
 
 ```
 models/          ← Data: frozen dataclasses, enums, TypedDicts
-domain/          ← Calculations: parse, graph builder, snapshot diff, formatters
-client/          ← Actions: REST client (retry, pagination)
-watch/           ← Actions: Textual TUI, poller, plain-text fallback
-actions/         ← Actions: CRUD command handlers
+domain/          ← Calculations: parse, graph builder, snapshot diff, search, formatters
+client/          ← Actions: REST client (retry, pagination), query executor
+actions/         ← Actions: shared operations module + thin CLI binding layer
+watch/           ← Actions: Textual TUI, poller, signal panel, query editor, entity drawer, sparkline
+mcp/             ← Actions: MCP server (delegates to shared operations)
 ```
 
 - **Transport models** (TypedDicts) isolate from preview API wire format changes
 - **Domain models** (frozen dataclasses) are the stable internal types
 - **Graph builder** handles DAGs with cycle detection
 - **Snapshot diff** detects escalations, recoveries, value changes between polls
+- **Shared operations** (`actions/operations.py`) — single implementation of all CRUD logic, called by both CLI commands and MCP server
 
 ## Development
 
 ```bash
 cd src/az-healthmodel
 pip install -e ".[dev]"
-python -m pytest azext_healthmodel/tests/ -v   # 116 tests
+python -m pytest azext_healthmodel/tests/ -v   # 123 tests (excl. live e2e)
 ```
 
 ## API Version

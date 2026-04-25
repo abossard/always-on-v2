@@ -4,15 +4,19 @@ Every tool supports **bulk calls**: pass ``items`` (a list of parameter
 dicts) to execute multiple operations in one round-trip.  Each item in
 the response carries ``{ok: true, data: ...}`` or ``{ok: false, error: ...}``.
 
+All business logic lives in :mod:`azext_healthmodel.actions.operations`;
+this module just adapts those functions to FastMCP tools with the bulk
+protocol.
+
 Start via:  ``az healthmodel mcp -g myRg --model myModel``
 """
 from __future__ import annotations
 
-import json
 from typing import Any
 
 from mcp.server.fastmcp import FastMCP
 
+from azext_healthmodel.actions import operations as ops
 from azext_healthmodel.client.rest_client import CloudHealthClient
 
 
@@ -32,10 +36,15 @@ def create_server(client: CloudHealthClient) -> FastMCP:
     # ── bulk helper ───────────────────────────────────────────────────
 
     def _bulk(fn, params: dict[str, Any]) -> Any:
-        """Run *fn* for a single param dict or for each item in params['items']."""
-        items = params.pop("items", None)
+        """Run *fn* for a single param dict or for each item in params['items'].
+
+        Does not mutate the caller's dict — we read ``items`` non-destructively
+        and build a local copy of the single-call params.
+        """
+        items = params.get("items")
         if items is None:
-            return fn(**params)
+            single = {k: v for k, v in params.items() if k != "items"}
+            return fn(**single)
         results = []
         for item in items:
             try:
@@ -49,7 +58,7 @@ def create_server(client: CloudHealthClient) -> FastMCP:
     @mcp.tool()
     def healthmodel_list(resource_group: str | None = None) -> Any:
         """List health models in a resource group (or all in subscription)."""
-        return client.list_models(resource_group)
+        return ops.healthmodel_list(client, resource_group)
 
     @mcp.tool()
     def healthmodel_show(
@@ -59,7 +68,7 @@ def create_server(client: CloudHealthClient) -> FastMCP:
     ) -> Any:
         """Get one or more health models by name."""
         def _do(*, resource_group: str, name: str) -> Any:
-            return client.get_model(resource_group, name)
+            return ops.healthmodel_show(client, resource_group, name)
         return _bulk(_do, {"resource_group": resource_group, "name": name, "items": items})
 
     @mcp.tool()
@@ -71,12 +80,26 @@ def create_server(client: CloudHealthClient) -> FastMCP:
         items: list[dict[str, Any]] | None = None,
     ) -> Any:
         """Create or update one or more health models."""
-        def _do(*, resource_group: str, name: str, location: str, body: dict[str, Any] | None = None) -> Any:
-            payload = body or {}
-            payload.setdefault("location", location)
-            payload.setdefault("properties", {})
-            return client.create_or_update_model(resource_group, name, payload)
-        return _bulk(_do, {"resource_group": resource_group, "name": name, "location": location, "body": body, "items": items})
+        def _do(
+            *,
+            resource_group: str,
+            name: str,
+            location: str,
+            body: dict[str, Any] | None = None,
+        ) -> Any:
+            return ops.healthmodel_create(
+                client, resource_group, name, location, body=body,
+            )
+        return _bulk(
+            _do,
+            {
+                "resource_group": resource_group,
+                "name": name,
+                "location": location,
+                "body": body,
+                "items": items,
+            },
+        )
 
     @mcp.tool()
     def healthmodel_delete(
@@ -86,7 +109,7 @@ def create_server(client: CloudHealthClient) -> FastMCP:
     ) -> Any:
         """Delete one or more health models."""
         def _do(*, resource_group: str, name: str) -> Any:
-            return client.delete_model(resource_group, name)
+            return ops.healthmodel_delete(client, resource_group, name)
         return _bulk(_do, {"resource_group": resource_group, "name": name, "items": items})
 
     # ── Entity tools ──────────────────────────────────────────────────
@@ -94,7 +117,7 @@ def create_server(client: CloudHealthClient) -> FastMCP:
     @mcp.tool()
     def entity_list(resource_group: str, model_name: str) -> Any:
         """List all entities in a health model."""
-        return client.list_entities(resource_group, model_name)
+        return ops.entity_list(client, resource_group, model_name)
 
     @mcp.tool()
     def entity_show(
@@ -105,7 +128,7 @@ def create_server(client: CloudHealthClient) -> FastMCP:
     ) -> Any:
         """Get one or more entities by name."""
         def _do(*, resource_group: str, model_name: str, name: str) -> Any:
-            return client.get_sub_resource(resource_group, model_name, "entities", name)
+            return ops.entity_show(client, resource_group, model_name, name)
         return _bulk(_do, {"resource_group": resource_group, "model_name": model_name, "name": name, "items": items})
 
     @mcp.tool()
@@ -117,9 +140,24 @@ def create_server(client: CloudHealthClient) -> FastMCP:
         items: list[dict[str, Any]] | None = None,
     ) -> Any:
         """Create or update one or more entities."""
-        def _do(*, resource_group: str, model_name: str, name: str, body: dict[str, Any]) -> Any:
-            return client.create_or_update_sub_resource(resource_group, model_name, "entities", name, body)
-        return _bulk(_do, {"resource_group": resource_group, "model_name": model_name, "name": name, "body": body, "items": items})
+        def _do(
+            *,
+            resource_group: str,
+            model_name: str,
+            name: str,
+            body: dict[str, Any],
+        ) -> Any:
+            return ops.entity_create(client, resource_group, model_name, name, body)
+        return _bulk(
+            _do,
+            {
+                "resource_group": resource_group,
+                "model_name": model_name,
+                "name": name,
+                "body": body,
+                "items": items,
+            },
+        )
 
     @mcp.tool()
     def entity_delete(
@@ -130,7 +168,7 @@ def create_server(client: CloudHealthClient) -> FastMCP:
     ) -> Any:
         """Delete one or more entities."""
         def _do(*, resource_group: str, model_name: str, name: str) -> Any:
-            return client.delete_sub_resource(resource_group, model_name, "entities", name)
+            return ops.entity_delete(client, resource_group, model_name, name)
         return _bulk(_do, {"resource_group": resource_group, "model_name": model_name, "name": name, "items": items})
 
     # ── Entity Signal tools ───────────────────────────────────────────
@@ -144,16 +182,9 @@ def create_server(client: CloudHealthClient) -> FastMCP:
     ) -> Any:
         """List signal instances on one or more entities."""
         def _do(*, resource_group: str, model_name: str, entity_name: str) -> Any:
-            entity = client.get_sub_resource(resource_group, model_name, "entities", entity_name)
-            props = entity.get("properties", {})
-            result = []
-            for group_name, group_data in props.get("signalGroups", {}).items():
-                if isinstance(group_data, dict):
-                    for sig in group_data.get("signals", []):
-                        sig_copy = dict(sig)
-                        sig_copy["_signalGroup"] = group_name
-                        result.append(sig_copy)
-            return result
+            return ops.entity_signal_list(
+                client, resource_group, model_name, entity_name,
+            )
         return _bulk(_do, {"resource_group": resource_group, "model_name": model_name, "entity_name": entity_name, "items": items})
 
     @mcp.tool()
@@ -166,14 +197,28 @@ def create_server(client: CloudHealthClient) -> FastMCP:
         items: list[dict[str, Any]] | None = None,
     ) -> Any:
         """Add a signal instance to one or more entities."""
-        def _do(*, resource_group: str, model_name: str, entity_name: str, signal_group: str, body: dict[str, Any]) -> Any:
-            entity = client.get_sub_resource(resource_group, model_name, "entities", entity_name)
-            props = entity.setdefault("properties", {})
-            groups = props.setdefault("signalGroups", {})
-            group = groups.setdefault(signal_group, {})
-            group.setdefault("signals", []).append(body)
-            return client.create_or_update_sub_resource(resource_group, model_name, "entities", entity_name, entity)
-        return _bulk(_do, {"resource_group": resource_group, "model_name": model_name, "entity_name": entity_name, "signal_group": signal_group, "body": body, "items": items})
+        def _do(
+            *,
+            resource_group: str,
+            model_name: str,
+            entity_name: str,
+            signal_group: str,
+            body: dict[str, Any],
+        ) -> Any:
+            return ops.entity_signal_add(
+                client, resource_group, model_name, entity_name, signal_group, body,
+            )
+        return _bulk(
+            _do,
+            {
+                "resource_group": resource_group,
+                "model_name": model_name,
+                "entity_name": entity_name,
+                "signal_group": signal_group,
+                "body": body,
+                "items": items,
+            },
+        )
 
     @mcp.tool()
     def entity_signal_remove(
@@ -184,17 +229,26 @@ def create_server(client: CloudHealthClient) -> FastMCP:
         items: list[dict[str, str]] | None = None,
     ) -> Any:
         """Remove a signal instance from one or more entities."""
-        def _do(*, resource_group: str, model_name: str, entity_name: str, signal_name: str) -> Any:
-            entity = client.get_sub_resource(resource_group, model_name, "entities", entity_name)
-            for group_data in entity.get("properties", {}).get("signalGroups", {}).values():
-                if isinstance(group_data, dict):
-                    sigs = group_data.get("signals", [])
-                    new_sigs = [s for s in sigs if s.get("name") != signal_name]
-                    if len(new_sigs) < len(sigs):
-                        group_data["signals"] = new_sigs
-                        return client.create_or_update_sub_resource(resource_group, model_name, "entities", entity_name, entity)
-            raise ValueError(f"Signal '{signal_name}' not found on entity '{entity_name}'")
-        return _bulk(_do, {"resource_group": resource_group, "model_name": model_name, "entity_name": entity_name, "signal_name": signal_name, "items": items})
+        def _do(
+            *,
+            resource_group: str,
+            model_name: str,
+            entity_name: str,
+            signal_name: str,
+        ) -> Any:
+            return ops.entity_signal_remove(
+                client, resource_group, model_name, entity_name, signal_name,
+            )
+        return _bulk(
+            _do,
+            {
+                "resource_group": resource_group,
+                "model_name": model_name,
+                "entity_name": entity_name,
+                "signal_name": signal_name,
+                "items": items,
+            },
+        )
 
     @mcp.tool()
     def entity_signal_history(
@@ -207,11 +261,31 @@ def create_server(client: CloudHealthClient) -> FastMCP:
         items: list[dict[str, str]] | None = None,
     ) -> Any:
         """Query signal value history for one or more entity signals."""
-        def _do(*, resource_group: str, model_name: str, entity_name: str, signal_name: str, start_at: str, end_at: str) -> Any:
-            return client.get_signal_history(resource_group, model_name, entity_name, {
-                "signalName": signal_name, "startAt": start_at, "endAt": end_at,
-            })
-        return _bulk(_do, {"resource_group": resource_group, "model_name": model_name, "entity_name": entity_name, "signal_name": signal_name, "start_at": start_at, "end_at": end_at, "items": items})
+        def _do(
+            *,
+            resource_group: str,
+            model_name: str,
+            entity_name: str,
+            signal_name: str,
+            start_at: str,
+            end_at: str,
+        ) -> Any:
+            return ops.entity_signal_history(
+                client, resource_group, model_name, entity_name,
+                signal_name, start_at, end_at,
+            )
+        return _bulk(
+            _do,
+            {
+                "resource_group": resource_group,
+                "model_name": model_name,
+                "entity_name": entity_name,
+                "signal_name": signal_name,
+                "start_at": start_at,
+                "end_at": end_at,
+                "items": items,
+            },
+        )
 
     @mcp.tool()
     def entity_signal_ingest(
@@ -226,22 +300,49 @@ def create_server(client: CloudHealthClient) -> FastMCP:
         items: list[dict[str, Any]] | None = None,
     ) -> Any:
         """Submit external health reports for one or more entity signals."""
-        def _do(*, resource_group: str, model_name: str, entity_name: str, signal_name: str, health_state: str, value: float, expires_in_minutes: int = 60, additional_context: str | None = None) -> Any:
-            body: dict[str, Any] = {
-                "signalName": signal_name, "healthState": health_state,
-                "value": value, "expiresInMinutes": expires_in_minutes,
-            }
-            if additional_context:
-                body["additionalContext"] = additional_context
-            return client.ingest_health_report(resource_group, model_name, entity_name, body)
-        return _bulk(_do, {"resource_group": resource_group, "model_name": model_name, "entity_name": entity_name, "signal_name": signal_name, "health_state": health_state, "value": value, "expires_in_minutes": expires_in_minutes, "additional_context": additional_context, "items": items})
+        def _do(
+            *,
+            resource_group: str,
+            model_name: str,
+            entity_name: str,
+            signal_name: str,
+            health_state: str,
+            value: float,
+            expires_in_minutes: int = 60,
+            additional_context: str | None = None,
+        ) -> Any:
+            return ops.entity_signal_ingest(
+                client,
+                resource_group,
+                model_name,
+                entity_name,
+                signal_name,
+                health_state,
+                value,
+                expires_in_minutes=expires_in_minutes,
+                additional_context=additional_context,
+            )
+        return _bulk(
+            _do,
+            {
+                "resource_group": resource_group,
+                "model_name": model_name,
+                "entity_name": entity_name,
+                "signal_name": signal_name,
+                "health_state": health_state,
+                "value": value,
+                "expires_in_minutes": expires_in_minutes,
+                "additional_context": additional_context,
+                "items": items,
+            },
+        )
 
     # ── Signal Definition tools ───────────────────────────────────────
 
     @mcp.tool()
     def signal_definition_list(resource_group: str, model_name: str) -> Any:
         """List all signal definitions in a health model."""
-        return client.list_signal_definitions(resource_group, model_name)
+        return ops.signal_list(client, resource_group, model_name)
 
     @mcp.tool()
     def signal_definition_show(
@@ -252,7 +353,7 @@ def create_server(client: CloudHealthClient) -> FastMCP:
     ) -> Any:
         """Get one or more signal definitions by name."""
         def _do(*, resource_group: str, model_name: str, name: str) -> Any:
-            return client.get_sub_resource(resource_group, model_name, "signaldefinitions", name)
+            return ops.signal_show(client, resource_group, model_name, name)
         return _bulk(_do, {"resource_group": resource_group, "model_name": model_name, "name": name, "items": items})
 
     @mcp.tool()
@@ -264,8 +365,14 @@ def create_server(client: CloudHealthClient) -> FastMCP:
         items: list[dict[str, Any]] | None = None,
     ) -> Any:
         """Create or update one or more signal definitions."""
-        def _do(*, resource_group: str, model_name: str, name: str, body: dict[str, Any]) -> Any:
-            return client.create_or_update_sub_resource(resource_group, model_name, "signaldefinitions", name, body)
+        def _do(
+            *,
+            resource_group: str,
+            model_name: str,
+            name: str,
+            body: dict[str, Any],
+        ) -> Any:
+            return ops.signal_create(client, resource_group, model_name, name, body)
         return _bulk(_do, {"resource_group": resource_group, "model_name": model_name, "name": name, "body": body, "items": items})
 
     @mcp.tool()
@@ -277,7 +384,7 @@ def create_server(client: CloudHealthClient) -> FastMCP:
     ) -> Any:
         """Delete one or more signal definitions."""
         def _do(*, resource_group: str, model_name: str, name: str) -> Any:
-            return client.delete_sub_resource(resource_group, model_name, "signaldefinitions", name)
+            return ops.signal_delete(client, resource_group, model_name, name)
         return _bulk(_do, {"resource_group": resource_group, "model_name": model_name, "name": name, "items": items})
 
     # ── Relationship tools ────────────────────────────────────────────
@@ -285,7 +392,7 @@ def create_server(client: CloudHealthClient) -> FastMCP:
     @mcp.tool()
     def relationship_list(resource_group: str, model_name: str) -> Any:
         """List all relationships in a health model."""
-        return client.list_relationships(resource_group, model_name)
+        return ops.relationship_list(client, resource_group, model_name)
 
     @mcp.tool()
     def relationship_create(
@@ -297,10 +404,28 @@ def create_server(client: CloudHealthClient) -> FastMCP:
         items: list[dict[str, str]] | None = None,
     ) -> Any:
         """Create one or more parent-child relationships."""
-        def _do(*, resource_group: str, model_name: str, name: str, parent: str, child: str) -> Any:
-            payload = {"properties": {"parent": parent, "child": child}}
-            return client.create_or_update_sub_resource(resource_group, model_name, "relationships", name, payload)
-        return _bulk(_do, {"resource_group": resource_group, "model_name": model_name, "name": name, "parent": parent, "child": child, "items": items})
+        def _do(
+            *,
+            resource_group: str,
+            model_name: str,
+            name: str,
+            parent: str,
+            child: str,
+        ) -> Any:
+            return ops.relationship_create(
+                client, resource_group, model_name, name, parent, child,
+            )
+        return _bulk(
+            _do,
+            {
+                "resource_group": resource_group,
+                "model_name": model_name,
+                "name": name,
+                "parent": parent,
+                "child": child,
+                "items": items,
+            },
+        )
 
     @mcp.tool()
     def relationship_delete(
@@ -311,7 +436,7 @@ def create_server(client: CloudHealthClient) -> FastMCP:
     ) -> Any:
         """Delete one or more relationships."""
         def _do(*, resource_group: str, model_name: str, name: str) -> Any:
-            return client.delete_sub_resource(resource_group, model_name, "relationships", name)
+            return ops.relationship_delete(client, resource_group, model_name, name)
         return _bulk(_do, {"resource_group": resource_group, "model_name": model_name, "name": name, "items": items})
 
     # ── Auth Settings tools ───────────────────────────────────────────
@@ -319,7 +444,7 @@ def create_server(client: CloudHealthClient) -> FastMCP:
     @mcp.tool()
     def auth_list(resource_group: str, model_name: str) -> Any:
         """List all authentication settings in a health model."""
-        return client.list_auth_settings(resource_group, model_name)
+        return ops.auth_list(client, resource_group, model_name)
 
     @mcp.tool()
     def auth_create(
@@ -330,10 +455,26 @@ def create_server(client: CloudHealthClient) -> FastMCP:
         items: list[dict[str, str]] | None = None,
     ) -> Any:
         """Create or update one or more authentication settings."""
-        def _do(*, resource_group: str, model_name: str, name: str, identity_name: str) -> Any:
-            payload = {"properties": {"authenticationKind": "ManagedIdentity", "managedIdentityName": identity_name}}
-            return client.create_or_update_sub_resource(resource_group, model_name, "authenticationsettings", name, payload)
-        return _bulk(_do, {"resource_group": resource_group, "model_name": model_name, "name": name, "identity_name": identity_name, "items": items})
+        def _do(
+            *,
+            resource_group: str,
+            model_name: str,
+            name: str,
+            identity_name: str,
+        ) -> Any:
+            return ops.auth_create(
+                client, resource_group, model_name, name, identity_name,
+            )
+        return _bulk(
+            _do,
+            {
+                "resource_group": resource_group,
+                "model_name": model_name,
+                "name": name,
+                "identity_name": identity_name,
+                "items": items,
+            },
+        )
 
     @mcp.tool()
     def auth_delete(
@@ -344,7 +485,7 @@ def create_server(client: CloudHealthClient) -> FastMCP:
     ) -> Any:
         """Delete one or more authentication settings."""
         def _do(*, resource_group: str, model_name: str, name: str) -> Any:
-            return client.delete_sub_resource(resource_group, model_name, "authenticationsettings", name)
+            return ops.auth_delete(client, resource_group, model_name, name)
         return _bulk(_do, {"resource_group": resource_group, "model_name": model_name, "name": name, "items": items})
 
     # ── Signal Execution tool ─────────────────────────────────────────
@@ -363,10 +504,16 @@ def create_server(client: CloudHealthClient) -> FastMCP:
         on an entity, returns the value, health state, raw API output, timing,
         and any errors.
         """
-        from azext_healthmodel.client.query_executor import execute_signal
-
-        def _do(*, resource_group: str, model_name: str, entity_name: str, signal_name: str) -> Any:
-            return execute_signal(client, resource_group, model_name, entity_name, signal_name)
+        def _do(
+            *,
+            resource_group: str,
+            model_name: str,
+            entity_name: str,
+            signal_name: str,
+        ) -> Any:
+            return ops.signal_execute(
+                client, resource_group, model_name, entity_name, signal_name,
+            )
         return _bulk(_do, {"resource_group": resource_group, "model_name": model_name, "entity_name": entity_name, "signal_name": signal_name, "items": items})
 
     return mcp

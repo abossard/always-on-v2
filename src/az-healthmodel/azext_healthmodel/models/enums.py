@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Final
 
 
 class HealthState(Enum):
@@ -135,22 +134,3 @@ class ChangeKind(Enum):
     NEW = "new"
     REMOVED = "removed"
     VALUE_CHANGED = "value_changed"
-
-
-# ---------------------------------------------------------------------------
-# Helper constants
-# ---------------------------------------------------------------------------
-
-HEALTH_ICONS: Final[dict[HealthState, str]] = {
-    HealthState.HEALTHY: "🟢",
-    HealthState.DEGRADED: "🟡",
-    HealthState.UNHEALTHY: "🔴",
-    HealthState.UNKNOWN: "⚪",
-}
-
-HEALTH_COLORS: Final[dict[HealthState, str]] = {
-    HealthState.HEALTHY: "green",
-    HealthState.DEGRADED: "yellow",
-    HealthState.UNHEALTHY: "red",
-    HealthState.UNKNOWN: "dim",
-}

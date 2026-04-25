@@ -1,20 +1,22 @@
 """REST client for the CloudHealth API — the single I/O boundary.
 
-All HTTP calls go through this module. It wraps the Azure CLI's
-``send_raw_request`` to construct URLs, handle pagination, and retry
-transient failures.
+Wraps the ``azure-mgmt-cloudhealth`` SDK for typed CRUD operations and
+falls back to ``send_raw_request`` for endpoints not covered by the SDK
+(Prometheus and Azure Monitor metrics).
+
+The public ``CloudHealthClient`` API returns plain ``dict`` / ``list[dict]``
+values and translates SDK exceptions into the extension's typed errors.
 """
 from __future__ import annotations
 
-import json
 import logging
-import time
-from typing import Any, Final, Sequence
-
-from azure.cli.core import get_default_cli
+import urllib.parse
+from typing import Any, Callable, Final
 
 from azext_healthmodel.client.errors import (
+    AuthenticationError,
     HealthModelError,
+    HealthModelNotFoundError,
     ThrottledError,
     parse_arm_error,
 )
@@ -23,160 +25,137 @@ _log = logging.getLogger(__name__)
 
 API_VERSION: Final[str] = "2026-01-01-preview"
 PROVIDER: Final[str] = "Microsoft.CloudHealth"
-MAX_RETRIES: Final[int] = 3
-INITIAL_BACKOFF: Final[float] = 1.0
+
+
+def _resource_type_to_ops(resource_type: str) -> Callable[[Any], Any]:
+    """Map the URL path segment to the SDK operations group accessor."""
+    table: dict[str, Callable[[Any], Any]] = {
+        "entities": lambda sdk: sdk.entities,
+        "signaldefinitions": lambda sdk: sdk.signal_definitions,
+        "authenticationsettings": lambda sdk: sdk.authentication_settings,
+        "relationships": lambda sdk: sdk.relationships,
+    }
+    try:
+        return table[resource_type]
+    except KeyError as exc:
+        raise ValueError(f"Unknown sub-resource type: {resource_type!r}") from exc
 
 
 class CloudHealthClient:
-    """Thin REST client for Microsoft.CloudHealth resources.
+    """Client for Microsoft.CloudHealth resources.
 
-    Uses Azure CLI's ``send_raw_request`` under the hood so auth is
-    handled by the CLI framework (``az login``).
+    Uses the ``azure-mgmt-cloudhealth`` SDK for typed operations and
+    ``send_raw_request`` for queries the SDK doesn't expose
+    (Prometheus, Azure Monitor metrics).
     """
 
     def __init__(self, cli_ctx: object, subscription_id: str) -> None:
         self._cli_ctx = cli_ctx
         self._subscription_id = subscription_id
 
-    # ─── URL construction (pure helpers) ──────────────────────────────
+        from azure.cli.core.commands.client_factory import get_mgmt_service_client
+        from azure.mgmt.cloudhealth import CloudHealthMgmtClient
 
-    def _base_url(self, resource_group: str, model_name: str) -> str:
-        return (
-            f"https://management.azure.com"
-            f"/subscriptions/{self._subscription_id}"
-            f"/resourceGroups/{resource_group}"
-            f"/providers/{PROVIDER}"
-            f"/healthmodels/{model_name}"
+        self._sdk = get_mgmt_service_client(
+            cli_ctx, CloudHealthMgmtClient, subscription_id=subscription_id
         )
 
-    def _model_url(self, resource_group: str, model_name: str) -> str:
-        return self._base_url(resource_group, model_name)
+    # ─── SDK bridges (DRY exception translation) ──────────────────────
 
-    def _sub_resource_url(
-        self,
-        resource_group: str,
-        model_name: str,
-        resource_type: str,
-        resource_name: str | None = None,
-    ) -> str:
-        base = self._base_url(resource_group, model_name)
-        url = f"{base}/{resource_type}"
-        if resource_name:
-            url = f"{url}/{resource_name}"
-        return url
+    @staticmethod
+    def _to_dict(result: Any) -> dict[str, Any]:
+        if result is None:
+            return {}
+        if hasattr(result, "as_dict"):
+            return result.as_dict()
+        if isinstance(result, dict):
+            return result
+        return result
 
-    # ─── Low-level HTTP ───────────────────────────────────────────────
+    def _call(self, fn: Callable[[], Any]) -> dict[str, Any]:
+        """Execute a synchronous SDK call and convert the result to a dict."""
+        try:
+            return self._to_dict(fn())
+        except Exception as e:  # noqa: BLE001 — translated below
+            self._raise_translated(e)
 
-    def _send(
-        self,
-        method: str,
-        url: str,
-        body: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
-        """Send a single HTTP request with retries for transient failures."""
-        from azure.cli.core.util import send_raw_request
+    def _call_lro(self, fn: Callable[[], Any]) -> dict[str, Any]:
+        """Execute an SDK long-running operation and wait for the result."""
+        try:
+            poller = fn()
+            return self._to_dict(poller.result())
+        except Exception as e:  # noqa: BLE001
+            self._raise_translated(e)
 
-        full_url = f"{url}?api-version={API_VERSION}" if "?" not in url else f"{url}&api-version={API_VERSION}"
+    def _call_list(self, fn: Callable[[], Any]) -> list[dict[str, Any]]:
+        """Execute an SDK paged list call and materialize into ``list[dict]``."""
+        try:
+            return [self._to_dict(item) for item in fn()]
+        except Exception as e:  # noqa: BLE001
+            self._raise_translated(e)
 
-        # Shorten URL for logging: strip the management.azure.com prefix
-        log_url = full_url.replace("https://management.azure.com", "")
-        _log.info("%s %s", method, log_url)
+    @staticmethod
+    def _raise_translated(e: Exception) -> None:
+        """Translate an SDK exception into a typed ``HealthModelError`` and raise."""
+        from azure.core.exceptions import (
+            ClientAuthenticationError,
+            HttpResponseError,
+            ResourceNotFoundError,
+        )
 
-        backoff = INITIAL_BACKOFF
-        last_error: Exception | None = None
-        t0 = time.monotonic()
+        if isinstance(e, (HealthModelError,)):
+            raise e
 
-        for attempt in range(MAX_RETRIES + 1):
-            try:
-                response = send_raw_request(
-                    self._cli_ctx,
-                    method,
-                    full_url,
-                    body=json.dumps(body) if body is not None else None,
-                )
-                status = response.status_code
-                elapsed = (time.monotonic() - t0) * 1000
-                _log.info("  → %d (%.0fms)", status, elapsed)
+        if isinstance(e, ResourceNotFoundError):
+            raise HealthModelNotFoundError(str(e), status_code=404) from e
 
-                if status == 204:
-                    return {}
+        if isinstance(e, ClientAuthenticationError):
+            raise AuthenticationError(
+                str(e), status_code=getattr(e, "status_code", 403) or 403
+            ) from e
 
-                response_body: dict[str, Any] = {}
-                try:
-                    response_body = response.json()
-                except (ValueError, AttributeError):
-                    pass
+        if isinstance(e, HttpResponseError):
+            status = e.status_code or 0
+            if status == 429:
+                retry_after = 1.0
+                if e.response is not None:
+                    try:
+                        retry_after = float(
+                            e.response.headers.get("Retry-After", 1)
+                        )
+                    except (TypeError, ValueError):
+                        retry_after = 1.0
+                raise ThrottledError(
+                    str(e), status_code=429, retry_after=retry_after
+                ) from e
 
-                if 200 <= status < 300:
-                    return response_body
+            body: dict[str, Any]
+            if hasattr(e, "model") and e.model is not None and hasattr(e.model, "as_dict"):
+                body = e.model.as_dict()
+            else:
+                code = ""
+                if getattr(e, "error", None) is not None:
+                    code = str(getattr(e.error, "code", "") or "")
+                body = {"error": {"code": code, "message": str(e)}}
+            raise parse_arm_error(body, status) from e
 
-                # Handle error responses
-                if status == 429:
-                    retry_after = float(
-                        response.headers.get("Retry-After", backoff)
-                    )
-                    if attempt < MAX_RETRIES:
-                        time.sleep(retry_after)
-                        backoff *= 2
-                        continue
-                    raise ThrottledError(
-                        "Request throttled by Azure. Try again later.",
-                        status_code=429,
-                        retry_after=retry_after,
-                    )
-
-                if status >= 500 and attempt < MAX_RETRIES:
-                    time.sleep(backoff)
-                    backoff *= 2
-                    continue
-
-                raise parse_arm_error(response_body, status)
-
-            except (ThrottledError, HealthModelError):
-                raise
-            except Exception as e:
-                last_error = e
-                if attempt < MAX_RETRIES:
-                    time.sleep(backoff)
-                    backoff *= 2
-                    continue
-                raise
-
-        raise last_error or HealthModelError("Request failed after retries")
-
-    def _list_all(self, url: str) -> list[dict[str, Any]]:
-        """Fetch all pages of a list response, following nextLink."""
-        results: list[dict[str, Any]] = []
-        current_url = url
-
-        while current_url:
-            response = self._send("GET", current_url)
-            items = response.get("value", [])
-            results.extend(items)
-            current_url = response.get("nextLink", "")
-
-        return results
+        raise
 
     # ─── Health Model operations ──────────────────────────────────────
 
     def get_model(self, resource_group: str, name: str) -> dict[str, Any]:
-        return self._send("GET", self._model_url(resource_group, name))
+        return self._call(lambda: self._sdk.health_models.get(resource_group, name))
 
-    def list_models(self, resource_group: str | None = None) -> list[dict[str, Any]]:
+    def list_models(
+        self, resource_group: str | None = None
+    ) -> list[dict[str, Any]]:
         if resource_group:
-            url = (
-                f"https://management.azure.com"
-                f"/subscriptions/{self._subscription_id}"
-                f"/resourceGroups/{resource_group}"
-                f"/providers/{PROVIDER}/healthmodels"
+            return self._call_list(
+                lambda: self._sdk.health_models.list_by_resource_group(resource_group)
             )
-        else:
-            url = (
-                f"https://management.azure.com"
-                f"/subscriptions/{self._subscription_id}"
-                f"/providers/{PROVIDER}/healthmodels"
-            )
-        return self._list_all(url)
+        return self._call_list(
+            lambda: self._sdk.health_models.list_by_subscription()
+        )
 
     def create_or_update_model(
         self,
@@ -184,10 +163,14 @@ class CloudHealthClient:
         name: str,
         body: dict[str, Any],
     ) -> dict[str, Any]:
-        return self._send("PUT", self._model_url(resource_group, name), body)
+        return self._call_lro(
+            lambda: self._sdk.health_models.begin_create(resource_group, name, body)
+        )
 
     def delete_model(self, resource_group: str, name: str) -> dict[str, Any]:
-        return self._send("DELETE", self._model_url(resource_group, name))
+        return self._call_lro(
+            lambda: self._sdk.health_models.begin_delete(resource_group, name)
+        )
 
     # ─── Sub-resource CRUD (entities, signals, relationships, auth) ───
 
@@ -198,10 +181,10 @@ class CloudHealthClient:
         resource_type: str,
         resource_name: str,
     ) -> dict[str, Any]:
-        url = self._sub_resource_url(
-            resource_group, model_name, resource_type, resource_name
+        ops = _resource_type_to_ops(resource_type)(self._sdk)
+        return self._call(
+            lambda: ops.get(resource_group, model_name, resource_name)
         )
-        return self._send("GET", url)
 
     def list_sub_resources(
         self,
@@ -209,8 +192,10 @@ class CloudHealthClient:
         model_name: str,
         resource_type: str,
     ) -> list[dict[str, Any]]:
-        url = self._sub_resource_url(resource_group, model_name, resource_type)
-        return self._list_all(url)
+        ops = _resource_type_to_ops(resource_type)(self._sdk)
+        return self._call_list(
+            lambda: ops.list_by_health_model(resource_group, model_name)
+        )
 
     def create_or_update_sub_resource(
         self,
@@ -220,10 +205,12 @@ class CloudHealthClient:
         resource_name: str,
         body: dict[str, Any],
     ) -> dict[str, Any]:
-        url = self._sub_resource_url(
-            resource_group, model_name, resource_type, resource_name
+        ops = _resource_type_to_ops(resource_type)(self._sdk)
+        return self._call(
+            lambda: ops.create_or_update(
+                resource_group, model_name, resource_name, body
+            )
         )
-        return self._send("PUT", url, body)
 
     def delete_sub_resource(
         self,
@@ -232,10 +219,10 @@ class CloudHealthClient:
         resource_type: str,
         resource_name: str,
     ) -> dict[str, Any]:
-        url = self._sub_resource_url(
-            resource_group, model_name, resource_type, resource_name
+        ops = _resource_type_to_ops(resource_type)(self._sdk)
+        return self._call(
+            lambda: ops.delete(resource_group, model_name, resource_name)
         )
-        return self._send("DELETE", url)
 
     # ─── Convenience methods for common operations ────────────────────
 
@@ -272,11 +259,25 @@ class CloudHealthClient:
         entity_name: str,
         body: dict[str, Any],
     ) -> dict[str, Any]:
+        """POST to getSignalHistory — not in SDK, use send_raw_request."""
+        from azure.cli.core.util import send_raw_request
+        import json
+
         url = (
-            self._sub_resource_url(resource_group, model_name, "entities", entity_name)
-            + "/getSignalHistory"
+            f"https://management.azure.com"
+            f"/subscriptions/{self._subscription_id}"
+            f"/resourceGroups/{resource_group}"
+            f"/providers/{PROVIDER}/healthmodels/{model_name}"
+            f"/entities/{entity_name}/getSignalHistory"
+            f"?api-version={API_VERSION}"
         )
-        return self._send("POST", url, body)
+        response = send_raw_request(
+            self._cli_ctx, "POST", url, body=json.dumps(body)
+        )
+        try:
+            return response.json()
+        except (ValueError, AttributeError):
+            return {}
 
     def ingest_health_report(
         self,
@@ -285,8 +286,84 @@ class CloudHealthClient:
         entity_name: str,
         body: dict[str, Any],
     ) -> dict[str, Any]:
+        """POST to ingestHealthReport — not in SDK, use send_raw_request."""
+        from azure.cli.core.util import send_raw_request
+        import json
+
         url = (
-            self._sub_resource_url(resource_group, model_name, "entities", entity_name)
-            + "/ingestHealthReport"
+            f"https://management.azure.com"
+            f"/subscriptions/{self._subscription_id}"
+            f"/resourceGroups/{resource_group}"
+            f"/providers/{PROVIDER}/healthmodels/{model_name}"
+            f"/entities/{entity_name}/ingestHealthReport"
+            f"?api-version={API_VERSION}"
         )
-        return self._send("POST", url, body)
+        response = send_raw_request(
+            self._cli_ctx, "POST", url, body=json.dumps(body)
+        )
+        if response.status_code == 204:
+            return {}
+        try:
+            return response.json()
+        except (ValueError, AttributeError):
+            return {}
+
+    # ─── External data source queries (Prometheus, Azure Metrics) ─────
+
+    def query_prometheus(
+        self,
+        workspace_resource_id: str,
+        query: str,
+        time_grain: str,
+    ) -> dict[str, Any]:
+        """Resolve a Monitor workspace's Prometheus endpoint and execute a PromQL query."""
+        from azure.cli.core.util import send_raw_request
+
+        ws_url = (
+            f"https://management.azure.com{workspace_resource_id}"
+            f"?api-version=2023-04-03"
+        )
+        ws_response = send_raw_request(self._cli_ctx, "GET", ws_url)
+        ws_data = ws_response.json()
+        endpoint = (
+            ws_data.get("properties", {})
+            .get("metrics", {})
+            .get("prometheusQueryEndpoint")
+        )
+        if not endpoint:
+            raise ValueError(
+                f"No prometheusQueryEndpoint on workspace {workspace_resource_id}"
+            )
+
+        encoded_query = urllib.parse.quote(query, safe="")
+        prom_url = f"{endpoint}/api/v1/query?query={encoded_query}"
+        prom_response = send_raw_request(
+            self._cli_ctx,
+            "GET",
+            prom_url,
+            resource="https://prometheus.monitor.azure.com",
+        )
+        return prom_response.json()
+
+    def query_azure_metric(
+        self,
+        resource_id: str,
+        metric_name: str,
+        metric_namespace: str,
+        aggregation: str,
+        time_grain: str,
+    ) -> dict[str, Any]:
+        """Execute an Azure Resource Metrics query via ARM."""
+        from azure.cli.core.util import send_raw_request
+
+        url = (
+            f"https://management.azure.com{resource_id}"
+            f"/providers/Microsoft.Insights/metrics"
+            f"?api-version=2024-02-01"
+            f"&metricnames={urllib.parse.quote(metric_name)}"
+            f"&metricNamespace={urllib.parse.quote(metric_namespace)}"
+            f"&aggregation={urllib.parse.quote(aggregation)}"
+            f"&interval={urllib.parse.quote(time_grain)}"
+        )
+        response = send_raw_request(self._cli_ctx, "GET", url)
+        return response.json()
