@@ -10,6 +10,7 @@ values and translates SDK exceptions into the extension's typed errors.
 from __future__ import annotations
 
 import logging
+import re
 import urllib.parse
 from typing import Any, Callable, Final
 
@@ -25,6 +26,35 @@ _log = logging.getLogger(__name__)
 
 API_VERSION: Final[str] = "2026-01-01-preview"
 PROVIDER: Final[str] = "Microsoft.CloudHealth"
+
+# ARM resource IDs look like:
+#   /subscriptions/<guid>/resourceGroups/<name>/providers/<ns>/<type>/<name>[/...]
+_ARM_RESOURCE_ID_RE: Final = re.compile(
+    r"^/subscriptions/[0-9a-fA-F-]{36}"
+    r"(/resourceGroups/[^/?#\s]+"
+    r"(/providers/[^/?#\s]+(/[^/?#\s]+/[^/?#\s]+)+)?)?$"
+)
+
+
+def _validate_arm_resource_id(resource_id: str) -> str:
+    """Validate that ``resource_id`` is a well-formed ARM resource ID.
+
+    Prevents URL-injection via malformed model data — e.g. a stray ``?`` or
+    ``#`` in a resource ID could otherwise alter the request path/query
+    when concatenated into a management URL.
+    """
+    if not isinstance(resource_id, str) or not resource_id:
+        raise ValueError("resource id must be a non-empty string")
+    if any(ch in resource_id for ch in ("?", "#", " ", "\n", "\r", "\t")):
+        raise ValueError(
+            f"invalid characters in ARM resource id: {resource_id!r}"
+        )
+    if not _ARM_RESOURCE_ID_RE.match(resource_id):
+        raise ValueError(
+            f"resource id does not match ARM pattern "
+            f"'/subscriptions/<guid>/...': {resource_id!r}"
+        )
+    return resource_id
 
 
 def _resource_type_to_ops(resource_type: str) -> Callable[[Any], Any]:
@@ -107,12 +137,34 @@ class CloudHealthClient:
         if isinstance(e, (HealthModelError,)):
             raise e
 
+        # Helper to extract ARM code/details from any HttpResponseError
+        def _extract_arm_diag(exc: Any) -> tuple[str, list[dict[str, str]]]:
+            code = ""
+            details: list[dict[str, str]] = []
+            if getattr(exc, "error", None) is not None:
+                code = str(getattr(exc.error, "code", "") or "")
+                raw_details = getattr(exc.error, "details", None)
+                if raw_details:
+                    try:
+                        details = [
+                            {"code": str(getattr(d, "code", "")), "message": str(getattr(d, "message", ""))}
+                            for d in raw_details
+                        ]
+                    except (TypeError, AttributeError):
+                        pass
+            return code, details
+
         if isinstance(e, ResourceNotFoundError):
-            raise HealthModelNotFoundError(str(e), status_code=404) from e
+            code, details = _extract_arm_diag(e)
+            raise HealthModelNotFoundError(
+                str(e), status_code=404, code=code, details=details
+            ) from e
 
         if isinstance(e, ClientAuthenticationError):
+            code, details = _extract_arm_diag(e)
             raise AuthenticationError(
-                str(e), status_code=getattr(e, "status_code", 403) or 403
+                str(e), status_code=getattr(e, "status_code", 403) or 403,
+                code=code, details=details,
             ) from e
 
         if isinstance(e, HttpResponseError):
@@ -126,18 +178,18 @@ class CloudHealthClient:
                         )
                     except (TypeError, ValueError):
                         retry_after = 1.0
+                code, details = _extract_arm_diag(e)
                 raise ThrottledError(
-                    str(e), status_code=429, retry_after=retry_after
+                    str(e), status_code=429, retry_after=retry_after,
+                    code=code, details=details,
                 ) from e
 
             body: dict[str, Any]
             if hasattr(e, "model") and e.model is not None and hasattr(e.model, "as_dict"):
                 body = e.model.as_dict()
             else:
-                code = ""
-                if getattr(e, "error", None) is not None:
-                    code = str(getattr(e.error, "code", "") or "")
-                body = {"error": {"code": code, "message": str(e)}}
+                code, details_list = _extract_arm_diag(e)
+                body = {"error": {"code": code, "message": str(e), "details": details_list}}
             raise parse_arm_error(body, status) from e
 
         raise
@@ -319,10 +371,11 @@ class CloudHealthClient:
         self,
         workspace_resource_id: str,
         query: str,
-        time_grain: str,
     ) -> dict[str, Any]:
-        """Resolve a Monitor workspace's Prometheus endpoint and execute a PromQL query."""
+        """Resolve a Monitor workspace's Prometheus endpoint and execute an instant PromQL query."""
         from azure.cli.core.util import send_raw_request
+
+        _validate_arm_resource_id(workspace_resource_id)
 
         ws_url = (
             f"https://management.azure.com{workspace_resource_id}"
@@ -360,6 +413,8 @@ class CloudHealthClient:
     ) -> dict[str, Any]:
         """Execute an Azure Resource Metrics query via ARM."""
         from azure.cli.core.util import send_raw_request
+
+        _validate_arm_resource_id(resource_id)
 
         url = (
             f"https://management.azure.com{resource_id}"

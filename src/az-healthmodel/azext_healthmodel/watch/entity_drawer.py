@@ -117,11 +117,9 @@ def _append_signal_block(text: Text, sig: SignalValue) -> None:
     text.append("    state:      ", style="dim")
     text.append(f"{hs.value}\n", style=hs.color)
 
-    # Thresholds are not present on SignalValue (they live on SignalDefinition,
-    # which is not part of the in-memory Forest). Show a placeholder so the
-    # user knows where they would appear once wired through.
-    text.append("    thresholds: ", style="dim")
-    text.append("—  (see signal-definition)\n", style="italic dim")
+    # Thresholds and diagnostic info are sourced via getattr so this code
+    # works before Phase 3 adds those fields to SignalValue.
+    _append_thresholds(text, sig)
 
     text.append("    reported:   ", style="dim")
     text.append(f"{sig.reported_at}\n")
@@ -129,7 +127,34 @@ def _append_signal_block(text: Text, sig: SignalValue) -> None:
     text.append("    def-name:   ", style="dim")
     text.append(f"{sig.definition_name}\n")
     text.append("    name:       ", style="dim")
-    text.append(f"{sig.name}\n\n")
+    text.append(f"{sig.name}\n")
+    _append_diagnostic_block(text, sig)
+    text.append("\n")
+
+
+def _append_thresholds(text: Text, sig: SignalValue) -> None:
+    """Append threshold lines for *sig* using getattr for forward-compat."""
+    degraded = getattr(sig, "degraded_rule", None)
+    unhealthy = getattr(sig, "unhealthy_rule", None)
+    if degraded is None and unhealthy is None:
+        text.append("    thresholds: ", style="dim")
+        text.append("—\n", style="italic dim")
+        return
+    if degraded is not None:
+        text.append("    degraded:  ", style="dim")
+        text.append(f"{getattr(degraded, 'operator', '')} {getattr(degraded, 'threshold', '')}\n")
+    if unhealthy is not None:
+        text.append("    unhealthy: ", style="dim")
+        text.append(f"{getattr(unhealthy, 'operator', '')} {getattr(unhealthy, 'threshold', '')}\n")
+
+
+def _append_diagnostic_block(text: Text, sig: SignalValue) -> None:
+    """Append an error line for *sig* if an error is present."""
+    error = getattr(sig, "error", None)
+    if not error:
+        return
+    text.append("    error:    ", style="dim")
+    text.append(f"{error}\n", style="red")
 
 
 class EntityDrawer(VerticalScroll):

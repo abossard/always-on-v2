@@ -356,6 +356,9 @@ async def test_query_editor_lifecycle(
 
         tree = app.query_one("#health-tree", HealthTree)
         sig_node = _first_signal_node(tree)
+        # Align the mocked signal instance name with the node we'll select so
+        # ``_fetch_config`` can resolve the signal in the entity payload.
+        signal_pair[2]["name"] = sig_node.data.entity_name
         _focus_node(tree, sig_node)
         tree.focus()
         await pilot.pause()

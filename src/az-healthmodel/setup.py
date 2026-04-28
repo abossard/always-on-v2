@@ -1,7 +1,7 @@
 """Setup for az healthmodel CLI extension."""
 from setuptools import setup, find_packages
 
-VERSION = "0.2.0"
+VERSION = "0.3.0"
 
 CLASSIFIERS = [
     "Development Status :: 3 - Alpha",

@@ -44,7 +44,6 @@ class HealthTree(Tree[EntityData]):
     def __init__(self, **kwargs: object) -> None:
         super().__init__("Health Model", **kwargs)
         self._node_map: dict[str, TreeNode[EntityData]] = {}
-        self._changed_nodes: set[str] = set()  # entity_ids with pending highlights
 
     # ── public API ────────────────────────────────────────────────────
 
@@ -100,13 +99,6 @@ class HealthTree(Tree[EntityData]):
             data=EntityData(entity_name=entity.name),
         )
         self._node_map[entity.entity_id] = node
-
-        if change is not None:
-            self._changed_nodes.add(entity.entity_id)
-            self.set_timer(
-                5.0,
-                lambda eid=entity.entity_id: self._changed_nodes.discard(eid),
-            )
 
         # Add signal leaf nodes
         for sig in entity.signals:

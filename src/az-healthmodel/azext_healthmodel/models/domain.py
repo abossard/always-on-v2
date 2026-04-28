@@ -8,6 +8,8 @@ All types are frozen dataclasses with strict typing.
 """
 from __future__ import annotations
 
+import logging
+import types
 from dataclasses import dataclass, field
 from typing import Final, Mapping, Sequence
 
@@ -19,6 +21,8 @@ from azext_healthmodel.models.enums import (
     Impact,
     SignalKind,
 )
+
+_LOG = logging.getLogger(__name__)
 
 
 # ─── Evaluation rule ─────────────────────────────────────────────────
@@ -65,20 +69,40 @@ class SignalDefinition:
     signal_kind: SignalKind
     data_unit: DataUnit
     degraded_rule: EvaluationRule | None
-    unhealthy_rule: EvaluationRule
+    unhealthy_rule: EvaluationRule | None
 
     def __post_init__(self) -> None:
         if not self.name:
             raise ValueError("SignalDefinition.name must be non-empty")
         if not self.display_name:
             raise ValueError("SignalDefinition.display_name must be non-empty")
+        if self.signal_kind is None:
+            raise ValueError("SignalDefinition.signal_kind must not be None")
+        if not isinstance(self.signal_kind, SignalKind):
+            raise TypeError(
+                f"SignalDefinition.signal_kind must be SignalKind, got {type(self.signal_kind).__name__}"
+            )
+        if self.unhealthy_rule is None:
+            # API data may be incomplete — warn but don't crash.
+            _LOG.warning(
+                "SignalDefinition %r has no unhealthy_rule; signal will never be Unhealthy.",
+                self.name,
+            )
+        if self.unhealthy_rule is not None and self.degraded_rule is not None:
+            if self.unhealthy_rule.operator.direction != self.degraded_rule.operator.direction:
+                raise ValueError(
+                    f"SignalDefinition {self.name!r}: degraded_rule and unhealthy_rule "
+                    f"must use the same operator direction "
+                    f"(got {self.degraded_rule.operator.value!r} vs "
+                    f"{self.unhealthy_rule.operator.value!r})"
+                )
 
     def evaluate(self, value: float) -> HealthState:
         """Evaluate a numeric value against this definition's rules.
 
         Returns the worst triggered state: Unhealthy > Degraded > Healthy.
         """
-        if self.unhealthy_rule.triggers(value):
+        if self.unhealthy_rule is not None and self.unhealthy_rule.triggers(value):
             return HealthState.UNHEALTHY
         if self.degraded_rule is not None and self.degraded_rule.triggers(value):
             return HealthState.DEGRADED
@@ -105,6 +129,9 @@ class SignalValue:
     value: float | None  # None when no data available
     data_unit: DataUnit
     reported_at: str  # ISO 8601 timestamp
+    error: str | None = None  # Service-side diagnostic (from SignalStatus.error)
+    degraded_rule: EvaluationRule | None = None  # Copied from signal definition
+    unhealthy_rule: EvaluationRule | None = None  # Copied from signal definition
 
     def __post_init__(self) -> None:
         if not self.name:
@@ -208,6 +235,9 @@ class HealthModelInfo:
     provisioning_state: str
     tags: Mapping[str, str] = field(default_factory=dict)
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "tags", types.MappingProxyType(dict(self.tags)))
+
 
 # ─── Entity state (for snapshot diffing) ─────────────────────────────
 
@@ -222,6 +252,10 @@ class EntityState:
     signal_states: Mapping[str, HealthState]  # signal_name → health state
     signal_values: Mapping[str, float | None]  # signal_name → value
 
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "signal_states", types.MappingProxyType(dict(self.signal_states)))
+        object.__setattr__(self, "signal_values", types.MappingProxyType(dict(self.signal_values)))
+
 
 # ─── Snapshot ─────────────────────────────────────────────────────────
 
@@ -232,6 +266,11 @@ class Snapshot:
 
     entity_states: Mapping[str, EntityState]  # entity_name → EntityState
     timestamp: str  # When this snapshot was taken (ISO 8601)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(
+            self, "entity_states", types.MappingProxyType(dict(self.entity_states))
+        )
 
 
 # ─── State change (diff result) ──────────────────────────────────────
@@ -302,6 +341,10 @@ class Forest:
     roots: tuple[str, ...]  # Root entity names (may be multiple)
     entities: Mapping[str, EntityNode]  # entity_name → EntityNode (with children populated)
     unlinked: tuple[str, ...] = ()  # Entity names with no parent or invalid refs
+    warnings: tuple[str, ...] = ()  # Diagnostic messages (dangling relationships, multi-parent, …)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, "entities", types.MappingProxyType(dict(self.entities)))
 
 
 # ─── Discovery rule ──────────────────────────────────────────────────

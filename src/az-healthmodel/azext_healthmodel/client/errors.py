@@ -6,21 +6,55 @@ from __future__ import annotations
 class HealthModelError(Exception):
     """Base exception for all health model errors."""
 
-    def __init__(self, message: str, status_code: int | None = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        status_code: int | None = None,
+        *,
+        code: str = "",
+        details: list[dict[str, str]] | None = None,
+    ) -> None:
+        super().__init__(message)
         self.message = message
         self.status_code = status_code
-        super().__init__(message)
+        self.code = code
+        self.details: list[dict[str, str]] = details or []
+
+    def diagnostic_text(self) -> str:
+        """Format a diagnostic string including class name, code and first detail."""
+        parts = [f"{type(self).__name__}: {self}"]
+        if self.status_code:
+            suffix = f"(HTTP {self.status_code}"
+            if self.code:
+                suffix += f", code {self.code}"
+            suffix += ")"
+            parts.append(suffix)
+        elif self.code:
+            parts.append(f"[{self.code}]")
+        if self.details:
+            first = self.details[0]
+            detail_msg = first.get("message", first.get("code", ""))
+            if detail_msg:
+                parts.append(f"detail: {detail_msg}")
+        return " ".join(parts)
 
 
 class HealthModelNotFoundError(HealthModelError):
     """The specified health model does not exist."""
 
-    def __init__(self, message: str, status_code: int | None = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        status_code: int | None = None,
+        *,
+        code: str = "",
+        details: list[dict[str, str]] | None = None,
+    ) -> None:
         hint = (
             " Verify the resource group exists and the health model name is"
             " spelled correctly. Use `az healthmodel list` to see available models."
         )
-        super().__init__(message + hint, status_code)
+        super().__init__(message + hint, status_code, code=code, details=details)
 
 
 class EntityNotFoundError(HealthModelError):
@@ -30,13 +64,20 @@ class EntityNotFoundError(HealthModelError):
 class AuthenticationError(HealthModelError):
     """Authentication or authorization failure (HTTP 401/403)."""
 
-    def __init__(self, message: str, status_code: int | None = None) -> None:
+    def __init__(
+        self,
+        message: str,
+        status_code: int | None = None,
+        *,
+        code: str = "",
+        details: list[dict[str, str]] | None = None,
+    ) -> None:
         hint = (
             " Run `az login` to refresh credentials. If the issue persists,"
             " ensure your account has the required RBAC role"
             " (e.g. Reader or Contributor) on the target resource."
         )
-        super().__init__(message + hint, status_code)
+        super().__init__(message + hint, status_code, code=code, details=details)
 
 
 class ThrottledError(HealthModelError):
@@ -45,13 +86,16 @@ class ThrottledError(HealthModelError):
     def __init__(
         self,
         message: str,
-        status_code: int | None = 429,
+        status_code: int = 429,
+        *,
         retry_after: float | None = None,
+        code: str = "",
+        details: list[dict[str, str]] | None = None,
     ) -> None:
-        self.retry_after = retry_after
         if retry_after is not None:
             message += f" Retry after {retry_after} seconds."
-        super().__init__(message, status_code)
+        super().__init__(message, status_code, code=code, details=details)
+        self.retry_after = retry_after
 
 
 class ArmError(HealthModelError):
@@ -61,15 +105,24 @@ class ArmError(HealthModelError):
         self,
         message: str,
         status_code: int | None = None,
+        *,
         code: str = "",
         details: list[dict[str, str]] | None = None,
     ) -> None:
-        self.code = code
-        self.details: list[dict[str, str]] = details or []
-        super().__init__(message, status_code)
+        super().__init__(message, status_code, code=code, details=details)
 
 
 _NOT_FOUND_CODES = frozenset({"ResourceNotFound", "ResourceGroupNotFound"})
+
+_ENTITY_NOT_FOUND_CODES = frozenset({
+    "EntityNotFound",
+    "SignalDefinitionNotFound",
+    "SignalInstanceNotFound",
+    "RelationshipNotFound",
+    "AuthenticationSettingNotFound",
+    "AuthenticationSettingsNotFound",
+    "DiscoveryRuleNotFound",
+})
 
 
 def parse_arm_error(
@@ -81,11 +134,26 @@ def parse_arm_error(
 
         {"error": {"code": "...", "message": "...", "details": [...]}}
     """
+    if not isinstance(response_body, dict):
+        body_repr = repr(response_body)
+        if len(body_repr) > 200:
+            body_repr = body_repr[:200] + "..."
+        return ArmError(
+            f"Unexpected error response (HTTP {status_code}): {body_repr}",
+            status_code=status_code,
+            code="",
+            details=[{"code": "raw_body", "message": body_repr}],
+        )
     error_obj = response_body.get("error")
     if not isinstance(error_obj, dict):
+        body_repr = repr(response_body)
+        if len(body_repr) > 200:
+            body_repr = body_repr[:200] + "..."
         return ArmError(
-            f"Unexpected error response (HTTP {status_code})",
+            f"Unexpected error response (HTTP {status_code}): {body_repr}",
             status_code=status_code,
+            code="",
+            details=[{"code": "raw_body", "message": body_repr}],
         )
 
     code = str(error_obj.get("code", ""))
@@ -97,13 +165,24 @@ def parse_arm_error(
         else []
     )
 
-    if code in _NOT_FOUND_CODES:
-        return HealthModelNotFoundError(message, status_code=status_code)
+    if code in _ENTITY_NOT_FOUND_CODES:
+        return EntityNotFoundError(
+            message, status_code=status_code, code=code, details=details
+        )
+
+    if code in _NOT_FOUND_CODES or status_code == 404:
+        return HealthModelNotFoundError(
+            message, status_code=status_code, code=code, details=details
+        )
 
     if status_code in (401, 403):
-        return AuthenticationError(message, status_code=status_code)
+        return AuthenticationError(
+            message, status_code=status_code, code=code, details=details
+        )
 
     if status_code == 429:
-        return ThrottledError(message, status_code=status_code)
+        return ThrottledError(
+            message, status_code=status_code, code=code, details=details
+        )
 
     return ArmError(message, status_code=status_code, code=code, details=details)

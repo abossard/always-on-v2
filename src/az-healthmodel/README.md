@@ -1,6 +1,6 @@
 # `az healthmodel` — Azure CLI Extension for Health Models
 
-![Version](https://img.shields.io/badge/version-0.2.0-blue)
+![Version](https://img.shields.io/badge/version-0.3.0-blue)
 ![Status](https://img.shields.io/badge/status-experimental-orange)
 ![Azure CLI](https://img.shields.io/badge/azure--cli-%3E%3D2.61.0-0078D4)
 
@@ -41,7 +41,7 @@ cd src/az-healthmodel
 python setup.py bdist_wheel
 
 # Install the extension
-az extension add --source dist/az_healthmodel-0.1.0-py3-none-any.whl
+az extension add --source dist/az_healthmodel-0.3.0-py3-none-any.whl
 ```
 
 ## Quick Start
@@ -73,10 +73,15 @@ az healthmodel watch -g myRG --model-name MyApp --plain
 | `az healthmodel entity show` | Get an entity |
 | `az healthmodel entity list` | List entities |
 | `az healthmodel entity delete` | Delete an entity |
-| `az healthmodel signal create` | Create a signal definition |
-| `az healthmodel signal show` | Get a signal definition |
-| `az healthmodel signal list` | List signal definitions |
-| `az healthmodel signal delete` | Delete a signal definition |
+| `az healthmodel entity signal list` | List signals on an entity |
+| `az healthmodel entity signal add` | Add a signal to an entity |
+| `az healthmodel entity signal remove` | Remove a signal from an entity |
+| `az healthmodel entity signal history` | Query signal history |
+| `az healthmodel entity signal ingest` | Submit an external health report |
+| `az healthmodel signal-definition create` | Create a signal definition |
+| `az healthmodel signal-definition show` | Get a signal definition |
+| `az healthmodel signal-definition list` | List signal definitions |
+| `az healthmodel signal-definition delete` | Delete a signal definition |
 | `az healthmodel signal-definition execute` | Execute a signal query and evaluate health |
 | `az healthmodel relationship create` | Create a relationship |
 | `az healthmodel relationship list` | List relationships |
@@ -133,25 +138,27 @@ Launches automatically when a TTY is detected and `textual` is installed.
 | --- | --- |
 | **↑ / ↓** | Navigate the tree |
 | **/** | Search entities and signals |
+| **Enter** | Select search result |
 | **n / p** | Next / previous search result |
 | **v** | Verify signal — live-execute query, show results + sparkline |
 | **e** | Query editor — view/edit PromQL or metric config, test queries |
+| **Ctrl+R** | Test query (inside query editor) |
 | **d** | Details — entity detail drawer (signals, thresholds, children) |
 | **j** | Toggle auto-jump to escalations |
 | **r** | Force immediate refresh |
 | **+ / −** | Adjust poll interval (±10s) |
-| **Escape** | Close panel / drawer |
+| **Escape** | Close panel / modal |
 | **q** | Quit |
 
 Features:
 - Polls every **30s** (configurable with `--poll-interval`)
 - Diffs snapshots between polls — detects escalations, recoveries, new/removed entities
 - **Auto-jumps** to the first escalation (toggle with **j**)
-- Highlights changed nodes with ⚡ markers (e.g., `⚡ was 🟢`)
+- Highlights escalated nodes with ⚡ markers (e.g., `⚡ was 🟢`)
 - **Signal verification** — press **v** on any signal to live-execute its PromQL or ARM metric query, see raw value, health evaluation, and a sparkline of recent history
 - **Query editor** — press **e** on a signal to view/edit the query text, thresholds, and data source, then test the query without persisting changes
 - **Entity details** — press **d** to open a detail drawer showing all signals, evaluation rules, impact, ARM resource ID, parent/child relationships
-- **Fuzzy search** — press **/** to search entities and signals by name, navigate results with **n**/**p**
+- **Search** — press **/** to search entities and signals by name, navigate results with **n**/**p**
 - Mouse scrolling supported
 
 ### Plain-text fallback
@@ -178,6 +185,30 @@ Used with `--plain` flag, non-TTY output, or when `textual` is unavailable:
                 └── ◈ OOMKilled Containers ── 0 🟢
 ```
 
+## Signal Debugging
+
+Watch mode surfaces signal and polling failures where you need them:
+
+- **Status bar poll errors** — failed polls show the actual error, for example `○ Disconnected — AuthenticationError: access denied [AuthorizationFailed]`. ARM error codes are included when available.
+- **d — Entity details** — opens the entity drawer with signal diagnostics parsed from `SignalStatus.error`, plus degraded/unhealthy evaluation thresholds such as `degraded: GreaterThan 50.0` and `unhealthy: GreaterThan 80.0`.
+- **v — Signal verification** — live query failures show structured diagnostics: error type, HTTP status code, and ARM error code.
+- **--debug-poll** — enables verbose stderr logging for `watch` and `export`, including fetch steps, timing, parse counts, and debug-level warnings from Prometheus/Azure Monitor value extractors when response data is malformed.
+
+```bash
+az healthmodel watch -g myRG --model-name myModel --debug-poll
+az healthmodel export -g myRG --model-name myModel --debug-poll
+```
+
+Example output:
+```
+23:52:18 [azext_healthmodel.watch.poller] Fetching signal definitions from rg/model
+23:52:19 [azext_healthmodel.watch.poller] Fetching entities from rg/model
+23:52:19 [azext_healthmodel.watch.poller] Fetching relationships from rg/model
+23:52:20 [azext_healthmodel.watch.poller] Parsed 5 entities, 4 relationships, 13 signal defs
+23:52:20 [azext_healthmodel.watch.poller] Forest: 1 roots, 0 unlinked
+23:52:20 [azext_healthmodel.watch.poller] Poll complete in 1808ms: 5 changes (0 escalations)
+```
+
 ## Export
 
 Export the full health model tree as an SVG file — useful for documentation, dashboards, and sharing:
@@ -200,7 +231,7 @@ Start a [Model Context Protocol](https://modelcontextprotocol.io) server on stdi
 az healthmodel mcp
 ```
 
-Every tool supports **bulk calls** — pass `items` (a list of parameter dicts) to batch operations:
+Most tools support **bulk calls** — pass `items` (a list of parameter dicts) to batch operations. List tools (`healthmodel_list`, `entity_list`, `signal_definition_list`, `relationship_list`, `auth_list`) do not support bulk mode since they already return collections.
 
 ```json
 // Single call
@@ -259,24 +290,6 @@ Add to `.vscode/mcp.json`:
 | `auth_create` | Create/update auth setting(s) |
 | `auth_delete` | Delete auth setting(s) |
 
-## Debug / Verbose Mode
-
-Add `--debug-poll` to `watch` or `export` to see API calls, timing, and parse details on stderr:
-
-```bash
-az healthmodel watch -g myRG --model-name myModel --plain --debug-poll
-az healthmodel export -g myRG --model-name myModel --debug-poll
-```
-
-Example output:
-```
-23:52:18 [azext_healthmodel.watch.poller] Fetching signal definitions from rg/model
-23:52:18 [azext_healthmodel.client.rest_client] GET /subscriptions/.../signaldefinitions?api-version=...
-23:52:19 [azext_healthmodel.client.rest_client]   → 200 (934ms)
-23:52:20 [azext_healthmodel.watch.poller] Parsed 5 entities, 4 relationships, 13 signal defs
-23:52:20 [azext_healthmodel.watch.poller] Forest: 1 roots, 0 unlinked
-23:52:20 [azext_healthmodel.watch.poller] Poll complete in 1808ms: 5 changes (0 escalations)
-```
 
 ## Architecture
 
@@ -285,7 +298,7 @@ Follows **Grokking Simplicity** — strict separation of data, calculations, and
 ```
 models/          ← Data: frozen dataclasses, enums, TypedDicts
 domain/          ← Calculations: parse, graph builder, snapshot diff, search, formatters
-client/          ← Actions: REST client (retry, pagination), query executor
+client/          ← Actions: REST client (pagination), query executor
 actions/         ← Actions: shared operations module + thin CLI binding layer
 watch/           ← Actions: Textual TUI, poller, signal panel, query editor, entity drawer, sparkline
 mcp/             ← Actions: MCP server (delegates to shared operations)
@@ -301,8 +314,8 @@ mcp/             ← Actions: MCP server (delegates to shared operations)
 
 ```bash
 cd src/az-healthmodel
-pip install -e ".[dev]"
-python -m pytest azext_healthmodel/tests/ -v   # 123 tests (excl. live e2e)
+pip install -e .
+python -m pytest azext_healthmodel/tests/ -v
 ```
 
 ## API Version

@@ -61,6 +61,8 @@ class HealthWatchApp(App[None]):
         self._search_results: list[SearchResult] = []
         self._search_query: str = ""
         self._search_cursor: int = 0
+        self._poll_timer: Any = None
+        self._poll_in_flight: bool = False
 
     # ── layout ────────────────────────────────────────────────────────
 
@@ -78,7 +80,7 @@ class HealthWatchApp(App[None]):
         panel = self.query_one("#signal-panel", SignalPanel)
         panel.display = False
         panel.clear_signal()
-        self.set_interval(self._poll_interval, self._do_poll)
+        self._poll_timer = self.set_interval(self._poll_interval, self._do_poll)
         self.set_interval(1.0, self._tick_countdown)
         self.call_after_refresh(self._do_poll)
 
@@ -86,23 +88,37 @@ class HealthWatchApp(App[None]):
 
     async def _do_poll(self) -> None:
         """Run a synchronous poll in a thread and update widgets."""
-        result = await asyncio.to_thread(self._poller.poll_once)
+        if self._poll_in_flight:
+            return
+        self._poll_in_flight = True
+        try:
+            result = await asyncio.to_thread(self._poller.poll_once)
 
-        tree = self.query_one("#health-tree", HealthTree)
-        status = self.query_one("#status-bar", StatusBar)
+            tree = self.query_one("#health-tree", HealthTree)
+            status = self.query_one("#status-bar", StatusBar)
 
-        if result.error:
-            status.connected = False
-        else:
-            status.connected = True
-            self._forest = result.forest
-            tree.apply_forest(result.forest, result.changes)
-            escalations = [c for c in result.changes if c.is_escalation]
-            status.change_count += len(escalations)
-            status.poll_countdown = self._poll_interval
+            if result.error:
+                status.connected = False
+                status.error_text = result.error or ""
+            else:
+                status.connected = True
+                status.error_text = ""
+                self._forest = result.forest
+                tree.apply_forest(result.forest, result.changes)
+                escalations = [c for c in result.changes if c.is_escalation]
+                status.change_count += len(escalations)
+                status.poll_countdown = self._poll_interval
 
-            if self.auto_jump and escalations:
-                tree.scroll_to_entity(escalations[0].entity_id)
+                if self.auto_jump and escalations:
+                    tree.scroll_to_entity(escalations[0].entity_id)
+
+                # Refresh the entity drawer if it's currently open.
+                drawer = self.query_one("#entity-drawer", EntityDrawer)
+                if drawer.is_visible and drawer.current_entity_name is not None:
+                    if not drawer.show_entity(result.forest, drawer.current_entity_name):
+                        drawer.display = False
+        finally:
+            self._poll_in_flight = False
 
     def _tick_countdown(self) -> None:
         results = self.query("#status-bar")
@@ -124,10 +140,20 @@ class HealthWatchApp(App[None]):
     def action_increase_interval(self) -> None:
         """Increase the poll interval by 10 s (max 300 s)."""
         self._poll_interval = min(300, self._poll_interval + 10)
+        self._reschedule_poll_timer()
 
     def action_decrease_interval(self) -> None:
         """Decrease the poll interval by 10 s (min 10 s)."""
         self._poll_interval = max(10, self._poll_interval - 10)
+        self._reschedule_poll_timer()
+
+    def _reschedule_poll_timer(self) -> None:
+        """Restart the poll timer using the current ``_poll_interval``."""
+        if self._poll_timer is not None:
+            self._poll_timer.stop()
+        self._poll_timer = self.set_interval(self._poll_interval, self._do_poll)
+        status = self.query_one("#status-bar", StatusBar)
+        status.poll_countdown = self._poll_interval
 
     # ── search ────────────────────────────────────────────────────────
 
@@ -256,10 +282,13 @@ class HealthWatchApp(App[None]):
         self._run_verification(ctx)
 
     def action_close_panel(self) -> None:
-        """Close the signal verification panel (Escape)."""
+        """Close the signal verification panel and entity drawer (Escape)."""
         panel = self.query_one("#signal-panel", SignalPanel)
         if panel.display:
             panel.display = False
+        drawer = self.query_one("#entity-drawer", EntityDrawer)
+        if drawer.is_visible:
+            drawer.hide()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         """Wire the panel's Verify button to the background worker."""

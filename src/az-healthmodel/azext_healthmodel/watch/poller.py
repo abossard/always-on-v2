@@ -97,7 +97,7 @@ class Poller:
                 changes=changes, elapsed_ms=elapsed,
             )
 
-        except Exception:
+        except Exception as e:
             elapsed = (time.monotonic() - t0) * 1000
             _log.exception("Poll cycle failed after %.0fms", elapsed)
             # Return stale data so the UI doesn't go blank
@@ -107,9 +107,14 @@ class Poller:
             fallback_snapshot = self._prev_snapshot or Snapshot(
                 entity_states={}, timestamp=""
             )
+            error_msg = (
+                e.diagnostic_text()
+                if hasattr(e, "diagnostic_text")
+                else f"{type(e).__name__}: {e}"
+            ) + " — showing stale data"
             return PollResult(
                 forest=fallback_forest,
                 snapshot=fallback_snapshot,
-                error="Poll failed — showing stale data",
+                error=error_msg,
                 elapsed_ms=elapsed,
             )

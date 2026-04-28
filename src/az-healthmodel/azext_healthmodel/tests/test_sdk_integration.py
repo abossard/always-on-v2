@@ -441,3 +441,337 @@ def test_transport_signal_history_typeddict() -> None:
         ],
     }
     assert h["signalName"] == "sig-cpu"
+
+
+# ─── Phase 1: Diagnostic UI sinks ────────────────────────────────────
+
+def test_truncate_status_error_short():
+    from azext_healthmodel.watch.status_bar import _truncate_status_error
+    assert _truncate_status_error("short error") == "short error"
+
+def test_truncate_status_error_long():
+    from azext_healthmodel.watch.status_bar import _truncate_status_error
+    msg = "A" * 100
+    result = _truncate_status_error(msg)
+    assert len(result) == 80
+    assert result.endswith("…")
+
+def test_truncate_status_error_multiline():
+    from azext_healthmodel.watch.status_bar import _truncate_status_error
+    msg = "line one\nline two\tand tabs"
+    result = _truncate_status_error(msg)
+    assert "\n" not in result
+    assert "\t" not in result
+    assert result == "line one line two and tabs"
+
+@pytest.mark.parametrize("limit", [40, 60, 80, 120])
+def test_truncate_status_error_custom_limit(limit):
+    from azext_healthmodel.watch.status_bar import _truncate_status_error
+    msg = "X" * 200
+    result = _truncate_status_error(msg, limit=limit)
+    assert len(result) == limit
+    assert result.endswith("…")
+
+
+# ─── Phase 2: Poll error plumbing ────────────────────────────────────
+
+def test_poller_preserves_exception_type_in_error():
+    """Poller error message includes exception type and message."""
+    from azext_healthmodel.watch.poller import Poller
+    from unittest.mock import MagicMock
+
+    client = MagicMock()
+    client.list_signal_definitions.side_effect = RuntimeError("API down")
+
+    poller = Poller(client, "rg", "model")
+    result = poller.poll_once()
+
+    assert result.error is not None
+    assert "RuntimeError" in result.error
+    assert "API down" in result.error
+
+def test_poller_preserves_auth_error_in_error():
+    """Poller error message includes AuthenticationError details."""
+    from azext_healthmodel.watch.poller import Poller
+    from azext_healthmodel.client.errors import AuthenticationError
+    from unittest.mock import MagicMock
+
+    client = MagicMock()
+    client.list_signal_definitions.side_effect = AuthenticationError("access denied")
+
+    poller = Poller(client, "rg", "model")
+    result = poller.poll_once()
+
+    assert result.error is not None
+    assert "AuthenticationError" in result.error
+    assert "access denied" in result.error
+    assert "stale" in result.error.lower()
+
+@pytest.mark.parametrize("exc_class,exc_msg", [
+    (RuntimeError, "connection timeout"),
+    (ValueError, "bad response"),
+    (ConnectionError, "network unreachable"),
+])
+def test_poller_error_format_parametrized(exc_class, exc_msg):
+    from azext_healthmodel.watch.poller import Poller
+    from unittest.mock import MagicMock
+
+    client = MagicMock()
+    client.list_signal_definitions.side_effect = exc_class(exc_msg)
+
+    poller = Poller(client, "rg", "model")
+    result = poller.poll_once()
+
+    assert exc_class.__name__ in result.error
+    assert exc_msg in result.error
+
+
+# ─── Phase 3: Signal errors and thresholds ───────────────────────────
+
+def test_signal_value_with_error_field():
+    """SignalValue accepts optional error field."""
+    from azext_healthmodel.models.domain import SignalValue
+    from azext_healthmodel.models.enums import DataUnit, HealthState, SignalKind
+
+    sig = SignalValue(
+        name="sig-1",
+        definition_name="def-1",
+        display_name="CPU",
+        signal_kind=SignalKind.PROMETHEUS_METRICS_QUERY,
+        health_state=HealthState.UNKNOWN,
+        value=None,
+        data_unit=DataUnit.PERCENT,
+        reported_at="2026-01-01T00:00:00Z",
+        error="Metric namespace not found",
+    )
+    assert sig.error == "Metric namespace not found"
+
+
+def test_signal_value_with_threshold_rules():
+    """SignalValue accepts optional threshold rules from signal definition."""
+    from azext_healthmodel.models.domain import EvaluationRule, SignalValue
+    from azext_healthmodel.models.enums import (
+        ComparisonOperator, DataUnit, HealthState, SignalKind,
+    )
+
+    degraded = EvaluationRule(operator=ComparisonOperator.GREATER_THAN, threshold=50.0)
+    unhealthy = EvaluationRule(operator=ComparisonOperator.GREATER_THAN, threshold=80.0)
+
+    sig = SignalValue(
+        name="sig-1",
+        definition_name="def-1",
+        display_name="CPU",
+        signal_kind=SignalKind.AZURE_RESOURCE_METRIC,
+        health_state=HealthState.HEALTHY,
+        value=42.0,
+        data_unit=DataUnit.PERCENT,
+        reported_at="2026-01-01T00:00:00Z",
+        degraded_rule=degraded,
+        unhealthy_rule=unhealthy,
+    )
+    assert sig.degraded_rule.threshold == 50.0
+    assert sig.unhealthy_rule.threshold == 80.0
+
+
+def test_signal_value_backward_compat_no_new_fields():
+    """Existing SignalValue construction without new fields still works."""
+    from azext_healthmodel.models.domain import SignalValue
+    from azext_healthmodel.models.enums import DataUnit, HealthState, SignalKind
+
+    sig = SignalValue(
+        name="sig-1",
+        definition_name="def-1",
+        display_name="CPU",
+        signal_kind=SignalKind.EXTERNAL,
+        health_state=HealthState.HEALTHY,
+        value=10.0,
+        data_unit=DataUnit.COUNT,
+        reported_at="2026-01-01T00:00:00Z",
+    )
+    assert sig.error is None
+    assert sig.degraded_rule is None
+    assert sig.unhealthy_rule is None
+
+
+def test_parse_signal_ref_threads_error_and_thresholds(fixtures_dir):
+    """Parse layer threads signal status error and definition thresholds into SignalValue."""
+    import json
+    from azext_healthmodel.domain.parse import parse_entities, parse_signal_definitions
+
+    with open(fixtures_dir / "hm-signals.json") as f:
+        raw_sigs = json.load(f)["value"]
+    with open(fixtures_dir / "hm-entities.json") as f:
+        raw_entities = json.load(f)["value"]
+
+    sig_defs = parse_signal_definitions(raw_sigs)
+    entities = parse_entities(raw_entities, sig_defs)
+
+    found_threshold = False
+    for entity in entities.values():
+        for sig in entity.signals:
+            if sig.unhealthy_rule is not None:
+                found_threshold = True
+                assert sig.unhealthy_rule.threshold > 0
+                break
+        if found_threshold:
+            break
+
+    assert found_threshold, "Expected at least one signal with thresholds from fixture data"
+
+
+# ─── Phase 4: ARM error details preservation ─────────────────────────
+
+def test_health_model_error_has_code_and_details():
+    from azext_healthmodel.client.errors import HealthModelError
+    err = HealthModelError("boom", status_code=500, code="InternalError", details=[{"message": "oops"}])
+    assert err.code == "InternalError"
+    assert err.details == [{"message": "oops"}]
+    assert "InternalError" in err.diagnostic_text()
+
+def test_auth_error_preserves_code():
+    from azext_healthmodel.client.errors import AuthenticationError
+    err = AuthenticationError("denied", code="AuthorizationFailed")
+    assert err.code == "AuthorizationFailed"
+    assert "AuthorizationFailed" in err.diagnostic_text()
+
+def test_throttled_error_preserves_code_and_retry():
+    from azext_healthmodel.client.errors import ThrottledError
+    err = ThrottledError("slow down", retry_after=30, code="TooManyRequests")
+    assert err.retry_after == 30
+    assert err.code == "TooManyRequests"
+
+def test_not_found_error_preserves_details():
+    from azext_healthmodel.client.errors import HealthModelNotFoundError
+    err = HealthModelNotFoundError("gone", code="ResourceNotFound", details=[{"message": "model xyz not found"}])
+    assert err.code == "ResourceNotFound"
+    assert "model xyz not found" in err.diagnostic_text()
+
+def test_arm_error_no_duplicate_fields():
+    from azext_healthmodel.client.errors import ArmError
+    err = ArmError("fail", status_code=500, code="ServerError", details=[{"code": "X", "message": "Y"}])
+    assert err.code == "ServerError"
+    assert err.details == [{"code": "X", "message": "Y"}]
+
+@pytest.mark.parametrize("code,details,expected_in_diagnostic", [
+    ("", [], "boom"),
+    ("E1", [], "code E1"),
+    ("E2", [{"message": "detail msg"}], "detail msg"),
+    ("", [{"code": "C1"}], "C1"),
+])
+def test_diagnostic_text_parametrized(code, details, expected_in_diagnostic):
+    from azext_healthmodel.client.errors import HealthModelError
+    err = HealthModelError("boom", status_code=400, code=code, details=details)
+    assert expected_in_diagnostic in err.diagnostic_text()
+
+def test_parse_arm_error_preserves_code_on_subclasses():
+    from azext_healthmodel.client.errors import parse_arm_error, AuthenticationError, HealthModelNotFoundError
+
+    body_auth = {"error": {"code": "AuthorizationFailed", "message": "not allowed", "details": [{"message": "forbidden"}]}}
+    err = parse_arm_error(body_auth, 403)
+    assert isinstance(err, AuthenticationError)
+    assert err.code == "AuthorizationFailed"
+
+    body_404 = {"error": {"code": "ResourceNotFound", "message": "missing", "details": []}}
+    err2 = parse_arm_error(body_404, 404)
+    assert isinstance(err2, HealthModelNotFoundError)
+    assert err2.code == "ResourceNotFound"
+
+
+# ─── Phase 5: Query diagnostics ──────────────────────────────────────
+
+def test_execute_signal_structured_error_fields():
+    """execute_signal result includes structured error metadata."""
+    from azext_healthmodel.client.query_executor import execute_signal
+    from azext_healthmodel.client.errors import ArmError
+    from unittest.mock import MagicMock
+
+    client = MagicMock()
+    client.get_sub_resource.return_value = {
+        "name": "entity-1",
+        "properties": {
+            "signalGroups": {
+                "azureMonitorWorkspace": {
+                    "azureMonitorWorkspaceResourceId": "/sub/x/amw",
+                    "signals": [{
+                        "name": "sig-1",
+                        "signalKind": "PrometheusMetricsQuery",
+                        "queryText": "rate(x[5m])",
+                        "timeGrain": "PT1M",
+                    }]
+                }
+            }
+        }
+    }
+    client.query_prometheus.side_effect = ArmError(
+        "workspace not found", status_code=404, code="ResourceNotFound"
+    )
+
+    result = execute_signal(client, "rg", "model", "entity-1", "sig-1")
+
+    assert result["error"] is not None
+    assert result.get("errorType") == "ArmError"
+    assert result.get("errorStatusCode") == 404
+    assert result.get("errorCode") == "ResourceNotFound"
+
+
+def test_execute_signal_no_error_fields_on_success():
+    """execute_signal result has no error fields on success."""
+    from azext_healthmodel.client.query_executor import execute_signal
+    from unittest.mock import MagicMock
+
+    client = MagicMock()
+    client.get_sub_resource.return_value = {
+        "name": "entity-1",
+        "properties": {
+            "signalGroups": {
+                "azureMonitorWorkspace": {
+                    "azureMonitorWorkspaceResourceId": "/sub/x/amw",
+                    "signals": [{
+                        "name": "sig-1",
+                        "signalKind": "PrometheusMetricsQuery",
+                        "queryText": "rate(x[5m])",
+                        "timeGrain": "PT1M",
+                    }]
+                }
+            }
+        }
+    }
+    client.query_prometheus.return_value = {
+        "status": "success",
+        "data": {"resultType": "vector", "result": [{"value": [1234567890, "42.5"]}]}
+    }
+
+    result = execute_signal(client, "rg", "model", "entity-1", "sig-1")
+
+    assert result.get("error") in ("", None)
+    assert result.get("errorType") is None
+    assert result.get("errorStatusCode") is None
+
+
+# ─── Phase 6: Extractor debug logs ───────────────────────────────────
+
+import logging
+
+
+def test_prometheus_extractor_logs_on_malformed_data(caplog):
+    from azext_healthmodel.client.query_executor import _extract_prometheus_value
+
+    malformed = {"data": {"result": [{"value": "not-a-list"}]}}
+    with caplog.at_level(logging.DEBUG, logger="azext_healthmodel.client.query_executor"):
+        value, err = _extract_prometheus_value(malformed)
+
+    assert value is None
+    assert err is not None
+    assert any("Failed to extract Prometheus" in r.message for r in caplog.records)
+
+
+def test_azure_metric_extractor_logs_on_malformed_data(caplog):
+    from azext_healthmodel.client.query_executor import _extract_azure_metric_value
+
+    malformed = {"value": [{"timeseries": [{"data": "not-a-list"}]}]}
+    with caplog.at_level(logging.DEBUG, logger="azext_healthmodel.client.query_executor"):
+        value, err = _extract_azure_metric_value(malformed)
+
+    assert value is None
+    assert err is not None
+    assert any("Failed to extract Azure metric" in r.message for r in caplog.records)

@@ -813,7 +813,7 @@ def test_relationship_create_builds_payload() -> None:
     ops.relationship_create(client, "rg", "hm", "r1", parent="p", child="c")
     args = client.create_or_update_sub_resource.call_args.args
     assert args[:4] == ("rg", "hm", "relationships", "r1")
-    assert args[4] == {"properties": {"parent": "p", "child": "c"}}
+    assert args[4] == {"properties": {"parentEntityName": "p", "childEntityName": "c"}}
 
 
 def test_auth_create_builds_managed_identity_payload() -> None:

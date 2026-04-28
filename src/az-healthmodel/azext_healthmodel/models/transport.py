@@ -16,6 +16,7 @@ class TransportSignalStatus(TypedDict, total=False):
     healthState: str  # "Healthy" | "Degraded" | "Unhealthy" | "Unknown"
     value: float | None
     reportedAt: str  # ISO 8601 timestamp
+    error: str  # Optional read-only service-side diagnostic
 
 
 # ─── Signal reference (within entity signal groups) ──────────────────

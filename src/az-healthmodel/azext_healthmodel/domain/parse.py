@@ -63,13 +63,17 @@ def _parse_signal_kind(raw: str | None) -> SignalKind:
 
 
 def _parse_data_unit(raw: str | None) -> DataUnit:
-    """Parse a data unit string into the enum."""
+    """Parse a data unit string into the enum.
+
+    Unknown / SDK-introduced units are preserved as ``DataUnit.OTHER`` rather
+    than silently being coerced to ``COUNT`` (which used to lie about the unit).
+    """
     if raw is None:
         return DataUnit.COUNT
     try:
         return DataUnit(raw)
     except ValueError:
-        return DataUnit.COUNT
+        return DataUnit.OTHER
 
 
 def _parse_operator(raw: str | None) -> ComparisonOperator:
@@ -97,11 +101,11 @@ def _parse_impact(raw: str | None) -> Impact:
 
 def parse_signal_definition(raw: TransportSignalDefinition) -> SignalDefinition:
     """Parse a single signal definition from the API wire format."""
-    props = raw.get("properties", {})
-    rules = props.get("evaluationRules", {})
+    props = raw.get("properties") or {}
+    rules = props.get("evaluationRules") or {}
 
     degraded_raw = rules.get("degradedRule")
-    unhealthy_raw = rules.get("unhealthyRule", {})
+    unhealthy_raw = rules.get("unhealthyRule")
 
     degraded_rule = None
     if degraded_raw:
@@ -110,10 +114,12 @@ def parse_signal_definition(raw: TransportSignalDefinition) -> SignalDefinition:
             threshold=float(degraded_raw.get("threshold", 0)),
         )
 
-    unhealthy_rule = EvaluationRule(
-        operator=_parse_operator(unhealthy_raw.get("operator")),
-        threshold=float(unhealthy_raw.get("threshold", 0)),
-    )
+    unhealthy_rule = None
+    if unhealthy_raw:
+        unhealthy_rule = EvaluationRule(
+            operator=_parse_operator(unhealthy_raw.get("operator")),
+            threshold=float(unhealthy_raw.get("threshold", 0)),
+        )
 
     return SignalDefinition(
         name=raw.get("name", ""),
@@ -150,7 +156,7 @@ def _parse_signal_ref(
     def_name = raw.get("signalDefinitionName", "")
     sig_def = sig_defs.get(def_name)
 
-    status = raw.get("status", {})
+    status = raw.get("status") or {}
     raw_value = status.get("value")
 
     return SignalValue(
@@ -162,6 +168,9 @@ def _parse_signal_ref(
         value=float(raw_value) if raw_value is not None else None,
         data_unit=sig_def.data_unit if sig_def else DataUnit.COUNT,
         reported_at=status.get("reportedAt", ""),
+        error=str(status.get("error")) if status.get("error") else None,
+        degraded_rule=sig_def.degraded_rule if sig_def else None,
+        unhealthy_rule=sig_def.unhealthy_rule if sig_def else None,
     )
 
 
@@ -183,8 +192,8 @@ def parse_entity(
     if not entity_name:
         raise ValueError(f"Entity missing 'name': {raw!r}")
 
-    props = raw.get("properties", {})
-    icon_raw = props.get("icon", {})
+    props = raw.get("properties") or {}
+    icon_raw = props.get("icon") or {}
     icon_name = icon_raw.get("iconName", "") if isinstance(icon_raw, dict) else str(icon_raw)
 
     # Collect all signals from all signal groups
@@ -192,9 +201,13 @@ def parse_entity(
     signal_groups = props.get("signalGroups", {})
     if isinstance(signal_groups, dict):
         for _group_key, group_val in signal_groups.items():
-            if isinstance(group_val, dict) and "signals" in group_val:
-                for sig_ref in group_val["signals"]:
-                    signals.append(_parse_signal_ref(sig_ref, sig_defs))
+            if not isinstance(group_val, dict):
+                continue
+            signals_list = group_val.get("signals")
+            if not isinstance(signals_list, list):
+                continue
+            for sig_ref in signals_list:
+                signals.append(_parse_signal_ref(sig_ref, sig_defs))
 
     return EntityNode(
         entity_id=entity_id,

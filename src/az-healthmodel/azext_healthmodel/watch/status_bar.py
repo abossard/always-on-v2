@@ -6,6 +6,14 @@ from textual.reactive import reactive
 from textual.widgets import Static
 
 
+def _truncate_status_error(message: str, limit: int = 80) -> str:
+    """Normalize whitespace and truncate for single-line display."""
+    normalized = " ".join(message.split())
+    if len(normalized) <= limit:
+        return normalized
+    return normalized[:limit - 1] + "…"
+
+
 class StatusBar(Static):
     """Displays connection state, countdown, change count, and key hints."""
 
@@ -24,6 +32,7 @@ class StatusBar(Static):
     connected: reactive[bool] = reactive(True)
     auto_jump: reactive[bool] = reactive(True)
     has_search_results: reactive[bool] = reactive(False)
+    error_text: reactive[str] = reactive("")
 
     def render(self) -> Text:  # noqa: D102
         parts = Text()
@@ -33,6 +42,9 @@ class StatusBar(Static):
             parts.append("● Connected", style="bold green")
         else:
             parts.append("○ Disconnected", style="bold red")
+            if self.error_text:
+                parts.append(" — ", style="dim")
+                parts.append(_truncate_status_error(self.error_text), style="dim red")
 
         parts.append(" │ ", style="dim")
 

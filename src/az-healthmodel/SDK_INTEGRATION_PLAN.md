@@ -2,6 +2,87 @@
 
 > **Status**: ✅ Phase 1-4 implemented. 34 new tests passing. 258 total tests pass (22 pre-existing e2e errors from live Azure timeouts unchanged).
 
+---
+
+# Health Model Selector for TUI Watch Mode
+
+## Problem
+
+`az healthmodel watch` currently requires `--name` and `-g` flags. When omitted, the CLI
+errors out. Users should be able to launch watch without parameters and interactively
+pick a health model from their subscription.
+
+## UX
+
+```
+┌─ Health Model Selector ──────────────────────────────────────┐
+│ Filter: [________________]                                    │
+│                                                               │
+│ Name              Resource Group    Location    State          │
+│ ▶ hm-helloagents  rg-alwayson      eastus2     Succeeded      │
+│   hm-graphorleons rg-alwayson      westeurope  Succeeded      │
+│   hm-testing      rg-dev           westus3     Creating       │
+│                                                               │
+│ ↑↓ Navigate  Enter Select  Esc Cancel                         │
+└───────────────────────────────────────────────────────────────┘
+```
+
+## Navigation: `m` key to return to selector
+
+While watching, pressing **`m`** ("Models") opens the selector on top of the watch:
+
+- **Pauses polling** while selector is showing
+- **Watch state preserved** (timers, forest) underneath
+- Pick a different model → swap Poller, reset tree, resume
+- Pick same model → pop back, resume
+- Esc on selector → pop back to current watch, resume
+
+Why `m` and not `Esc`:
+- `Esc` is already bound to "close panel" (signal panel, entity drawer)
+- `m` is unused, mnemonic ("m for model"), shows in footer as `m Models`
+- Matches existing single-key binding pattern (`q` quit, `r` refresh, `d` details)
+
+## Files to change
+
+| File | Action | What |
+|------|--------|------|
+| `watch/model_selector.py` | **NEW** | `ModelSelectorScreen(Screen)` with `DataTable` + filter `Input` + `LoadingIndicator` |
+| `watch/app.py` | **EDIT** | Defer `Poller` to `_start_watching()`, show selector if `model is None`, guard bindings, add `m` binding for re-opening selector |
+| `watch/__init__.py` | **EDIT** | Allow `model_name=None` |
+| `actions/crud.py` | **EDIT** | `watch(cmd, resource_group=None, model_name=None, ...)` |
+| `_params.py` | **EDIT** | `c.argument("model_name", required=False)` under `healthmodel watch` |
+| `domain/parse.py` | **EDIT** | Add `extract_resource_group(arm_id)` shared utility |
+| `tests/test_model_selector.py` | **NEW** | TDD tests |
+
+## Design decisions (rubber-duck validated)
+
+- **Screen not ModalScreen** — nothing behind it on first launch
+- **Defer Poller** — `_poller: Poller | None = None`, guard every action
+- **Filter input** above DataTable for large subscriptions
+- **Error handling** — wrap `list_models()`, show error in label
+- **Plain mode** — print model table + exit with `"Specify --model-name"` message
+- **`extract_resource_group()`** in `domain/parse.py` (shared, not buried in selector)
+- **CSS** — inline `DEFAULT_CSS` (matches `SearchModal` pattern)
+- **Row key** — explicit `key=str(idx)` on `add_row()` for robust mapping
+
+## Dependency graph
+
+```mermaid
+graph LR
+    A[sel-parse-util] --> B[sel-screen]
+    B --> C[sel-app]
+    C --> D[sel-wiring]
+    D --> E[sel-validate]
+    F[sel-tests] --> E
+
+    style A fill:#2d5016,stroke:#4ade80,color:#fff
+    style B fill:#1e3a5f,stroke:#60a5fa,color:#fff
+    style C fill:#1e3a5f,stroke:#60a5fa,color:#fff
+    style D fill:#1e3a5f,stroke:#60a5fa,color:#fff
+    style E fill:#5c1a1a,stroke:#f87171,color:#fff
+    style F fill:#2d5016,stroke:#4ade80,color:#fff
+```
+
 > **Goal**: Migrate `az-healthmodel` from implicit SDK dependency + raw HTTP fallbacks
 > to the official `azure-mgmt-cloudhealth` v1.0.0b2 SDK, and expose new capabilities.
 

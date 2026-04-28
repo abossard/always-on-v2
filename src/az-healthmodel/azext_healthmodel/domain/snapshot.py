@@ -113,7 +113,7 @@ def diff_snapshots(
 
         old_es = old_states[name]
 
-        # Entity-level health change
+        # Entity-level health change → record it, then ALSO diff signals.
         if new_es.health_state != old_es.health_state:
             kind = _classify_health_change(old_es.health_state, new_es.health_state)
             changes.append(
@@ -125,11 +125,9 @@ def diff_snapshots(
                     new_state=new_es.health_state,
                 )
             )
-            continue
 
-        # Signal-level value changes (entity health unchanged)
-        signal_changes = _diff_signal_values(old_es, new_es)
-        changes.extend(signal_changes)
+        # Signal-level diffs (always run, even when entity health changed)
+        changes.extend(_diff_signals(old_es, new_es))
 
     # Entities in old but not new → REMOVED
     for name, old_es in old_states.items():
@@ -160,28 +158,91 @@ def _classify_health_change(
     return ChangeKind.RECOVERY
 
 
-def _diff_signal_values(
+def _diff_signals(
     old_es: EntityState,
     new_es: EntityState,
 ) -> list[StateChange]:
-    """Detect signal-level value changes when entity health is unchanged."""
+    """Detect added/removed signals, value changes, and health-state changes."""
     changes: list[StateChange] = []
 
-    for sig_name, new_val in new_es.signal_values.items():
+    old_keys = set(old_es.signal_states) | set(old_es.signal_values)
+    new_keys = set(new_es.signal_states) | set(new_es.signal_values)
+
+    # Added signals → NEW
+    for sig_name in sorted(new_keys - old_keys):
+        new_state = new_es.signal_states.get(sig_name, HealthState.UNKNOWN)
+        changes.append(
+            StateChange(
+                entity_id=new_es.entity_id,
+                entity_display_name=new_es.display_name,
+                kind=ChangeKind.NEW,
+                old_state=None,
+                new_state=new_state,
+                signal_name=sig_name,
+            )
+        )
+
+    # Removed signals → REMOVED
+    for sig_name in sorted(old_keys - new_keys):
+        old_state = old_es.signal_states.get(sig_name, HealthState.UNKNOWN)
+        changes.append(
+            StateChange(
+                entity_id=new_es.entity_id,
+                entity_display_name=new_es.display_name,
+                kind=ChangeKind.REMOVED,
+                old_state=old_state,
+                new_state=None,
+                signal_name=sig_name,
+            )
+        )
+
+    # Signals present on both sides — diff health state and value.
+    for sig_name in sorted(old_keys & new_keys):
+        old_state = old_es.signal_states.get(sig_name, HealthState.UNKNOWN)
+        new_state = new_es.signal_states.get(sig_name, HealthState.UNKNOWN)
         old_val = old_es.signal_values.get(sig_name)
-        if old_val != new_val:
+        new_val = new_es.signal_values.get(sig_name)
+
+        if old_state != new_state:
+            # Pick escalation/recovery by severity; same-severity-different-state
+            # falls back to VALUE_CHANGED so StateChange invariants hold.
+            if new_state.severity > old_state.severity:
+                kind = ChangeKind.ESCALATION
+            elif new_state.severity < old_state.severity:
+                kind = ChangeKind.RECOVERY
+            else:
+                kind = ChangeKind.VALUE_CHANGED
+            changes.append(
+                StateChange(
+                    entity_id=new_es.entity_id,
+                    entity_display_name=new_es.display_name,
+                    kind=kind,
+                    old_state=old_state,
+                    new_state=new_state,
+                    signal_name=sig_name,
+                )
+            )
+        elif old_val != new_val:
             changes.append(
                 StateChange(
                     entity_id=new_es.entity_id,
                     entity_display_name=new_es.display_name,
                     kind=ChangeKind.VALUE_CHANGED,
-                    old_state=new_es.health_state,
-                    new_state=new_es.health_state,
+                    old_state=old_state,
+                    new_state=new_state,
                     signal_name=sig_name,
                 )
             )
 
     return changes
+
+
+def _diff_signal_values(
+    old_es: EntityState,
+    new_es: EntityState,
+) -> list[StateChange]:
+    """Backwards-compatible alias delegating to :func:`_diff_signals`."""
+    return _diff_signals(old_es, new_es)
 
 
 def _sort_changes(changes: list[StateChange]) -> list[StateChange]:

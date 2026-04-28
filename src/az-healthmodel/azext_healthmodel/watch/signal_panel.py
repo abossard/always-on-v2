@@ -314,6 +314,25 @@ def _format_result_block(result: dict[str, Any]) -> Text:
     if group:
         t.append(f"(group: {group})", style="dim")
 
+    # Structured error diagnostics
+    if result.get("error"):
+        err_type = result.get("errorType")
+        err_status = result.get("errorStatusCode")
+        err_code = result.get("errorCode")
+        if err_type or err_status or err_code:
+            t.append("\n\n")
+            if err_type:
+                t.append("Error type:  ", style="dim")
+                t.append(f"{err_type}", style="bold red")
+                t.append("\n")
+            if err_status:
+                t.append("HTTP status: ", style="dim")
+                t.append(f"{err_status}", style="bold red")
+                t.append("\n")
+            if err_code:
+                t.append("Error code:  ", style="dim")
+                t.append(f"{err_code}", style="bold red")
+
     return t
 
 

@@ -90,6 +90,15 @@ class QueryEditor(ModalScreen[None]):
             self.query_one("#qe-title", Label).update(
                 Text(f"Error loading signal: {exc}", style="bold red"),
             )
+            try:
+                self.app.notify(
+                    f"Cannot open query editor: {exc}",
+                    severity="error",
+                    title="Signal not found",
+                )
+            except Exception:  # noqa: BLE001 — notify is best-effort
+                pass
+            self._loaded = False
             return
 
         self._config = cfg
@@ -115,6 +124,12 @@ class QueryEditor(ModalScreen[None]):
                     break
             if sig_instance:
                 break
+
+        if not sig_instance:
+            raise ValueError(
+                f"Signal '{self._signal_name}' not found on entity "
+                f"'{self._entity_name}'.",
+            )
 
         sig_def_name = sig_instance.get("signalDefinitionName", "")
         sig_def_props: dict[str, Any] = {}
@@ -227,20 +242,20 @@ class QueryEditor(ModalScreen[None]):
         results.update(_format_result(result))
 
     def _run_with_override(self, edited_query: str, original: str) -> dict[str, Any]:
-        """Call execute_signal; if the query was edited, monkey-patch the
-        client's get_sub_resource so the edited text is picked up for this
-        single invocation without mutating service state."""
+        """Call execute_signal; if the query was edited, route requests
+        through a thin client wrapper that injects the edited text without
+        mutating the shared client object."""
         if edited_query == original:
             return execute_signal(
                 self._client, self._rg, self._model,
                 self._entity_name, self._signal_name,
             )
 
-        original_get = self._client.get_sub_resource
+        base_get = self._client.get_sub_resource
         sig_name = self._signal_name
 
         def patched(rg: str, model: str, kind: str, name: str) -> dict[str, Any]:
-            resp = original_get(rg, model, kind, name)
+            resp = base_get(rg, model, kind, name)
             if kind == "entities":
                 props = resp.get("properties", {})
                 for gd in props.get("signalGroups", {}).values():
@@ -253,14 +268,27 @@ class QueryEditor(ModalScreen[None]):
                 resp.setdefault("properties", {})["queryText"] = edited_query
             return resp
 
-        self._client.get_sub_resource = patched  # type: ignore[method-assign]
-        try:
-            return execute_signal(
-                self._client, self._rg, self._model,
-                self._entity_name, self._signal_name,
-            )
-        finally:
-            self._client.get_sub_resource = original_get  # type: ignore[method-assign]
+        wrapper = _ClientWithOverride(self._client, patched)
+        return execute_signal(
+            wrapper, self._rg, self._model,
+            self._entity_name, self._signal_name,
+        )
+
+
+class _ClientWithOverride:
+    """Thin proxy that forwards every attribute to ``base`` except for
+    ``get_sub_resource``, which is replaced by ``override``.
+
+    Used to inject an edited query for a single ``execute_signal`` call
+    without mutating the shared :class:`CloudHealthClient` instance.
+    """
+
+    def __init__(self, base: Any, override: Any) -> None:
+        self._base = base
+        self.get_sub_resource = override
+
+    def __getattr__(self, name: str) -> Any:
+        return getattr(self._base, name)
 
 
 def _add_row(text: Text, key: str, value: str) -> None:

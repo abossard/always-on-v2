@@ -2,14 +2,17 @@
 
 No I/O, no side effects. Given a flat map of entities and a list of
 relationship edges, produces a ``Forest`` with children populated,
-cycles broken, and dangling references silently dropped.
+cycles broken, and dangling references reported via ``Forest.warnings``.
 """
 from __future__ import annotations
 
+import logging
 from dataclasses import replace
 from typing import Mapping, Sequence
 
 from azext_healthmodel.models.domain import EntityNode, Forest, Relationship
+
+_LOG = logging.getLogger(__name__)
 
 
 # ─── public API ──────────────────────────────────────────────────────
@@ -30,7 +33,8 @@ def build_forest(
     4. Rebuild each ``EntityNode`` with its ``children`` tuple populated.
     5. Return a ``Forest`` containing roots, enriched entities, and unlinked.
     """
-    adjacency = _build_adjacency(entities, relationships)
+    warnings: list[str] = []
+    adjacency = _build_adjacency(entities, relationships, warnings)
     all_children = _all_child_names(adjacency)
     roots = _find_roots(entities, adjacency, all_children)
 
@@ -41,18 +45,42 @@ def build_forest(
     for root in roots:
         _break_cycles(root, safe_adjacency, set(), visited, unlinked)
 
-    # Any entity not reachable from a root is unlinked
+    # Rootless cycles: every node in the cycle is unreachable from any root,
+    # so the cycle would survive untouched. Run cycle-breaking from each
+    # unvisited node so safe_adjacency is acyclic regardless of root layout.
     for name in entities:
         if name not in visited:
+            _break_cycles(name, safe_adjacency, set(), visited, unlinked)
+
+    # An entity is "unlinked" if it isn't a root and isn't reachable from one.
+    reachable_from_root: set[str] = set()
+    for root in roots:
+        _collect_reachable(root, safe_adjacency, reachable_from_root)
+    for name in entities:
+        if name not in reachable_from_root and name not in roots:
             unlinked.append(name)
 
-    enriched = _populate_children(entities, safe_adjacency)
+    enriched = _populate_children(entities, safe_adjacency, warnings)
 
     return Forest(
         roots=tuple(roots),
         entities=enriched,
         unlinked=tuple(dict.fromkeys(unlinked)),  # dedupe, preserve order
+        warnings=tuple(warnings),
     )
+
+
+def _collect_reachable(
+    node: str,
+    adjacency: dict[str, list[str]],
+    out: set[str],
+) -> None:
+    """Collect every node reachable from *node* via *adjacency* into *out*."""
+    if node in out:
+        return
+    out.add(node)
+    for child in adjacency.get(node, []):
+        _collect_reachable(child, adjacency, out)
 
 
 # ─── internal helpers ────────────────────────────────────────────────
@@ -61,8 +89,12 @@ def build_forest(
 def _build_adjacency(
     entities: Mapping[str, EntityNode],
     relationships: Sequence[Relationship],
+    warnings: list[str],
 ) -> dict[str, list[str]]:
     """Build parent→children adjacency from relationships.
+
+    Dangling references (parent or child not in *entities*) are recorded as
+    diagnostic strings in *warnings* rather than being silently dropped.
 
     Handles the special case where ``parent_entity_name`` is a health-model
     name (e.g. "hm-graphorleons") that doesn't exist in *entities* directly
@@ -75,15 +107,25 @@ def _build_adjacency(
         parent = rel.parent_entity_name
         child = rel.child_entity_name
 
-        # Skip dangling child refs
         if child not in entity_names:
+            msg = (
+                f"Dangling relationship {rel.name!r}: "
+                f"child entity {child!r} not in entity set (parent={parent!r})."
+            )
+            _LOG.warning(msg)
+            warnings.append(msg)
             continue
 
         # Resolve parent — may be an actual entity name or a model-level name
         if parent not in entity_names:
-            # Model-name → entity alias: look for an entity whose name matches
             resolved = _resolve_model_parent(parent, entities)
             if resolved is None:
+                msg = (
+                    f"Dangling relationship {rel.name!r}: "
+                    f"parent entity {parent!r} not in entity set (child={child!r})."
+                )
+                _LOG.warning(msg)
+                warnings.append(msg)
                 continue
             parent = resolved
 
@@ -179,12 +221,32 @@ def _break_cycles(
 def _populate_children(
     entities: Mapping[str, EntityNode],
     adjacency: dict[str, list[str]],
+    warnings: list[str],
 ) -> Mapping[str, EntityNode]:
-    """Return a new entity map with each node's ``children`` tuple set."""
+    """Return a new entity map with each node's ``children`` tuple set.
+
+    Enforces a tree (not a DAG): if a child is reachable through more than
+    one parent in *adjacency*, attach it to the first parent encountered
+    (in deterministic insertion order) and emit a warning. Subsequent
+    parents lose that child from their ``children`` tuple.
+    """
+    claimed: dict[str, str] = {}  # child_name → first parent that claimed it
     result: dict[str, EntityNode] = {}
 
     for name, entity in entities.items():
-        child_names = tuple(adjacency.get(name, []))
-        result[name] = replace(entity, children=child_names)
+        my_children: list[str] = []
+        for child in adjacency.get(name, []):
+            owner = claimed.get(child)
+            if owner is None:
+                claimed[child] = name
+                my_children.append(child)
+            elif owner != name:
+                msg = (
+                    f"Entity {child!r} has multiple parents "
+                    f"(first={owner!r}, also={name!r}); attaching to first only."
+                )
+                _LOG.warning(msg)
+                warnings.append(msg)
+        result[name] = replace(entity, children=tuple(my_children))
 
     return result

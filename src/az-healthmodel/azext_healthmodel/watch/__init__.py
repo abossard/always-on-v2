@@ -29,10 +29,11 @@ def run_watch(
     else:
         try:
             from azext_healthmodel.watch.app import HealthWatchApp
-
-            app = HealthWatchApp(client, resource_group, model_name, poll_interval)
-            app.run()
         except ImportError:
             from azext_healthmodel.watch.plain import run_plain_watch
 
             run_plain_watch(client, resource_group, model_name, poll_interval)
+            return
+
+        app = HealthWatchApp(client, resource_group, model_name, poll_interval)
+        app.run()

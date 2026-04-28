@@ -110,7 +110,10 @@ def format_plain_tree(
         entity = forest.entities.get(root_name)
         if entity is None:
             continue
-        _render_node(entity, forest, change_map, lines, prefix="", is_last=is_last_root)
+        _render_node(
+            entity, forest, change_map, lines,
+            prefix="", is_last=is_last_root, visited=set(),
+        )
 
     # Append unlinked entities at the end
     if forest.unlinked:
@@ -134,8 +137,18 @@ def _render_node(
     lines: list[str],
     prefix: str,
     is_last: bool,
+    visited: set[str] | None = None,
 ) -> None:
-    """Recursively render a single entity node and its children."""
+    """Recursively render a single entity node and its children.
+
+    *visited* tracks entity names already rendered on the current path; if a
+    child is already in this set, we render a ``[cycle: …]`` marker instead
+    of recursing into it. This makes the formatter robust against cyclic
+    forests (which graph_builder normally breaks, but defence in depth
+    protects against bugs and externally-constructed forests).
+    """
+    if visited is None:
+        visited = set()
     connector = "└── " if is_last else "├── "
     change = change_map.get(entity.entity_id)
 
@@ -145,6 +158,8 @@ def _render_node(
     if change is not None and change.is_escalation and change.old_state is not None:
         line += f" ⚡ was {change.old_state.icon}"
     lines.append(line)
+
+    visited = visited | {entity.name}
 
     # Prepare prefix for children / signals
     child_prefix = prefix + ("    " if is_last else "│   ")
@@ -163,15 +178,17 @@ def _render_node(
 
     # Child entities
     for idx, child_name in enumerate(child_items):
-        child_entity = forest.entities.get(child_name)
-        if child_entity is None:
-            continue
-        # If signals were rendered, the last signal already used └──,
-        # so children continue with ├── unless it's truly the last item.
         is_last_child = (
             len(entity.signals) + idx == total_items - 1
         )
+        if child_name in visited:
+            cycle_connector = "└── " if is_last_child else "├── "
+            lines.append(f"{child_prefix}{cycle_connector}↺ [cycle: {child_name}]")
+            continue
+        child_entity = forest.entities.get(child_name)
+        if child_entity is None:
+            continue
         _render_node(
             child_entity, forest, change_map, lines,
-            prefix=child_prefix, is_last=is_last_child,
+            prefix=child_prefix, is_last=is_last_child, visited=visited,
         )

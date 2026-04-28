@@ -72,8 +72,9 @@ def healthmodel_update(
 ) -> dict[str, Any]:
     """Update a health model (GET-then-PUT)."""
     model = client.get_model(resource_group, name)
-    if tags is not None:
-        model["tags"] = tags
+    if tags is None:
+        return model
+    model["tags"] = tags
     return client.create_or_update_model(resource_group, name, model)
 
 
@@ -144,7 +145,10 @@ def entity_signal_list(
     entity = client.get_sub_resource(resource_group, model_name, "entities", entity_name)
     props = entity.get("properties", {})
     result: list[dict[str, Any]] = []
-    for group_name, group_data in props.get("signalGroups", {}).items():
+    signal_groups = props.get("signalGroups") or {}
+    if not isinstance(signal_groups, dict):
+        return result
+    for group_name, group_data in signal_groups.items():
         if not isinstance(group_data, dict):
             continue
         for sig in group_data.get("signals", []):
@@ -163,11 +167,33 @@ def entity_signal_add(
     signal_def: dict[str, Any],
 ) -> dict[str, Any]:
     """Add a signal instance to an entity's signal group."""
+    from azext_healthmodel.client.errors import HealthModelError
+
     entity = client.get_sub_resource(resource_group, model_name, "entities", entity_name)
     props = entity.setdefault("properties", {})
     groups = props.setdefault("signalGroups", {})
+    if not isinstance(groups, dict):
+        groups = {}
+        props["signalGroups"] = groups
+    new_name = signal_def.get("name")
+    if new_name is not None:
+        for existing_group in groups.values():
+            if not isinstance(existing_group, dict):
+                continue
+            for existing in existing_group.get("signals", []) or []:
+                if isinstance(existing, dict) and existing.get("name") == new_name:
+                    raise HealthModelError(
+                        f"Signal '{new_name}' already exists on entity "
+                        f"'{entity_name}'"
+                    )
     group = groups.setdefault(signal_group, {})
+    if not isinstance(group, dict):
+        group = {}
+        groups[signal_group] = group
     signals = group.setdefault("signals", [])
+    if not isinstance(signals, list):
+        signals = []
+        group["signals"] = signals
     signals.append(signal_def)
     return client.create_or_update_sub_resource(
         resource_group, model_name, "entities", entity_name, entity,
@@ -186,7 +212,9 @@ def entity_signal_remove(
 
     entity = client.get_sub_resource(resource_group, model_name, "entities", entity_name)
     props = entity.get("properties", {})
-    signal_groups = props.get("signalGroups", {})
+    signal_groups = props.get("signalGroups") or {}
+    if not isinstance(signal_groups, dict):
+        signal_groups = {}
     found = False
     for group_data in signal_groups.values():
         if not isinstance(group_data, dict):
@@ -322,8 +350,8 @@ def relationship_create(
     """Create or update a relationship."""
     payload = {
         "properties": {
-            "parent": parent,
-            "child": child,
+            "parentEntityName": parent,
+            "childEntityName": child,
         },
     }
     return client.create_or_update_sub_resource(
