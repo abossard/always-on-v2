@@ -261,7 +261,7 @@ public abstract class WorkflowFirstTests(HttpClient client)
     // ─── Group 5: Concurrency ────────────────────────────────
 
     [Test]
-    [Timeout(180_000)]
+    [Timeout(300_000)]
     public async Task SerialConcurrencyQueuesSecondExecution(CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
@@ -285,12 +285,13 @@ public abstract class WorkflowFirstTests(HttpClient client)
         }
 
         // Eventually both executions land in history.
+        // Generous timeout: two chained LLM calls via Cosmos-backed grains under CI emulator.
         await Assert.That(async () =>
         {
             var execs = await _api.GetExecutions(group.Id);
             return execs is not null && execs.History.Count(e => e.Completed) >= 2;
         }).Eventually(
             assert => assert.IsTrue(),
-            timeout: TimeSpan.FromSeconds(120));
+            timeout: TimeSpan.FromSeconds(240));
     }
 }

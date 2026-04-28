@@ -66,14 +66,6 @@ param models array = [
     skuName: 'GlobalStandard'
     skuCapacity: 10
   }
-  {
-    name: 'gpt-55'
-    modelName: 'gpt-5.5'
-    modelVersion: '2026-04-24'
-    modelFormat: 'OpenAI'
-    skuName: 'GlobalStandard'
-    skuCapacity: 10
-  }
 ]
 
 // ============================================================================
