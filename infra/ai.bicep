@@ -21,6 +21,9 @@ param appInsightsId string
 @description('Principal IDs of app identities to grant Cognitive Services OpenAI User role.')
 param appIdentityPrincipalIds array
 
+@description('Default deployment name for apps. Must be one of models[].name.')
+param defaultModelName string = 'gpt-41-mini'
+
 @description('Model deployments to create. Each entry: { name, modelName, modelVersion, skuName, skuCapacity }.')
 param models array = [
   {
@@ -40,9 +43,33 @@ param models array = [
     skuCapacity: 10
   }
   {
+    name: 'gpt-41-nano'
+    modelName: 'gpt-4.1-nano'
+    modelVersion: '2025-04-14'
+    modelFormat: 'OpenAI'
+    skuName: 'GlobalStandard'
+    skuCapacity: 10
+  }
+  {
     name: 'gpt-54'
     modelName: 'gpt-5.4'
     modelVersion: '2026-03-05'
+    modelFormat: 'OpenAI'
+    skuName: 'GlobalStandard'
+    skuCapacity: 10
+  }
+  {
+    name: 'gpt-54-mini'
+    modelName: 'gpt-5.4-mini'
+    modelVersion: '2026-03-17'
+    modelFormat: 'OpenAI'
+    skuName: 'GlobalStandard'
+    skuCapacity: 10
+  }
+  {
+    name: 'gpt-55'
+    modelName: 'gpt-5.5'
+    modelVersion: '2026-04-24'
     modelFormat: 'OpenAI'
     skuName: 'GlobalStandard'
     skuCapacity: 10
@@ -248,3 +275,5 @@ output hubName string = aiHub.name
 output projectName string = aiProject.name
 output aiIdentityPrincipalId string = aiIdentity.properties.principalId
 output modelDeploymentNames array = [for model in models: model.name]
+output defaultModelDeployment string = defaultModelName
+output modelDeploymentsCsv string = join(map(models, m => m.name), ',')

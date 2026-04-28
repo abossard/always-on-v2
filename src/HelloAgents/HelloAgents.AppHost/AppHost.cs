@@ -42,6 +42,7 @@ var api = builder.AddProject<Projects.HelloAgents_Api>(ResourceNames.Api)
     .WithEnvironment("CosmosDb__ContainerName", ResourceNames.Container)
     .WithEnvironment("AZURE_OPENAI_ENDPOINT", builder.Configuration["AZURE_OPENAI_ENDPOINT"] ?? "")
     .WithEnvironment("AZURE_OPENAI_DEPLOYMENT_NAME", builder.Configuration["AZURE_OPENAI_DEPLOYMENT_NAME"] ?? "gpt-41-mini")
+    .WithEnvironment("AZURE_OPENAI_DEPLOYMENTS", builder.Configuration["AZURE_OPENAI_DEPLOYMENTS"] ?? "")
     .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development");
 
 // Pass the API URL to the frontend for direct API calls (static SPA)

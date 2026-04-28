@@ -16,3 +16,8 @@ public class AgentTests(AspireFixture f)
 [ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
 public class WorkflowSuite(AspireFixture f)
     : WorkflowTests(f.Client);
+
+[InheritsTests]
+[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
+public class WorkflowFirstSuite(AspireFixture f)
+    : WorkflowFirstTests(f.Client);

@@ -156,3 +156,61 @@ class TransportHealthModel(TypedDict, total=False):
 class TransportListResponse(TypedDict, total=False):
     value: list[dict[str, Any]]
     nextLink: str
+
+
+# ─── Discovery rule (top-level resource) ─────────────────────────────
+
+
+class TransportDiscoveryRuleSpecification(TypedDict, total=False):
+    kind: str  # "ResourceGraphQuery" | "ApplicationInsightsTopology"
+    resourceGraphQuery: str
+    applicationInsightsResourceId: str
+
+
+class TransportDiscoveryRuleProperties(TypedDict, total=False):
+    provisioningState: str
+    displayName: str
+    authenticationSetting: str
+    discoverRelationships: str  # "Enabled" | "Disabled"
+    addRecommendedSignals: str  # "Enabled" | "Disabled"
+    specification: TransportDiscoveryRuleSpecification
+    error: dict[str, Any]
+    entityName: str
+
+
+class TransportDiscoveryRule(TypedDict, total=False):
+    id: str
+    name: str
+    type: str
+    properties: TransportDiscoveryRuleProperties
+
+
+# ─── Entity history ──────────────────────────────────────────────────
+
+
+class TransportHealthStateTransition(TypedDict, total=False):
+    previousState: str
+    newState: str
+    occurredAt: str
+    reason: str
+
+
+class TransportEntityHistory(TypedDict, total=False):
+    entityName: str
+    history: list[TransportHealthStateTransition]
+
+
+# ─── Signal history ──────────────────────────────────────────────────
+
+
+class TransportSignalHistoryDataPoint(TypedDict, total=False):
+    occurredAt: str
+    value: float | None
+    healthState: str
+    additionalContext: str
+
+
+class TransportSignalHistory(TypedDict, total=False):
+    entityName: str
+    signalName: str
+    history: list[TransportSignalHistoryDataPoint]

@@ -61,18 +61,21 @@ builder.AddAlwaysOnOrleans(silo =>
 
 // Azure OpenAI chat client for agent responses
 var azureEndpoint = builder.Configuration[ConfigKeys.AzureOpenAiEndpoint] ?? "";
-var deployment = builder.Configuration[ConfigKeys.AzureOpenAiDeployment] ?? "gpt-41-mini";
 var openAiEndpoint = builder.Configuration[ConfigKeys.OpenAiEndpoint] ?? "";
 var openAiModel = builder.Configuration[ConfigKeys.OpenAiModel] ?? "default";
+
+// Deployment registry — single source of truth for default + available deployments
+builder.Services.AddSingleton<DeploymentRegistry>();
 
 if (!string.IsNullOrWhiteSpace(azureEndpoint))
 {
     builder.Services.TryAddSingleton<IChatClient>(sp =>
     {
+        var registry = sp.GetRequiredService<DeploymentRegistry>();
         var options = new AzureOpenAIClientOptions();
         options.RetryPolicy = new ClientRetryPolicy(maxRetries: 3);
         var openAiClient = new AzureOpenAIClient(new Uri(azureEndpoint), new DefaultAzureCredential(), options);
-        return openAiClient.GetChatClient(deployment).AsIChatClient();
+        return openAiClient.GetChatClient(registry.DefaultDeployment).AsIChatClient();
     });
 }
 else if (!string.IsNullOrWhiteSpace(openAiEndpoint))
@@ -95,6 +98,7 @@ else
 }
 
 // AI orchestrator for natural language commands
+builder.Services.AddSingleton<ChatClientFactory>();
 builder.Services.AddScoped<OrchestratorService>();
 builder.Services.AddScoped<GroupLifecycleService>();
 
@@ -131,6 +135,13 @@ app.UseOpenTelemetryPrometheusScrapingEndpoint();
 
 app.MapAllEndpoints();
 app.MapWorkflowEndpoints();
+
+app.MapGet(Routes.Models, (DeploymentRegistry registry) =>
+    Results.Ok(new
+    {
+        defaultDeployment = registry.DefaultDeployment,
+        deployments = registry.Deployments,
+    }));
 
 app.Run();
 

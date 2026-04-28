@@ -20,6 +20,7 @@ public static class ConfigKeys
 {
     public const string AzureOpenAiEndpoint = "AZURE_OPENAI_ENDPOINT";
     public const string AzureOpenAiDeployment = "AZURE_OPENAI_DEPLOYMENT_NAME";
+    public const string AzureOpenAiDeployments = "AZURE_OPENAI_DEPLOYMENTS";
     public const string OpenAiEndpoint = "OPENAI_ENDPOINT";
     public const string OpenAiModel = "OPENAI_MODEL";
     public const string LlmIntentMaxRetries = "LLM_INTENT_MAX_RETRIES";

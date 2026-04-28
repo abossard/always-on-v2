@@ -5,16 +5,21 @@ strict frozen domain types. All functions here are calculations.
 """
 from __future__ import annotations
 
-from typing import Mapping, Sequence
+from typing import Any, Mapping, Sequence
 
 from azext_healthmodel.models.domain import (
+    DiscoveryRule,
+    EntityHistory,
     EntityNode,
     EntityState,
     EvaluationRule,
     Forest,
     HealthModelInfo,
+    HealthStateTransition,
     Relationship,
     SignalDefinition,
+    SignalHistory,
+    SignalHistoryPoint,
     SignalValue,
     Snapshot,
 )
@@ -250,4 +255,88 @@ def parse_health_model(raw: TransportHealthModel) -> HealthModelInfo:
         location=raw.get("location", ""),
         provisioning_state=props.get("provisioningState", ""),
         tags=dict(raw.get("tags", {})),
+    )
+
+
+# ─── Discovery rule parsing ──────────────────────────────────────────
+
+
+def parse_discovery_rule(raw: dict[str, Any]) -> DiscoveryRule:
+    """Parse a single discovery rule from the API wire format."""
+    props = raw.get("properties", {})
+    spec = props.get("specification", {})
+    error_raw = props.get("error")
+    error_msg = error_raw.get("message") if isinstance(error_raw, dict) else None
+
+    kind = spec.get("kind", "")
+    if kind == "ResourceGraphQuery":
+        query = spec.get("resourceGraphQuery", "")
+    elif kind == "ApplicationInsightsTopology":
+        query = spec.get("applicationInsightsResourceId", "")
+    else:
+        query = ""
+
+    return DiscoveryRule(
+        rule_id=raw.get("id", ""),
+        name=raw.get("name", ""),
+        display_name=props.get("displayName", raw.get("name", "")),
+        authentication_setting=props.get("authenticationSetting", ""),
+        discover_relationships=props.get("discoverRelationships", "Disabled") == "Enabled",
+        add_recommended_signals=props.get("addRecommendedSignals", "Disabled") == "Enabled",
+        specification_kind=kind,
+        specification_query=query,
+        entity_name=props.get("entityName") or None,
+        provisioning_state=props.get("provisioningState", ""),
+        error=error_msg,
+    )
+
+
+def parse_discovery_rules(
+    raw_list: Sequence[dict[str, Any]],
+) -> list[DiscoveryRule]:
+    """Parse a list of discovery rules."""
+    return [parse_discovery_rule(raw) for raw in raw_list]
+
+
+# ─── Entity history parsing ──────────────────────────────────────────
+
+
+def parse_entity_history(raw: dict[str, Any]) -> EntityHistory:
+    """Parse entity history response from the API."""
+    transitions = []
+    for t in raw.get("history", []):
+        transitions.append(
+            HealthStateTransition(
+                previous_state=_parse_health_state(t.get("previousState")),
+                new_state=_parse_health_state(t.get("newState")),
+                occurred_at=t.get("occurredAt", ""),
+                reason=t.get("reason"),
+            )
+        )
+    return EntityHistory(
+        entity_name=raw.get("entityName", ""),
+        transitions=tuple(transitions),
+    )
+
+
+# ─── Signal history parsing ──────────────────────────────────────────
+
+
+def parse_signal_history(raw: dict[str, Any]) -> SignalHistory:
+    """Parse signal history response from the API."""
+    points = []
+    for p in raw.get("history", []):
+        raw_value = p.get("value")
+        points.append(
+            SignalHistoryPoint(
+                occurred_at=p.get("occurredAt", ""),
+                value=float(raw_value) if raw_value is not None else None,
+                health_state=_parse_health_state(p.get("healthState")),
+                additional_context=p.get("additionalContext"),
+            )
+        )
+    return SignalHistory(
+        entity_name=raw.get("entityName", ""),
+        signal_name=raw.get("signalName", ""),
+        points=tuple(points),
     )

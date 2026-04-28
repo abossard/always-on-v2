@@ -165,32 +165,113 @@ public sealed class ChatGroupGrain(
         if (!state.State.Initialized)
             throw new InvalidOperationException($"Group '{this.GetPrimaryKeyString()}' not initialized.");
         ArgumentNullException.ThrowIfNull(workflow);
-        state.State.Workflow = workflow;
+        state.State.WorkflowVersion += 1;
+        state.State.Workflow = workflow with { Version = state.State.WorkflowVersion };
         await state.WriteStateAsync();
     }
 
-    public Task<WorkflowDefinition?> GetWorkflowAsync()
-        => Task.FromResult(state.State.Workflow);
+    public Task<WorkflowDefinition> GetWorkflowAsync()
+        => Task.FromResult(state.State.Workflow ?? WorkflowDefaults.DefaultAnswer());
 
     public async Task<string> StartWorkflowAsync(string? input)
     {
         if (!state.State.Initialized)
             throw new InvalidOperationException($"Group '{this.GetPrimaryKeyString()}' not initialized.");
-        if (state.State.Workflow is null)
-            throw new InvalidOperationException("No workflow defined for this group.");
 
+        var wf = state.State.Workflow ?? WorkflowDefaults.DefaultAnswer();
         var groupId = this.GetPrimaryKeyString();
         var executionId = $"{groupId}-wf-{Guid.NewGuid().ToString("N")[..8]}";
+
+        // Track execution (same as RaiseEventAsync) so serial concurrency + history work correctly.
+        state.State.ActiveExecutionIds.Add(executionId);
+        state.State.ExecutionCreatedAt[executionId] = DateTimeOffset.UtcNow;
         state.State.CurrentExecutionId = executionId;
         await state.WriteStateAsync();
 
         var wfGrain = GrainFactory.GetGrain<IWorkflowExecutionGrain>(executionId);
-        await wfGrain.StartAsync(state.State.Workflow, groupId, input);
+        await wfGrain.StartAsync(wf, groupId, input);
         return executionId;
     }
 
     public Task<string?> GetCurrentExecutionIdAsync()
         => Task.FromResult(state.State.CurrentExecutionId);
+
+    public async Task<string?> RaiseEventAsync(string? messageContent)
+    {
+        if (!state.State.Initialized) return null;
+
+        var wf = state.State.Workflow ?? WorkflowDefaults.DefaultAnswer();
+
+        var hasUserMessageTrigger = wf.Triggers.Any(t => string.Equals(t.Type, "user-message", StringComparison.Ordinal));
+        if (!hasUserMessageTrigger) return null;
+
+        if ((wf.Concurrency ?? "serial") == "serial" && state.State.ActiveExecutionIds.Count > 0)
+        {
+            // Queue for later instead of dropping
+            state.State.PendingEventQueue.Add(messageContent ?? "");
+            await state.WriteStateAsync();
+            logger.SerialConcurrencySkip(state.State.ActiveExecutionIds.Count);
+            return null;
+        }
+
+        var groupId = this.GetPrimaryKeyString();
+        var executionId = $"{groupId}-wf-{Guid.NewGuid().ToString("N")[..8]}";
+
+        state.State.ActiveExecutionIds.Add(executionId);
+        state.State.ExecutionCreatedAt[executionId] = DateTimeOffset.UtcNow;
+        state.State.CurrentExecutionId = executionId;
+        await state.WriteStateAsync();
+
+        var wfGrain = GrainFactory.GetGrain<IWorkflowExecutionGrain>(executionId);
+        await wfGrain.StartAsync(wf, groupId, messageContent);
+
+        return executionId;
+    }
+
+    public async Task OnExecutionCompletedAsync(string executionId)
+    {
+        state.State.ActiveExecutionIds.Remove(executionId);
+        var createdAt = state.State.ExecutionCreatedAt.TryGetValue(executionId, out var ts)
+            ? ts
+            : DateTimeOffset.UtcNow;
+        state.State.ExecutionCreatedAt.Remove(executionId);
+        state.State.ExecutionHistory.Add(new ExecutionSummary
+        {
+            ExecutionId = executionId,
+            Completed = true,
+            CreatedAt = createdAt
+        });
+        if (state.State.ExecutionHistory.Count > 50)
+            state.State.ExecutionHistory.RemoveRange(0, state.State.ExecutionHistory.Count - 50);
+        await state.WriteStateAsync();
+
+        // Drain pending event queue under serial concurrency
+        if (state.State.PendingEventQueue.Count > 0 && state.State.ActiveExecutionIds.Count == 0)
+        {
+            var next = state.State.PendingEventQueue[0];
+            state.State.PendingEventQueue.RemoveAt(0);
+            await state.WriteStateAsync();
+            // Fire-and-forget: start the queued execution
+            _ = RaiseEventAsync(next);
+        }
+    }
+
+    public Task<ExecutionListView> GetExecutionsAsync()
+    {
+        var active = state.State.ActiveExecutionIds
+            .Select(id => new ExecutionSummary
+            {
+                ExecutionId = id,
+                Completed = false,
+                CreatedAt = state.State.ExecutionCreatedAt.TryGetValue(id, out var ts) ? ts : DateTimeOffset.UtcNow
+            })
+            .ToArray();
+        return Task.FromResult(new ExecutionListView
+        {
+            Active = active,
+            History = [.. state.State.ExecutionHistory]
+        });
+    }
 
     private void AppendMessage(ChatMessageState msg)
     {

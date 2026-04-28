@@ -61,6 +61,12 @@ param aiServicesEndpoint string = ''
 @description('AI model deployment names for Flux substitution.')
 param aiModelDeployments array = []
 
+@description('Comma-separated AI model deployment names for Flux substitution.')
+param aiModelDeploymentsCsv string = ''
+
+@description('Default AI model deployment name for Flux substitution.')
+param aiDefaultModelDeployment string = ''
+
 @description('Entra ID object IDs to grant AKS Cluster Admin on this stamp.')
 param devIdentities array = []
 
@@ -472,6 +478,8 @@ var sharedFluxVars = {
   AI_MODEL_GPT41: length(aiModelDeployments) > 0 ? aiModelDeployments[0] : ''
   AI_MODEL_GPT41_MINI: length(aiModelDeployments) > 1 ? aiModelDeployments[1] : ''
   AI_MODEL_GPT54: length(aiModelDeployments) > 2 ? aiModelDeployments[2] : ''
+  AI_MODEL_DEPLOYMENTS: !empty(aiModelDeploymentsCsv) ? aiModelDeploymentsCsv : join(aiModelDeployments, ',')
+  AI_MODEL_DEFAULT: !empty(aiDefaultModelDeployment) ? aiDefaultModelDeployment : (length(aiModelDeployments) > 1 ? aiModelDeployments[1] : (length(aiModelDeployments) > 0 ? aiModelDeployments[0] : ''))
   ORLEANS_COSMOS_ENDPOINT: stampCosmos.outputs.cosmosEndpoint
   ORLEANS_CLUSTER_DB: stampCosmos.outputs.orleansDbName
   SPOT_CPU_LIMIT: aksUseSpot ? '100' : '0'

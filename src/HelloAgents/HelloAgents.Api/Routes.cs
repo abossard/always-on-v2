@@ -25,17 +25,25 @@ public static class Routes
     // Orchestrator
     public const string Orchestrate = "/api/orchestrate";
 
+    // Models / deployments
+    public const string Models = "/api/models";
+
     // Workflow
     public const string GroupWorkflowTemplate = "/api/groups/{groupId}/workflow";
     public const string GroupWorkflowExecuteTemplate = "/api/groups/{groupId}/workflow/execute";
     public const string GroupWorkflowExecutionTemplate = "/api/groups/{groupId}/workflow/execution";
     public const string GroupWorkflowHitlTemplate = "/api/groups/{groupId}/workflow/execution/hitl/{nodeId}";
+    public const string GroupExecutionsTemplate = "/api/groups/{groupId}/executions";
+    public const string GroupExecutionDetailTemplate = "/api/groups/{groupId}/executions/{execId}";
 
     public static string GroupWorkflow(string groupId) => GroupWorkflowTemplate.Replace("{groupId}", groupId, StringComparison.Ordinal);
     public static string GroupWorkflowExecute(string groupId) => GroupWorkflowExecuteTemplate.Replace("{groupId}", groupId, StringComparison.Ordinal);
     public static string GroupWorkflowExecution(string groupId) => GroupWorkflowExecutionTemplate.Replace("{groupId}", groupId, StringComparison.Ordinal);
     public static string GroupWorkflowHitl(string groupId, string nodeId) =>
         GroupWorkflowHitlTemplate.Replace("{groupId}", groupId, StringComparison.Ordinal).Replace("{nodeId}", nodeId, StringComparison.Ordinal);
+    public static string GroupExecutions(string groupId) => GroupExecutionsTemplate.Replace("{groupId}", groupId, StringComparison.Ordinal);
+    public static string GroupExecutionDetail(string groupId, string execId) =>
+        GroupExecutionDetailTemplate.Replace("{groupId}", groupId, StringComparison.Ordinal).Replace("{execId}", execId, StringComparison.Ordinal);
 
     // Helper methods for parameterized routes
     public static string GroupDetail(string id) => GroupDetailTemplate.Replace("{id}", id, StringComparison.Ordinal);

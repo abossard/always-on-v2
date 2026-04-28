@@ -78,6 +78,11 @@ public sealed class WorkflowExecutionGrain(
             state.State.Completed = true;
             await state.WriteStateAsync();
             await PublishProgress($"Workflow halted due to failed node '{nodeId}'");
+
+            var failedGroupGrain = GrainFactory.GetGrain<IChatGroupGrain>(state.State.GroupId);
+            _ = failedGroupGrain.OnExecutionCompletedAsync(this.GetPrimaryKeyString())
+                .ContinueWith(t => logger.LogError(t.Exception, "Failed to notify group of completion"),
+                    CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
             return;
         }
 
@@ -135,6 +140,11 @@ public sealed class WorkflowExecutionGrain(
             state.State.Completed = true;
             await state.WriteStateAsync();
             await PublishProgress($"✅ Workflow '{workflow.Name}' completed");
+
+            var groupGrain = GrainFactory.GetGrain<IChatGroupGrain>(state.State.GroupId);
+            _ = groupGrain.OnExecutionCompletedAsync(this.GetPrimaryKeyString())
+                .ContinueWith(t => logger.LogError(t.Exception, "Failed to notify group of completion"),
+                    CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
         }
     }
 
@@ -194,6 +204,14 @@ public sealed class WorkflowExecutionGrain(
                     _ = tool.StartAsync(request)
                         .ContinueWith(t => logger.LogError(t.Exception, "Failed to start tool executor {Key}", toolKey),
                             CancellationToken.None, TaskContinuationOptions.OnlyOnFaulted, TaskScheduler.Default);
+                    break;
+                }
+            case "broadcast":
+                {
+                    // Broadcast completes immediately — agents already received the
+                    // user message via the existing stream publish in POST /messages.
+                    // The broadcast node is a logical marker in the DAG, not a re-publisher.
+                    _ = OnNodeCompletedAsync(node.Id, "Broadcast: agents notified via stream", failed: false);
                     break;
                 }
             default:

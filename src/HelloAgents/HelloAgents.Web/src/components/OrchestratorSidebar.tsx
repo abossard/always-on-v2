@@ -19,7 +19,7 @@ export function OrchestratorSidebar({ onActionComplete }: Props) {
     {
       id: "welcome",
       role: "assistant",
-      content: "Hi! I can help you create groups, add agents, start discussions, and delete groups. Try something like:\n\n• \"Create a debate group about climate change\"\n• \"Delete all groups except the last one\"\n• \"Delete all groups\"\n• \"Delete some random groups\"",
+      content: "Hi! I can help you create groups, add agents, start discussions, build workflows, and delete groups. Try something like:\n\n• \"Create a debate group about climate change\"\n• \"Build a research pipeline for [group]: Researcher → Writer → human approval → Editor\"\n• \"Show workflow for [group]\"\n• \"Delete all groups except the last one\"",
     },
   ]);
   const [input, setInput] = useState("");
@@ -69,17 +69,19 @@ export function OrchestratorSidebar({ onActionComplete }: Props) {
   };
 
   const suggestions = [
-    "Create a debate group about AI ethics with a skeptic and an optimist",
-    "Delete all groups except the last one",
-    "Delete all groups",
-    "Delete some random groups",
+    "Create a Joke Refinery: a Comedian writes jokes, a Critic reviews them, a human picks the best one, then a Polisher refines it",
+    "Create a Word Explorer: a Thesaurus Agent finds alternative words, a human picks favorites, then a Sentence Crafter uses them in context",
+    "Create a Story Workshop: a Plot Generator creates an outline, a Character Designer adds characters, a human approves, then a Narrator writes the story",
+    "Create a Code Review Pipeline: a Developer writes code, a Reviewer critiques it, a human decides, then a Refactorer improves it",
+    "Create a debate group about whether AI should have rights",
+    "Show workflow for the last group",
   ];
 
   if (!isOpen) {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 left-6 bg-indigo-500 hover:bg-indigo-600 text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-2xl transition-all hover:scale-110 z-50"
+        className="fixed bottom-14 left-6 bg-indigo-500 hover:bg-indigo-600 text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center text-2xl transition-all hover:scale-110 z-50"
         title="AI Orchestrator"
         data-test-id="orchestrator-toggle"
       >
@@ -89,7 +91,7 @@ export function OrchestratorSidebar({ onActionComplete }: Props) {
   }
 
   return (
-    <div className="fixed bottom-6 left-6 z-50 flex h-150 w-96 flex-col rounded-xl border border-white/10 bg-gray-800 shadow-2xl" data-test-id="orchestrator-panel">
+    <div className="fixed bottom-14 left-6 z-50 flex h-150 w-96 flex-col rounded-xl border border-white/10 bg-gray-800 shadow-2xl" data-test-id="orchestrator-panel">
       {/* Header */}
       <div className="p-3 border-b border-white/10 flex items-center justify-between">
         <div className="flex items-center gap-2">

@@ -422,6 +422,8 @@ module stamps 'stamp.bicep' = [
       devIdentities: enableDevPermissions ? devIdentities : []
       aiServicesEndpoint: ai.outputs.aiServicesEndpoint
       aiModelDeployments: ai.outputs.modelDeploymentNames
+      aiModelDeploymentsCsv: ai.outputs.modelDeploymentsCsv
+      aiDefaultModelDeployment: ai.outputs.defaultModelDeployment
     }
   }
 ]

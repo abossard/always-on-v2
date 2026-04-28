@@ -61,7 +61,7 @@ export default function HomePage() {
 
     setIsLoadingGroup(true);
     api.getWorkflow(selectedGroupId)
-      .then((wf) => setHasWorkflow(!!wf))
+      .then((wf) => setHasWorkflow(!!wf && (wf.nodes.length > 1 || !wf.id.startsWith("system:"))))
       .catch(() => setHasWorkflow(false));
     api.getGroup(selectedGroupId).then(async (detail) => {
       setGroupDetail(detail);
@@ -217,13 +217,14 @@ export default function HomePage() {
     await refreshAgents();
   };
 
-  const handleCreateAgent = async (name: string, persona: string, emoji: string) => {
+  const handleCreateAgent = async (name: string, persona: string, emoji: string, modelDeployment?: string) => {
     setIsCreatingAgent(true);
     try {
       const agent = await api.createAgent({
         name,
         personaDescription: persona,
         avatarEmoji: emoji,
+        modelDeployment,
       });
       await refreshAgents();
       if (selectedGroupId) {
@@ -236,105 +237,110 @@ export default function HomePage() {
 
   return (
     <>
-      <div className="h-screen flex bg-gray-900 text-white" data-test-id="chat-app-ready">
-        {/* Left: Group list */}
-        <div className="w-64 shrink-0 border-r border-white/10 bg-gray-900/80">
-          <GroupList
-            groups={groups}
-            selectedId={selectedGroupId}
-            onSelect={setSelectedGroupId}
-            onCreate={handleCreateGroup}
-            onDelete={handleDeleteGroup}
-          />
-        </div>
+      <div className="h-screen flex flex-col bg-gray-900 text-white" data-test-id="chat-app-ready">
+        <div className="flex min-h-0 flex-1">
+          {/* Left: Group list */}
+          <div className="w-64 shrink-0 border-r border-white/10 bg-gray-900/80">
+            <GroupList
+              groups={groups}
+              selectedId={selectedGroupId}
+              onSelect={setSelectedGroupId}
+              onCreate={handleCreateGroup}
+              onDelete={handleDeleteGroup}
+            />
+          </div>
 
-        {/* Center: Chat or Workflow */}
-        <div className="flex-1 flex flex-col min-w-0">
-          {isLoadingGroup ? (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center text-white/40">
-                <div className="text-4xl mb-3 animate-pulse">💬</div>
-                <p className="text-sm">Loading group...</p>
+          {/* Center: Chat or Workflow */}
+          <div className="flex-1 flex flex-col min-h-0 min-w-0">
+            {isLoadingGroup ? (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center text-white/40">
+                  <div className="text-4xl mb-3 animate-pulse">💬</div>
+                  <p className="text-sm">Loading group...</p>
+                </div>
               </div>
-            </div>
-          ) : selectedGroupId && groupDetail ? (
-            <>
-              {/* Tab bar */}
-              <div className="flex items-center gap-1 px-3 pt-2 border-b border-white/10 bg-gray-900/60">
-                <button
-                  onClick={() => setView("chat")}
-                  data-test-id="chat-tab"
-                  className={`text-sm px-3 py-1.5 rounded-t ${
-                    view === "chat"
-                      ? "bg-gray-800 text-white"
-                      : "text-white/50 hover:text-white"
-                  }`}
-                >
-                  💬 Chat
-                </button>
-                {hasWorkflow && (
+            ) : selectedGroupId && groupDetail ? (
+              <>
+                {/* Tab bar */}
+                <div className="flex items-center gap-1 px-3 pt-2 border-b border-white/10 bg-gray-900/60">
                   <button
-                    onClick={() => setView("workflow")}
-                    data-test-id="workflow-tab"
+                    onClick={() => setView("chat")}
+                    data-test-id="chat-tab"
                     className={`text-sm px-3 py-1.5 rounded-t ${
-                      view === "workflow"
+                      view === "chat"
                         ? "bg-gray-800 text-white"
                         : "text-white/50 hover:text-white"
                     }`}
                   >
-                    🔀 Workflow
+                    💬 Chat
                   </button>
-                )}
+                  {hasWorkflow && (
+                    <button
+                      onClick={() => setView("workflow")}
+                      data-test-id="workflow-tab"
+                      className={`text-sm px-3 py-1.5 rounded-t ${
+                        view === "workflow"
+                          ? "bg-gray-800 text-white"
+                          : "text-white/50 hover:text-white"
+                      }`}
+                    >
+                      🔀 Workflow
+                    </button>
+                  )}
+                </div>
+                <div className="min-h-0 flex-1">
+                  {view === "chat" || !hasWorkflow ? (
+                    <ChatView
+                      groupId={selectedGroupId}
+                      messages={messages}
+                      onSendMessage={handleSendMessage}
+                      onStartDiscussion={handleStartDiscussion}
+                      isDiscussing={isDiscussing}
+                      isSending={isSending}
+                      groupName={groupDetail.name}
+                      thinkingAgents={thinkingAgents}
+                    />
+                  ) : (
+                    <WorkflowPanel
+                      groupId={selectedGroupId}
+                      groupName={groupDetail.name}
+                      agents={groupAgents}
+                      onClose={() => setView("chat")}
+                    />
+                  )}
+                </div>
+              </>
+            ) : (
+              <div className="flex-1 flex items-center justify-center">
+                <div className="text-center text-white/30">
+                  <div className="text-6xl mb-4">💬</div>
+                  <h2 className="text-xl font-semibold mb-2">HelloAgents</h2>
+                  <p className="text-sm">Select or create a group to start chatting with AI agents</p>
+                </div>
               </div>
-              {view === "chat" || !hasWorkflow ? (
-                <ChatView
-                  messages={messages}
-                  onSendMessage={handleSendMessage}
-                  onStartDiscussion={handleStartDiscussion}
-                  isDiscussing={isDiscussing}
-                  isSending={isSending}
-                  groupName={groupDetail.name}
-                  thinkingAgents={thinkingAgents}
-                />
-              ) : (
-                <WorkflowPanel
-                  groupId={selectedGroupId}
-                  groupName={groupDetail.name}
-                  agents={groupAgents}
-                  onClose={() => setView("chat")}
-                />
-              )}
-            </>
-          ) : (
-            <div className="flex-1 flex items-center justify-center">
-              <div className="text-center text-white/30">
-                <div className="text-6xl mb-4">💬</div>
-                <h2 className="text-xl font-semibold mb-2">HelloAgents</h2>
-                <p className="text-sm">Select or create a group to start chatting with AI agents</p>
-              </div>
+            )}
+          </div>
+
+          {/* Right: Agent roster */}
+          {selectedGroupId && groupDetail && (
+            <div className="w-64 shrink-0 border-l border-white/10 bg-gray-900/80">
+              <AgentRoster
+                agents={groupAgents}
+                allAgents={allAgents}
+                onAddAgent={handleAddAgent}
+                onRemoveAgent={handleRemoveAgent}
+                onCreateAgent={handleCreateAgent}
+                isAddingAgent={isAddingAgent}
+                isCreatingAgent={isCreatingAgent}
+              />
             </div>
           )}
         </div>
 
-        {/* Right: Agent roster */}
-        {selectedGroupId && groupDetail && (
-          <div className="w-64 shrink-0 border-l border-white/10 bg-gray-900/80">
-            <AgentRoster
-              agents={groupAgents}
-              allAgents={allAgents}
-              onAddAgent={handleAddAgent}
-              onRemoveAgent={handleRemoveAgent}
-              onCreateAgent={handleCreateAgent}
-              isAddingAgent={isAddingAgent}
-              isCreatingAgent={isCreatingAgent}
-            />
-          </div>
-        )}
+        <StreamDiagnostics events={streamEvents} />
       </div>
 
-      {/* Floating panels */}
       <OrchestratorSidebar onActionComplete={refreshAll} />
-      <StreamDiagnostics events={streamEvents} />
     </>
   );
 }

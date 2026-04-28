@@ -132,7 +132,8 @@ public sealed class AgentGrain(
             state.State.Name,
             state.State.SystemPrompt,
             state.State.ReflectionJournal,
-            state.State.AvatarEmoji);
+            state.State.AvatarEmoji,
+            state.State.ModelDeployment);
 
         logger.SpawningIntent(
             state.State.Name, intentId, groupId);
@@ -256,7 +257,8 @@ public sealed class AgentGrain(
                 state.State.Name,
                 state.State.SystemPrompt,
                 state.State.ReflectionJournal,
-                state.State.AvatarEmoji);
+                state.State.AvatarEmoji,
+                state.State.ModelDeployment);
 
             var intentGrain = GrainFactory.GetGrain<ILlmIntentGrain>(reflectionIntentId);
             _ = intentGrain.ExecuteAsync(reflectionRequest, persona)
@@ -272,11 +274,12 @@ public sealed class AgentGrain(
         }
     }
 
-    public async Task InitializeAsync(string name, string systemPrompt, string avatarEmoji)
+    public async Task InitializeAsync(string name, string systemPrompt, string avatarEmoji, string? modelDeployment = null)
     {
         state.State.Name = name;
         state.State.SystemPrompt = systemPrompt;
         state.State.AvatarEmoji = avatarEmoji;
+        state.State.ModelDeployment = modelDeployment;
         state.State.Initialized = true;
         await state.WriteStateAsync();
 
@@ -294,7 +297,8 @@ public sealed class AgentGrain(
             state.State.Name,
             state.State.AvatarEmoji,
             [.. state.State.GroupIds],
-            state.State.ReflectionJournal));
+            state.State.ReflectionJournal,
+            state.State.ModelDeployment));
     }
 
     public Task<AgentPersona> GetPersonaAsync()
@@ -306,7 +310,8 @@ public sealed class AgentGrain(
             state.State.Name,
             state.State.SystemPrompt,
             state.State.ReflectionJournal,
-            state.State.AvatarEmoji));
+            state.State.AvatarEmoji,
+            state.State.ModelDeployment));
     }
 
     public async Task JoinGroupAsync(string groupId)

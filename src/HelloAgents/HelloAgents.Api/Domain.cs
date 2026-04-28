@@ -21,11 +21,18 @@ public sealed record AgentPersona(
     [property: Id(0)] string AgentName,
     [property: Id(1)] string SystemPrompt,
     [property: Id(2)] string ReflectionJournal,
-    [property: Id(3)] string AvatarEmoji);
+    [property: Id(3)] string AvatarEmoji,
+    [property: Id(4)] string? ModelDeployment = null);
 
 #pragma warning disable CA1819 // Orleans [GenerateSerializer] records require concrete array types
 [GenerateSerializer]
-public sealed record AgentInfo([property: Id(0)] string Id, [property: Id(1)] string Name, [property: Id(2)] string AvatarEmoji, [property: Id(3)] string[] GroupIds, [property: Id(4)] string ReflectionJournal);
+public sealed record AgentInfo(
+    [property: Id(0)] string Id,
+    [property: Id(1)] string Name,
+    [property: Id(2)] string AvatarEmoji,
+    [property: Id(3)] string[] GroupIds,
+    [property: Id(4)] string ReflectionJournal,
+    [property: Id(5)] string? ModelDeployment = null);
 #pragma warning restore CA1819
 
 [GenerateSerializer]
@@ -86,6 +93,7 @@ public sealed class AgentGrainState
 #pragma warning restore CA2227
     [Id(4)] public string ReflectionJournal { get; set; } = "";
     [Id(5)] public bool Initialized { get; set; }
+    [Id(6)] public string? ModelDeployment { get; set; }
 }
 
 [GenerateSerializer]
@@ -103,6 +111,25 @@ public sealed class ChatGroupGrainState
 #pragma warning restore CA2227
     [Id(7)] public WorkflowDefinition? Workflow { get; set; }
     [Id(8)] public string? CurrentExecutionId { get; set; }
+    [Id(9)] public int WorkflowVersion { get; set; }
+#pragma warning disable CA1002, CA2227 // Orleans grain state requires mutable List<T> with setters
+    [Id(10)] public List<string> ActiveExecutionIds { get; set; } = [];
+    [Id(11)] public List<ExecutionSummary> ExecutionHistory { get; set; } = [];
+#pragma warning restore CA1002, CA2227
+#pragma warning disable CA2227
+    [Id(12)] public Dictionary<string, DateTimeOffset> ExecutionCreatedAt { get; set; } = [];
+#pragma warning restore CA2227
+#pragma warning disable CA1002, CA2227
+    [Id(13)] public List<string> PendingEventQueue { get; set; } = [];
+#pragma warning restore CA1002, CA2227
+}
+
+[GenerateSerializer]
+public sealed record ExecutionSummary
+{
+    [Id(0)] public required string ExecutionId { get; init; }
+    [Id(1)] public bool Completed { get; init; }
+    [Id(2)] public DateTimeOffset CreatedAt { get; init; }
 }
 
 /// <summary>Agent membership info stored in group state, learned from stream events.</summary>
@@ -149,7 +176,7 @@ public sealed class RegistryGrainState
 // ─── API Request / Response DTOs ────────────────────────────
 
 public sealed record CreateGroupRequest(string Name, string? Description);
-public sealed record CreateAgentRequest(string Name, string PersonaDescription, string? AvatarEmoji);
+public sealed record CreateAgentRequest(string Name, string PersonaDescription, string? AvatarEmoji, string? ModelDeployment = null);
 [GenerateSerializer]
 public sealed record AddAgentToGroupRequest([property: Id(0)] string AgentId);
 public sealed record SendMessageRequest(string? SenderName, string Content);
@@ -164,14 +191,21 @@ public interface IChatGroupGrain : IGrainWithStringKey
     Task<ChatGroupDetail> GetStateAsync();
     Task DeleteAsync();
     Task SetWorkflowAsync(WorkflowDefinition workflow);
-    Task<WorkflowDefinition?> GetWorkflowAsync();
+    Task<WorkflowDefinition> GetWorkflowAsync();
+    [Obsolete("Use RaiseEventAsync instead")]
     Task<string> StartWorkflowAsync(string? input);
+    [Obsolete("Use GetExecutionsAsync instead")]
     Task<string?> GetCurrentExecutionIdAsync();
+    Task<ExecutionListView> GetExecutionsAsync();
+#pragma warning disable CA1030 // Use events
+    Task<string?> RaiseEventAsync(string? messageContent);
+#pragma warning restore CA1030
+    Task OnExecutionCompletedAsync(string executionId);
 }
 
 public interface IAgentGrain : IGrainWithStringKey
 {
-    Task InitializeAsync(string name, string systemPrompt, string avatarEmoji);
+    Task InitializeAsync(string name, string systemPrompt, string avatarEmoji, string? modelDeployment = null);
     Task<AgentInfo> GetInfoAsync();
     Task<AgentPersona> GetPersonaAsync();
     Task JoinGroupAsync(string groupId);
@@ -209,6 +243,18 @@ public sealed record WorkflowDefinition
     [Id(1)] public required string Name { get; init; }
     [Id(2)] public required WorkflowNode[] Nodes { get; init; }
     [Id(3)] public required WorkflowEdge[] Edges { get; init; }
+    [Id(4)] public WorkflowTrigger[] Triggers { get; init; } = [];
+    [Id(5)] public int Version { get; init; }
+    [Id(6)] public string? Concurrency { get; init; }
+}
+
+[GenerateSerializer]
+public sealed record WorkflowTrigger
+{
+    [Id(0)] public required string Type { get; init; }
+#pragma warning disable CA2227 // Orleans serialization requires mutable dictionary
+    [Id(1)] public Dictionary<string, string> Config { get; init; } = new();
+#pragma warning restore CA2227
 }
 #pragma warning restore CA1819
 
@@ -295,6 +341,15 @@ public sealed record WorkflowExecutionView(
     string GroupId,
     bool Completed,
     Dictionary<string, NodeExecutionState> NodeStates);
+
+#pragma warning disable CA1819 // DTO arrays
+[GenerateSerializer]
+public sealed record ExecutionListView
+{
+    [Id(0)] public ExecutionSummary[] Active { get; init; } = [];
+    [Id(1)] public ExecutionSummary[] History { get; init; } = [];
+}
+#pragma warning restore CA1819
 
 public interface IWorkflowExecutionGrain : IGrainWithStringKey
 {

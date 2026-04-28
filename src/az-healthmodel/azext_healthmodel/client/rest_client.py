@@ -1,7 +1,7 @@
 """REST client for the CloudHealth API — the single I/O boundary.
 
 Wraps the ``azure-mgmt-cloudhealth`` SDK for typed CRUD operations and
-falls back to ``send_raw_request`` for endpoints not covered by the SDK
+falls back to ``send_raw_request`` for cross-service queries
 (Prometheus and Azure Monitor metrics).
 
 The public ``CloudHealthClient`` API returns plain ``dict`` / ``list[dict]``
@@ -34,6 +34,7 @@ def _resource_type_to_ops(resource_type: str) -> Callable[[Any], Any]:
         "signaldefinitions": lambda sdk: sdk.signal_definitions,
         "authenticationsettings": lambda sdk: sdk.authentication_settings,
         "relationships": lambda sdk: sdk.relationships,
+        "discoveryrules": lambda sdk: sdk.discovery_rules,
     }
     try:
         return table[resource_type]
@@ -172,6 +173,17 @@ class CloudHealthClient:
             lambda: self._sdk.health_models.begin_delete(resource_group, name)
         )
 
+    def update_model(
+        self,
+        resource_group: str,
+        name: str,
+        body: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Update (PATCH) a health model via SDK."""
+        return self._call_lro(
+            lambda: self._sdk.health_models.begin_update(resource_group, name, body)
+        )
+
     # ─── Sub-resource CRUD (entities, signals, relationships, auth) ───
 
     def get_sub_resource(
@@ -206,8 +218,8 @@ class CloudHealthClient:
         body: dict[str, Any],
     ) -> dict[str, Any]:
         ops = _resource_type_to_ops(resource_type)(self._sdk)
-        return self._call(
-            lambda: ops.create_or_update(
+        return self._call_lro(
+            lambda: ops.begin_create_or_update(
                 resource_group, model_name, resource_name, body
             )
         )
@@ -220,8 +232,8 @@ class CloudHealthClient:
         resource_name: str,
     ) -> dict[str, Any]:
         ops = _resource_type_to_ops(resource_type)(self._sdk)
-        return self._call(
-            lambda: ops.delete(resource_group, model_name, resource_name)
+        return self._call_lro(
+            lambda: ops.begin_delete(resource_group, model_name, resource_name)
         )
 
     # ─── Convenience methods for common operations ────────────────────
@@ -250,6 +262,11 @@ class CloudHealthClient:
             resource_group, model_name, "authenticationsettings"
         )
 
+    def list_discovery_rules(
+        self, resource_group: str, model_name: str
+    ) -> list[dict[str, Any]]:
+        return self.list_sub_resources(resource_group, model_name, "discoveryrules")
+
     # ─── Entity signal operations (history, ingest) ───────────────────
 
     def get_signal_history(
@@ -259,25 +276,26 @@ class CloudHealthClient:
         entity_name: str,
         body: dict[str, Any],
     ) -> dict[str, Any]:
-        """POST to getSignalHistory — not in SDK, use send_raw_request."""
-        from azure.cli.core.util import send_raw_request
-        import json
+        """Get signal history for an entity — now uses SDK."""
+        return self._call(
+            lambda: self._sdk.entities.get_signal_history(
+                resource_group, model_name, entity_name, body=body
+            )
+        )
 
-        url = (
-            f"https://management.azure.com"
-            f"/subscriptions/{self._subscription_id}"
-            f"/resourceGroups/{resource_group}"
-            f"/providers/{PROVIDER}/healthmodels/{model_name}"
-            f"/entities/{entity_name}/getSignalHistory"
-            f"?api-version={API_VERSION}"
+    def get_entity_history(
+        self,
+        resource_group: str,
+        model_name: str,
+        entity_name: str,
+        body: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Get entity health state history via SDK."""
+        return self._call(
+            lambda: self._sdk.entities.get_history(
+                resource_group, model_name, entity_name, body=body
+            )
         )
-        response = send_raw_request(
-            self._cli_ctx, "POST", url, body=json.dumps(body)
-        )
-        try:
-            return response.json()
-        except (ValueError, AttributeError):
-            return {}
 
     def ingest_health_report(
         self,
@@ -286,29 +304,16 @@ class CloudHealthClient:
         entity_name: str,
         body: dict[str, Any],
     ) -> dict[str, Any]:
-        """POST to ingestHealthReport — not in SDK, use send_raw_request."""
-        from azure.cli.core.util import send_raw_request
-        import json
-
-        url = (
-            f"https://management.azure.com"
-            f"/subscriptions/{self._subscription_id}"
-            f"/resourceGroups/{resource_group}"
-            f"/providers/{PROVIDER}/healthmodels/{model_name}"
-            f"/entities/{entity_name}/ingestHealthReport"
-            f"?api-version={API_VERSION}"
-        )
-        response = send_raw_request(
-            self._cli_ctx, "POST", url, body=json.dumps(body)
-        )
-        if response.status_code == 204:
-            return {}
+        """Ingest a health report — now uses SDK."""
         try:
-            return response.json()
-        except (ValueError, AttributeError):
+            self._sdk.entities.ingest_health_report(
+                resource_group, model_name, entity_name, body=body
+            )
             return {}
+        except Exception as e:  # noqa: BLE001
+            self._raise_translated(e)
 
-    # ─── External data source queries (Prometheus, Azure Metrics) ─────
+    # ─── Cross-service queries (NOT CloudHealth SDK — different Azure services) ─
 
     def query_prometheus(
         self,

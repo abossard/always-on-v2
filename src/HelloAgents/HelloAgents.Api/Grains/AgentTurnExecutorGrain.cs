@@ -12,6 +12,7 @@ namespace HelloAgents.Api.Grains;
 public sealed class AgentTurnExecutorGrain(
     [PersistentState("workflownode", "Default")] IPersistentState<WorkflowNodeExecutorGrainState> state,
     IChatClient chatClient,
+    ChatClientFactory chatClientFactory,
     IServiceProvider services,
     IConfiguration configuration,
     ILogger<AgentTurnExecutorGrain> logger) : Grain, IWorkflowNodeExecutorGrain
@@ -148,7 +149,7 @@ public sealed class AgentTurnExecutorGrain(
                 $"Now respond as {persona.AgentName}. Do NOT prefix with your name."));
         }
 
-        var response = await chatClient.GetResponseAsync(messages);
+        var response = await (chatClientFactory?.GetClient(persona.ModelDeployment) ?? chatClient).GetResponseAsync(messages);
         return response.Text ?? "";
     }
 

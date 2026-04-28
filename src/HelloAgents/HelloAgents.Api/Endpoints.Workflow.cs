@@ -4,12 +4,12 @@ public static class WorkflowEndpoints
 {
     public static WebApplication MapWorkflowEndpoints(this WebApplication app)
     {
-        // Get the workflow attached to a group (or 404 if none)
+        // Get the effective workflow attached to a group (default if none set)
         app.MapGet(Routes.GroupWorkflowTemplate, async (string groupId, IGrainFactory grains) =>
         {
             var group = grains.GetGrain<IChatGroupGrain>(groupId);
             var wf = await group.GetWorkflowAsync();
-            return wf is null ? Results.NotFound() : Results.Ok(wf);
+            return Results.Ok(wf);
         });
 
         // Define / replace the workflow attached to a group
@@ -26,12 +26,30 @@ public static class WorkflowEndpoints
             {
                 var group = grains.GetGrain<IChatGroupGrain>(groupId);
                 await group.SetWorkflowAsync(request.Workflow);
-                return Results.Ok(request.Workflow);
+                var updated = await group.GetWorkflowAsync();
+                return Results.Ok(updated);
             }
             catch (InvalidOperationException ex)
             {
                 return Results.BadRequest(ex.Message);
             }
+        });
+
+        // List active + historical executions for a group
+        app.MapGet(Routes.GroupExecutionsTemplate, async (string groupId, IGrainFactory grains) =>
+        {
+            var group = grains.GetGrain<IChatGroupGrain>(groupId);
+            var execs = await group.GetExecutionsAsync();
+            return Results.Ok(execs);
+        });
+
+        // Get a specific execution's state
+        app.MapGet(Routes.GroupExecutionDetailTemplate, async (string groupId, string execId, IGrainFactory grains) =>
+        {
+            var wf = grains.GetGrain<IWorkflowExecutionGrain>(execId);
+            var nodes = await wf.GetNodeStatesAsync();
+            var completed = await wf.IsCompletedAsync();
+            return Results.Ok(new WorkflowExecutionView(execId, groupId, completed, nodes));
         });
 
         // Start a new execution of the group's workflow
@@ -40,7 +58,9 @@ public static class WorkflowEndpoints
             try
             {
                 var group = grains.GetGrain<IChatGroupGrain>(groupId);
+#pragma warning disable CS0618 // Backward-compat endpoint
                 var executionId = await group.StartWorkflowAsync(request?.Input);
+#pragma warning restore CS0618
                 return Results.Accepted(value: new { executionId });
             }
             catch (InvalidOperationException ex)
@@ -53,7 +73,9 @@ public static class WorkflowEndpoints
         app.MapGet(Routes.GroupWorkflowExecutionTemplate, async (string groupId, IGrainFactory grains) =>
         {
             var group = grains.GetGrain<IChatGroupGrain>(groupId);
+#pragma warning disable CS0618 // Backward-compat endpoint
             var executionId = await group.GetCurrentExecutionIdAsync();
+#pragma warning restore CS0618
             if (executionId is null)
                 return Results.NotFound();
 
@@ -71,7 +93,9 @@ public static class WorkflowEndpoints
                 return Results.BadRequest("Response is required.");
 
             var group = grains.GetGrain<IChatGroupGrain>(groupId);
+#pragma warning disable CS0618 // Backward-compat endpoint
             var executionId = await group.GetCurrentExecutionIdAsync();
+#pragma warning restore CS0618
             if (executionId is null)
                 return Results.NotFound("No active workflow execution.");
 

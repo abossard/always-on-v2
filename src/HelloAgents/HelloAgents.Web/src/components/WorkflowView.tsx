@@ -357,12 +357,7 @@ function Inner({ groupId, agents }: Props) {
         className="flex h-full flex-col items-center justify-center text-center text-white/40 p-6"
         data-test-id="workflow-empty"
       >
-        <div className="text-5xl mb-3">🔀</div>
-        <h3 className="text-lg font-semibold text-white/70 mb-1">No workflow</h3>
-        <p className="text-sm max-w-sm">
-          Ask an agent (via the orchestrator) to build a workflow for this group using the
-          “Build Workflow” tool. It will appear here when ready.
-        </p>
+        <div className="text-sm">Loading...</div>
       </div>
     );
   }
@@ -504,7 +499,56 @@ function Inner({ groupId, agents }: Props) {
             </div>
           </div>
         )}
+
+        <ExecutionHistory groupId={groupId} currentExecId={execution?.executionId} />
       </div>
+    </div>
+  );
+}
+
+function ExecutionHistory({ groupId, currentExecId }: { groupId: string; currentExecId?: string }) {
+  const [data, setData] = useState<{
+    active: { executionId: string; completed: boolean; createdAt: string }[];
+    history: { executionId: string; completed: boolean; createdAt: string }[];
+  } | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const res = await api.getExecutions(groupId);
+      if (!cancelled) setData(res);
+    };
+    void load();
+    const t = setInterval(() => void load(), 3000);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, [groupId, currentExecId]);
+
+  if (!data) return null;
+  const all = [...data.active, ...data.history];
+  if (all.length === 0) return null;
+
+  return (
+    <div className="mt-4 pt-3 border-t border-white/10" data-test-id="execution-history">
+      <div className="text-xs font-semibold uppercase text-white/50 mb-2">Execution History</div>
+      <ul className="space-y-1 text-xs text-white/60">
+        {all.map((e) => (
+          <li
+            key={e.executionId}
+            data-test-id={`execution-history-item-${e.executionId}`}
+            className={`flex items-center justify-between gap-2 px-2 py-1 rounded ${
+              e.executionId === currentExecId ? "bg-emerald-900/30 text-emerald-200" : "bg-white/5"
+            }`}
+          >
+            <span className="font-mono truncate">{e.executionId.slice(-12)}</span>
+            <span className={e.completed ? "text-green-400" : "text-blue-400"}>
+              {e.completed ? "✓ done" : "▶ running"}
+            </span>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

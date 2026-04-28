@@ -45,6 +45,7 @@ export interface AgentInfo {
   avatarEmoji: string;
   groupIds: string[];
   reflectionJournal: string;
+  modelDeployment?: string;
 }
 
 export interface CreateGroupRequest {
@@ -56,6 +57,7 @@ export interface CreateAgentRequest {
   name: string;
   personaDescription: string;
   avatarEmoji: string;
+  modelDeployment?: string;
 }
 
 export interface SendMessageRequest {
@@ -104,4 +106,15 @@ export interface WorkflowExecution {
   groupId: string;
   completed: boolean;
   nodeStates: Record<string, NodeExecutionState>;
+}
+
+export interface ExecutionSummary {
+  executionId: string;
+  completed: boolean;
+  createdAt: string;
+}
+
+export interface ExecutionListView {
+  active: ExecutionSummary[];
+  history: ExecutionSummary[];
 }

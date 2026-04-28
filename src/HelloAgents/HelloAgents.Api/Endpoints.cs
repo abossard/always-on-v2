@@ -69,19 +69,23 @@ public static class AgentEndpoints
 
     private static void MapAgentEndpoints(this WebApplication app)
     {
-        app.MapPost(Routes.Agents, async (CreateAgentRequest request, IGrainFactory grains) =>
+        app.MapPost(Routes.Agents, async (CreateAgentRequest request, IGrainFactory grains, DeploymentRegistry deployments) =>
         {
             if (string.IsNullOrWhiteSpace(request.Name))
                 return Results.BadRequest("Name is required.");
             if (string.IsNullOrWhiteSpace(request.PersonaDescription))
                 return Results.BadRequest("PersonaDescription is required.");
+            if (!string.IsNullOrEmpty(request.ModelDeployment) && !deployments.IsValid(request.ModelDeployment))
+                return Results.BadRequest(
+                    $"Unknown deployment '{request.ModelDeployment}'. Available: {string.Join(", ", deployments.Deployments.Select(d => d.Name))}");
 
             var id = Guid.NewGuid().ToString("N")[..8];
             var grain = grains.GetGrain<IAgentGrain>(id);
             await grain.InitializeAsync(
                 request.Name,
                 $"You are {request.Name}. {request.PersonaDescription}",
-                request.AvatarEmoji ?? "🤖");
+                request.AvatarEmoji ?? "🤖",
+                request.ModelDeployment);
 
             var registry = grains.GetGrain<IAgentRegistryGrain>("default");
             await registry.RegisterAsync(id, request.Name);
@@ -185,6 +189,10 @@ public static class AgentEndpoints
                 DateTimeOffset.UtcNow);
 
             await stream.OnNextAsync(message);
+
+            var group = clusterClient.GetGrain<IChatGroupGrain>(id);
+            _ = group.RaiseEventAsync(message.Content);
+
             return Results.Ok(message);
         });
 

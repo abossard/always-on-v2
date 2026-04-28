@@ -304,6 +304,69 @@ class Forest:
     unlinked: tuple[str, ...] = ()  # Entity names with no parent or invalid refs
 
 
+# ─── Discovery rule ──────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class DiscoveryRule:
+    """A discovery rule for automatically finding entities."""
+
+    rule_id: str  # ARM resource ID
+    name: str  # GUID
+    display_name: str
+    authentication_setting: str
+    discover_relationships: bool
+    add_recommended_signals: bool
+    specification_kind: str  # "ResourceGraphQuery" | "ApplicationInsightsTopology"
+    specification_query: str  # KQL query or App Insights resource ID
+    entity_name: str | None  # Discovered entity name (if completed)
+    provisioning_state: str
+    error: str | None  # Error message if discovery failed
+
+
+# ─── Health state transition (entity history) ────────────────────────
+
+
+@dataclass(frozen=True)
+class HealthStateTransition:
+    """A single health state change in an entity's history."""
+
+    previous_state: HealthState
+    new_state: HealthState
+    occurred_at: str  # ISO 8601
+    reason: str | None
+
+
+@dataclass(frozen=True)
+class EntityHistory:
+    """Health state history for an entity."""
+
+    entity_name: str
+    transitions: tuple[HealthStateTransition, ...]
+
+
+# ─── Signal history ──────────────────────────────────────────────────
+
+
+@dataclass(frozen=True)
+class SignalHistoryPoint:
+    """A single data point in a signal's history."""
+
+    occurred_at: str  # ISO 8601
+    value: float | None
+    health_state: HealthState
+    additional_context: str | None
+
+
+@dataclass(frozen=True)
+class SignalHistory:
+    """Signal value history for a specific signal on an entity."""
+
+    entity_name: str
+    signal_name: str
+    points: tuple[SignalHistoryPoint, ...]
+
+
 # ─── Search result ───────────────────────────────────────────────────
 
 

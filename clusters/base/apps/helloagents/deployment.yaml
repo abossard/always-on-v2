@@ -74,7 +74,9 @@ spec:
             - name: AZURE_OPENAI_ENDPOINT
               value: ${AI_SERVICES_ENDPOINT}
             - name: AZURE_OPENAI_DEPLOYMENT_NAME
-              value: ${AI_MODEL_GPT41_MINI}
+              value: ${AI_MODEL_DEFAULT}
+            - name: AZURE_OPENAI_DEPLOYMENTS
+              value: ${AI_MODEL_DEPLOYMENTS}
             - name: AlwaysOn__Clustering__Endpoint
               value: "AccountEndpoint=${ORLEANS_COSMOS_ENDPOINT}"
             - name: AlwaysOn__GrainStorage__Endpoint

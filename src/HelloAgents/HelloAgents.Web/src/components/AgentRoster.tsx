@@ -1,14 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { AgentInfo } from "@/lib/types";
+import { getModels } from "@/lib/api";
 
 interface Props {
   agents: AgentInfo[];
   allAgents: AgentInfo[];
   onAddAgent: (agentId: string) => void;
   onRemoveAgent: (agentId: string) => void;
-  onCreateAgent: (name: string, persona: string, emoji: string) => void;
+  onCreateAgent: (name: string, persona: string, emoji: string, modelDeployment?: string) => void;
   isAddingAgent: boolean;
   isCreatingAgent: boolean;
 }
@@ -18,6 +19,18 @@ export function AgentRoster({ agents, allAgents, onAddAgent, onRemoveAgent, onCr
   const [name, setName] = useState("");
   const [persona, setPersona] = useState("");
   const [emoji, setEmoji] = useState("🤖");
+  const [model, setModel] = useState("");
+  const [models, setModels] = useState<{ name: string; label?: string }[]>([]);
+  const [defaultModel, setDefaultModel] = useState<string>("");
+
+  useEffect(() => {
+    getModels()
+      .then((data) => {
+        setModels(data?.deployments ?? []);
+        setDefaultModel(data?.defaultDeployment ?? "");
+      })
+      .catch(() => setModels([]));
+  }, []);
 
   const availableAgents = allAgents.filter(
     (a) => !agents.some((g) => g.id === a.id)
@@ -25,10 +38,11 @@ export function AgentRoster({ agents, allAgents, onAddAgent, onRemoveAgent, onCr
 
   const handleCreate = () => {
     if (!name.trim() || !persona.trim()) return;
-    onCreateAgent(name.trim(), persona.trim(), emoji);
+    onCreateAgent(name.trim(), persona.trim(), emoji, model || undefined);
     setName("");
     setPersona("");
     setEmoji("🤖");
+    setModel("");
     setShowCreate(false);
   };
 
@@ -48,7 +62,17 @@ export function AgentRoster({ agents, allAgents, onAddAgent, onRemoveAgent, onCr
             <div className="flex items-center gap-2">
               <span className="text-xl">{agent.avatarEmoji}</span>
               <div>
-                <div className="text-sm font-medium text-white">{agent.name}</div>
+                <div className="text-sm font-medium text-white flex items-center gap-1.5">
+                  <span>{agent.name}</span>
+                  {agent.modelDeployment && (
+                    <span
+                      className="text-[10px] uppercase tracking-wide bg-indigo-500/20 text-indigo-300 px-1.5 py-0.5 rounded"
+                      title={`Model: ${agent.modelDeployment}`}
+                    >
+                      {agent.modelDeployment}
+                    </span>
+                  )}
+                </div>
                 <div className="text-xs text-white/30">{agent.groupIds.length} {agent.groupIds.length === 1 ? "group" : "groups"}</div>
               </div>
             </div>
@@ -121,6 +145,21 @@ export function AgentRoster({ agents, allAgents, onAddAgent, onRemoveAgent, onCr
               rows={3}
               className="w-full bg-white/10 text-white text-sm rounded px-2 py-1.5 placeholder-white/40 outline-none resize-none"
             />
+            <select
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              className="w-full bg-white/10 text-white text-sm rounded px-2 py-1.5 outline-none cursor-pointer"
+              title="Model deployment"
+            >
+              <option value="" className="bg-gray-800">
+                Model: Default{defaultModel ? ` (${defaultModel})` : ""}
+              </option>
+              {models.map((opt) => (
+                <option key={opt.name} value={opt.name} className="bg-gray-800">
+                  Model: {opt.label ?? opt.name}
+                </option>
+              ))}
+            </select>
             <button
               onClick={handleCreate}
               className="w-full bg-emerald-500 hover:bg-emerald-600 text-white text-sm py-1.5 rounded transition-colors"

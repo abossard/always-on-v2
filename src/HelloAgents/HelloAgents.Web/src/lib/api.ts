@@ -8,6 +8,7 @@ import type {
   ChatMessage,
   WorkflowDefinition,
   WorkflowExecution,
+  ExecutionListView,
 } from "./types";
 
 const API_BASE =
@@ -93,8 +94,23 @@ export const orchestrate = (message: string) =>
     body: JSON.stringify({ message }),
   });
 
+// ─── Models ─────────────────────────────────────────────────
+
+export async function getModels(): Promise<{
+  defaultDeployment: string;
+  deployments: { name: string; label?: string }[];
+} | null> {
+  const res = await fetch(`${API_BASE}/api/models`);
+  if (!res.ok) return null;
+  return res.json();
+}
+
 // ─── Workflow ───────────────────────────────────────────────
 
+/**
+ * Returns the workflow definition for a group. Always non-null for existing
+ * groups (the API auto-defaults). May be null only if the group does not exist (404).
+ */
 export async function getWorkflow(groupId: string): Promise<WorkflowDefinition | null> {
   const res = await fetch(`${API_BASE}/api/groups/${groupId}/workflow`);
   if (res.status === 404) return null;
@@ -132,4 +148,19 @@ export async function submitHitlResponse(groupId: string, nodeId: string, respon
     body: JSON.stringify({ response }),
   });
   if (!res.ok) throw new Error(`API error ${res.status}: ${await res.text().catch(() => "")}`);
+}
+
+export async function getExecutions(groupId: string): Promise<ExecutionListView | null> {
+  const res = await fetch(`${API_BASE}/api/groups/${groupId}/executions`);
+  if (!res.ok) return null;
+  return res.json();
+}
+
+export async function getExecution(
+  groupId: string,
+  execId: string,
+): Promise<WorkflowExecution | null> {
+  const res = await fetch(`${API_BASE}/api/groups/${groupId}/executions/${execId}`);
+  if (!res.ok) return null;
+  return res.json();
 }

@@ -14,10 +14,13 @@ namespace HelloAgents.Api.Grains;
 public sealed class LlmIntentGrain(
     [PersistentState("intent", "Default")] IPersistentState<LlmIntentGrainState> state,
     IChatClient chatClient,
+    ChatClientFactory chatClientFactory,
     IConfiguration configuration,
     ILogger<LlmIntentGrain> logger) : Grain, ILlmIntentGrain
 {
     private IGrainTimer? _retryTimer;
+    private IChatClient ResolveChatClient() =>
+        chatClientFactory?.GetClient(state.State.Persona?.ModelDeployment) ?? chatClient;
 
     private int MaxRetries => configuration.GetValue(ConfigKeys.LlmIntentMaxRetries, 10);
     private int MaxAgeMinutes => configuration.GetValue(ConfigKeys.LlmIntentMaxAgeMinutes, 60);
@@ -243,7 +246,7 @@ public sealed class LlmIntentGrain(
         var chunkBuffer = new StringBuilder();
         var lastChunkTime = Stopwatch.GetTimestamp();
 
-        await foreach (var update in chatClient.GetStreamingResponseAsync(messages))
+        await foreach (var update in ResolveChatClient().GetStreamingResponseAsync(messages))
         {
             var text = update.Text;
             if (string.IsNullOrEmpty(text))

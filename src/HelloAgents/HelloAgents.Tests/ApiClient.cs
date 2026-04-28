@@ -115,4 +115,73 @@ public class HelloAgentsApi(HttpClient http)
 
     public Task<HttpResponseMessage> SubmitHitlResponse(string groupId, string nodeId, string response)
         => http.PostAsJsonAsync(Routes.GroupWorkflowHitl(groupId, nodeId), new HitlResponseRequest(response));
+
+    // ─── Workflow-First (TDD: pending implementation) ────────
+
+    // Workflow-first: every group has a default workflow. Returns null only on transport/404 failure.
+    public async Task<WorkflowDefinitionResponse?> GetWorkflow(string groupId)
+    {
+        var response = await http.GetAsync(new Uri(Routes.GroupWorkflow(groupId), UriKind.Relative));
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync<WorkflowDefinitionResponse>();
+    }
+
+    // New endpoint: lists active + historical executions for a group.
+    public async Task<ExecutionListResponse?> GetExecutions(string groupId)
+    {
+        var response = await http.GetAsync(new Uri($"/api/groups/{groupId}/executions", UriKind.Relative));
+        if (!response.IsSuccessStatusCode) return null;
+        return await response.Content.ReadFromJsonAsync<ExecutionListResponse>();
+    }
 }
+
+// ─── Response DTOs for workflow-first endpoints ──────────────
+
+#pragma warning disable CA1819 // JSON DTOs deserialized as arrays
+public record WorkflowDefinitionResponse
+{
+    public string Id { get; init; } = "";
+    public string Name { get; init; } = "";
+    public WorkflowNodeResponse[] Nodes { get; init; } = [];
+    public WorkflowEdgeResponse[] Edges { get; init; } = [];
+    public WorkflowTriggerResponse[]? Triggers { get; init; }
+    public int? Version { get; init; }
+    public string? Concurrency { get; init; }
+}
+#pragma warning restore CA1819
+
+public record WorkflowNodeResponse
+{
+    public string Id { get; init; } = "";
+    public string Type { get; init; } = "";
+    public string? AgentId { get; init; }
+    public string? ToolName { get; init; }
+    public Dictionary<string, string>? Config { get; init; }
+}
+
+public record WorkflowEdgeResponse
+{
+    public string FromNodeId { get; init; } = "";
+    public string ToNodeId { get; init; } = "";
+}
+
+public record WorkflowTriggerResponse
+{
+    public string Type { get; init; } = "";
+    public Dictionary<string, string>? Config { get; init; }
+}
+
+public record ExecutionSummaryResponse
+{
+    public string ExecutionId { get; init; } = "";
+    public bool Completed { get; init; }
+    public string? CreatedAt { get; init; }
+}
+
+#pragma warning disable CA1819 // JSON DTOs deserialized as arrays
+public record ExecutionListResponse
+{
+    public ExecutionSummaryResponse[] Active { get; init; } = [];
+    public ExecutionSummaryResponse[] History { get; init; } = [];
+}
+#pragma warning restore CA1819

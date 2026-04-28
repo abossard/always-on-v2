@@ -2,8 +2,10 @@
 
 import { useRef, useEffect, useState } from "react";
 import type { ChatMessage } from "@/lib/types";
+import { HitlChatCard } from "./HitlChatCard";
 
 interface Props {
+  groupId: string;
   messages: ChatMessage[];
   onSendMessage: (content: string) => void;
   onStartDiscussion: (topic?: string) => void;
@@ -13,7 +15,13 @@ interface Props {
   thinkingAgents: Map<string, string>;
 }
 
-export function ChatView({ messages, onSendMessage, onStartDiscussion, isDiscussing, isSending, groupName, thinkingAgents }: Props) {
+function parseHitlMessage(content: string): { nodeId: string; prompt: string } | null {
+  const match = content.match(/\[node=([^\]]+)\]:\s*(.+?)(?:\.\s*Context:|$)/);
+  if (!match) return null;
+  return { nodeId: match[1], prompt: match[2].trim() };
+}
+
+export function ChatView({ groupId, messages, onSendMessage, onStartDiscussion, isDiscussing, isSending, groupName, thinkingAgents }: Props) {
   const [input, setInput] = useState("");
   const [topic, setTopic] = useState("");
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -32,7 +40,7 @@ export function ChatView({ messages, onSendMessage, onStartDiscussion, isDiscuss
     msg.eventType === "AgentJoined" || msg.eventType === "AgentLeft";
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex h-full min-h-0 flex-col">
       {/* Header */}
       <div className="p-3 border-b border-white/10 flex items-center justify-between">
         <h2 className="font-semibold text-white">{groupName}</h2>
@@ -61,7 +69,7 @@ export function ChatView({ messages, onSendMessage, onStartDiscussion, isDiscuss
       </div>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3" data-testid="chat-messages">
+      <div className="min-h-0 flex-1 overflow-y-auto p-4 space-y-3" data-testid="chat-messages">
         {messages.length === 0 && (
           <p className="text-white/30 text-sm text-center mt-8">
             No messages yet. Send a message or start a discussion!
@@ -83,12 +91,32 @@ export function ChatView({ messages, onSendMessage, onStartDiscussion, isDiscuss
             );
           }
 
+          // HITL prompt — render inline interactive card (check before generic System)
+          if (msg.senderName === "HITL") {
+            const parsed = parseHitlMessage(msg.content);
+            if (parsed) {
+              return (
+                <div key={msg.id} className="flex gap-3">
+                  <div className="text-2xl flex-shrink-0 mt-1">🙋</div>
+                  <div className="flex-1 max-w-[75%]">
+                    <HitlChatCard
+                      groupId={groupId}
+                      nodeId={parsed.nodeId}
+                      prompt={parsed.prompt}
+                    />
+                  </div>
+                </div>
+              );
+            }
+          }
+
           // System messages (e.g., discuss trigger) — centered
           if (msg.senderType === "System") {
+            const displayContent = msg.content.replace(/ — input: .+$/, "");
             return (
               <div key={msg.id} className="flex justify-center">
                 <span className="text-xs text-amber-400/60 bg-amber-400/5 rounded-full px-3 py-1">
-                  🔔 {msg.content}
+                  🔔 {displayContent}
                 </span>
               </div>
             );

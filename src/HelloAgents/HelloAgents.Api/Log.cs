@@ -71,9 +71,18 @@ internal static partial class Log
     [LoggerMessage(EventId = 47, Level = LogLevel.Information, Message = "Orchestrator deleted {DeletedCount} random groups")]
     public static partial void OrchestratorDeletedRandomGroups(this ILogger logger, int deletedCount);
 
+    [LoggerMessage(EventId = 48, Level = LogLevel.Information, Message = "Orchestrator built workflow '{Workflow}' for group '{Group}' with {Nodes} node(s) and {Edges} edge(s)")]
+    public static partial void OrchestratorBuiltWorkflow(this ILogger logger, string workflow, string group, int nodes, int edges);
+
     [LoggerMessage(EventId = 50, Level = LogLevel.Information, Message = "Workflow execution {ExecutionId} already started")]
     public static partial void WorkflowAlreadyStarted(this ILogger logger, string executionId);
 
     [LoggerMessage(EventId = 51, Level = LogLevel.Information, Message = "HitlExecutor {Key} reactivated, still awaiting human response")]
     public static partial void HitlReactivatedAwaiting(this ILogger logger, string key);
+
+    [LoggerMessage(EventId = 52, Level = LogLevel.Information, Message = "Serial concurrency: skipping execution, {Count} already active")]
+    public static partial void SerialConcurrencySkip(this ILogger logger, int count);
+
+    [LoggerMessage(EventId = 60, Level = LogLevel.Warning, Message = "Unknown deployment '{Deployment}' requested; falling back to default '{Default}'")]
+    public static partial void UnknownDeploymentFallback(this ILogger logger, string deployment, string @default);
 }
