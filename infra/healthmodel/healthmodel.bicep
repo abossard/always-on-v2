@@ -126,7 +126,7 @@ resource failuresEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-
     displayName: 'Failures'
     canvasPosition: {
       x: json('475')
-      y: json('200')
+      y: json('250')
     }
     icon: {
       iconName: 'SystemComponent'
@@ -144,7 +144,7 @@ resource latencyEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-p
     displayName: 'Latency'
     canvasPosition: {
       x: json('1525')
-      y: json('200')
+      y: json('250')
     }
     icon: {
       iconName: 'SystemComponent'
@@ -1677,7 +1677,7 @@ resource stampFailuresGroup 'Microsoft.CloudHealth/healthmodels/entities@2026-01
       displayName: 'Stamp ${stamp.key}'
       canvasPosition: {
         x: json('475')
-        y: json('${400 + i * 500}')
+        y: json('${500 + i * 800}')
       }
       icon: {
         iconName: 'AzureKubernetesService'
@@ -1697,7 +1697,7 @@ resource stampLatencyGroup 'Microsoft.CloudHealth/healthmodels/entities@2026-01-
       displayName: 'Stamp ${stamp.key}'
       canvasPosition: {
         x: json('1525')
-        y: json('${400 + i * 500}')
+        y: json('${500 + i * 800}')
       }
       icon: {
         iconName: 'AzureKubernetesService'
@@ -1742,8 +1742,8 @@ resource stamp_aks_failures 'Microsoft.CloudHealth/healthmodels/entities@2026-01
     properties: {
       displayName: '${stamp.key} — AKS Failures'
       canvasPosition: {
-        x: json('150')
-        y: json('${550 + i * 500}')
+        x: json('138')
+        y: json('${800 + i * 800}')
       }
       icon: {
         iconName: 'Resource'
@@ -1788,8 +1788,8 @@ resource stamp_prom_failures 'Microsoft.CloudHealth/healthmodels/entities@2026-0
     properties: {
       displayName: '${stamp.key} — Pod Failures'
       canvasPosition: {
-        x: json('450')
-        y: json('${550 + i * 500}')
+        x: json('273')
+        y: json('${800 + i * 800}')
       }
       icon: {
         iconName: 'Resource'
@@ -1882,8 +1882,8 @@ resource stamp_fd_failures 'Microsoft.CloudHealth/healthmodels/entities@2026-01-
     properties: {
       displayName: '${stamp.key} — Front Door Errors'
       canvasPosition: {
-        x: json('750')
-        y: json('${550 + i * 500}')
+        x: json('408')
+        y: json('${800 + i * 800}')
       }
       icon: {
         iconName: 'Resource'
@@ -1934,8 +1934,8 @@ resource stamp_cosmos_failures 'Microsoft.CloudHealth/healthmodels/entities@2026
     properties: {
       displayName: '${stamp.key} — Cosmos Errors'
       canvasPosition: {
-        x: json('150')
-        y: json('${750 + i * 500}')
+        x: json('543')
+        y: json('${800 + i * 800}')
       }
       icon: {
         iconName: 'Resource'
@@ -1992,8 +1992,8 @@ resource stamp_cosmos_orleans_failures 'Microsoft.CloudHealth/healthmodels/entit
     properties: {
       displayName: '${stamp.key} — Orleans Cosmos Errors'
       canvasPosition: {
-        x: json('450')
-        y: json('${750 + i * 500}')
+        x: json('678')
+        y: json('${800 + i * 800}')
       }
       icon: {
         iconName: 'Resource'
@@ -2044,8 +2044,8 @@ resource stamp_gateway_failures 'Microsoft.CloudHealth/healthmodels/entities@202
     properties: {
       displayName: '${stamp.key} — Gateway Health'
       canvasPosition: {
-        x: json('750')
-        y: json('${750 + i * 500}')
+        x: json('813')
+        y: json('${800 + i * 800}')
       }
       icon: {
         iconName: 'Resource'
@@ -2104,8 +2104,8 @@ resource stamp_fd_latency 'Microsoft.CloudHealth/healthmodels/entities@2026-01-0
     properties: {
       displayName: '${stamp.key} — FD Latency'
       canvasPosition: {
-        x: json('1200')
-        y: json('${550 + i * 500}')
+        x: json('1209')
+        y: json('${800 + i * 800}')
       }
       icon: {
         iconName: 'Resource'
@@ -2156,8 +2156,8 @@ resource stamp_cosmos_latency 'Microsoft.CloudHealth/healthmodels/entities@2026-
     properties: {
       displayName: '${stamp.key} — Cosmos Latency'
       canvasPosition: {
-        x: json('1500')
-        y: json('${550 + i * 500}')
+        x: json('1367')
+        y: json('${800 + i * 800}')
       }
       icon: {
         iconName: 'Resource'
@@ -2214,8 +2214,8 @@ resource stamp_cosmos_orleans_latency 'Microsoft.CloudHealth/healthmodels/entiti
     properties: {
       displayName: '${stamp.key} — Orleans Cosmos Latency'
       canvasPosition: {
-        x: json('1800')
-        y: json('${550 + i * 500}')
+        x: json('1525')
+        y: json('${800 + i * 800}')
       }
       icon: {
         iconName: 'Resource'
@@ -2260,8 +2260,8 @@ resource stamp_prom_latency 'Microsoft.CloudHealth/healthmodels/entities@2026-01
     properties: {
       displayName: '${stamp.key} — Resource Pressure'
       canvasPosition: {
-        x: json('1200')
-        y: json('${750 + i * 500}')
+        x: json('1683')
+        y: json('${800 + i * 800}')
       }
       icon: {
         iconName: 'Resource'
@@ -2342,8 +2342,8 @@ resource stamp_gateway_latency 'Microsoft.CloudHealth/healthmodels/entities@2026
     properties: {
       displayName: '${stamp.key} — Gateway Latency'
       canvasPosition: {
-        x: json('1500')
-        y: json('${750 + i * 500}')
+        x: json('1841')
+        y: json('${800 + i * 800}')
       }
       icon: {
         iconName: 'Resource'
@@ -2392,7 +2392,7 @@ resource queuesEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-pr
     displayName: 'Queues'
     canvasPosition: {
       x: json('143')
-      y: json('${500 + 500 * length(stamps)}')
+      y: json('${700 + 800 * length(stamps)}')
     }
     icon: {
       iconName: 'AzureStorageQueue'
@@ -2452,7 +2452,7 @@ resource aiEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-previe
     displayName: 'AI Models'
     canvasPosition: {
       x: json('429')
-      y: json('${500 + 500 * length(stamps)}')
+      y: json('${700 + 800 * length(stamps)}')
     }
     icon: {
       iconName: 'AzureCognitiveServices'
@@ -2512,7 +2512,7 @@ resource blobsEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-pre
     displayName: 'Blob Storage'
     canvasPosition: {
       x: json('714')
-      y: json('${500 + 500 * length(stamps)}')
+      y: json('${700 + 800 * length(stamps)}')
     }
     icon: {
       iconName: 'AzureBlobStorage'
@@ -2566,7 +2566,7 @@ resource eventhubsEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01
     displayName: 'Event Hubs'
     canvasPosition: {
       x: json('1000')
-      y: json('${500 + 500 * length(stamps)}')
+      y: json('${700 + 800 * length(stamps)}')
     }
     icon: {
       iconName: 'AzureEventHub'
@@ -2632,7 +2632,7 @@ resource orleansCategory 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01
     displayName: 'Orleans Runtime'
     canvasPosition: {
       x: json('1286')
-      y: json('${500 + 500 * length(stamps)}')
+      y: json('${700 + 800 * length(stamps)}')
     }
     icon: {
       iconName: 'Resource'
@@ -2651,7 +2651,7 @@ resource orleansStampLeaf 'Microsoft.CloudHealth/healthmodels/entities@2026-01-0
       displayName: '${stamp.key} — Orleans'
       canvasPosition: {
         x: json('1286')
-        y: json('${700 + 500 * length(stamps) + i * 250}')
+        y: json('${950 + 800 * length(stamps) + i * 300}')
       }
       icon: {
         iconName: 'Resource'
@@ -2730,7 +2730,7 @@ resource certmanagerCategory 'Microsoft.CloudHealth/healthmodels/entities@2026-0
     displayName: 'Certificates'
     canvasPosition: {
       x: json('1571')
-      y: json('${500 + 500 * length(stamps)}')
+      y: json('${700 + 800 * length(stamps)}')
     }
     icon: {
       iconName: 'Resource'
@@ -2749,7 +2749,7 @@ resource certmanagerStampLeaf 'Microsoft.CloudHealth/healthmodels/entities@2026-
       displayName: '${stamp.key} — Certificates'
       canvasPosition: {
         x: json('1571')
-        y: json('${700 + 500 * length(stamps) + i * 250}')
+        y: json('${950 + 800 * length(stamps) + i * 300}')
       }
       icon: {
         iconName: 'Resource'
@@ -2810,7 +2810,7 @@ resource appmetricsCategory 'Microsoft.CloudHealth/healthmodels/entities@2026-01
     displayName: 'App Metrics'
     canvasPosition: {
       x: json('1857')
-      y: json('${500 + 500 * length(stamps)}')
+      y: json('${700 + 800 * length(stamps)}')
     }
     icon: {
       iconName: 'Resource'
@@ -2829,7 +2829,7 @@ resource appmetricsStampLeaf 'Microsoft.CloudHealth/healthmodels/entities@2026-0
       displayName: '${stamp.key} — App Metrics'
       canvasPosition: {
         x: json('1857')
-        y: json('${700 + 500 * length(stamps) + i * 250}')
+        y: json('${950 + 800 * length(stamps) + i * 300}')
       }
       icon: {
         iconName: 'Resource'

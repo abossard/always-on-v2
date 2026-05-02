@@ -15,20 +15,18 @@
 export const TARGET_WIDTH = 2000;
 export const COL_GAP = 100;
 export const COL_WIDTH = (TARGET_WIDTH - COL_GAP) / 2; // 950
-export const LEAF_COLS = 3;
-export const LEAF_WIDTH = 300;
-export const LEAF_HEIGHT = 200;
-export const STAMP_GAP = 100;
-export const CATEGORY_GAP = 100;
+export const LEAF_HEIGHT = 300;
+export const STAMP_GAP = 200;
+export const CATEGORY_GAP = 200;
 export const ROOT_Y = 0;
-export const CATEGORY_Y = 200;
-export const STAMP_GROUP_Y0 = 400;
-/** Vertical offset of the first leaf row inside a stamp section. */
-export const LEAF_Y_OFFSET = 150;
+export const CATEGORY_Y = 250;
+export const STAMP_GROUP_Y0 = 500;
+/** Vertical offset of the leaf row below its stamp group. */
+export const LEAF_Y_OFFSET = 300;
 /** Vertical offset of a per-stamp minor leaf below its minor category. */
-export const PER_STAMP_LEAF_Y_OFFSET = 200;
+export const PER_STAMP_LEAF_Y_OFFSET = 250;
 /** Per-stamp y delta for a minor per-stamp leaf. */
-export const PER_STAMP_LEAF_Y_STEP = 250;
+export const PER_STAMP_LEAF_Y_STEP = 300;
 
 /** Integer pixel value of the form: c + s * length(stamps). */
 export interface Linear {
@@ -75,7 +73,8 @@ export interface LayoutSpec {
 export function computeLayout(spec: LayoutSpec): Map<string, NodeLayout> {
   const out = new Map<string, NodeLayout>();
   const maxLeaves = Math.max(spec.failures.leafKeys.length, spec.latency.leafKeys.length);
-  const stampH = Math.ceil(maxLeaves / LEAF_COLS) * LEAF_HEIGHT + STAMP_GAP;
+  // Single row: stamp height = offset to leaves + gap before next stamp
+  const stampH = LEAF_Y_OFFSET + LEAF_HEIGHT + STAMP_GAP;
 
   const setSingle = (k: string, x: number | Linear, y: number | Linear): void => {
     out.set(k, {
@@ -89,10 +88,8 @@ export function computeLayout(spec: LayoutSpec): Map<string, NodeLayout> {
   setSingle(spec.rootKey, TARGET_WIDTH / 2, ROOT_Y);
 
   // Major-category column geometry.
-  const failuresColCenter = COL_WIDTH / 2;                    // 475
-  const failuresColLeft = 0;
+  const failuresColCenter = COL_WIDTH / 2;                      // 475
   const latencyColCenter = COL_WIDTH + COL_GAP + COL_WIDTH / 2; // 1525
-  const latencyColLeft = COL_WIDTH + COL_GAP;                  // 1050
 
   setSingle(spec.failures.categoryKey, failuresColCenter, CATEGORY_Y);
   setSingle(spec.latency.categoryKey, latencyColCenter, CATEGORY_Y);
@@ -109,27 +106,26 @@ export function computeLayout(spec: LayoutSpec): Map<string, NodeLayout> {
     baseY: L(STAMP_GROUP_Y0), stampOffsetY: stampH,
   });
 
-  // Place leaves in a 3-col wrapped grid centered (or left-aligned) per column.
-  const placeLeaves = (leaves: readonly string[], colCenter: number, colLeft: number): void => {
+  // Place leaves in a SINGLE ROW centered under the stamp group.
+  // Each leaf gets equal spacing within the column width.
+  const placeLeaves = (leaves: readonly string[], colCenter: number): void => {
     const n = leaves.length;
     if (n === 0) return;
-    const startX = n <= LEAF_COLS
-      ? colCenter - ((n - 1) * LEAF_WIDTH) / 2
-      : colLeft + LEAF_WIDTH / 2;
+    // Spread leaves evenly within column, centered on colCenter
+    const leafSpacing = Math.min(Math.floor(COL_WIDTH / (n + 1)), 200);
+    const totalWidth = (n - 1) * leafSpacing;
+    const startX = Math.round(colCenter - totalWidth / 2);
     for (let k = 0; k < n; k++) {
-      const col = k % LEAF_COLS;
-      const row = Math.floor(k / LEAF_COLS);
-      const x = Math.round(startX + col * LEAF_WIDTH);
-      const baseY = STAMP_GROUP_Y0 + LEAF_Y_OFFSET + row * LEAF_HEIGHT;
+      const x = startX + k * leafSpacing;
       out.set(leaves[k], {
         kind: 'loop',
         baseX: L(x), stampOffsetX: 0,
-        baseY: L(baseY), stampOffsetY: stampH,
+        baseY: L(STAMP_GROUP_Y0 + LEAF_Y_OFFSET), stampOffsetY: stampH,
       });
     }
   };
-  placeLeaves(spec.failures.leafKeys, failuresColCenter, failuresColLeft);
-  placeLeaves(spec.latency.leafKeys, latencyColCenter, latencyColLeft);
+  placeLeaves(spec.failures.leafKeys, failuresColCenter);
+  placeLeaves(spec.latency.leafKeys, latencyColCenter);
 
   // Minor categories: single row beneath every stamp section.
   // minor_y_base = STAMP_GROUP_Y0 + stampH * length(stamps) + CATEGORY_GAP
