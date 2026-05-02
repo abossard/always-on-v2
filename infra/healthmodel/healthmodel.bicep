@@ -2392,7 +2392,7 @@ resource queuesEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-pr
     displayName: 'Queues'
     canvasPosition: {
       x: json('214')
-      y: json('${700 + 800 * length(stamps)}')
+      y: json('${350 + 800 * length(stamps)}')
     }
     icon: {
       iconName: 'AzureStorageQueue'
@@ -2452,7 +2452,7 @@ resource aiEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-previe
     displayName: 'AI Models'
     canvasPosition: {
       x: json('643')
-      y: json('${700 + 800 * length(stamps)}')
+      y: json('${350 + 800 * length(stamps)}')
     }
     icon: {
       iconName: 'AzureCognitiveServices'
@@ -2512,7 +2512,7 @@ resource blobsEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-pre
     displayName: 'Blob Storage'
     canvasPosition: {
       x: json('1071')
-      y: json('${700 + 800 * length(stamps)}')
+      y: json('${350 + 800 * length(stamps)}')
     }
     icon: {
       iconName: 'AzureBlobStorage'
@@ -2566,7 +2566,7 @@ resource eventhubsEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01
     displayName: 'Event Hubs'
     canvasPosition: {
       x: json('1500')
-      y: json('${700 + 800 * length(stamps)}')
+      y: json('${350 + 800 * length(stamps)}')
     }
     icon: {
       iconName: 'AzureEventHub'
@@ -2632,7 +2632,7 @@ resource orleansCategory 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01
     displayName: 'Orleans Runtime'
     canvasPosition: {
       x: json('1929')
-      y: json('${700 + 800 * length(stamps)}')
+      y: json('${350 + 800 * length(stamps)}')
     }
     icon: {
       iconName: 'Resource'
@@ -2651,7 +2651,7 @@ resource orleansStampLeaf 'Microsoft.CloudHealth/healthmodels/entities@2026-01-0
       displayName: '${stamp.key} — Orleans'
       canvasPosition: {
         x: json('1929')
-        y: json('${950 + 800 * length(stamps) + i * 300}')
+        y: json('${600 + 800 * length(stamps) + i * 300}')
       }
       icon: {
         iconName: 'Resource'
@@ -2730,7 +2730,7 @@ resource certmanagerCategory 'Microsoft.CloudHealth/healthmodels/entities@2026-0
     displayName: 'Certificates'
     canvasPosition: {
       x: json('2357')
-      y: json('${700 + 800 * length(stamps)}')
+      y: json('${350 + 800 * length(stamps)}')
     }
     icon: {
       iconName: 'Resource'
@@ -2749,7 +2749,7 @@ resource certmanagerStampLeaf 'Microsoft.CloudHealth/healthmodels/entities@2026-
       displayName: '${stamp.key} — Certificates'
       canvasPosition: {
         x: json('2357')
-        y: json('${950 + 800 * length(stamps) + i * 300}')
+        y: json('${600 + 800 * length(stamps) + i * 300}')
       }
       icon: {
         iconName: 'Resource'
@@ -2810,7 +2810,7 @@ resource appmetricsCategory 'Microsoft.CloudHealth/healthmodels/entities@2026-01
     displayName: 'App Metrics'
     canvasPosition: {
       x: json('2786')
-      y: json('${700 + 800 * length(stamps)}')
+      y: json('${350 + 800 * length(stamps)}')
     }
     icon: {
       iconName: 'Resource'
@@ -2829,7 +2829,7 @@ resource appmetricsStampLeaf 'Microsoft.CloudHealth/healthmodels/entities@2026-0
       displayName: '${stamp.key} — App Metrics'
       canvasPosition: {
         x: json('2786')
-        y: json('${950 + 800 * length(stamps) + i * 300}')
+        y: json('${600 + 800 * length(stamps) + i * 300}')
       }
       icon: {
         iconName: 'Resource'

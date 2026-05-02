@@ -18,7 +18,7 @@ export const COL_WIDTH = (TARGET_WIDTH - COL_GAP) / 2; // 1400
 export const LEAF_SPACING = 250;  // minimum px between leaf centers (cards are ~200px wide)
 export const LEAF_HEIGHT = 300;
 export const STAMP_GAP = 200;
-export const CATEGORY_GAP = 200;
+export const CATEGORY_GAP = 50;
 export const ROOT_Y = 0;
 export const CATEGORY_Y = 250;
 export const STAMP_GROUP_Y0 = 500;
@@ -127,8 +127,13 @@ export function computeLayout(spec: LayoutSpec): Map<string, NodeLayout> {
   placeLeaves(spec.latency.leafKeys, latencyColCenter);
 
   // Minor categories: single row beneath every stamp section.
-  // minor_y_base = STAMP_GROUP_Y0 + stampH * length(stamps) + CATEGORY_GAP
-  const minorYBase: Linear = { c: STAMP_GROUP_Y0 + CATEGORY_GAP, s: stampH };
+  // Last stamp's leaves end at: STAMP_GROUP_Y0 + LEAF_Y_OFFSET + LEAF_HEIGHT + stampH * (nStamps - 1)
+  // Which is: (STAMP_GROUP_Y0 + LEAF_Y_OFFSET + LEAF_HEIGHT - stampH) + stampH * nStamps
+  // Add CATEGORY_GAP for breathing room:
+  const minorYBase: Linear = {
+    c: STAMP_GROUP_Y0 + LEAF_Y_OFFSET + LEAF_HEIGHT + CATEGORY_GAP - stampH,
+    s: stampH,
+  };
 
   type MinorEntry = { key: string; perStampLeafKey?: string };
   const minorEntries: MinorEntry[] = [
