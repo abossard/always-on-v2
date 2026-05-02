@@ -55,6 +55,15 @@ param usesEventHubs bool = false
 @description('Event Hubs namespace resource ID (required if usesEventHubs)')
 param eventHubsNamespaceId string = ''
 
+@description('Whether this app uses Microsoft Orleans (per-stamp Prometheus signals)')
+param usesOrleans bool = false
+
+@description('Whether this cluster uses cert-manager for certificate health')
+param usesCertManager bool = false
+
+@description('Whether this app exposes custom HelloAgents intent metrics')
+param usesAppMetrics bool = false
+
 // ─── Variables ───────────────────────────────────────────────────────
 
 var identityName = last(split(identityId, '/'))
@@ -472,6 +481,154 @@ resource def_cosmos_client_errors 'Microsoft.CloudHealth/healthmodels/signaldefi
 }
 
 #disable-next-line BCP081
+resource def_cosmos_server_errors 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+  parent: hm
+  name: guid(name, 'def-cosmos-server-errors')
+  properties: {
+    signalKind: 'AzureResourceMetric'
+    displayName: 'Cosmos Server Errors'
+    refreshInterval: 'PT1M'
+    dataUnit: 'Count'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('1')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('10')
+      }
+    }
+    metricNamespace: 'microsoft.documentdb/databaseaccounts'
+    metricName: 'TotalRequests'
+    timeGrain: 'PT5M'
+    aggregationType: 'Count'
+    dimension: 'StatusCode'
+    dimensionFilter: '500'
+  }
+}
+
+#disable-next-line BCP081
+resource def_pending_pods 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+  parent: hm
+  name: guid(name, 'def-pending-pods')
+  properties: {
+    signalKind: 'PrometheusMetricsQuery'
+    displayName: 'Pending Pods'
+    refreshInterval: 'PT1M'
+    dataUnit: 'Count'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('0')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('2')
+      }
+    }
+    queryText: 'count(kube_pod_status_phase{namespace="${namespace}", phase="Pending"}) or vector(0)'
+    timeGrain: 'PT1M'
+  }
+}
+
+#disable-next-line BCP081
+resource def_containers_waiting_noncrash 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+  parent: hm
+  name: guid(name, 'def-containers-waiting-noncrash')
+  properties: {
+    signalKind: 'PrometheusMetricsQuery'
+    displayName: 'Containers Waiting (non-CrashLoop)'
+    refreshInterval: 'PT1M'
+    dataUnit: 'Count'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('0')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('2')
+      }
+    }
+    queryText: 'count(kube_pod_container_status_waiting{namespace="${namespace}"} == 1) - count(kube_pod_container_status_waiting_reason{namespace="${namespace}", reason="CrashLoopBackOff"} == 1) or vector(0)'
+    timeGrain: 'PT1M'
+  }
+}
+
+#disable-next-line BCP081
+resource def_hpa_at_ceiling 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+  parent: hm
+  name: guid(name, 'def-hpa-at-ceiling')
+  properties: {
+    signalKind: 'PrometheusMetricsQuery'
+    displayName: 'HPA at Ceiling'
+    refreshInterval: 'PT1M'
+    dataUnit: 'Count'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('0')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('0')
+      }
+    }
+    queryText: 'count(kube_horizontalpodautoscaler_status_current_replicas{namespace="${namespace}"} == kube_horizontalpodautoscaler_spec_max_replicas{namespace="${namespace}"}) or vector(0)'
+    timeGrain: 'PT1M'
+  }
+}
+
+#disable-next-line BCP081
+resource def_container_network_errors 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+  parent: hm
+  name: guid(name, 'def-container-network-errors')
+  properties: {
+    signalKind: 'PrometheusMetricsQuery'
+    displayName: 'Container Network Errors'
+    refreshInterval: 'PT1M'
+    dataUnit: 'CountPerSecond'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('1')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('10')
+      }
+    }
+    queryText: 'sum(rate(container_network_receive_errors_total{namespace="${namespace}"}[5m]) + rate(container_network_transmit_errors_total{namespace="${namespace}"}[5m])) or vector(0)'
+    timeGrain: 'PT1M'
+  }
+}
+
+#disable-next-line BCP081
+resource def_gateway_4xx_rate 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+  parent: hm
+  name: guid(name, 'def-gateway-4xx-rate')
+  properties: {
+    signalKind: 'PrometheusMetricsQuery'
+    displayName: 'Gateway 4xx Rate'
+    refreshInterval: 'PT1M'
+    dataUnit: 'Percent'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('10')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('25')
+      }
+    }
+    queryText: '(sum(rate(istio_requests_total{destination_workload_namespace="${namespace}", response_code=~"4.."}[5m])) / sum(rate(istio_requests_total{destination_workload_namespace="${namespace}"}[5m])) * 100) or vector(0)'
+    timeGrain: 'PT1M'
+  }
+}
+
+#disable-next-line BCP081
 resource def_fd_total_latency 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
   parent: hm
   name: guid(name, 'def-fd-total-latency')
@@ -548,6 +705,32 @@ resource def_cosmos_throttled 'Microsoft.CloudHealth/healthmodels/signaldefiniti
     aggregationType: 'Count'
     dimension: 'StatusCode'
     dimensionFilter: '429'
+  }
+}
+
+#disable-next-line BCP081
+resource def_cosmos_server_latency 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+  parent: hm
+  name: guid(name, 'def-cosmos-server-latency')
+  properties: {
+    signalKind: 'AzureResourceMetric'
+    displayName: 'Cosmos Server Latency'
+    refreshInterval: 'PT1M'
+    dataUnit: 'MilliSeconds'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('50')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('200')
+      }
+    }
+    metricNamespace: 'microsoft.documentdb/databaseaccounts'
+    metricName: 'ServerSideLatency'
+    timeGrain: 'PT5M'
+    aggregationType: 'Average'
   }
 }
 
@@ -744,6 +927,30 @@ resource def_pods_pid_pressure_nodes 'Microsoft.CloudHealth/healthmodels/signald
 }
 
 #disable-next-line BCP081
+resource def_pods_mem_pressure_nodes 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+  parent: hm
+  name: guid(name, 'def-pods-mem-pressure-nodes')
+  properties: {
+    signalKind: 'PrometheusMetricsQuery'
+    displayName: 'Pods on MemoryPressure Nodes'
+    refreshInterval: 'PT1M'
+    dataUnit: 'Count'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('1')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('1')
+      }
+    }
+    queryText: 'count(kube_pod_info{namespace="${namespace}"} * on(node) group_left() (kube_node_status_condition{condition="MemoryPressure", status="true"} == 1)) or vector(0)'
+    timeGrain: 'PT1M'
+  }
+}
+
+#disable-next-line BCP081
 resource def_queues_queue_availability 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesQueues) {
   parent: hm
   name: guid(name, 'def-queues-queue-availability')
@@ -820,6 +1027,32 @@ resource def_queues_queue_errors 'Microsoft.CloudHealth/healthmodels/signaldefin
     aggregationType: 'Total'
     dimension: 'ResponseType'
     dimensionFilter: 'ClientOtherError'
+  }
+}
+
+#disable-next-line BCP081
+resource def_queues_queue_message_count 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesQueues) {
+  parent: hm
+  name: guid(name, 'def-queues-queue-message-count')
+  properties: {
+    signalKind: 'AzureResourceMetric'
+    displayName: 'Queue Message Count'
+    refreshInterval: 'PT5M'
+    dataUnit: 'Count'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('1000')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('10000')
+      }
+    }
+    metricNamespace: 'Microsoft.Storage/storageAccounts'
+    metricName: 'QueueMessageCount'
+    timeGrain: 'PT1H'
+    aggregationType: 'Average'
   }
 }
 
@@ -1137,6 +1370,270 @@ resource def_eventhubs_event_hub_replication_lag_duration 'Microsoft.CloudHealth
   }
 }
 
+#disable-next-line BCP081
+resource def_orleans_orleans_grain_call_failures 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesOrleans) {
+  parent: hm
+  name: guid(name, 'def-orleans-orleans-grain-call-failures')
+  properties: {
+    signalKind: 'PrometheusMetricsQuery'
+    displayName: 'Orleans Grain Call Failures'
+    refreshInterval: 'PT1M'
+    dataUnit: 'CountPerSecond'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('1')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('10')
+      }
+    }
+    queryText: 'sum(rate(orleans_grain_call_failed_total{namespace="${namespace}"}[5m])) or vector(0)'
+    timeGrain: 'PT1M'
+  }
+}
+
+#disable-next-line BCP081
+resource def_orleans_orleans_blocked_activations 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesOrleans) {
+  parent: hm
+  name: guid(name, 'def-orleans-orleans-blocked-activations')
+  properties: {
+    signalKind: 'PrometheusMetricsQuery'
+    displayName: 'Orleans Blocked Activations'
+    refreshInterval: 'PT1M'
+    dataUnit: 'Count'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('5')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('20')
+      }
+    }
+    queryText: 'sum(orleans_catalog_activations_blocked{namespace="${namespace}"}) or vector(0)'
+    timeGrain: 'PT1M'
+  }
+}
+
+#disable-next-line BCP081
+resource def_orleans_orleans_message_delay_p99 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesOrleans) {
+  parent: hm
+  name: guid(name, 'def-orleans-orleans-message-delay-p99')
+  properties: {
+    signalKind: 'PrometheusMetricsQuery'
+    displayName: 'Orleans Message Delay P99'
+    refreshInterval: 'PT1M'
+    dataUnit: 'Seconds'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('1')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('5')
+      }
+    }
+    queryText: 'histogram_quantile(0.99, sum(rate(orleans_messaging_received_messages_delay_seconds_bucket{namespace="${namespace}"}[5m])) by (le))'
+    timeGrain: 'PT1M'
+  }
+}
+
+#disable-next-line BCP081
+resource def_orleans_orleans_silo_churn 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesOrleans) {
+  parent: hm
+  name: guid(name, 'def-orleans-orleans-silo-churn')
+  properties: {
+    signalKind: 'PrometheusMetricsQuery'
+    displayName: 'Orleans Silo Churn'
+    refreshInterval: 'PT1M'
+    dataUnit: 'Count'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('2')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('5')
+      }
+    }
+    queryText: 'changes(orleans_membership_active_silos_count{namespace="${namespace}"}[15m])'
+    timeGrain: 'PT1M'
+  }
+}
+
+#disable-next-line BCP081
+resource def_orleans_orleans_dead_silos 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesOrleans) {
+  parent: hm
+  name: guid(name, 'def-orleans-orleans-dead-silos')
+  properties: {
+    signalKind: 'PrometheusMetricsQuery'
+    displayName: 'Orleans Dead Silos'
+    refreshInterval: 'PT1M'
+    dataUnit: 'Count'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('0')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('1')
+      }
+    }
+    queryText: 'orleans_membership_declared_dead_silos_count{namespace="${namespace}"} or vector(0)'
+    timeGrain: 'PT1M'
+  }
+}
+
+#disable-next-line BCP081
+resource def_certmanager_certificate_days_to_expiry 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesCertManager) {
+  parent: hm
+  name: guid(name, 'def-certmanager-certificate-days-to-expiry')
+  properties: {
+    signalKind: 'PrometheusMetricsQuery'
+    displayName: 'Certificate Days to Expiry'
+    refreshInterval: 'PT5M'
+    dataUnit: 'Count'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'LessThan'
+        threshold: json('14')
+      }
+      unhealthyRule: {
+        operator: 'LessThan'
+        threshold: json('3')
+      }
+    }
+    queryText: 'min((certmanager_certificate_expiration_timestamp_seconds - time()) / 86400)'
+    timeGrain: 'PT1M'
+  }
+}
+
+#disable-next-line BCP081
+resource def_certmanager_certificates_not_ready 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesCertManager) {
+  parent: hm
+  name: guid(name, 'def-certmanager-certificates-not-ready')
+  properties: {
+    signalKind: 'PrometheusMetricsQuery'
+    displayName: 'Certificates Not Ready'
+    refreshInterval: 'PT5M'
+    dataUnit: 'Count'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('0')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('0')
+      }
+    }
+    queryText: 'count(certmanager_certificate_ready_status{condition="False"}) or vector(0)'
+    timeGrain: 'PT1M'
+  }
+}
+
+#disable-next-line BCP081
+resource def_appmetrics_app_failed_intents 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesAppMetrics) {
+  parent: hm
+  name: guid(name, 'def-appmetrics-app-failed-intents')
+  properties: {
+    signalKind: 'PrometheusMetricsQuery'
+    displayName: 'App Failed Intents'
+    refreshInterval: 'PT1M'
+    dataUnit: 'CountPerSecond'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('0.1')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('1')
+      }
+    }
+    queryText: 'sum(rate(helloagents_intents_failed_total{namespace="${namespace}"}[5m])) or vector(0)'
+    timeGrain: 'PT1M'
+  }
+}
+
+#disable-next-line BCP081
+resource def_appmetrics_app_expired_intents 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesAppMetrics) {
+  parent: hm
+  name: guid(name, 'def-appmetrics-app-expired-intents')
+  properties: {
+    signalKind: 'PrometheusMetricsQuery'
+    displayName: 'App Expired Intents'
+    refreshInterval: 'PT1M'
+    dataUnit: 'CountPerSecond'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('0.1')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('1')
+      }
+    }
+    queryText: 'sum(rate(helloagents_intents_expired_total{namespace="${namespace}"}[5m])) or vector(0)'
+    timeGrain: 'PT1M'
+  }
+}
+
+#disable-next-line BCP081
+resource def_appmetrics_app_intent_p99_duration 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesAppMetrics) {
+  parent: hm
+  name: guid(name, 'def-appmetrics-app-intent-p99-duration')
+  properties: {
+    signalKind: 'PrometheusMetricsQuery'
+    displayName: 'App Intent P99 Duration'
+    refreshInterval: 'PT1M'
+    dataUnit: 'Seconds'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('30')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('120')
+      }
+    }
+    queryText: 'histogram_quantile(0.99, sum(rate(helloagents_intent_duration_seconds_bucket{namespace="${namespace}"}[5m])) by (le))'
+    timeGrain: 'PT1M'
+  }
+}
+
+#disable-next-line BCP081
+resource def_appmetrics_app_intent_retry_rate 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesAppMetrics) {
+  parent: hm
+  name: guid(name, 'def-appmetrics-app-intent-retry-rate')
+  properties: {
+    signalKind: 'PrometheusMetricsQuery'
+    displayName: 'App Intent Retry Rate'
+    refreshInterval: 'PT1M'
+    dataUnit: 'Percent'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('10')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('30')
+      }
+    }
+    queryText: 'sum(rate(helloagents_intents_retried_total{namespace="${namespace}"}[5m])) / (sum(rate(helloagents_intents_total{namespace="${namespace}"}[5m])) + 0.001) * 100'
+    timeGrain: 'PT1M'
+  }
+}
+
 // ─── Signal Definitions (per-stamp — one per stamp) ──────────────────
 
 #disable-next-line BCP081
@@ -1340,6 +1837,24 @@ resource stamp_prom_failures 'Microsoft.CloudHealth/healthmodels/entities@2026-0
               signalDefinitionName: def_deployments_not_ready.name
               refreshInterval: 'PT1M'
             }
+            {
+              signalKind: 'PrometheusMetricsQuery'
+              name: guid(name, stamp.key, 'pending-pods')
+              signalDefinitionName: def_pending_pods.name
+              refreshInterval: 'PT1M'
+            }
+            {
+              signalKind: 'PrometheusMetricsQuery'
+              name: guid(name, stamp.key, 'containers-waiting-noncrash')
+              signalDefinitionName: def_containers_waiting_noncrash.name
+              refreshInterval: 'PT1M'
+            }
+            {
+              signalKind: 'PrometheusMetricsQuery'
+              name: guid(name, stamp.key, 'hpa-at-ceiling')
+              signalDefinitionName: def_hpa_at_ceiling.name
+              refreshInterval: 'PT1M'
+            }
           ]
         }
       }
@@ -1444,6 +1959,12 @@ resource stamp_cosmos_failures 'Microsoft.CloudHealth/healthmodels/entities@2026
               signalDefinitionName: def_cosmos_client_errors.name
               refreshInterval: 'PT1M'
             }
+            {
+              signalKind: 'AzureResourceMetric'
+              name: guid(name, stamp.key, 'cosmos-server-errors')
+              signalDefinitionName: def_cosmos_server_errors.name
+              refreshInterval: 'PT1M'
+            }
           ]
         }
       }
@@ -1540,6 +2061,18 @@ resource stamp_gateway_failures 'Microsoft.CloudHealth/healthmodels/entities@202
               signalKind: 'PrometheusMetricsQuery'
               name: guid(name, stamp.key, 'gateway-error-rate')
               signalDefinitionName: def_gateway_error_rate.name
+              refreshInterval: 'PT1M'
+            }
+            {
+              signalKind: 'PrometheusMetricsQuery'
+              name: guid(name, stamp.key, 'container-network-errors')
+              signalDefinitionName: def_container_network_errors.name
+              refreshInterval: 'PT1M'
+            }
+            {
+              signalKind: 'PrometheusMetricsQuery'
+              name: guid(name, stamp.key, 'gateway-4xx-rate')
+              signalDefinitionName: def_gateway_4xx_rate.name
               refreshInterval: 'PT1M'
             }
           ]
@@ -1646,6 +2179,12 @@ resource stamp_cosmos_latency 'Microsoft.CloudHealth/healthmodels/entities@2026-
               signalKind: 'AzureResourceMetric'
               name: guid(name, stamp.key, 'cosmos-throttled')
               signalDefinitionName: def_cosmos_throttled.name
+              refreshInterval: 'PT1M'
+            }
+            {
+              signalKind: 'AzureResourceMetric'
+              name: guid(name, stamp.key, 'cosmos-server-latency')
+              signalDefinitionName: def_cosmos_server_latency.name
               refreshInterval: 'PT1M'
             }
           ]
@@ -1770,6 +2309,12 @@ resource stamp_prom_latency 'Microsoft.CloudHealth/healthmodels/entities@2026-01
               signalDefinitionName: def_pods_pid_pressure_nodes.name
               refreshInterval: 'PT1M'
             }
+            {
+              signalKind: 'PrometheusMetricsQuery'
+              name: guid(name, stamp.key, 'pods-mem-pressure-nodes')
+              signalDefinitionName: def_pods_mem_pressure_nodes.name
+              refreshInterval: 'PT1M'
+            }
           ]
         }
       }
@@ -1875,6 +2420,12 @@ resource queuesEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-pr
             signalKind: 'AzureResourceMetric'
             name: guid(name, 'queues-queue-errors')
             signalDefinitionName: def_queues_queue_errors.name
+            refreshInterval: 'PT5M'
+          }
+          {
+            signalKind: 'AzureResourceMetric'
+            name: guid(name, 'queues-queue-message-count')
+            signalDefinitionName: def_queues_queue_message_count.name
             refreshInterval: 'PT5M'
           }
         ]
@@ -2072,6 +2623,276 @@ resource rel_eventhubs 'Microsoft.CloudHealth/healthmodels/relationships@2026-01
     childEntityName: eventhubsEntity.name
   }
 }
+
+#disable-next-line BCP081
+resource orleansCategory 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = if (usesOrleans) {
+  parent: hm
+  name: guid(name, 'orleans-category')
+  properties: {
+    displayName: 'Orleans Runtime'
+    canvasPosition: {
+      x: json('1700')
+      y: json('150')
+    }
+    icon: {
+      iconName: 'Resource'
+    }
+    impact: 'Standard'
+    tags: {}
+  }
+}
+
+#disable-next-line BCP081
+resource orleansStampLeaf 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = [
+  for (stamp, i) in stamps: if (usesOrleans) {
+    parent: hm
+    name: guid(name, stamp.key, 'orleans-leaf')
+    properties: {
+      displayName: '${stamp.key} — Orleans'
+      canvasPosition: {
+        x: json('${500 + 4 * 300 + i * 200}')
+        y: json('450')
+      }
+      icon: {
+        iconName: 'Resource'
+      }
+      impact: 'Standard'
+      tags: {}
+      signalGroups: {
+        azureMonitorWorkspace: {
+          authenticationSetting: auth.name
+          azureMonitorWorkspaceResourceId: stamp.amwResourceId
+          signals: [
+            {
+              signalKind: 'PrometheusMetricsQuery'
+              name: guid(name, stamp.key, 'orleans-orleans-grain-call-failures')
+              signalDefinitionName: def_orleans_orleans_grain_call_failures.name
+              refreshInterval: 'PT1M'
+            }
+            {
+              signalKind: 'PrometheusMetricsQuery'
+              name: guid(name, stamp.key, 'orleans-orleans-blocked-activations')
+              signalDefinitionName: def_orleans_orleans_blocked_activations.name
+              refreshInterval: 'PT1M'
+            }
+            {
+              signalKind: 'PrometheusMetricsQuery'
+              name: guid(name, stamp.key, 'orleans-orleans-message-delay-p99')
+              signalDefinitionName: def_orleans_orleans_message_delay_p99.name
+              refreshInterval: 'PT1M'
+            }
+            {
+              signalKind: 'PrometheusMetricsQuery'
+              name: guid(name, stamp.key, 'orleans-orleans-silo-churn')
+              signalDefinitionName: def_orleans_orleans_silo_churn.name
+              refreshInterval: 'PT1M'
+            }
+            {
+              signalKind: 'PrometheusMetricsQuery'
+              name: guid(name, stamp.key, 'orleans-orleans-dead-silos')
+              signalDefinitionName: def_orleans_orleans_dead_silos.name
+              refreshInterval: 'PT1M'
+            }
+          ]
+        }
+      }
+    }
+  }
+]
+
+#disable-next-line BCP081
+resource rel_root_orleans 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = if (usesOrleans) {
+  parent: hm
+  name: guid(name, root.name, orleansCategory.name)
+  properties: {
+    parentEntityName: root.name
+    childEntityName: orleansCategory.name
+  }
+}
+
+#disable-next-line BCP081
+resource rel_orleans_leaf 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
+  for (stamp, i) in stamps: if (usesOrleans) {
+    parent: hm
+    name: guid(name, orleansCategory.name, orleansStampLeaf[i].name)
+    properties: {
+      parentEntityName: orleansCategory.name
+      childEntityName: orleansStampLeaf[i].name
+    }
+  }
+]
+
+#disable-next-line BCP081
+resource certmanagerCategory 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = if (usesCertManager) {
+  parent: hm
+  name: guid(name, 'certmanager-category')
+  properties: {
+    displayName: 'Certificates'
+    canvasPosition: {
+      x: json('2000')
+      y: json('150')
+    }
+    icon: {
+      iconName: 'Resource'
+    }
+    impact: 'Standard'
+    tags: {}
+  }
+}
+
+#disable-next-line BCP081
+resource certmanagerStampLeaf 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = [
+  for (stamp, i) in stamps: if (usesCertManager) {
+    parent: hm
+    name: guid(name, stamp.key, 'certmanager-leaf')
+    properties: {
+      displayName: '${stamp.key} — Certificates'
+      canvasPosition: {
+        x: json('${500 + 5 * 300 + i * 200}')
+        y: json('450')
+      }
+      icon: {
+        iconName: 'Resource'
+      }
+      impact: 'Standard'
+      tags: {}
+      signalGroups: {
+        azureMonitorWorkspace: {
+          authenticationSetting: auth.name
+          azureMonitorWorkspaceResourceId: stamp.amwResourceId
+          signals: [
+            {
+              signalKind: 'PrometheusMetricsQuery'
+              name: guid(name, stamp.key, 'certmanager-certificate-days-to-expiry')
+              signalDefinitionName: def_certmanager_certificate_days_to_expiry.name
+              refreshInterval: 'PT5M'
+            }
+            {
+              signalKind: 'PrometheusMetricsQuery'
+              name: guid(name, stamp.key, 'certmanager-certificates-not-ready')
+              signalDefinitionName: def_certmanager_certificates_not_ready.name
+              refreshInterval: 'PT5M'
+            }
+          ]
+        }
+      }
+    }
+  }
+]
+
+#disable-next-line BCP081
+resource rel_root_certmanager 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = if (usesCertManager) {
+  parent: hm
+  name: guid(name, root.name, certmanagerCategory.name)
+  properties: {
+    parentEntityName: root.name
+    childEntityName: certmanagerCategory.name
+  }
+}
+
+#disable-next-line BCP081
+resource rel_certmanager_leaf 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
+  for (stamp, i) in stamps: if (usesCertManager) {
+    parent: hm
+    name: guid(name, certmanagerCategory.name, certmanagerStampLeaf[i].name)
+    properties: {
+      parentEntityName: certmanagerCategory.name
+      childEntityName: certmanagerStampLeaf[i].name
+    }
+  }
+]
+
+#disable-next-line BCP081
+resource appmetricsCategory 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = if (usesAppMetrics) {
+  parent: hm
+  name: guid(name, 'appmetrics-category')
+  properties: {
+    displayName: 'App Metrics'
+    canvasPosition: {
+      x: json('2300')
+      y: json('150')
+    }
+    icon: {
+      iconName: 'Resource'
+    }
+    impact: 'Standard'
+    tags: {}
+  }
+}
+
+#disable-next-line BCP081
+resource appmetricsStampLeaf 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = [
+  for (stamp, i) in stamps: if (usesAppMetrics) {
+    parent: hm
+    name: guid(name, stamp.key, 'appmetrics-leaf')
+    properties: {
+      displayName: '${stamp.key} — App Metrics'
+      canvasPosition: {
+        x: json('${500 + 6 * 300 + i * 200}')
+        y: json('450')
+      }
+      icon: {
+        iconName: 'Resource'
+      }
+      impact: 'Standard'
+      tags: {}
+      signalGroups: {
+        azureMonitorWorkspace: {
+          authenticationSetting: auth.name
+          azureMonitorWorkspaceResourceId: stamp.amwResourceId
+          signals: [
+            {
+              signalKind: 'PrometheusMetricsQuery'
+              name: guid(name, stamp.key, 'appmetrics-app-failed-intents')
+              signalDefinitionName: def_appmetrics_app_failed_intents.name
+              refreshInterval: 'PT1M'
+            }
+            {
+              signalKind: 'PrometheusMetricsQuery'
+              name: guid(name, stamp.key, 'appmetrics-app-expired-intents')
+              signalDefinitionName: def_appmetrics_app_expired_intents.name
+              refreshInterval: 'PT1M'
+            }
+            {
+              signalKind: 'PrometheusMetricsQuery'
+              name: guid(name, stamp.key, 'appmetrics-app-intent-p99-duration')
+              signalDefinitionName: def_appmetrics_app_intent_p99_duration.name
+              refreshInterval: 'PT1M'
+            }
+            {
+              signalKind: 'PrometheusMetricsQuery'
+              name: guid(name, stamp.key, 'appmetrics-app-intent-retry-rate')
+              signalDefinitionName: def_appmetrics_app_intent_retry_rate.name
+              refreshInterval: 'PT1M'
+            }
+          ]
+        }
+      }
+    }
+  }
+]
+
+#disable-next-line BCP081
+resource rel_root_appmetrics 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = if (usesAppMetrics) {
+  parent: hm
+  name: guid(name, root.name, appmetricsCategory.name)
+  properties: {
+    parentEntityName: root.name
+    childEntityName: appmetricsCategory.name
+  }
+}
+
+#disable-next-line BCP081
+resource rel_appmetrics_leaf 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
+  for (stamp, i) in stamps: if (usesAppMetrics) {
+    parent: hm
+    name: guid(name, appmetricsCategory.name, appmetricsStampLeaf[i].name)
+    properties: {
+      parentEntityName: appmetricsCategory.name
+      childEntityName: appmetricsStampLeaf[i].name
+    }
+  }
+]
 
 // ─── Outputs ─────────────────────────────────────────────────────────
 

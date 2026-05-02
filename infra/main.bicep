@@ -92,6 +92,7 @@ param apps array = [
     displayName: 'HelloAgents'
     usesAI: true
     usesQueues: true
+    usesAppMetrics: true
   }
   {
     name: 'graphorleons'
@@ -664,6 +665,9 @@ module healthModels 'healthmodel/healthmodel.bicep' = [for (app, i) in apps: {
     usesQueues: app.?usesQueues ?? false
     usesBlobs: app.?usesBlobs ?? false
     usesEventHubs: app.?usesEventHubs ?? false
+    usesOrleans:     app.?usesOrleans     ?? true
+    usesCertManager: app.?usesCertManager ?? true
+    usesAppMetrics:  app.?usesAppMetrics  ?? false
     aiServicesAccountId: app.?usesAI ?? false ? ai.outputs.aiServicesId : ''
     // TODO(multi-stamp-storage): storageAccountId is stamp[0] only — when HM module
     // supports per-stamp storage, move this into the stamps array like aksClusterId.

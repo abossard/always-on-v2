@@ -70,12 +70,10 @@ def healthmodel_update(
     name: str,
     tags: dict[str, str] | None = None,
 ) -> dict[str, Any]:
-    """Update a health model (GET-then-PUT)."""
-    model = client.get_model(resource_group, name)
+    """Update a health model (PATCH)."""
     if tags is None:
-        return model
-    model["tags"] = tags
-    return client.create_or_update_model(resource_group, name, model)
+        return client.get_model(resource_group, name)
+    return client.update_model(resource_group, name, {"tags": tags})
 
 
 def healthmodel_delete(

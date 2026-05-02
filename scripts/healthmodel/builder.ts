@@ -153,7 +153,7 @@ function buildFailureEntities(): StampEntitySpec[] {
       category: 'failures',
       bindingType: 'azureMonitorWorkspace',
       resourceIdExpr: 'stamp.amwResourceId',
-      signals: ['pod-restarts', 'oomkilled', 'crashloop', 'pods-notready-nodes', 'deployments-min-replicas', 'deployments-not-ready'],
+      signals: ['pod-restarts', 'oomkilled', 'crashloop', 'pods-notready-nodes', 'deployments-min-replicas', 'deployments-not-ready', 'pending-pods', 'containers-waiting-noncrash', 'hpa-at-ceiling'],
     },
     {
       key: 'fd-failures',
@@ -171,7 +171,7 @@ function buildFailureEntities(): StampEntitySpec[] {
       category: 'failures',
       bindingType: 'azureResource',
       resourceIdExpr: 'cosmosAccountId',
-      signals: ['cosmos-availability', 'cosmos-client-errors'],
+      signals: ['cosmos-availability', 'cosmos-client-errors', 'cosmos-server-errors'],
     },
     {
       key: 'cosmos-orleans-failures',
@@ -189,7 +189,7 @@ function buildFailureEntities(): StampEntitySpec[] {
       category: 'failures',
       bindingType: 'azureMonitorWorkspace',
       resourceIdExpr: 'stamp.amwResourceId',
-      signals: ['gateway-error-rate'],
+      signals: ['gateway-error-rate', 'container-network-errors', 'gateway-4xx-rate'],
     },
   ];
 }
@@ -212,7 +212,7 @@ function buildLatencyEntities(): StampEntitySpec[] {
       category: 'latency',
       bindingType: 'azureResource',
       resourceIdExpr: 'cosmosAccountId',
-      signals: ['cosmos-normalized-ru', 'cosmos-throttled'],
+      signals: ['cosmos-normalized-ru', 'cosmos-throttled', 'cosmos-server-latency'],
     },
     {
       key: 'cosmos-orleans-latency',
@@ -234,6 +234,7 @@ function buildLatencyEntities(): StampEntitySpec[] {
         'cpu-pressure', 'memory-pressure',
         'pods-high-cpu-nodes', 'pods-high-mem-nodes',
         'pods-disk-pressure-nodes', 'pods-pid-pressure-nodes',
+        'pods-mem-pressure-nodes',
       ],
     },
     {
@@ -266,11 +267,18 @@ function registerCoreSignals(reg: SignalRegistry): void {
   reg.register('fd-4xx', failSigs.fd4xx);
   reg.register('cosmos-availability', failSigs.cosmosAvailability);
   reg.register('cosmos-client-errors', failSigs.cosmosClientErrors);
+  reg.register('cosmos-server-errors', failSigs.cosmosServerErrors);
+  reg.register('pending-pods', failSigs.pendingPods);
+  reg.register('containers-waiting-noncrash', failSigs.containersWaitingNonCrash);
+  reg.register('hpa-at-ceiling', failSigs.hpaAtCeiling);
+  reg.register('container-network-errors', failSigs.containerNetworkErrors);
+  reg.register('gateway-4xx-rate', failSigs.gateway4xxRate);
 
   // Latency signals (all model-scoped)
   reg.register('fd-total-latency', latSigs.fdTotalLatency);
   reg.register('cosmos-normalized-ru', latSigs.cosmosNormalizedRU);
   reg.register('cosmos-throttled', latSigs.cosmosThrottled);
+  reg.register('cosmos-server-latency', latSigs.cosmosServerLatency);
   reg.register('cpu-pressure', latSigs.cpuPressure);
   reg.register('cpu-throttling', latSigs.cpuThrottling);
   reg.register('memory-pressure', latSigs.memoryPressure);
@@ -279,6 +287,7 @@ function registerCoreSignals(reg: SignalRegistry): void {
   reg.register('pods-high-mem-nodes', latSigs.podsOnHighMemoryNodes);
   reg.register('pods-disk-pressure-nodes', latSigs.podsOnDiskPressureNodes);
   reg.register('pods-pid-pressure-nodes', latSigs.podsOnPidPressureNodes);
+  reg.register('pods-mem-pressure-nodes', latSigs.podsOnMemoryPressureNodes);
 
   // FD Origin Latency — the only per-stamp signal (dimensionFilter varies)
   reg.register('fd-origin-latency', signals.fdOriginLatency('PLACEHOLDER'), 'perStamp');
@@ -444,6 +453,7 @@ function emitRelationshipLoop(opts: {
   symbolic: string;
   parentExpr: string;
   childExpr: string;
+  condition?: string;
 }): string {
   return resourceLoop({
     symbolic: opts.symbolic,
@@ -452,6 +462,7 @@ function emitRelationshipLoop(opts: {
     arrayExpr: 'stamps',
     itemVar: 'stamp',
     indexVar: 'i',
+    condition: opts.condition,
     body: {
       parent: raw('hm'),
       name: raw(`guid(name, ${opts.parentExpr}, ${opts.childExpr})`),
@@ -461,6 +472,102 @@ function emitRelationshipLoop(opts: {
       },
     },
   });
+}
+
+/** Derive entity + relationship Bicep blocks for a perStamp OptionalEntityGroup.
+ *  Creates a conditional category entity at root level + per-stamp leaf entities. */
+function derivePerStampGroup(group: OptionalEntityGroup, yOffset: number, reg: SignalRegistry): string[] {
+  const blocks: string[] = [];
+
+  // Build signal groups for each stamp leaf
+  const signalGroups: Record<string, BicepValue> = {};
+  for (const binding of group.bindings) {
+    const sigs = binding.signals.map(sig => {
+      const sigKey = `${group.key}-${sig.displayName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+      return reg.ref(sigKey, `guid(name, stamp.key, '${sigKey}')`);
+    });
+
+    if (binding.type === 'azureResource') {
+      signalGroups.azureResource = {
+        authenticationSetting: raw('auth.name'),
+        azureResourceId: raw(binding.resourceIdExpr),
+        signals: sigs,
+      };
+    } else {
+      signalGroups.azureMonitorWorkspace = {
+        authenticationSetting: raw('auth.name'),
+        azureMonitorWorkspaceResourceId: raw(binding.resourceIdExpr),
+        signals: sigs,
+      };
+    }
+  }
+
+  const parentSym = PARENT_KEY_TO_SYMBOLIC[group.parentKey];
+  const categorySym = `${group.key}Category`;
+  const leafSym = `${group.key}StampLeaf`;
+  const relRootSym = `rel_root_${group.key}`;
+  const relLeafSym = `rel_${group.key}_leaf`;
+  const perStampDisplay = group.perStampDisplayName ?? `'\${stamp.key} — ${group.displayName}'`;
+
+  // Category entity (one per model, conditional)
+  blocks.push(resource({
+    symbolic: categorySym,
+    type: 'Microsoft.CloudHealth/healthmodels/entities',
+    apiVersion: API_VERSION,
+    condition: group.enableParam,
+    body: {
+      parent: raw('hm'),
+      name: guid('name', `'${group.key}-category'`),
+      properties: {
+        displayName: group.displayName,
+        canvasPosition: { x: jsonNum(500 + yOffset * 300), y: jsonNum(150) },
+        icon: { iconName: group.icon },
+        impact: 'Standard',
+        tags: {},
+      },
+    },
+  }));
+
+  // Per-stamp leaf entities (loop, conditional)
+  blocks.push(resourceLoop({
+    symbolic: leafSym,
+    type: 'Microsoft.CloudHealth/healthmodels/entities',
+    apiVersion: API_VERSION,
+    arrayExpr: 'stamps',
+    itemVar: 'stamp',
+    indexVar: 'i',
+    condition: group.enableParam,
+    body: {
+      parent: raw('hm'),
+      name: guid('name', 'stamp.key', `'${group.key}-leaf'`),
+      properties: {
+        displayName: raw(perStampDisplay),
+        canvasPosition: { x: raw(`json('\${500 + ${yOffset} * 300 + i * 200}')`), y: jsonNum(450) },
+        icon: { iconName: group.icon },
+        impact: 'Standard',
+        tags: {},
+        signalGroups,
+      },
+    },
+  }));
+
+  // Root → Category relationship (conditional)
+  blocks.push(emitRelationship({
+    symbolic: relRootSym,
+    parentExpr: `${parentSym}.name`,
+    childExpr: `${categorySym}.name`,
+    condition: group.enableParam,
+  }));
+
+  // Category → leaf relationship loop (conditional)
+  blocks.push(emitRelationshipLoop({
+    symbolic: relLeafSym,
+    parentExpr: `${categorySym}.name`,
+    childExpr: `${leafSym}[i].name`,
+    condition: group.enableParam,
+  }));
+
+  return blocks;
 }
 
 export function buildHealthModelBicep(): string {
@@ -750,8 +857,9 @@ export function buildHealthModelBicep(): string {
     const group = optionalGroups[i];
     if (group.scope.kind === 'global') {
       blocks.push(...deriveGlobalEntity(group, i, reg));
+    } else if (group.scope.kind === 'perStamp') {
+      blocks.push(...derivePerStampGroup(group, i, reg));
     }
-    // perStamp scope would use resourceLoop — not needed yet
   }
 
   // Outputs

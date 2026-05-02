@@ -517,7 +517,7 @@ export function queueTransactionErrors(): AzureResourceSignalDef {
 
 // Prometheus-based queue signals (from custom exporter)
 
-export function queueMessageCount(namespace: string, queueNames: string[]): PrometheusSignalDef {
+export function queueMessageCountProm(namespace: string, queueNames: string[]): PrometheusSignalDef {
   const filter = queueNames.length > 0 ? queueNames.join('|') : '.*';
   return {
     signalKind: 'PrometheusMetricsQuery',
@@ -698,7 +698,13 @@ export interface FailureSignals {
   fd4xx: AzureResourceSignalDef;
   cosmosAvailability: AzureResourceSignalDef;
   cosmosClientErrors: AzureResourceSignalDef;
+  cosmosServerErrors: AzureResourceSignalDef;
   podsOnNotReadyNodes: PrometheusSignalDef;
+  pendingPods: PrometheusSignalDef;
+  containersWaitingNonCrash: PrometheusSignalDef;
+  hpaAtCeiling: PrometheusSignalDef;
+  containerNetworkErrors: PrometheusSignalDef;
+  gateway4xxRate: PrometheusSignalDef;
 }
 
 export interface LatencySignals {
@@ -709,10 +715,12 @@ export interface LatencySignals {
   fdTotalLatency: AzureResourceSignalDef;
   cosmosNormalizedRU: AzureResourceSignalDef;
   cosmosThrottled: AzureResourceSignalDef;
+  cosmosServerLatency: AzureResourceSignalDef;
   podsOnHighCpuNodes: PrometheusSignalDef;
   podsOnHighMemoryNodes: PrometheusSignalDef;
   podsOnDiskPressureNodes: PrometheusSignalDef;
   podsOnPidPressureNodes: PrometheusSignalDef;
+  podsOnMemoryPressureNodes: PrometheusSignalDef;
 }
 
 /** Build failure signals for a given namespace. */
@@ -729,7 +737,13 @@ export function buildFailureSignals(namespace: string): FailureSignals {
     fd4xx: fdRequestCount4xx(),
     cosmosAvailability: cosmosAvailability(),
     cosmosClientErrors: cosmosClientErrors(),
+    cosmosServerErrors: cosmosServerErrors(),
     podsOnNotReadyNodes: podsOnNotReadyNodes(namespace),
+    pendingPods: pendingPods(namespace),
+    containersWaitingNonCrash: containersWaitingNonCrash(namespace),
+    hpaAtCeiling: hpaAtCeiling(namespace),
+    containerNetworkErrors: containerNetworkErrors(namespace),
+    gateway4xxRate: gateway4xxRate(namespace),
   };
 }
 
@@ -743,9 +757,287 @@ export function buildLatencySignals(namespace: string): LatencySignals {
     fdTotalLatency: fdTotalLatency(),
     cosmosNormalizedRU: cosmosNormalizedRU(),
     cosmosThrottled: cosmosThrottled(),
+    cosmosServerLatency: cosmosServerLatency(),
     podsOnHighCpuNodes: podsOnHighCpuNodes(namespace),
     podsOnHighMemoryNodes: podsOnHighMemoryNodes(namespace),
     podsOnDiskPressureNodes: podsOnDiskPressureNodes(namespace),
     podsOnPidPressureNodes: podsOnPidPressureNodes(namespace),
+    podsOnMemoryPressureNodes: podsOnMemoryPressureNodes(namespace),
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// New Prometheus Signals — Orleans (P0)
+// ═══════════════════════════════════════════════════════════════════
+
+export function orleansGrainCallFailures(namespace: string): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `sum(rate(orleans_grain_call_failed_total{namespace="${namespace}"}[5m])) or vector(0)`,
+    timeGrain: 'PT1M',
+    displayName: 'Orleans Grain Call Failures',
+    refreshInterval: 'PT1M',
+    dataUnit: 'CountPerSecond',
+    threshold: { direction: 'higher-is-worse', degraded: 1, unhealthy: 10 },
+  };
+}
+
+export function orleansBlockedActivations(namespace: string): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `sum(orleans_catalog_activations_blocked{namespace="${namespace}"}) or vector(0)`,
+    timeGrain: 'PT1M',
+    displayName: 'Orleans Blocked Activations',
+    refreshInterval: 'PT1M',
+    dataUnit: 'Count',
+    threshold: { direction: 'higher-is-worse', degraded: 5, unhealthy: 20 },
+  };
+}
+
+export function orleansMessageDelayP99(namespace: string): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `histogram_quantile(0.99, sum(rate(orleans_messaging_received_messages_delay_seconds_bucket{namespace="${namespace}"}[5m])) by (le))`,
+    timeGrain: 'PT1M',
+    displayName: 'Orleans Message Delay P99',
+    refreshInterval: 'PT1M',
+    dataUnit: 'Seconds',
+    threshold: { direction: 'higher-is-worse', degraded: 1, unhealthy: 5 },
+  };
+}
+
+export function orleansSiloChurn(namespace: string): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `changes(orleans_membership_active_silos_count{namespace="${namespace}"}[15m])`,
+    timeGrain: 'PT1M',
+    displayName: 'Orleans Silo Churn',
+    refreshInterval: 'PT1M',
+    dataUnit: 'Count',
+    threshold: { direction: 'higher-is-worse', degraded: 2, unhealthy: 5 },
+  };
+}
+
+export function orleansDeadSilos(namespace: string): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `orleans_membership_declared_dead_silos_count{namespace="${namespace}"} or vector(0)`,
+    timeGrain: 'PT1M',
+    displayName: 'Orleans Dead Silos',
+    refreshInterval: 'PT1M',
+    dataUnit: 'Count',
+    threshold: { direction: 'higher-is-worse', degraded: 0, unhealthy: 1 },
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// New Prometheus Signals — Memory Pressure / Scheduling (P0/P1)
+// ═══════════════════════════════════════════════════════════════════
+
+export function podsOnMemoryPressureNodes(namespace: string): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `count(kube_pod_info{namespace="${namespace}"} * on(node) group_left() (kube_node_status_condition{condition="MemoryPressure", status="true"} == 1)) or vector(0)`,
+    timeGrain: 'PT1M',
+    displayName: 'Pods on MemoryPressure Nodes',
+    refreshInterval: 'PT1M',
+    dataUnit: 'Count',
+    threshold: { direction: 'higher-is-worse', degraded: 1, unhealthy: 1 },
+  };
+}
+
+export function pendingPods(namespace: string): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `count(kube_pod_status_phase{namespace="${namespace}", phase="Pending"}) or vector(0)`,
+    timeGrain: 'PT1M',
+    displayName: 'Pending Pods',
+    refreshInterval: 'PT1M',
+    dataUnit: 'Count',
+    threshold: { direction: 'higher-is-worse', degraded: 0, unhealthy: 2 },
+  };
+}
+
+export function containersWaitingNonCrash(namespace: string): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `count(kube_pod_container_status_waiting{namespace="${namespace}"} == 1) - count(kube_pod_container_status_waiting_reason{namespace="${namespace}", reason="CrashLoopBackOff"} == 1) or vector(0)`,
+    timeGrain: 'PT1M',
+    displayName: 'Containers Waiting (non-CrashLoop)',
+    refreshInterval: 'PT1M',
+    dataUnit: 'Count',
+    threshold: { direction: 'higher-is-worse', degraded: 0, unhealthy: 2 },
+  };
+}
+
+export function hpaAtCeiling(namespace: string): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `count(kube_horizontalpodautoscaler_status_current_replicas{namespace="${namespace}"} == kube_horizontalpodautoscaler_spec_max_replicas{namespace="${namespace}"}) or vector(0)`,
+    timeGrain: 'PT1M',
+    displayName: 'HPA at Ceiling',
+    refreshInterval: 'PT1M',
+    dataUnit: 'Count',
+    threshold: { direction: 'higher-is-worse', degraded: 0, unhealthy: 0 },
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// New Prometheus Signals — Cert Manager (P1, cluster-wide)
+// ═══════════════════════════════════════════════════════════════════
+
+export function certDaysToExpiry(): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `min((certmanager_certificate_expiration_timestamp_seconds - time()) / 86400)`,
+    timeGrain: 'PT1M',
+    displayName: 'Certificate Days to Expiry',
+    refreshInterval: 'PT5M',
+    dataUnit: 'Count',
+    threshold: { direction: 'lower-is-worse', degraded: 14, unhealthy: 3 },
+  };
+}
+
+export function certsNotReady(): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `count(certmanager_certificate_ready_status{condition="False"}) or vector(0)`,
+    timeGrain: 'PT1M',
+    displayName: 'Certificates Not Ready',
+    refreshInterval: 'PT5M',
+    dataUnit: 'Count',
+    threshold: { direction: 'higher-is-worse', degraded: 0, unhealthy: 0 },
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// New Prometheus Signals — Network (P1)
+// ═══════════════════════════════════════════════════════════════════
+
+export function containerNetworkErrors(namespace: string): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `sum(rate(container_network_receive_errors_total{namespace="${namespace}"}[5m]) + rate(container_network_transmit_errors_total{namespace="${namespace}"}[5m])) or vector(0)`,
+    timeGrain: 'PT1M',
+    displayName: 'Container Network Errors',
+    refreshInterval: 'PT1M',
+    dataUnit: 'CountPerSecond',
+    threshold: { direction: 'higher-is-worse', degraded: 1, unhealthy: 10 },
+  };
+}
+
+export function gateway4xxRate(namespace: string): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `(sum(rate(istio_requests_total{destination_workload_namespace="${namespace}", response_code=~"4.."}[5m])) / sum(rate(istio_requests_total{destination_workload_namespace="${namespace}"}[5m])) * 100) or vector(0)`,
+    timeGrain: 'PT1M',
+    displayName: 'Gateway 4xx Rate',
+    refreshInterval: 'PT1M',
+    dataUnit: 'Percent',
+    threshold: { direction: 'higher-is-worse', degraded: 10, unhealthy: 25 },
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// New Azure Resource Signals — Cosmos DB deeper
+// ═══════════════════════════════════════════════════════════════════
+
+export function cosmosServerLatency(): AzureResourceSignalDef {
+  return {
+    signalKind: 'AzureResourceMetric',
+    metricNamespace: 'microsoft.documentdb/databaseaccounts',
+    metricName: 'ServerSideLatency',
+    timeGrain: 'PT5M',
+    aggregationType: 'Average',
+    displayName: 'Cosmos Server Latency',
+    refreshInterval: 'PT1M',
+    dataUnit: 'MilliSeconds',
+    threshold: { direction: 'higher-is-worse', degraded: 50, unhealthy: 200 },
+  };
+}
+
+export function cosmosServerErrors(): AzureResourceSignalDef {
+  return {
+    signalKind: 'AzureResourceMetric',
+    metricNamespace: 'microsoft.documentdb/databaseaccounts',
+    metricName: 'TotalRequests',
+    timeGrain: 'PT5M',
+    aggregationType: 'Count',
+    dimension: 'StatusCode',
+    dimensionFilter: '500',
+    displayName: 'Cosmos Server Errors',
+    refreshInterval: 'PT1M',
+    dataUnit: 'Count',
+    threshold: { direction: 'higher-is-worse', degraded: 1, unhealthy: 10 },
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// New Azure Resource Signals — Queue Depth (P2)
+// ═══════════════════════════════════════════════════════════════════
+
+export function queueMessageCount(): AzureResourceSignalDef {
+  return {
+    signalKind: 'AzureResourceMetric',
+    metricNamespace: 'Microsoft.Storage/storageAccounts',
+    metricName: 'QueueMessageCount',
+    timeGrain: 'PT1H',
+    aggregationType: 'Average',
+    displayName: 'Queue Message Count',
+    refreshInterval: 'PT5M',
+    dataUnit: 'Count',
+    threshold: { direction: 'higher-is-worse', degraded: 1000, unhealthy: 10000 },
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// New Prometheus Signals — App Metrics / HelloAgents (P2)
+// ═══════════════════════════════════════════════════════════════════
+
+export function appFailedIntents(namespace: string): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `sum(rate(helloagents_intents_failed_total{namespace="${namespace}"}[5m])) or vector(0)`,
+    timeGrain: 'PT1M',
+    displayName: 'App Failed Intents',
+    refreshInterval: 'PT1M',
+    dataUnit: 'CountPerSecond',
+    threshold: { direction: 'higher-is-worse', degraded: 0.1, unhealthy: 1 },
+  };
+}
+
+export function appExpiredIntents(namespace: string): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `sum(rate(helloagents_intents_expired_total{namespace="${namespace}"}[5m])) or vector(0)`,
+    timeGrain: 'PT1M',
+    displayName: 'App Expired Intents',
+    refreshInterval: 'PT1M',
+    dataUnit: 'CountPerSecond',
+    threshold: { direction: 'higher-is-worse', degraded: 0.1, unhealthy: 1 },
+  };
+}
+
+export function appIntentP99Duration(namespace: string): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `histogram_quantile(0.99, sum(rate(helloagents_intent_duration_seconds_bucket{namespace="${namespace}"}[5m])) by (le))`,
+    timeGrain: 'PT1M',
+    displayName: 'App Intent P99 Duration',
+    refreshInterval: 'PT1M',
+    dataUnit: 'Seconds',
+    threshold: { direction: 'higher-is-worse', degraded: 30, unhealthy: 120 },
+  };
+}
+
+export function appIntentRetryRate(namespace: string): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `sum(rate(helloagents_intents_retried_total{namespace="${namespace}"}[5m])) / (sum(rate(helloagents_intents_total{namespace="${namespace}"}[5m])) + 0.001) * 100`,
+    timeGrain: 'PT1M',
+    displayName: 'App Intent Retry Rate',
+    refreshInterval: 'PT1M',
+    dataUnit: 'Percent',
+    threshold: { direction: 'higher-is-worse', degraded: 10, unhealthy: 30 },
   };
 }

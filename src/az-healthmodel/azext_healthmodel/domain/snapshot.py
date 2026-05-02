@@ -237,14 +237,6 @@ def _diff_signals(
     return changes
 
 
-def _diff_signal_values(
-    old_es: EntityState,
-    new_es: EntityState,
-) -> list[StateChange]:
-    """Backwards-compatible alias delegating to :func:`_diff_signals`."""
-    return _diff_signals(old_es, new_es)
-
-
 def _sort_changes(changes: list[StateChange]) -> list[StateChange]:
     """Sort changes: escalations first, then recoveries, then others.
 

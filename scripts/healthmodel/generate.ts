@@ -53,7 +53,7 @@ for (const app of config.apps) {
 
   // Queue signals
   if (app.usesQueues && app.queueNames) {
-    allSignals.push({ app: app.name, signal: signals.queueMessageCount(app.namespace, app.queueNames) });
+    allSignals.push({ app: app.name, signal: signals.queueMessageCountProm(app.namespace, app.queueNames) });
     allSignals.push({ app: app.name, signal: signals.queueMessageAge(app.namespace, app.queueNames) });
   }
 }

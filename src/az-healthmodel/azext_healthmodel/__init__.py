@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from azure.cli.core import AzCommandsLoader
-from azure.cli.core.commands import CliCommandType
 
 
 class HealthModelCommandsLoader(AzCommandsLoader):

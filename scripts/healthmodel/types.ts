@@ -293,6 +293,8 @@ export interface OptionalEntityGroup {
   readonly bindings: readonly SignalBinding[];
   /** Additional Bicep params this group needs (e.g. resource ID params) */
   readonly params: readonly BicepParamDef[];
+  /** For perStamp scope: per-stamp leaf display name (Bicep expression). */
+  readonly perStampDisplayName?: string;
 }
 
 /** A Bicep parameter definition as pure data */

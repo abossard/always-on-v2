@@ -31,6 +31,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
           signals.queueAvailability(),
           signals.queueE2ELatency(),
           signals.queueTransactionErrors(),
+          signals.queueMessageCount(),
         ],
       },
     ],
@@ -135,5 +136,79 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
         defaultValue: "''",
       },
     ],
+  },
+
+  // ── Orleans Runtime (per-stamp) ──────────────────────────────────
+  {
+    key: 'orleans',
+    displayName: 'Orleans Runtime',
+    enableParam: 'usesOrleans',
+    enableDescription: 'Whether this app uses Microsoft Orleans (per-stamp Prometheus signals)',
+    parentKey: 'root',
+    icon: 'Resource',
+    scope: { kind: 'perStamp' },
+    perStampDisplayName: "'${stamp.key} — Orleans'",
+    bindings: [
+      {
+        type: 'azureMonitorWorkspace',
+        resourceIdExpr: 'stamp.amwResourceId',
+        signals: [
+          signals.orleansGrainCallFailures('${namespace}'),
+          signals.orleansBlockedActivations('${namespace}'),
+          signals.orleansMessageDelayP99('${namespace}'),
+          signals.orleansSiloChurn('${namespace}'),
+          signals.orleansDeadSilos('${namespace}'),
+        ],
+      },
+    ],
+    params: [],
+  },
+
+  // ── Cert Manager (per-stamp, cluster-wide queries) ────────────────
+  {
+    key: 'certmanager',
+    displayName: 'Certificates',
+    enableParam: 'usesCertManager',
+    enableDescription: 'Whether this cluster uses cert-manager for certificate health',
+    parentKey: 'root',
+    icon: 'Resource',
+    scope: { kind: 'perStamp' },
+    perStampDisplayName: "'${stamp.key} — Certificates'",
+    bindings: [
+      {
+        type: 'azureMonitorWorkspace',
+        resourceIdExpr: 'stamp.amwResourceId',
+        signals: [
+          signals.certDaysToExpiry(),
+          signals.certsNotReady(),
+        ],
+      },
+    ],
+    params: [],
+  },
+
+  // ── App Metrics / HelloAgents (per-stamp) ─────────────────────────
+  {
+    key: 'appmetrics',
+    displayName: 'App Metrics',
+    enableParam: 'usesAppMetrics',
+    enableDescription: 'Whether this app exposes custom HelloAgents intent metrics',
+    parentKey: 'root',
+    icon: 'Resource',
+    scope: { kind: 'perStamp' },
+    perStampDisplayName: "'${stamp.key} — App Metrics'",
+    bindings: [
+      {
+        type: 'azureMonitorWorkspace',
+        resourceIdExpr: 'stamp.amwResourceId',
+        signals: [
+          signals.appFailedIntents('${namespace}'),
+          signals.appExpiredIntents('${namespace}'),
+          signals.appIntentP99Duration('${namespace}'),
+          signals.appIntentRetryRate('${namespace}'),
+        ],
+      },
+    ],
+    params: [],
   },
 ] as const;

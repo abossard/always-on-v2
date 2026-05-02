@@ -101,7 +101,9 @@ class CloudHealthClient:
             return result.as_dict()
         if isinstance(result, dict):
             return result
-        return result
+        raise TypeError(
+            f"Cannot convert {type(result).__name__} to dict"
+        )
 
     def _call(self, fn: Callable[[], Any]) -> dict[str, Any]:
         """Execute a synchronous SDK call and convert the result to a dict."""

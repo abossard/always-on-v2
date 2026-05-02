@@ -156,10 +156,11 @@ export function resourceLoop(def: ResourceLoopDef): string {
   if (def.decorators) {
     for (const d of def.decorators) lines.push(d);
   }
+  const cond = def.condition ? `if (${def.condition}) ` : '';
   lines.push(`#disable-next-line BCP081`);
   lines.push(
     `resource ${def.symbolic} '${def.type}@${def.apiVersion}' = [`,
-    `  for (${def.itemVar}, ${def.indexVar}) in ${def.arrayExpr}: ${renderValue(def.body, 1)}`,
+    `  for (${def.itemVar}, ${def.indexVar}) in ${def.arrayExpr}: ${cond}${renderValue(def.body, 1)}`,
     `]`,
   );
   return lines.join('\n');

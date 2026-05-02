@@ -3,6 +3,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+__all__ = ["run_watch"]
+
 if TYPE_CHECKING:
     from azext_healthmodel.client.rest_client import CloudHealthClient
 
