@@ -32,8 +32,110 @@ import type {
 } from './types';
 import * as signals from './signals';
 import { optionalGroups } from './groups';
+import {
+  computeLayout,
+  renderLinear,
+  renderLoopAxis,
+  type LayoutSpec,
+  type Linear,
+  type NodeLayout,
+  type SingleLayout,
+  type LoopLayout,
+} from './layout';
 
 const API_VERSION = '2026-01-01-preview';
+
+// ─── Layout helpers ─────────────────────────────────────────────────
+// Convert a NodeLayout into a `canvasPosition` object for use in entity bodies.
+
+function canvasPositionFor(layout: NodeLayout): BicepValue {
+  if (layout.kind === 'single') {
+    return { x: singleAxisBicep(layout.x), y: singleAxisBicep(layout.y) };
+  }
+  return {
+    x: loopAxisBicep(layout.baseX, layout.stampOffsetX),
+    y: loopAxisBicep(layout.baseY, layout.stampOffsetY),
+  };
+}
+
+function singleAxisBicep(l: Linear): BicepValue {
+  if (l.s === 0) return jsonNum(l.c);
+  return raw(`json('\${${renderLinear(l)}}')`);
+}
+
+function loopAxisBicep(base: Linear, stampOffset: number): BicepValue {
+  if (base.s === 0 && stampOffset === 0) return jsonNum(base.c);
+  return raw(`json('\${${renderLoopAxis(base, stampOffset)}}')`);
+}
+
+function getSingle(layouts: Map<string, NodeLayout>, key: string): SingleLayout {
+  const l = layouts.get(key);
+  if (!l) throw new Error(`No layout for '${key}'`);
+  if (l.kind !== 'single') throw new Error(`Expected single layout for '${key}', got '${l.kind}'`);
+  return l;
+}
+
+function getLoop(layouts: Map<string, NodeLayout>, key: string): LoopLayout {
+  const l = layouts.get(key);
+  if (!l) throw new Error(`No layout for '${key}'`);
+  if (l.kind !== 'loop') throw new Error(`Expected loop layout for '${key}', got '${l.kind}'`);
+  return l;
+}
+
+// Layout tree keys — kept centralized so emission code and tree builder agree.
+const LAYOUT_KEYS = {
+  root: 'root',
+  failures: 'failures',
+  failuresStampGroup: 'failures-stamp-group',
+  latency: 'latency',
+  latencyStampGroup: 'latency-stamp-group',
+  globalOptional: (groupKey: string) => groupKey,
+  perStampCategory: (groupKey: string) => `${groupKey}-category`,
+  perStampLeaf: (groupKey: string) => `${groupKey}-leaf`,
+} as const;
+
+/**
+ * Build the LayoutSpec used to compute canvas positions.
+ *
+ * Major categories (Failures, Latency) flank the root in two side-by-side
+ * columns; each owns one stamp-loop group whose leaves wrap into a 3-column
+ * grid that stacks vertically per stamp. Minor categories (every entry from
+ * `optionalGroups`) sit in a single row beneath the major stamp sections,
+ * spread evenly across the canvas width.
+ *
+ * Layout slots are reserved unconditionally — toggling an optional group
+ * off via its enableParam leaves an empty gap rather than reflowing
+ * neighbouring entities.
+ */
+function buildLayoutSpec(
+  failures: StampEntitySpec[],
+  latency: StampEntitySpec[],
+): LayoutSpec {
+  return {
+    rootKey: LAYOUT_KEYS.root,
+    failures: {
+      categoryKey: LAYOUT_KEYS.failures,
+      stampGroupKey: LAYOUT_KEYS.failuresStampGroup,
+      leafKeys: failures.map(s => s.key),
+    },
+    latency: {
+      categoryKey: LAYOUT_KEYS.latency,
+      stampGroupKey: LAYOUT_KEYS.latencyStampGroup,
+      leafKeys: latency.map(s => s.key),
+    },
+    minorGlobals: optionalGroups
+      .filter(g => g.scope.kind === 'global')
+      .map(g => LAYOUT_KEYS.globalOptional(g.key)),
+    minorPerStamp: optionalGroups
+      .filter(g => g.scope.kind === 'perStamp')
+      .map(g => ({
+        categoryKey: LAYOUT_KEYS.perStampCategory(g.key),
+        perStampLeafKey: LAYOUT_KEYS.perStampLeaf(g.key),
+      })),
+  };
+}
+
+// ────────────────────────────────────────────────────────────────────
 
 // ─── Signal Registry ────────────────────────────────────────────────
 // Collects signal definitions and emits them as Bicep resources.
@@ -362,7 +464,11 @@ function deriveParams(group: OptionalEntityGroup): string[] {
 
 /** Derive entity + relationship Bicep blocks for a global OptionalEntityGroup.
  *  Signal definitions are already emitted by the registry — this only creates entities. */
-function deriveGlobalEntity(group: OptionalEntityGroup, yOffset: number, reg: SignalRegistry): string[] {
+function deriveGlobalEntity(
+  group: OptionalEntityGroup,
+  layouts: Map<string, NodeLayout>,
+  reg: SignalRegistry,
+): string[] {
   const blocks: string[] = [];
 
   // Build signal groups referencing definitions from the registry
@@ -391,6 +497,7 @@ function deriveGlobalEntity(group: OptionalEntityGroup, yOffset: number, reg: Si
   const parentSym = PARENT_KEY_TO_SYMBOLIC[group.parentKey];
   const entitySym = `${group.key}Entity`;
   const relSym = `rel_${group.key}`;
+  const layout = getSingle(layouts, LAYOUT_KEYS.globalOptional(group.key));
 
   blocks.push(resource({
     symbolic: entitySym,
@@ -402,7 +509,7 @@ function deriveGlobalEntity(group: OptionalEntityGroup, yOffset: number, reg: Si
       name: guid('name', `'${group.key}'`),
       properties: {
         displayName: group.displayName,
-        canvasPosition: { x: jsonNum(500 + yOffset * 300), y: jsonNum(200) },
+        canvasPosition: canvasPositionFor(layout),
         icon: { iconName: group.icon },
         impact: 'Standard',
         tags: {},
@@ -476,7 +583,11 @@ function emitRelationshipLoop(opts: {
 
 /** Derive entity + relationship Bicep blocks for a perStamp OptionalEntityGroup.
  *  Creates a conditional category entity at root level + per-stamp leaf entities. */
-function derivePerStampGroup(group: OptionalEntityGroup, yOffset: number, reg: SignalRegistry): string[] {
+function derivePerStampGroup(
+  group: OptionalEntityGroup,
+  layouts: Map<string, NodeLayout>,
+  reg: SignalRegistry,
+): string[] {
   const blocks: string[] = [];
 
   // Build signal groups for each stamp leaf
@@ -508,6 +619,8 @@ function derivePerStampGroup(group: OptionalEntityGroup, yOffset: number, reg: S
   const relRootSym = `rel_root_${group.key}`;
   const relLeafSym = `rel_${group.key}_leaf`;
   const perStampDisplay = group.perStampDisplayName ?? `'\${stamp.key} — ${group.displayName}'`;
+  const categoryLayout = getSingle(layouts, LAYOUT_KEYS.perStampCategory(group.key));
+  const leafLayout = getLoop(layouts, LAYOUT_KEYS.perStampLeaf(group.key));
 
   // Category entity (one per model, conditional)
   blocks.push(resource({
@@ -520,7 +633,7 @@ function derivePerStampGroup(group: OptionalEntityGroup, yOffset: number, reg: S
       name: guid('name', `'${group.key}-category'`),
       properties: {
         displayName: group.displayName,
-        canvasPosition: { x: jsonNum(500 + yOffset * 300), y: jsonNum(150) },
+        canvasPosition: canvasPositionFor(categoryLayout),
         icon: { iconName: group.icon },
         impact: 'Standard',
         tags: {},
@@ -542,7 +655,7 @@ function derivePerStampGroup(group: OptionalEntityGroup, yOffset: number, reg: S
       name: guid('name', 'stamp.key', `'${group.key}-leaf'`),
       properties: {
         displayName: raw(perStampDisplay),
-        canvasPosition: { x: raw(`json('\${500 + ${yOffset} * 300 + i * 200}')`), y: jsonNum(450) },
+        canvasPosition: canvasPositionFor(leafLayout),
         icon: { iconName: group.icon },
         impact: 'Standard',
         tags: {},
@@ -637,6 +750,13 @@ export function buildHealthModelBicep(): string {
     },
   }));
 
+  // ─── Layout ─────────────────────────────────────────────────────────
+  // Build the logical entity tree first so every emitted entity can use
+  // canvas coordinates produced by the bottom-up tree layout algorithm.
+  const failureEntities = buildFailureEntities();
+  const latencyEntities = buildLatencyEntities();
+  const layouts = computeLayout(buildLayoutSpec(failureEntities, latencyEntities));
+
   // Root Entity
   blocks.push(section('Root Entity'));
   blocks.push(resource({
@@ -648,7 +768,7 @@ export function buildHealthModelBicep(): string {
       name: raw('name'),
       properties: {
         displayName: raw('displayName'),
-        canvasPosition: { x: jsonNum(500), y: jsonNum(0) },
+        canvasPosition: canvasPositionFor(getSingle(layouts, LAYOUT_KEYS.root)),
         icon: { iconName: 'UserFlow' },
         impact: 'Standard',
         tags: {},
@@ -667,7 +787,7 @@ export function buildHealthModelBicep(): string {
       name: guid('name', "'failures'"),
       properties: {
         displayName: 'Failures',
-        canvasPosition: { x: jsonNum(200), y: jsonNum(200) },
+        canvasPosition: canvasPositionFor(getSingle(layouts, LAYOUT_KEYS.failures)),
         icon: { iconName: 'SystemComponent' },
         impact: 'Standard',
         tags: {},
@@ -684,7 +804,7 @@ export function buildHealthModelBicep(): string {
       name: guid('name', "'latency'"),
       properties: {
         displayName: 'Latency',
-        canvasPosition: { x: jsonNum(800), y: jsonNum(200) },
+        canvasPosition: canvasPositionFor(getSingle(layouts, LAYOUT_KEYS.latency)),
         icon: { iconName: 'SystemComponent' },
         impact: 'Limited',
         tags: {},
@@ -732,9 +852,6 @@ export function buildHealthModelBicep(): string {
 
   // ─── Per-Stamp Grouping + Entity Emission ──────────────────────────
 
-  const failureEntities = buildFailureEntities();
-  const latencyEntities = buildLatencyEntities();
-
   // Stamp grouping entities
   blocks.push(section('Per-Stamp Grouping Entities'));
 
@@ -750,7 +867,7 @@ export function buildHealthModelBicep(): string {
       name: guid('name', 'stamp.key', "'stamp-failures'"),
       properties: {
         displayName: raw("'Stamp ${stamp.key}'"),
-        canvasPosition: { x: raw("json('${i * 400}')"), y: jsonNum(300) },
+        canvasPosition: canvasPositionFor(getLoop(layouts, LAYOUT_KEYS.failuresStampGroup)),
         icon: { iconName: 'AzureKubernetesService' },
         impact: 'Standard',
         tags: {},
@@ -770,7 +887,7 @@ export function buildHealthModelBicep(): string {
       name: guid('name', 'stamp.key', "'stamp-latency'"),
       properties: {
         displayName: raw("'Stamp ${stamp.key}'"),
-        canvasPosition: { x: raw("json('${(length(stamps) + 1) * 400 + i * 400}')"), y: jsonNum(300) },
+        canvasPosition: canvasPositionFor(getLoop(layouts, LAYOUT_KEYS.latencyStampGroup)),
         icon: { iconName: 'AzureKubernetesService' },
         impact: 'Standard',
         tags: {},
@@ -828,7 +945,7 @@ export function buildHealthModelBicep(): string {
           name: guid('name', 'stamp.key', `'${spec.key}'`),
           properties: {
             displayName: raw(`'\${stamp.key} — ${spec.displayNameExpr.replace(/'/g, '')}'`),
-            canvasPosition: { x: raw(`json('\${i * 400 + ${e * 100}}')`), y: jsonNum(spec.category === 'failures' ? 400 : 400) },
+            canvasPosition: canvasPositionFor(getLoop(layouts, spec.key)),
             icon: { iconName: spec.icon },
             impact: 'Standard',
             tags: {},
@@ -853,12 +970,11 @@ export function buildHealthModelBicep(): string {
   blocks.push(section('Optional Entity Groups'));
   blocks.push(comment('Generated from groups.ts — add new features there, not here.'));
 
-  for (let i = 0; i < optionalGroups.length; i++) {
-    const group = optionalGroups[i];
+  for (const group of optionalGroups) {
     if (group.scope.kind === 'global') {
-      blocks.push(...deriveGlobalEntity(group, i, reg));
+      blocks.push(...deriveGlobalEntity(group, layouts, reg));
     } else if (group.scope.kind === 'perStamp') {
-      blocks.push(...derivePerStampGroup(group, i, reg));
+      blocks.push(...derivePerStampGroup(group, layouts, reg));
     }
   }
 
