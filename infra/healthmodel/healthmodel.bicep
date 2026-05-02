@@ -247,7 +247,7 @@ resource def_oomkilled 'Microsoft.CloudHealth/healthmodels/signaldefinitions@202
         threshold: json('2')
       }
     }
-    queryText: 'sum(kube_pod_container_status_last_terminated_reason{namespace="${namespace}", reason="OOMKilled"}) or vector(0)'
+    queryText: 'sum(kube_pod_container_status_last_terminated_reason{namespace="${namespace}", reason="OOMKilled"} == 1) or vector(0)'
     timeGrain: 'PT1M'
   }
 }
@@ -295,7 +295,7 @@ resource def_pods_notready_nodes 'Microsoft.CloudHealth/healthmodels/signaldefin
         threshold: json('1')
       }
     }
-    queryText: 'count(kube_pod_info{namespace="${namespace}"} * on(node) group_left() (kube_node_status_condition{condition="Ready", status="false"} == 1)) or vector(0)'
+    queryText: 'count((kube_pod_info{namespace="${namespace}"} * on(namespace,pod) group_left() (kube_pod_status_phase{namespace="${namespace}", phase="Running"} == 1)) * on(node) group_left() (kube_node_status_condition{condition="Ready", status="false"} == 1)) or vector(0)'
     timeGrain: 'PT1M'
   }
 }
@@ -527,7 +527,7 @@ resource def_pending_pods 'Microsoft.CloudHealth/healthmodels/signaldefinitions@
         threshold: json('2')
       }
     }
-    queryText: 'count(kube_pod_status_phase{namespace="${namespace}", phase="Pending"}) or vector(0)'
+    queryText: 'count(kube_pod_status_phase{namespace="${namespace}", phase="Pending"} == 1) or vector(0)'
     timeGrain: 'PT1M'
   }
 }
@@ -849,7 +849,7 @@ resource def_pods_high_cpu_nodes 'Microsoft.CloudHealth/healthmodels/signaldefin
         threshold: json('3')
       }
     }
-    queryText: 'count(kube_pod_info{namespace="${namespace}"} * on(node) group_left() ((1 - avg by (node) (rate(node_cpu_seconds_total{mode="idle"}[5m]))) > 0.8)) or vector(0)'
+    queryText: 'count((kube_pod_info{namespace="${namespace}"} * on(namespace,pod) group_left() (kube_pod_status_phase{namespace="${namespace}", phase="Running"} == 1)) * on(node) group_left() ((1 - avg by (node) (rate(node_cpu_seconds_total{mode="idle"}[5m]))) > 0.8)) or vector(0)'
     timeGrain: 'PT1M'
   }
 }
@@ -873,7 +873,7 @@ resource def_pods_high_mem_nodes 'Microsoft.CloudHealth/healthmodels/signaldefin
         threshold: json('3')
       }
     }
-    queryText: 'count(kube_pod_info{namespace="${namespace}"} * on(node) group_left() ((1 - avg by (node) (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.85)) or vector(0)'
+    queryText: 'count((kube_pod_info{namespace="${namespace}"} * on(namespace,pod) group_left() (kube_pod_status_phase{namespace="${namespace}", phase="Running"} == 1)) * on(node) group_left() ((1 - avg by (node) (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.85)) or vector(0)'
     timeGrain: 'PT1M'
   }
 }
@@ -897,7 +897,7 @@ resource def_pods_disk_pressure_nodes 'Microsoft.CloudHealth/healthmodels/signal
         threshold: json('1')
       }
     }
-    queryText: 'count(kube_pod_info{namespace="${namespace}"} * on(node) group_left() (kube_node_status_condition{condition="DiskPressure", status="true"} == 1)) or vector(0)'
+    queryText: 'count((kube_pod_info{namespace="${namespace}"} * on(namespace,pod) group_left() (kube_pod_status_phase{namespace="${namespace}", phase="Running"} == 1)) * on(node) group_left() (kube_node_status_condition{condition="DiskPressure", status="true"} == 1)) or vector(0)'
     timeGrain: 'PT1M'
   }
 }
@@ -921,7 +921,7 @@ resource def_pods_pid_pressure_nodes 'Microsoft.CloudHealth/healthmodels/signald
         threshold: json('1')
       }
     }
-    queryText: 'count(kube_pod_info{namespace="${namespace}"} * on(node) group_left() (kube_node_status_condition{condition="PIDPressure", status="true"} == 1)) or vector(0)'
+    queryText: 'count((kube_pod_info{namespace="${namespace}"} * on(namespace,pod) group_left() (kube_pod_status_phase{namespace="${namespace}", phase="Running"} == 1)) * on(node) group_left() (kube_node_status_condition{condition="PIDPressure", status="true"} == 1)) or vector(0)'
     timeGrain: 'PT1M'
   }
 }
@@ -945,7 +945,7 @@ resource def_pods_mem_pressure_nodes 'Microsoft.CloudHealth/healthmodels/signald
         threshold: json('1')
       }
     }
-    queryText: 'count(kube_pod_info{namespace="${namespace}"} * on(node) group_left() (kube_node_status_condition{condition="MemoryPressure", status="true"} == 1)) or vector(0)'
+    queryText: 'count((kube_pod_info{namespace="${namespace}"} * on(namespace,pod) group_left() (kube_pod_status_phase{namespace="${namespace}", phase="Running"} == 1)) * on(node) group_left() (kube_node_status_condition{condition="MemoryPressure", status="true"} == 1)) or vector(0)'
     timeGrain: 'PT1M'
   }
 }
@@ -1533,7 +1533,7 @@ resource def_certmanager_certificates_not_ready 'Microsoft.CloudHealth/healthmod
         threshold: json('0')
       }
     }
-    queryText: 'count(certmanager_certificate_ready_status{condition="False"}) or vector(0)'
+    queryText: 'count(certmanager_certificate_ready_status{condition="False"} == 1) or vector(0)'
     timeGrain: 'PT1M'
   }
 }

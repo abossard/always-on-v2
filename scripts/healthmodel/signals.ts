@@ -32,7 +32,7 @@ export function podRestarts(namespace: string): PrometheusSignalDef {
 export function oomKilled(namespace: string): PrometheusSignalDef {
   return {
     signalKind: 'PrometheusMetricsQuery',
-    queryText: `sum(kube_pod_container_status_last_terminated_reason{namespace="${namespace}", reason="OOMKilled"}) or vector(0)`,
+    queryText: `sum(kube_pod_container_status_last_terminated_reason{namespace="${namespace}", reason="OOMKilled"} == 1) or vector(0)`,
     timeGrain: 'PT1M',
     displayName: 'OOMKilled',
     refreshInterval: 'PT1M',
@@ -98,7 +98,7 @@ export function memoryPressure(namespace: string): PrometheusSignalDef {
 export function podsOnHighCpuNodes(namespace: string): PrometheusSignalDef {
   return {
     signalKind: 'PrometheusMetricsQuery',
-    queryText: `count(kube_pod_info{namespace="${namespace}"} * on(node) group_left() ((1 - avg by (node) (rate(node_cpu_seconds_total{mode="idle"}[5m]))) > 0.8)) or vector(0)`,
+    queryText: `count((kube_pod_info{namespace="${namespace}"} * on(namespace,pod) group_left() (kube_pod_status_phase{namespace="${namespace}", phase="Running"} == 1)) * on(node) group_left() ((1 - avg by (node) (rate(node_cpu_seconds_total{mode="idle"}[5m]))) > 0.8)) or vector(0)`,
     timeGrain: 'PT1M',
     displayName: 'Pods on High-CPU Nodes',
     refreshInterval: 'PT1M',
@@ -110,7 +110,7 @@ export function podsOnHighCpuNodes(namespace: string): PrometheusSignalDef {
 export function podsOnHighMemoryNodes(namespace: string): PrometheusSignalDef {
   return {
     signalKind: 'PrometheusMetricsQuery',
-    queryText: `count(kube_pod_info{namespace="${namespace}"} * on(node) group_left() ((1 - avg by (node) (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.85)) or vector(0)`,
+    queryText: `count((kube_pod_info{namespace="${namespace}"} * on(namespace,pod) group_left() (kube_pod_status_phase{namespace="${namespace}", phase="Running"} == 1)) * on(node) group_left() ((1 - avg by (node) (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.85)) or vector(0)`,
     timeGrain: 'PT1M',
     displayName: 'Pods on High-Memory Nodes',
     refreshInterval: 'PT1M',
@@ -122,7 +122,7 @@ export function podsOnHighMemoryNodes(namespace: string): PrometheusSignalDef {
 export function podsOnDiskPressureNodes(namespace: string): PrometheusSignalDef {
   return {
     signalKind: 'PrometheusMetricsQuery',
-    queryText: `count(kube_pod_info{namespace="${namespace}"} * on(node) group_left() (kube_node_status_condition{condition="DiskPressure", status="true"} == 1)) or vector(0)`,
+    queryText: `count((kube_pod_info{namespace="${namespace}"} * on(namespace,pod) group_left() (kube_pod_status_phase{namespace="${namespace}", phase="Running"} == 1)) * on(node) group_left() (kube_node_status_condition{condition="DiskPressure", status="true"} == 1)) or vector(0)`,
     timeGrain: 'PT1M',
     displayName: 'Pods on DiskPressure Nodes',
     refreshInterval: 'PT1M',
@@ -134,7 +134,7 @@ export function podsOnDiskPressureNodes(namespace: string): PrometheusSignalDef 
 export function podsOnPidPressureNodes(namespace: string): PrometheusSignalDef {
   return {
     signalKind: 'PrometheusMetricsQuery',
-    queryText: `count(kube_pod_info{namespace="${namespace}"} * on(node) group_left() (kube_node_status_condition{condition="PIDPressure", status="true"} == 1)) or vector(0)`,
+    queryText: `count((kube_pod_info{namespace="${namespace}"} * on(namespace,pod) group_left() (kube_pod_status_phase{namespace="${namespace}", phase="Running"} == 1)) * on(node) group_left() (kube_node_status_condition{condition="PIDPressure", status="true"} == 1)) or vector(0)`,
     timeGrain: 'PT1M',
     displayName: 'Pods on PIDPressure Nodes',
     refreshInterval: 'PT1M',
@@ -146,7 +146,7 @@ export function podsOnPidPressureNodes(namespace: string): PrometheusSignalDef {
 export function podsOnNotReadyNodes(namespace: string): PrometheusSignalDef {
   return {
     signalKind: 'PrometheusMetricsQuery',
-    queryText: `count(kube_pod_info{namespace="${namespace}"} * on(node) group_left() (kube_node_status_condition{condition="Ready", status="false"} == 1)) or vector(0)`,
+    queryText: `count((kube_pod_info{namespace="${namespace}"} * on(namespace,pod) group_left() (kube_pod_status_phase{namespace="${namespace}", phase="Running"} == 1)) * on(node) group_left() (kube_node_status_condition{condition="Ready", status="false"} == 1)) or vector(0)`,
     timeGrain: 'PT1M',
     displayName: 'Pods on NotReady Nodes',
     refreshInterval: 'PT1M',
@@ -837,7 +837,7 @@ export function orleansDeadSilos(namespace: string): PrometheusSignalDef {
 export function podsOnMemoryPressureNodes(namespace: string): PrometheusSignalDef {
   return {
     signalKind: 'PrometheusMetricsQuery',
-    queryText: `count(kube_pod_info{namespace="${namespace}"} * on(node) group_left() (kube_node_status_condition{condition="MemoryPressure", status="true"} == 1)) or vector(0)`,
+    queryText: `count((kube_pod_info{namespace="${namespace}"} * on(namespace,pod) group_left() (kube_pod_status_phase{namespace="${namespace}", phase="Running"} == 1)) * on(node) group_left() (kube_node_status_condition{condition="MemoryPressure", status="true"} == 1)) or vector(0)`,
     timeGrain: 'PT1M',
     displayName: 'Pods on MemoryPressure Nodes',
     refreshInterval: 'PT1M',
@@ -849,7 +849,7 @@ export function podsOnMemoryPressureNodes(namespace: string): PrometheusSignalDe
 export function pendingPods(namespace: string): PrometheusSignalDef {
   return {
     signalKind: 'PrometheusMetricsQuery',
-    queryText: `count(kube_pod_status_phase{namespace="${namespace}", phase="Pending"}) or vector(0)`,
+    queryText: `count(kube_pod_status_phase{namespace="${namespace}", phase="Pending"} == 1) or vector(0)`,
     timeGrain: 'PT1M',
     displayName: 'Pending Pods',
     refreshInterval: 'PT1M',
@@ -901,7 +901,7 @@ export function certDaysToExpiry(): PrometheusSignalDef {
 export function certsNotReady(): PrometheusSignalDef {
   return {
     signalKind: 'PrometheusMetricsQuery',
-    queryText: `count(certmanager_certificate_ready_status{condition="False"}) or vector(0)`,
+    queryText: `count(certmanager_certificate_ready_status{condition="False"} == 1) or vector(0)`,
     timeGrain: 'PT1M',
     displayName: 'Certificates Not Ready',
     refreshInterval: 'PT5M',
