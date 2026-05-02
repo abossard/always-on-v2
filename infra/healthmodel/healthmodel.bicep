@@ -1031,32 +1031,6 @@ resource def_queues_queue_errors 'Microsoft.CloudHealth/healthmodels/signaldefin
 }
 
 #disable-next-line BCP081
-resource def_queues_queue_message_count 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesQueues) {
-  parent: hm
-  name: guid(name, 'def-queues-queue-message-count')
-  properties: {
-    signalKind: 'AzureResourceMetric'
-    displayName: 'Queue Message Count'
-    refreshInterval: 'PT5M'
-    dataUnit: 'Count'
-    evaluationRules: {
-      degradedRule: {
-        operator: 'GreaterThan'
-        threshold: json('1000')
-      }
-      unhealthyRule: {
-        operator: 'GreaterThan'
-        threshold: json('10000')
-      }
-    }
-    metricNamespace: 'Microsoft.Storage/storageAccounts'
-    metricName: 'QueueMessageCount'
-    timeGrain: 'PT1H'
-    aggregationType: 'Average'
-  }
-}
-
-#disable-next-line BCP081
 resource def_ai_ai_availability 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesAI) {
   parent: hm
   name: guid(name, 'def-ai-ai-availability')
@@ -1419,54 +1393,6 @@ resource def_orleans_orleans_blocked_activations 'Microsoft.CloudHealth/healthmo
 }
 
 #disable-next-line BCP081
-resource def_orleans_orleans_message_delay_p99 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesOrleans) {
-  parent: hm
-  name: guid(name, 'def-orleans-orleans-message-delay-p99')
-  properties: {
-    signalKind: 'PrometheusMetricsQuery'
-    displayName: 'Orleans Message Delay P99'
-    refreshInterval: 'PT1M'
-    dataUnit: 'Seconds'
-    evaluationRules: {
-      degradedRule: {
-        operator: 'GreaterThan'
-        threshold: json('1')
-      }
-      unhealthyRule: {
-        operator: 'GreaterThan'
-        threshold: json('5')
-      }
-    }
-    queryText: 'histogram_quantile(0.99, sum(rate(orleans_messaging_received_messages_delay_seconds_bucket{namespace="${namespace}"}[5m])) by (le))'
-    timeGrain: 'PT1M'
-  }
-}
-
-#disable-next-line BCP081
-resource def_orleans_orleans_silo_churn 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesOrleans) {
-  parent: hm
-  name: guid(name, 'def-orleans-orleans-silo-churn')
-  properties: {
-    signalKind: 'PrometheusMetricsQuery'
-    displayName: 'Orleans Silo Churn'
-    refreshInterval: 'PT1M'
-    dataUnit: 'Count'
-    evaluationRules: {
-      degradedRule: {
-        operator: 'GreaterThan'
-        threshold: json('2')
-      }
-      unhealthyRule: {
-        operator: 'GreaterThan'
-        threshold: json('5')
-      }
-    }
-    queryText: 'changes(orleans_membership_active_silos_count{namespace="${namespace}"}[15m])'
-    timeGrain: 'PT1M'
-  }
-}
-
-#disable-next-line BCP081
 resource def_orleans_orleans_dead_silos 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesOrleans) {
   parent: hm
   name: guid(name, 'def-orleans-orleans-dead-silos')
@@ -1486,30 +1412,6 @@ resource def_orleans_orleans_dead_silos 'Microsoft.CloudHealth/healthmodels/sign
       }
     }
     queryText: 'orleans_membership_declared_dead_silos_count{namespace="${namespace}"} or vector(0)'
-    timeGrain: 'PT1M'
-  }
-}
-
-#disable-next-line BCP081
-resource def_certmanager_certificate_days_to_expiry 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesCertManager) {
-  parent: hm
-  name: guid(name, 'def-certmanager-certificate-days-to-expiry')
-  properties: {
-    signalKind: 'PrometheusMetricsQuery'
-    displayName: 'Certificate Days to Expiry'
-    refreshInterval: 'PT5M'
-    dataUnit: 'Count'
-    evaluationRules: {
-      degradedRule: {
-        operator: 'LessThan'
-        threshold: json('14')
-      }
-      unhealthyRule: {
-        operator: 'LessThan'
-        threshold: json('3')
-      }
-    }
-    queryText: 'min((certmanager_certificate_expiration_timestamp_seconds - time()) / 86400)'
     timeGrain: 'PT1M'
   }
 }
@@ -1582,54 +1484,6 @@ resource def_appmetrics_app_expired_intents 'Microsoft.CloudHealth/healthmodels/
       }
     }
     queryText: 'sum(rate(helloagents_intents_expired_total{namespace="${namespace}"}[5m])) or vector(0)'
-    timeGrain: 'PT1M'
-  }
-}
-
-#disable-next-line BCP081
-resource def_appmetrics_app_intent_p99_duration 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesAppMetrics) {
-  parent: hm
-  name: guid(name, 'def-appmetrics-app-intent-p99-duration')
-  properties: {
-    signalKind: 'PrometheusMetricsQuery'
-    displayName: 'App Intent P99 Duration'
-    refreshInterval: 'PT1M'
-    dataUnit: 'Seconds'
-    evaluationRules: {
-      degradedRule: {
-        operator: 'GreaterThan'
-        threshold: json('30')
-      }
-      unhealthyRule: {
-        operator: 'GreaterThan'
-        threshold: json('120')
-      }
-    }
-    queryText: 'histogram_quantile(0.99, sum(rate(helloagents_intent_duration_seconds_bucket{namespace="${namespace}"}[5m])) by (le))'
-    timeGrain: 'PT1M'
-  }
-}
-
-#disable-next-line BCP081
-resource def_appmetrics_app_intent_retry_rate 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesAppMetrics) {
-  parent: hm
-  name: guid(name, 'def-appmetrics-app-intent-retry-rate')
-  properties: {
-    signalKind: 'PrometheusMetricsQuery'
-    displayName: 'App Intent Retry Rate'
-    refreshInterval: 'PT1M'
-    dataUnit: 'Percent'
-    evaluationRules: {
-      degradedRule: {
-        operator: 'GreaterThan'
-        threshold: json('10')
-      }
-      unhealthyRule: {
-        operator: 'GreaterThan'
-        threshold: json('30')
-      }
-    }
-    queryText: 'sum(rate(helloagents_intents_retried_total{namespace="${namespace}"}[5m])) / (sum(rate(helloagents_intents_total{namespace="${namespace}"}[5m])) + 0.001) * 100'
     timeGrain: 'PT1M'
   }
 }
@@ -2422,12 +2276,6 @@ resource queuesEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-pr
             signalDefinitionName: def_queues_queue_errors.name
             refreshInterval: 'PT5M'
           }
-          {
-            signalKind: 'AzureResourceMetric'
-            name: guid(name, 'queues-queue-message-count')
-            signalDefinitionName: def_queues_queue_message_count.name
-            refreshInterval: 'PT5M'
-          }
         ]
       }
     }
@@ -2677,18 +2525,6 @@ resource orleansStampLeaf 'Microsoft.CloudHealth/healthmodels/entities@2026-01-0
             }
             {
               signalKind: 'PrometheusMetricsQuery'
-              name: guid(name, stamp.key, 'orleans-orleans-message-delay-p99')
-              signalDefinitionName: def_orleans_orleans_message_delay_p99.name
-              refreshInterval: 'PT1M'
-            }
-            {
-              signalKind: 'PrometheusMetricsQuery'
-              name: guid(name, stamp.key, 'orleans-orleans-silo-churn')
-              signalDefinitionName: def_orleans_orleans_silo_churn.name
-              refreshInterval: 'PT1M'
-            }
-            {
-              signalKind: 'PrometheusMetricsQuery'
               name: guid(name, stamp.key, 'orleans-orleans-dead-silos')
               signalDefinitionName: def_orleans_orleans_dead_silos.name
               refreshInterval: 'PT1M'
@@ -2761,12 +2597,6 @@ resource certmanagerStampLeaf 'Microsoft.CloudHealth/healthmodels/entities@2026-
           authenticationSetting: auth.name
           azureMonitorWorkspaceResourceId: stamp.amwResourceId
           signals: [
-            {
-              signalKind: 'PrometheusMetricsQuery'
-              name: guid(name, stamp.key, 'certmanager-certificate-days-to-expiry')
-              signalDefinitionName: def_certmanager_certificate_days_to_expiry.name
-              refreshInterval: 'PT5M'
-            }
             {
               signalKind: 'PrometheusMetricsQuery'
               name: guid(name, stamp.key, 'certmanager-certificates-not-ready')
@@ -2851,18 +2681,6 @@ resource appmetricsStampLeaf 'Microsoft.CloudHealth/healthmodels/entities@2026-0
               signalKind: 'PrometheusMetricsQuery'
               name: guid(name, stamp.key, 'appmetrics-app-expired-intents')
               signalDefinitionName: def_appmetrics_app_expired_intents.name
-              refreshInterval: 'PT1M'
-            }
-            {
-              signalKind: 'PrometheusMetricsQuery'
-              name: guid(name, stamp.key, 'appmetrics-app-intent-p99-duration')
-              signalDefinitionName: def_appmetrics_app_intent_p99_duration.name
-              refreshInterval: 'PT1M'
-            }
-            {
-              signalKind: 'PrometheusMetricsQuery'
-              name: guid(name, stamp.key, 'appmetrics-app-intent-retry-rate')
-              signalDefinitionName: def_appmetrics_app_intent_retry_rate.name
               refreshInterval: 'PT1M'
             }
           ]

@@ -31,7 +31,6 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
           signals.queueAvailability(),
           signals.queueE2ELatency(),
           signals.queueTransactionErrors(),
-          signals.queueMessageCount(),
         ],
       },
     ],
@@ -155,8 +154,6 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
         signals: [
           signals.orleansGrainCallFailures('${namespace}'),
           signals.orleansBlockedActivations('${namespace}'),
-          signals.orleansMessageDelayP99('${namespace}'),
-          signals.orleansSiloChurn('${namespace}'),
           signals.orleansDeadSilos('${namespace}'),
         ],
       },
@@ -179,7 +176,6 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
         type: 'azureMonitorWorkspace',
         resourceIdExpr: 'stamp.amwResourceId',
         signals: [
-          signals.certDaysToExpiry(),
           signals.certsNotReady(),
         ],
       },
@@ -204,8 +200,6 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
         signals: [
           signals.appFailedIntents('${namespace}'),
           signals.appExpiredIntents('${namespace}'),
-          signals.appIntentP99Duration('${namespace}'),
-          signals.appIntentRetryRate('${namespace}'),
         ],
       },
     ],
