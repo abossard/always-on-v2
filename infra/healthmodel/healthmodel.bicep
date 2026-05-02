@@ -105,7 +105,7 @@ resource root 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' =
   properties: {
     displayName: displayName
     canvasPosition: {
-      x: json('1000')
+      x: json('1500')
       y: json('0')
     }
     icon: {
@@ -125,7 +125,7 @@ resource failuresEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-
   properties: {
     displayName: 'Failures'
     canvasPosition: {
-      x: json('475')
+      x: json('700')
       y: json('250')
     }
     icon: {
@@ -143,7 +143,7 @@ resource latencyEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-p
   properties: {
     displayName: 'Latency'
     canvasPosition: {
-      x: json('1525')
+      x: json('2300')
       y: json('250')
     }
     icon: {
@@ -1676,7 +1676,7 @@ resource stampFailuresGroup 'Microsoft.CloudHealth/healthmodels/entities@2026-01
     properties: {
       displayName: 'Stamp ${stamp.key}'
       canvasPosition: {
-        x: json('475')
+        x: json('700')
         y: json('${500 + i * 800}')
       }
       icon: {
@@ -1696,7 +1696,7 @@ resource stampLatencyGroup 'Microsoft.CloudHealth/healthmodels/entities@2026-01-
     properties: {
       displayName: 'Stamp ${stamp.key}'
       canvasPosition: {
-        x: json('1525')
+        x: json('2300')
         y: json('${500 + i * 800}')
       }
       icon: {
@@ -1742,7 +1742,7 @@ resource stamp_aks_failures 'Microsoft.CloudHealth/healthmodels/entities@2026-01
     properties: {
       displayName: '${stamp.key} — AKS Failures'
       canvasPosition: {
-        x: json('138')
+        x: json('75')
         y: json('${800 + i * 800}')
       }
       icon: {
@@ -1788,7 +1788,7 @@ resource stamp_prom_failures 'Microsoft.CloudHealth/healthmodels/entities@2026-0
     properties: {
       displayName: '${stamp.key} — Pod Failures'
       canvasPosition: {
-        x: json('273')
+        x: json('325')
         y: json('${800 + i * 800}')
       }
       icon: {
@@ -1882,7 +1882,7 @@ resource stamp_fd_failures 'Microsoft.CloudHealth/healthmodels/entities@2026-01-
     properties: {
       displayName: '${stamp.key} — Front Door Errors'
       canvasPosition: {
-        x: json('408')
+        x: json('575')
         y: json('${800 + i * 800}')
       }
       icon: {
@@ -1934,7 +1934,7 @@ resource stamp_cosmos_failures 'Microsoft.CloudHealth/healthmodels/entities@2026
     properties: {
       displayName: '${stamp.key} — Cosmos Errors'
       canvasPosition: {
-        x: json('543')
+        x: json('825')
         y: json('${800 + i * 800}')
       }
       icon: {
@@ -1992,7 +1992,7 @@ resource stamp_cosmos_orleans_failures 'Microsoft.CloudHealth/healthmodels/entit
     properties: {
       displayName: '${stamp.key} — Orleans Cosmos Errors'
       canvasPosition: {
-        x: json('678')
+        x: json('1075')
         y: json('${800 + i * 800}')
       }
       icon: {
@@ -2044,7 +2044,7 @@ resource stamp_gateway_failures 'Microsoft.CloudHealth/healthmodels/entities@202
     properties: {
       displayName: '${stamp.key} — Gateway Health'
       canvasPosition: {
-        x: json('813')
+        x: json('1325')
         y: json('${800 + i * 800}')
       }
       icon: {
@@ -2104,7 +2104,7 @@ resource stamp_fd_latency 'Microsoft.CloudHealth/healthmodels/entities@2026-01-0
     properties: {
       displayName: '${stamp.key} — FD Latency'
       canvasPosition: {
-        x: json('1209')
+        x: json('1800')
         y: json('${800 + i * 800}')
       }
       icon: {
@@ -2156,7 +2156,7 @@ resource stamp_cosmos_latency 'Microsoft.CloudHealth/healthmodels/entities@2026-
     properties: {
       displayName: '${stamp.key} — Cosmos Latency'
       canvasPosition: {
-        x: json('1367')
+        x: json('2050')
         y: json('${800 + i * 800}')
       }
       icon: {
@@ -2214,7 +2214,7 @@ resource stamp_cosmos_orleans_latency 'Microsoft.CloudHealth/healthmodels/entiti
     properties: {
       displayName: '${stamp.key} — Orleans Cosmos Latency'
       canvasPosition: {
-        x: json('1525')
+        x: json('2300')
         y: json('${800 + i * 800}')
       }
       icon: {
@@ -2260,7 +2260,7 @@ resource stamp_prom_latency 'Microsoft.CloudHealth/healthmodels/entities@2026-01
     properties: {
       displayName: '${stamp.key} — Resource Pressure'
       canvasPosition: {
-        x: json('1683')
+        x: json('2550')
         y: json('${800 + i * 800}')
       }
       icon: {
@@ -2342,7 +2342,7 @@ resource stamp_gateway_latency 'Microsoft.CloudHealth/healthmodels/entities@2026
     properties: {
       displayName: '${stamp.key} — Gateway Latency'
       canvasPosition: {
-        x: json('1841')
+        x: json('2800')
         y: json('${800 + i * 800}')
       }
       icon: {
@@ -2391,7 +2391,7 @@ resource queuesEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-pr
   properties: {
     displayName: 'Queues'
     canvasPosition: {
-      x: json('143')
+      x: json('214')
       y: json('${700 + 800 * length(stamps)}')
     }
     icon: {
@@ -2451,7 +2451,7 @@ resource aiEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-previe
   properties: {
     displayName: 'AI Models'
     canvasPosition: {
-      x: json('429')
+      x: json('643')
       y: json('${700 + 800 * length(stamps)}')
     }
     icon: {
@@ -2511,7 +2511,7 @@ resource blobsEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-pre
   properties: {
     displayName: 'Blob Storage'
     canvasPosition: {
-      x: json('714')
+      x: json('1071')
       y: json('${700 + 800 * length(stamps)}')
     }
     icon: {
@@ -2565,7 +2565,7 @@ resource eventhubsEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01
   properties: {
     displayName: 'Event Hubs'
     canvasPosition: {
-      x: json('1000')
+      x: json('1500')
       y: json('${700 + 800 * length(stamps)}')
     }
     icon: {
@@ -2631,7 +2631,7 @@ resource orleansCategory 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01
   properties: {
     displayName: 'Orleans Runtime'
     canvasPosition: {
-      x: json('1286')
+      x: json('1929')
       y: json('${700 + 800 * length(stamps)}')
     }
     icon: {
@@ -2650,7 +2650,7 @@ resource orleansStampLeaf 'Microsoft.CloudHealth/healthmodels/entities@2026-01-0
     properties: {
       displayName: '${stamp.key} — Orleans'
       canvasPosition: {
-        x: json('1286')
+        x: json('1929')
         y: json('${950 + 800 * length(stamps) + i * 300}')
       }
       icon: {
@@ -2729,7 +2729,7 @@ resource certmanagerCategory 'Microsoft.CloudHealth/healthmodels/entities@2026-0
   properties: {
     displayName: 'Certificates'
     canvasPosition: {
-      x: json('1571')
+      x: json('2357')
       y: json('${700 + 800 * length(stamps)}')
     }
     icon: {
@@ -2748,7 +2748,7 @@ resource certmanagerStampLeaf 'Microsoft.CloudHealth/healthmodels/entities@2026-
     properties: {
       displayName: '${stamp.key} — Certificates'
       canvasPosition: {
-        x: json('1571')
+        x: json('2357')
         y: json('${950 + 800 * length(stamps) + i * 300}')
       }
       icon: {
@@ -2809,7 +2809,7 @@ resource appmetricsCategory 'Microsoft.CloudHealth/healthmodels/entities@2026-01
   properties: {
     displayName: 'App Metrics'
     canvasPosition: {
-      x: json('1857')
+      x: json('2786')
       y: json('${700 + 800 * length(stamps)}')
     }
     icon: {
@@ -2828,7 +2828,7 @@ resource appmetricsStampLeaf 'Microsoft.CloudHealth/healthmodels/entities@2026-0
     properties: {
       displayName: '${stamp.key} — App Metrics'
       canvasPosition: {
-        x: json('1857')
+        x: json('2786')
         y: json('${950 + 800 * length(stamps) + i * 300}')
       }
       icon: {

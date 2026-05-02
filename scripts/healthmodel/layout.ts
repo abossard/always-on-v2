@@ -12,9 +12,10 @@
 // expressions of the form `c + s * length(stamps)` (Linear), with an optional
 // per-stamp delta (`stampOffset`) used inside a `for stamp in stamps` loop.
 
-export const TARGET_WIDTH = 2000;
-export const COL_GAP = 100;
-export const COL_WIDTH = (TARGET_WIDTH - COL_GAP) / 2; // 950
+export const TARGET_WIDTH = 3000;
+export const COL_GAP = 200;
+export const COL_WIDTH = (TARGET_WIDTH - COL_GAP) / 2; // 1400
+export const LEAF_SPACING = 250;  // minimum px between leaf centers (cards are ~200px wide)
 export const LEAF_HEIGHT = 300;
 export const STAMP_GAP = 200;
 export const CATEGORY_GAP = 200;
@@ -107,16 +108,14 @@ export function computeLayout(spec: LayoutSpec): Map<string, NodeLayout> {
   });
 
   // Place leaves in a SINGLE ROW centered under the stamp group.
-  // Each leaf gets equal spacing within the column width.
+  // Each leaf gets fixed spacing — cards are ~200px wide, need ~250px between centers.
   const placeLeaves = (leaves: readonly string[], colCenter: number): void => {
     const n = leaves.length;
     if (n === 0) return;
-    // Spread leaves evenly within column, centered on colCenter
-    const leafSpacing = Math.min(Math.floor(COL_WIDTH / (n + 1)), 200);
-    const totalWidth = (n - 1) * leafSpacing;
+    const totalWidth = (n - 1) * LEAF_SPACING;
     const startX = Math.round(colCenter - totalWidth / 2);
     for (let k = 0; k < n; k++) {
-      const x = startX + k * leafSpacing;
+      const x = startX + k * LEAF_SPACING;
       out.set(leaves[k], {
         kind: 'loop',
         baseX: L(x), stampOffsetX: 0,
