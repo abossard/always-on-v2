@@ -353,6 +353,35 @@ def auth_delete(
     return ops.auth_delete(_get_client(cmd), resource_group, model_name, name)
 
 
+# ─── Orphans ──────────────────────────────────────────────────────────
+
+
+def orphans_list(
+    cmd: object,
+    resource_group: str,
+    model_name: str,
+    categories: list[str] | None = None,
+) -> dict[str, Any]:
+    """Detect orphan resources in a health model."""
+    return ops.orphans_list(
+        _get_client(cmd), resource_group, model_name, categories=categories,
+    )
+
+
+def orphans_delete(
+    cmd: object,
+    resource_group: str,
+    model_name: str,
+    categories: list[str] | None = None,
+    dry_run: bool = False,
+) -> dict[str, Any]:
+    """Delete orphan resources in a health model."""
+    return ops.orphans_delete(
+        _get_client(cmd), resource_group, model_name,
+        categories=categories, dry_run=dry_run,
+    )
+
+
 # ─── Watch ────────────────────────────────────────────────────────────
 
 

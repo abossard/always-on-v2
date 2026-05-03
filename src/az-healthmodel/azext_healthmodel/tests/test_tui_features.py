@@ -732,12 +732,10 @@ def test_healthmodel_create_defaults_location_and_identity() -> None:
 
 def test_healthmodel_update_applies_tags() -> None:
     client = MagicMock()
-    client.get_model.return_value = {"tags": {"old": "x"}, "properties": {}}
+    client.update_model.return_value = {"tags": {"env": "prod"}, "properties": {}}
     ops.healthmodel_update(client, "rg", "hm", tags={"env": "prod"})
 
-    client.get_model.assert_called_once_with("rg", "hm")
-    _, _, payload = client.create_or_update_model.call_args.args
-    assert payload["tags"] == {"env": "prod"}
+    client.update_model.assert_called_once_with("rg", "hm", {"tags": {"env": "prod"}})
 
 
 def test_entity_signal_list_flattens_groups() -> None:

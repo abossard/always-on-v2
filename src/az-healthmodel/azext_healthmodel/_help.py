@@ -257,3 +257,35 @@ examples:
   - name: Start the MCP server
     text: az healthmodel mcp
 """
+
+# ── Orphans ───────────────────────────────────────────────────────────
+
+helps["healthmodel orphans"] = """
+type: group
+short-summary: Detect and remove orphan resources in a health model.
+"""
+
+helps["healthmodel orphans list"] = """
+type: command
+short-summary: List orphan signal definitions, entities, relationships, and unresolved signal references.
+examples:
+  - name: List every orphan in a model
+    text: az healthmodel orphans list -g myRg --model myModel
+  - name: List only unbound signal definitions
+    text: az healthmodel orphans list -g myRg --model myModel --categories unbound-signals
+"""
+
+helps["healthmodel orphans delete"] = """
+type: command
+short-summary: Delete orphan resources detected by `orphans list`.
+long-summary: |
+    Deletes in a safe order: dangling relationships, then relationships
+    pointing at empty-leaf entities, then the empty-leaf entities, then
+    unbound signal definitions. Each delete is best-effort; failures are
+    reported in the response without aborting the rest of the cleanup.
+examples:
+  - name: Dry-run cleanup of all orphan categories
+    text: az healthmodel orphans delete -g myRg --model myModel --dry-run
+  - name: Delete only orphan signal definitions
+    text: az healthmodel orphans delete -g myRg --model myModel --categories unbound-signals -y
+"""

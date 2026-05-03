@@ -245,4 +245,45 @@ def load_arguments(self, _):  # noqa: ANN001
             help="Show API calls, timing, and diff details on stderr.",
         )
 
+    # ── Orphans ───────────────────────────────────────────────────────
+    with self.argument_context("healthmodel orphans") as c:
+        c.argument(
+            "resource_group",
+            options_list=["--resource-group", "-g"],
+            help="Name of the resource group.",
+            completer=get_resource_group_completion_list,
+        )
+        c.argument(
+            "model_name",
+            options_list=["--model-name", "--model"],
+            help="Name of the parent health model.",
+        )
+        c.argument(
+            "categories",
+            options_list=["--categories"],
+            nargs="+",
+            choices=[
+                "unbound-signals",
+                "unreachable-entities",
+                "empty-leaves",
+                "dangling-relationships",
+                "unresolved-signals",
+            ],
+            help="Restrict to specific orphan categories (default: all).",
+        )
+
+    with self.argument_context("healthmodel orphans delete") as c:
+        c.argument(
+            "dry_run",
+            options_list=["--dry-run"],
+            action="store_true",
+            help="Print what would be deleted without making changes.",
+        )
+        c.argument(
+            "yes",
+            options_list=["--yes", "-y"],
+            action="store_true",
+            help="Skip confirmation prompt.",
+        )
+
 

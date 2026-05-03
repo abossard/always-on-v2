@@ -52,6 +52,11 @@ def load_command_table(self, _):  # noqa: ANN001
         g.custom_command("list", "auth_list")
         g.custom_command("delete", "auth_delete", confirmation=True)
 
+    # ── Orphans ───────────────────────────────────────────────────────
+    with self.command_group("healthmodel orphans", custom, is_preview=True) as g:
+        g.custom_command("list", "orphans_list")
+        g.custom_command("delete", "orphans_delete", confirmation=True)
+
     # ── Watch ─────────────────────────────────────────────────────────
     with self.command_group("healthmodel", custom) as g:
         g.custom_command("watch", "watch")
