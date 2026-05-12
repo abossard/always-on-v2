@@ -65,3 +65,4 @@ src/az-healthmodel/build/
 src/az-healthmodel/dist/
 src/az-healthmodel/build/
 src/az-healthmodel/*.egg-info/
+.playwright-mcp/
