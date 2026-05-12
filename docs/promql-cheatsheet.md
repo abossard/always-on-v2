@@ -166,16 +166,28 @@ count(
 ) or vector(0)
 ```
 
+> ⚠️ **node-exporter metrics use `instance`, not `node`.** For CPU/memory pressure
+> joins, you must rename `instance` → `node` with `label_replace`. Otherwise
+> `avg by (node)` collapses to a single empty-label series and the join always
+> returns 0. (Node-condition signals below use `kube_node_status_condition`,
+> which already has `node` — no `label_replace` needed.)
+
 ### Pods on High-CPU Nodes (>80%)
 ```promql
 # <node_condition_expr>:
-(1 - avg by (node) (rate(node_cpu_seconds_total{mode="idle"}[5m]))) > 0.8
+label_replace(
+  (1 - avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m]))) > 0.8,
+  "node", "$1", "instance", "(.+)"
+)
 ```
 
 ### Pods on High-Memory Nodes (>85%)
 ```promql
 # <node_condition_expr>:
-(1 - avg by (node) (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.85
+label_replace(
+  (1 - avg by (instance) (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.85,
+  "node", "$1", "instance", "(.+)"
+)
 ```
 
 ### Pods on DiskPressure / MemoryPressure / PIDPressure / NotReady Nodes

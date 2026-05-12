@@ -98,7 +98,7 @@ export function memoryPressure(namespace: string): PrometheusSignalDef {
 export function podsOnHighCpuNodes(namespace: string): PrometheusSignalDef {
   return {
     signalKind: 'PrometheusMetricsQuery',
-    queryText: `count((kube_pod_info{namespace="${namespace}"} * on(namespace,pod) group_left() (kube_pod_status_phase{namespace="${namespace}", phase="Running"} == 1)) * on(node) group_left() ((1 - avg by (node) (rate(node_cpu_seconds_total{mode="idle"}[5m]))) > 0.8)) or vector(0)`,
+    queryText: `count((kube_pod_info{namespace="${namespace}"} * on(namespace,pod) group_left() (kube_pod_status_phase{namespace="${namespace}", phase="Running"} == 1)) * on(node) group_left() (label_replace((1 - avg by (instance) (rate(node_cpu_seconds_total{mode="idle"}[5m]))) > 0.8, "node", "$1", "instance", "(.+)"))) or vector(0)`,
     timeGrain: 'PT1M',
     displayName: 'Pods on High-CPU Nodes',
     refreshInterval: 'PT1M',
@@ -110,7 +110,7 @@ export function podsOnHighCpuNodes(namespace: string): PrometheusSignalDef {
 export function podsOnHighMemoryNodes(namespace: string): PrometheusSignalDef {
   return {
     signalKind: 'PrometheusMetricsQuery',
-    queryText: `count((kube_pod_info{namespace="${namespace}"} * on(namespace,pod) group_left() (kube_pod_status_phase{namespace="${namespace}", phase="Running"} == 1)) * on(node) group_left() ((1 - avg by (node) (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.85)) or vector(0)`,
+    queryText: `count((kube_pod_info{namespace="${namespace}"} * on(namespace,pod) group_left() (kube_pod_status_phase{namespace="${namespace}", phase="Running"} == 1)) * on(node) group_left() (label_replace((1 - avg by (instance) (node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes)) > 0.85, "node", "$1", "instance", "(.+)"))) or vector(0)`,
     timeGrain: 'PT1M',
     displayName: 'Pods on High-Memory Nodes',
     refreshInterval: 'PT1M',
