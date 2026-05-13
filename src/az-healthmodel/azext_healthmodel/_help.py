@@ -57,9 +57,20 @@ examples:
 helps["healthmodel watch"] = """
 type: command
 short-summary: Watch a health model for live status updates.
+long-summary: |
+    Launches an interactive TUI (or plain-text fallback) that polls the health model
+    and renders a live tree of entities, signals, and their health states.
+    Detects escalations, recoveries, and value changes between polls.
+    Use arrow keys to navigate, '/' to search, 'v' to verify a signal, 'd' for details.
 examples:
+  - name: Watch with default 30-second interval
+    text: az healthmodel watch -g myRg --model myModel
   - name: Watch with a 10-second interval
-    text: az healthmodel watch -g myRg -n myModel --poll-interval 10
+    text: az healthmodel watch -g myRg --model myModel --poll-interval 10
+  - name: Plain-text mode (no TUI, suitable for piping)
+    text: az healthmodel watch -g myRg --model myModel --plain
+  - name: Debug mode (verbose API logging on stderr)
+    text: az healthmodel watch -g myRg --model myModel --debug-poll
 """
 
 # ── Entity ────────────────────────────────────────────────────────────
@@ -80,16 +91,27 @@ examples:
 helps["healthmodel entity show"] = """
 type: command
 short-summary: Get an entity from a health model.
+examples:
+  - name: Show an entity by name
+    text: az healthmodel entity show -g myRg --model myModel -n myEntity
 """
 
 helps["healthmodel entity list"] = """
 type: command
 short-summary: List entities in a health model.
+examples:
+  - name: List all entities
+    text: az healthmodel entity list -g myRg --model myModel
+  - name: List entities as a table
+    text: az healthmodel entity list -g myRg --model myModel -o table
 """
 
 helps["healthmodel entity delete"] = """
 type: command
 short-summary: Delete an entity from a health model.
+examples:
+  - name: Delete an entity (with confirmation prompt)
+    text: az healthmodel entity delete -g myRg --model myModel -n myEntity
 """
 
 # ── Signal Definition ─────────────────────────────────────────────────
@@ -110,16 +132,25 @@ examples:
 helps["healthmodel signal-definition show"] = """
 type: command
 short-summary: Get a signal definition.
+examples:
+  - name: Show a signal definition
+    text: az healthmodel signal-definition show -g myRg --model myModel -n cpuSignal
 """
 
 helps["healthmodel signal-definition list"] = """
 type: command
 short-summary: List signal definitions in a health model.
+examples:
+  - name: List all signal definitions
+    text: az healthmodel signal-definition list -g myRg --model myModel
 """
 
 helps["healthmodel signal-definition delete"] = """
 type: command
 short-summary: Delete a signal definition.
+examples:
+  - name: Delete a signal definition
+    text: az healthmodel signal-definition delete -g myRg --model myModel -n cpuSignal
 """
 
 helps["healthmodel signal-definition execute"] = """
@@ -138,7 +169,12 @@ examples:
 
 helps["healthmodel entity signal"] = """
 type: group
-short-summary: Manage signal instances on entities (list, add, remove, history, ingest).
+short-summary: Manage signal instances on entities.
+long-summary: |
+    Signals are health indicators attached to entities. They can be Azure resource metrics,
+    Prometheus queries, or external reports submitted via the ingest command.
+    Use 'list' to see all signals on an entity, 'add'/'remove' to manage them,
+    'history' to query past values, and 'ingest' to push custom health reports.
 """
 
 helps["healthmodel entity signal list"] = """
@@ -168,17 +204,46 @@ examples:
 helps["healthmodel entity signal history"] = """
 type: command
 short-summary: Query signal value history for an entity.
+long-summary: |
+    Retrieves the historical health state and value changes for a specific signal
+    on an entity within a time range. Use ISO 8601 timestamps for --start-at and --end-at.
 examples:
   - name: Get signal history for the last 24 hours
-    text: az healthmodel entity signal history -g myRg --model myModel --entity myEntity --signal mySignal --start-at 2026-04-17T00:00:00Z --end-at 2026-04-18T00:00:00Z
+    text: >
+        az healthmodel entity signal history
+        -g myRg --model myModel --entity myEntity
+        --signal mySignal
+        --start-at 2026-04-17T00:00:00Z --end-at 2026-04-18T00:00:00Z
 """
 
 helps["healthmodel entity signal ingest"] = """
 type: command
 short-summary: Submit an external health report for a signal on an entity.
+long-summary: |
+    Pushes a custom health signal to an entity using the CloudHealth data plane.
+    The report includes a health state, numeric value, and optional context.
+    Reports expire after --expires-in minutes (default 60) — once expired,
+    the signal reverts to its previous state.
+    Useful for integrating external monitoring systems, synthetic checks,
+    or custom application health probes.
 examples:
-  - name: Report a degraded signal value
-    text: az healthmodel entity signal ingest -g myRg --model myModel --entity myEntity --signal mySignal --health-state Degraded --value 85.5
+  - name: Report a healthy signal
+    text: >
+        az healthmodel entity signal ingest
+        -g myRg --model myModel --entity myEntity
+        --signal my-custom-check --health-state Healthy --value 42
+  - name: Report degraded with context and short expiry
+    text: >
+        az healthmodel entity signal ingest
+        -g myRg --model myModel --entity myEntity
+        --signal cpu-batch-job --health-state Degraded --value 75.5
+        --expires-in 5 --context "CPU elevated due to batch processing"
+  - name: Report unhealthy with 10-minute expiry
+    text: >
+        az healthmodel entity signal ingest
+        -g myRg --model myModel --entity myEntity
+        --signal disk-pressure --health-state Unhealthy --value 95.0
+        --expires-in 10 --context "Disk usage critical"
 """
 
 # ── Relationship ──────────────────────────────────────────────────────
@@ -199,11 +264,17 @@ examples:
 helps["healthmodel relationship list"] = """
 type: command
 short-summary: List relationships in a health model.
+examples:
+  - name: List all relationships
+    text: az healthmodel relationship list -g myRg --model myModel
 """
 
 helps["healthmodel relationship delete"] = """
 type: command
 short-summary: Delete a relationship from a health model.
+examples:
+  - name: Delete a relationship
+    text: az healthmodel relationship delete -g myRg --model myModel -n rel1
 """
 
 # ── Auth Settings ─────────────────────────────────────────────────────
@@ -224,11 +295,17 @@ examples:
 helps["healthmodel auth list"] = """
 type: command
 short-summary: List authentication settings in a health model.
+examples:
+  - name: List all auth settings
+    text: az healthmodel auth list -g myRg --model myModel
 """
 
 helps["healthmodel auth delete"] = """
 type: command
 short-summary: Delete authentication settings.
+examples:
+  - name: Delete an auth setting
+    text: az healthmodel auth delete -g myRg --model myModel -n authSetting1
 """
 
 # ── Export ─────────────────────────────────────────────────────────────

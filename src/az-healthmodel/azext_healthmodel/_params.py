@@ -162,12 +162,13 @@ def load_arguments(self, _):  # noqa: ANN001
         c.argument(
             "signal_name",
             options_list=["--signal-name", "--signal"],
-            help="Name of the signal instance.",
+            help="Name of the signal (arbitrary string for external reports).",
         )
         c.argument(
             "health_state",
             options_list=["--health-state"],
-            help="Health state to report (Healthy, Degraded, Unhealthy, Unknown).",
+            choices=["Healthy", "Degraded", "Unhealthy", "Unknown"],
+            help="Health state to report.",
         )
         c.argument(
             "value",
@@ -185,7 +186,7 @@ def load_arguments(self, _):  # noqa: ANN001
         c.argument(
             "additional_context",
             options_list=["--additional-context", "--context"],
-            help="Additional context string for the health report.",
+            help="Free-text context explaining the reported state.",
         )
 
     # ── Relationship ──────────────────────────────────────────────────
@@ -212,6 +213,11 @@ def load_arguments(self, _):  # noqa: ANN001
     # ── Watch ─────────────────────────────────────────────────────────
     with self.argument_context("healthmodel watch") as c:
         c.argument(
+            "model_name",
+            options_list=["--model-name", "--model"],
+            help="Name of the health model to watch.",
+        )
+        c.argument(
             "poll_interval",
             options_list=["--poll-interval"],
             type=int,
@@ -233,6 +239,11 @@ def load_arguments(self, _):  # noqa: ANN001
 
     # ── Export ────────────────────────────────────────────────────────
     with self.argument_context("healthmodel export") as c:
+        c.argument(
+            "model_name",
+            options_list=["--model-name", "--model"],
+            help="Name of the health model to export.",
+        )
         c.argument(
             "output",
             options_list=["--file", "-f"],

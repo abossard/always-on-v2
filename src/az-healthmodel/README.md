@@ -38,11 +38,23 @@ Arrow keys navigate the tree. The cursor highlight (blue row) shows the selected
 ```bash
 # Build from source
 cd src/az-healthmodel
-python setup.py bdist_wheel
+pip install build
+python -m build --wheel
 
 # Install the extension
 az extension add --source dist/az_healthmodel-0.3.0-py3-none-any.whl
+
+# Or install in development mode (editable)
+pip install -e .
 ```
+
+> **Note:** The `azure-mgmt-cloudhealth` SDK is installed from GitHub automatically.
+> If `az extension add` fails to resolve it, install it into the az CLI Python first:
+> ```bash
+> # Find az CLI's Python
+> az --version  # check the Python path
+> /path/to/az/python -m pip install "azure-mgmt-cloudhealth @ git+https://github.com/Azure/azure-sdk-for-python.git@main#subdirectory=sdk/cloudhealth/azure-mgmt-cloudhealth"
+> ```
 
 ## Quick Start
 

@@ -18,6 +18,7 @@ class HealthModelCommandsLoader(AzCommandsLoader):
         )
 
     def load_command_table(self, args: list[str]):  # type: ignore[override]
+        from azext_healthmodel import _help  # noqa: F401
         from azext_healthmodel.commands import load_command_table
 
         load_command_table(self, args)
