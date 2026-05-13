@@ -16,8 +16,9 @@ CLASSIFIERS = [
 ]
 
 DEPENDENCIES = [
-    "textual>=0.50.0",
+    "textual>=8.0.0",
     "mcp>=1.21.0,<2.0.0",
+    "azure-mgmt-cloudhealth @ git+https://github.com/Azure/azure-sdk-for-python.git@main#subdirectory=sdk/cloudhealth/azure-mgmt-cloudhealth",
 ]
 
 setup(

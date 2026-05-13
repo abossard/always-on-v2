@@ -93,6 +93,53 @@ az healthmodel watch -g myRG --model-name MyApp --plain
 | `az healthmodel export` | Export full model tree as SVG screenshot |
 | `az healthmodel mcp` | Start MCP server (stdio) for AI agents |
 
+## External Health Reports
+
+Submit external health reports to push custom health signals to entities. This uses the `ingest_health_report` API from the `azure-mgmt-cloudhealth` SDK (v1.0.0b2+).
+
+```bash
+# Report a healthy signal
+az healthmodel entity signal ingest \
+  -g rg-alwayson-global --model hm-helloagents \
+  --entity <entity-name-or-id> \
+  --signal "my-custom-check" \
+  --health-state Healthy \
+  --value 42
+
+# Report a degraded signal with context and 5-minute expiry
+az healthmodel entity signal ingest \
+  -g rg-alwayson-global --model hm-helloagents \
+  --entity <entity-name-or-id> \
+  --signal "cpu-batch-job" \
+  --health-state Degraded \
+  --value 75.5 \
+  --expires-in 5 \
+  --context "CPU elevated due to batch processing"
+
+# Report unhealthy
+az healthmodel entity signal ingest \
+  -g rg-alwayson-global --model hm-helloagents \
+  --entity <entity-name-or-id> \
+  --signal "disk-pressure" \
+  --health-state Unhealthy \
+  --value 95.0 \
+  --expires-in 10 \
+  --context "Disk usage critical"
+```
+
+**Parameters:**
+
+| Parameter | Required | Description |
+| --- | --- | --- |
+| `--entity` | ✅ | Entity name or ID |
+| `--signal` | ✅ | Signal name (arbitrary string) |
+| `--health-state` | ✅ | `Healthy`, `Degraded`, `Unhealthy`, or `Unknown` |
+| `--value` | ✅ | Numeric value to report |
+| `--expires-in` | | Minutes until the report expires (default: 60, max: 10080) |
+| `--context` | | Free-text context string |
+
+Reports expire after `--expires-in` minutes (default 60). The entity's health state reverts once all external reports expire.
+
 ## Signal Execution
 
 Test and verify signal queries by executing them against the real data sources:
@@ -317,6 +364,14 @@ cd src/az-healthmodel
 pip install -e .
 python -m pytest azext_healthmodel/tests/ -v
 ```
+
+## Dependencies
+
+| Package | Version | Source |
+| --- | --- | --- |
+| `textual` | `>=8.0.0` | PyPI |
+| `mcp` | `>=1.21.0,<2.0.0` | PyPI |
+| `azure-mgmt-cloudhealth` | `1.0.0b2` | [GitHub](https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/cloudhealth/azure-mgmt-cloudhealth) (not yet published to PyPI) |
 
 ## API Version
 
