@@ -135,10 +135,13 @@ sum(rate(container_cpu_usage_seconds_total{namespace="<ns>", container!="", cont
 ```
 
 ### CPU Throttling (%)
+> ⚠️ `container_cpu_cfs_periods_total` only exists when the container has a CPU
+> **limit** set. Without limits, the inner expression is empty — wrap in
+> `or vector(0)` so the signal reports 0 instead of going blind.
 ```promql
-sum(rate(container_cpu_cfs_throttled_periods_total{namespace="<ns>", container!=""}[5m]))
+(sum(rate(container_cpu_cfs_throttled_periods_total{namespace="<ns>", container!=""}[5m]))
   / sum(rate(container_cpu_cfs_periods_total{namespace="<ns>", container!=""}[5m]))
-  * 100
+  * 100) or vector(0)
 ```
 
 ### Memory usage vs limits (%)

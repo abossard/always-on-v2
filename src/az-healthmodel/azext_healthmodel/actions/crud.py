@@ -282,6 +282,19 @@ def signal_execute(
     )
 
 
+def entity_signal_execute(
+    cmd: object,
+    resource_group: str,
+    model_name: str,
+    entity_name: str,
+    signal_name: str,
+) -> dict[str, Any]:
+    """Execute a signal instance on an entity (alias under 'entity signal')."""
+    return ops.signal_execute(
+        _get_client(cmd), resource_group, model_name, entity_name, signal_name,
+    )
+
+
 # ─── Relationship CRUD ───────────────────────────────────────────────
 
 

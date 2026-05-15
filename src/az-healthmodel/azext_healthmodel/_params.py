@@ -1,6 +1,12 @@
 """CLI parameter definitions for az healthmodel."""
 from __future__ import annotations
 
+from azext_healthmodel._completers import (
+    get_entity_completion_list,
+    get_healthmodel_completion_list,
+    get_signal_completion_list,
+)
+
 
 def load_arguments(self, _):  # noqa: ANN001
     from azure.cli.core.commands.parameters import (
@@ -68,6 +74,7 @@ def load_arguments(self, _):  # noqa: ANN001
                 "model_name",
                 options_list=["--model-name", "--model"],
                 help="Name of the parent health model.",
+                completer=get_healthmodel_completion_list,
             )
             c.argument(
                 "name",
@@ -96,11 +103,13 @@ def load_arguments(self, _):  # noqa: ANN001
             "entity_name",
             options_list=["--entity-name", "--entity"],
             help="Name of the entity that has the signal instance.",
+            completer=get_entity_completion_list,
         )
         c.argument(
             "signal_name",
             options_list=["--signal-name", "--signal"],
             help="Name of the signal instance on the entity.",
+            completer=get_signal_completion_list,
         )
 
     # ── Entity Signal (instances) ─────────────────────────────────────
@@ -126,7 +135,8 @@ def load_arguments(self, _):  # noqa: ANN001
         c.argument(
             "signal_group",
             options_list=["--signal-group", "--group"],
-            help="Signal group to add to (azureResource, azureLogAnalytics, azureMonitorWorkspace).",
+            choices=["azureResource", "azureLogAnalytics", "azureMonitorWorkspace"],
+            help="Signal group to add to.",
         )
         c.argument(
             "body",
@@ -139,6 +149,15 @@ def load_arguments(self, _):  # noqa: ANN001
             "signal_name",
             options_list=["--signal-name", "--signal"],
             help="Name of the signal instance to remove.",
+            completer=get_signal_completion_list,
+        )
+
+    with self.argument_context("healthmodel entity signal execute") as c:
+        c.argument(
+            "signal_name",
+            options_list=["--signal-name", "--signal"],
+            help="Name of the signal instance to execute.",
+            completer=get_signal_completion_list,
         )
 
     with self.argument_context("healthmodel entity signal history") as c:
@@ -146,6 +165,7 @@ def load_arguments(self, _):  # noqa: ANN001
             "signal_name",
             options_list=["--signal-name", "--signal"],
             help="Name of the signal instance.",
+            completer=get_signal_completion_list,
         )
         c.argument(
             "start_at",

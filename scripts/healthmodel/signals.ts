@@ -68,7 +68,9 @@ export function cpuPressure(namespace: string): PrometheusSignalDef {
 export function cpuThrottling(namespace: string): PrometheusSignalDef {
   return {
     signalKind: 'PrometheusMetricsQuery',
-    queryText: `sum(rate(container_cpu_cfs_throttled_periods_total{namespace="${namespace}", container!=""}[5m])) / sum(rate(container_cpu_cfs_periods_total{namespace="${namespace}", container!=""}[5m])) * 100`,
+    // Note: container_cpu_cfs_periods_total only emitted when container has a CPU limit (cgroup CFS quota).
+    // Without limits, the inner rate is empty — `or vector(0)` keeps the signal reporting 0 instead of going blind.
+    queryText: `(sum(rate(container_cpu_cfs_throttled_periods_total{namespace="${namespace}", container!=""}[5m])) / sum(rate(container_cpu_cfs_periods_total{namespace="${namespace}", container!=""}[5m])) * 100) or vector(0)`,
     timeGrain: 'PT1M',
     displayName: 'CPU Throttling',
     refreshInterval: 'PT1M',

@@ -157,12 +157,27 @@ helps["healthmodel signal-definition execute"] = """
 type: command
 short-summary: Execute a signal's query and evaluate its health state.
 long-summary: |
+    Deprecated: use 'az healthmodel entity signal execute' instead.
+    This command operates on signal instances attached to entities, not on
+    signal definitions, so it has been moved under 'entity signal' for clarity.
     Runs the actual PromQL or Azure Metrics query for a signal instance
     on an entity, extracts the value, evaluates health against thresholds,
     and returns the full result with metadata.
 examples:
-  - name: Execute a signal on an entity
+  - name: Execute a signal on an entity (deprecated)
     text: az healthmodel signal-definition execute -g myRg --model myModel --entity myEntity --signal mySignalInstanceName
+"""
+
+helps["healthmodel entity signal execute"] = """
+type: command
+short-summary: Execute a signal instance's query and evaluate its health state.
+long-summary: |
+    Runs the actual PromQL or Azure Metrics query backing a signal instance
+    on an entity, extracts the value, evaluates health against thresholds,
+    and returns the full result with metadata.
+examples:
+  - name: Execute a signal on an entity
+    text: az healthmodel entity signal execute -g myRg --model myModel --entity myEntity --signal mySignalInstanceName
 """
 
 # ── Entity Signal (instances) ─────────────────────────────────────────

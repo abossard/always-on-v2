@@ -9,29 +9,9 @@ Provides CRUD operations for health models, entities, signals, relationships, an
 
 ## Watch Mode in Action
 
-### hm-helloagents — 31 entities, all healthy
-
 <img src="docs/screenshots/hm-helloagents_initial.svg" alt="hm-helloagents — full tree view" width="100%">
 
-Full tree with real-time signal values: Gateway P99 Latency, Cosmos NormalizedRU, Pod Restarts, Memory Pressure, and more across two stamps (centralus-001, swedencentral-001).
-
-### hm-darkux — 29 entities, degraded root
-
-<img src="docs/screenshots/hm-darkux_initial.svg" alt="hm-darkux — degraded health model" width="100%">
-
-Shows a **Degraded** root entity rolling up from downstream signals. Memory Pressure at 32.29%, Gateway P99 at 4.90ms. Unknown cosmos entries rendered with `— ⚪`.
-
-### hm-alwayson — meta health model (5 entities)
-
-<img src="docs/screenshots/hm-alwayson_initial.svg" alt="hm-alwayson — meta health model" width="100%">
-
-A meta health model that monitors other health models. Root is **Degraded** because `hm-darkux` is degraded, while `hm-graphorleons`, `hm-helloorleons`, and `hm-helloagents` are all Healthy.
-
-### Keyboard navigation
-
-<img src="docs/screenshots/hm-helloagents_scrolled.svg" alt="hm-helloagents — scrolled with cursor" width="100%">
-
-Arrow keys navigate the tree. The cursor highlight (blue row) shows the selected entity. Mouse scrolling also works.
+> **hm-helloagents** — Full tree with real-time signal values: Gateway P99 Latency, Cosmos NormalizedRU, Pod Restarts, Memory Pressure, and more across multiple stamps. Arrow keys navigate the tree; mouse scrolling also works.
 
 ## Installation
 
@@ -42,7 +22,7 @@ pip install build
 python -m build --wheel
 
 # Install the extension
-az extension add --source dist/az_healthmodel-0.3.0-py3-none-any.whl
+az extension add --source dist/az_healthmodel-0.3.0-py3-none-any.whl --yes
 
 # Or install in development mode (editable)
 pip install -e .
@@ -60,16 +40,19 @@ pip install -e .
 
 ```bash
 # Create a health model
-az healthmodel create -g myRG -n MyApp --body @healthmodel.json
+az healthmodel create -g myRG -n MyApp -l eastus
+
+# Create from a JSON definition
+az healthmodel create -g myRG -n MyApp -l eastus --body @healthmodel.json
 
 # Add an entity
-az healthmodel entity create -g myRG --model-name MyApp -n WebTier --body @entity.json
+az healthmodel entity create -g myRG --model MyApp -n WebTier --body @entity.json
 
 # Launch the live watch TUI
-az healthmodel watch -g myRG --model-name MyApp
+az healthmodel watch -g myRG --model MyApp
 
 # Plain-text mode (for piping / non-TTY)
-az healthmodel watch -g myRG --model-name MyApp --plain
+az healthmodel watch -g myRG --model MyApp --plain
 ```
 
 ## Commands Reference
@@ -103,35 +86,39 @@ az healthmodel watch -g myRG --model-name MyApp --plain
 | `az healthmodel auth delete` | Delete an auth config |
 | `az healthmodel watch` | Live watch mode (TUI or plain-text) |
 | `az healthmodel export` | Export full model tree as SVG screenshot |
+| `az healthmodel orphans list` | Detect orphan resources in a health model |
+| `az healthmodel orphans delete` | Delete orphan resources (with `--dry-run` support) |
 | `az healthmodel mcp` | Start MCP server (stdio) for AI agents |
 
 ## External Health Reports
 
-Submit external health reports to push custom health signals to entities. This uses the `ingest_health_report` API from the `azure-mgmt-cloudhealth` SDK (v1.0.0b2+).
+Push custom health signals to entities using the `ingest_health_report` API from the `azure-mgmt-cloudhealth` SDK (v1.0.0b2+). This lets you integrate external monitoring systems, synthetic checks, CI/CD pipelines, or custom application health probes into your health model.
+
+### Basic usage
 
 ```bash
 # Report a healthy signal
 az healthmodel entity signal ingest \
   -g rg-alwayson-global --model hm-helloagents \
-  --entity <entity-name-or-id> \
+  --entity myEntity \
   --signal "my-custom-check" \
   --health-state Healthy \
   --value 42
 
-# Report a degraded signal with context and 5-minute expiry
+# Report degraded with context and 5-minute expiry
 az healthmodel entity signal ingest \
   -g rg-alwayson-global --model hm-helloagents \
-  --entity <entity-name-or-id> \
+  --entity myEntity \
   --signal "cpu-batch-job" \
   --health-state Degraded \
   --value 75.5 \
   --expires-in 5 \
   --context "CPU elevated due to batch processing"
 
-# Report unhealthy
+# Report unhealthy with 10-minute expiry
 az healthmodel entity signal ingest \
   -g rg-alwayson-global --model hm-helloagents \
-  --entity <entity-name-or-id> \
+  --entity myEntity \
   --signal "disk-pressure" \
   --health-state Unhealthy \
   --value 95.0 \
@@ -139,7 +126,7 @@ az healthmodel entity signal ingest \
   --context "Disk usage critical"
 ```
 
-**Parameters:**
+### Parameters
 
 | Parameter | Required | Description |
 | --- | --- | --- |
@@ -151,6 +138,69 @@ az healthmodel entity signal ingest \
 | `--context` | | Free-text context string |
 
 Reports expire after `--expires-in` minutes (default 60). The entity's health state reverts once all external reports expire.
+
+### Example: CI/CD pipeline gate
+
+Fail a deploy if the previous stage degraded the health model:
+
+```bash
+# After running smoke tests, report result to the health model
+if [ "$SMOKE_TEST_EXIT_CODE" -eq 0 ]; then
+  az healthmodel entity signal ingest \
+    -g "$RG" --model "$MODEL" --entity "$ENTITY" \
+    --signal "deploy-smoke-test" \
+    --health-state Healthy --value 1 \
+    --expires-in 30 --context "Build $BUILD_ID passed"
+else
+  az healthmodel entity signal ingest \
+    -g "$RG" --model "$MODEL" --entity "$ENTITY" \
+    --signal "deploy-smoke-test" \
+    --health-state Unhealthy --value 0 \
+    --expires-in 120 --context "Build $BUILD_ID FAILED — rolling back"
+fi
+```
+
+### Example: Synthetic availability check
+
+Run a periodic probe and push results:
+
+```bash
+# Cron job or Azure Function timer — runs every 5 minutes
+HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" https://myapp.example.com/health)
+
+if [ "$HTTP_CODE" -eq 200 ]; then
+  STATE="Healthy"
+else
+  STATE="Unhealthy"
+fi
+
+az healthmodel entity signal ingest \
+  -g rg-alwayson-global --model hm-helloagents \
+  --entity "web-frontend" \
+  --signal "synthetic-probe" \
+  --health-state "$STATE" --value "$HTTP_CODE" \
+  --expires-in 10 --context "HTTP $HTTP_CODE from synthetic probe"
+```
+
+### Example: MCP / AI agent ingest
+
+When using the MCP server (`az healthmodel mcp`), call the `entity_signal_ingest` tool:
+
+```json
+{
+  "name": "entity_signal_ingest",
+  "arguments": {
+    "resource_group": "rg-alwayson-global",
+    "model_name": "hm-helloagents",
+    "entity_name": "web-frontend",
+    "signal_name": "ai-agent-check",
+    "health_state": "Degraded",
+    "value": 3,
+    "expires_in_minutes": 15,
+    "additional_context": "Latency anomaly detected by AI agent"
+  }
+}
+```
 
 ## Signal Execution
 
@@ -268,6 +318,27 @@ Example output:
 23:52:20 [azext_healthmodel.watch.poller] Poll complete in 1808ms: 5 changes (0 escalations)
 ```
 
+## Orphan Detection
+
+Detect and clean up orphan resources — unbound signal definitions, unreachable entities, empty leaves, dangling relationships, and unresolved signal references:
+
+```bash
+# List all orphans in a model
+az healthmodel orphans list -g myRG --model myModel
+
+# List only unbound signals and empty leaves
+az healthmodel orphans list -g myRG --model myModel \
+  --categories unbound-signals empty-leaves
+
+# Dry-run cleanup (shows what would be deleted)
+az healthmodel orphans delete -g myRG --model myModel --dry-run
+
+# Delete all orphans (skip confirmation)
+az healthmodel orphans delete -g myRG --model myModel -y
+```
+
+Deletion order respects referential integrity: dangling relationships → relationships pointing at empty leaves → empty-leaf entities → unbound signal definitions. Each delete is best-effort — failures are reported without aborting the rest.
+
 ## Export
 
 Export the full health model tree as an SVG file — useful for documentation, dashboards, and sharing:
@@ -284,7 +355,7 @@ The exported SVG renders the complete tree with all entities expanded and signal
 
 ## MCP Server (AI Agent Integration)
 
-Start a [Model Context Protocol](https://modelcontextprotocol.io) server on stdin/stdout, exposing all healthmodel operations as tools for AI agents (VS Code Copilot, Claude, etc.):
+Start a [Model Context Protocol](https://modelcontextprotocol.io) server on stdin/stdout, exposing healthmodel CRUD, signal, relationship, and auth operations as tools for AI agents (VS Code Copilot, Claude, etc.):
 
 ```bash
 az healthmodel mcp
