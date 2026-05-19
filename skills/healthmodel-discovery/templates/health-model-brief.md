@@ -1,12 +1,37 @@
 # Health Model Brief — {{APP_NAME}}
 
-> Fill in this brief after the discovery phase exports your resources.
+> Fill in this brief before or during the discovery phase.
 > The architecture and design phases read this file to build your health model.
-> Delete or leave blank any section that doesn't apply — defaults are listed in §9.
+> Delete or leave blank any section that doesn't apply — defaults are listed in §10.
 
 ---
 
-## 1. Your Role & Responsibilities
+## 1. Azure Scope
+
+<!-- Which subscription and resource groups should the health model cover? -->
+
+- **Subscription ID**: <!-- e.g., b2af20ad-98fa-4aa7-94c3-059663641d9f -->
+- **Subscription name**: <!-- e.g., MyApp-Production -->
+- **Health model location**: <!-- Azure region for the model resource, e.g., swedencentral -->
+
+### Resource Groups
+
+<!-- List the RGs to include. Discovery will scan these for resources. -->
+
+| Resource Group | Purpose | Include |
+|----------------|---------|---------|
+| <!-- e.g., rg-myapp-global --> | <!-- Shared services (Cosmos, Key Vault, Event Hub) --> | <!-- [x] --> |
+| <!-- e.g., rg-myapp-swedencentral-001 --> | <!-- Stamp 1 (AKS, per-stamp Cosmos) --> | <!-- [x] --> |
+| <!-- e.g., rg-myapp-swedencentral-002 --> | <!-- Stamp 2 --> | <!-- [x] --> |
+| | | |
+
+- **Cross-subscription resources?**: <!-- no (single sub only) / yes — list the other sub IDs below -->
+- **Managed identity for health model**: <!-- existing UAMI resource ID, or "create new" -->
+  <!-- e.g., /subscriptions/.../providers/Microsoft.ManagedIdentity/userAssignedIdentities/id-healthmodel-myapp -->
+
+---
+
+## 2. Your Role & Responsibilities
 
 - **Role**: <!-- e.g., SRE, Platform Engineer, App Dev Lead -->
 - **Team**:
@@ -15,7 +40,7 @@
 
 ---
 
-## 2. Critical User Journeys
+## 3. Critical User Journeys
 
 <!-- What are users actually doing? Health models should reflect user impact, not just infra. -->
 
@@ -27,7 +52,7 @@
 
 ---
 
-## 3. SLO / SLA Targets
+## 4. SLO / SLA Targets
 
 | Service / Journey | Metric | Target | Window | Source | What counts as failure |
 |-------------------|--------|--------|--------|--------|----------------------|
@@ -40,7 +65,7 @@
 
 ---
 
-## 4. Top Concerns
+## 5. Top Concerns
 
 <!-- Rank 1-5. These drive which signals get highest priority and tightest thresholds. -->
 
@@ -67,7 +92,7 @@
 
 ---
 
-## 5. What to Observe
+## 6. What to Observe
 
 <!-- Generated from discovery. Check [x] to include, set priority H/M/L. -->
 <!-- Add rows for anything the discovery missed. -->
@@ -78,7 +103,7 @@
 
 ---
 
-## 6. Alert Philosophy
+## 7. Alert Philosophy
 
 - **Sensitivity**: <!-- `quiet` = only critical / `balanced` = reasonable defaults / `noisy` = catch everything early -->
 - **Audience**: <!-- NOC dashboard / team Grafana / executive summary / on-call rotation -->
@@ -87,7 +112,7 @@
 
 ---
 
-## 7. Stamp & Regional Behavior
+## 8. Stamp & Regional Behavior
 
 - **Independent stamp health?**: <!-- yes = each stamp gets its own entity subtree / no = flat -->
 - **Stamps equally important?**: <!-- yes / no — if no, which is primary? -->
@@ -95,7 +120,7 @@
 
 ---
 
-## 8. Environment & Exclusions
+## 9. Environment & Exclusions
 
 - **Environments to include**: <!-- prod / staging / both -->
 - **Exclude resources matching**: <!-- e.g., "dev-*", "test-*" -->
@@ -103,13 +128,14 @@
 
 ---
 
-## 9. Defaults If Left Blank
+## 10. Defaults If Left Blank
 
 > The skills will assume the following for any section you skip.
 > If these defaults are wrong for you, fill in the section above.
 
 | Section | Default assumption |
 |---------|-------------------|
+| Azure scope | Current `az account show` subscription; all RGs provided to discovery |
 | Role / scope | Full-stack operator; all discovered resources in scope |
 | User journeys | Derived from resource dependencies (infra-shaped, not user-shaped) |
 | SLO targets | Conservative service defaults from signal catalog |

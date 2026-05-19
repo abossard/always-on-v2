@@ -72,7 +72,18 @@ APP_NAME=$(jq -r '.appName // "your-app"' .healthmodel/01-discovery.json 2>/dev/
 sed -i.bak "s/{{APP_NAME}}/$APP_NAME/g" .healthmodel/00-brief.md && rm .healthmodel/00-brief.md.bak
 ```
 
-Then pre-fill the `## 5. What to Observe` table from `.healthmodel/resources.json` — one row per discovered resource. Suggested-signal hints by type (use the signal catalog as the source of truth, this is a starting point):
+Pre-fill `## 1. Azure Scope` from the interview answers and current `az account`:
+
+```bash
+SUB_ID=$(jq -r '.subscription' .healthmodel/01-discovery.json)
+SUB_NAME=$(az account show --query name -o tsv)
+LOCATION=$(jq -r '.location' .healthmodel/01-discovery.json)
+RGS=$(jq -r '.resourceGroups[]' .healthmodel/01-discovery.json)
+```
+
+Fill in subscription ID, name, location, and generate the Resource Groups table rows from the interview answers. If a UAMI named `id-healthmodel-*` was found during resource export, pre-fill the managed identity field.
+
+Then pre-fill `## 6. What to Observe` from `.healthmodel/resources.json` — one row per discovered resource. Suggested-signal hints by type (use the signal catalog as the source of truth, this is a starting point):
 
 | Resource type | Suggested signals |
 |---|---|
@@ -90,7 +101,7 @@ Build the rows with `jq` from `.healthmodel/resources.json`, then append into th
 
 **CHECKPOINT** — stop and tell the user:
 
-> Brief template written to `.healthmodel/00-brief.md`. Please review and fill in sections 1-4 and 6-8, then tell me when ready to continue.
+> Brief template written to `.healthmodel/00-brief.md`. Please review and fill in sections 1-5 and 7-9, then tell me when ready to continue.
 
 Do not run Step 5 until the user confirms.
 

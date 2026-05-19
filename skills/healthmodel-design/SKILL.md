@@ -26,7 +26,7 @@ The filename (without `.json`) is the resource's ARM name. Use deterministic sho
 
 ## Rules
 
-1. ⛔ MANDATORY: `.healthmodel/02-graph.json` and `.healthmodel/01-discovery.json` must exist.
+1. ⛔ MANDATORY: `.healthmodel/02-graph.json` and `.healthmodel/01-discovery.json` must exist and contain real Azure resource IDs (from a live `az resource list`, not placeholders). If they contain placeholder or empty data, **stop** and direct the user to run discovery + architecture first.
 2. ⛔ MANDATORY: Design files contain **only the `properties` body** — no top-level `name`, `type`, or wrapper. The deploy phase derives URLs from the filename + kind directory.
 3. ⛔ MANDATORY: Each design file contains **only fields the skill is asserting**. Don't pad with defaults you don't intend to enforce.
 4. ⛔ MANDATORY: Signal-definition `signalKind`-specific fields are **flat under `properties`** (NOT nested under `azureResourceMetric`/`prometheusMetricsQuery`/etc. sub-objects). Bicep enforces this; `healthmodel-deploy/scripts/validate.sh` will catch the mistake.
@@ -40,9 +40,14 @@ The filename (without `.json`) is the resource's ARM name. Use deterministic sho
 
 ```bash
 test -f .healthmodel/02-graph.json && test -f .healthmodel/01-discovery.json \
-  || { echo "run healthmodel-architecture first"; exit 1; }
+  || { echo "STOP: run healthmodel-architecture first"; exit 1; }
+
+# graph must have real Azure resource IDs, not placeholders
+jq -e '[.nodes[] | select(.id | test("^/subscriptions/[0-9a-f]{8}-"))] | length > 0' .healthmodel/02-graph.json >/dev/null 2>&1 \
+  || { echo "STOP: 02-graph.json has no real Azure resource IDs — run healthmodel-discovery + architecture against a live subscription"; exit 1; }
+
 test -f .healthmodel/00-brief.md \
-  || echo "WARN: .healthmodel/00-brief.md not found — proceeding with defaults from brief §9"
+  || echo "WARN: .healthmodel/00-brief.md not found — proceeding with defaults from brief §10"
 command -v jq >/dev/null
 ```
 

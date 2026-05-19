@@ -1,6 +1,6 @@
 ---
 name: healthmodel-architecture
-description: "Map discovered Azure resources into a dependency graph and Mermaid diagram, then propose an entity hierarchy. WHEN: 'map architecture', 'draw resource graph', 'show resource dependencies', 'propose health model hierarchy'. DO NOT USE FOR: deploying or designing signals (use healthmodel-design / healthmodel-deploy), generic architecture diagrams unrelated to health models."
+description: "Map discovered Azure resources into a dependency graph and Mermaid diagram, then propose an entity hierarchy. WHEN: 'map architecture', 'draw resource graph', 'show resource dependencies', 'propose health model hierarchy'. PREREQUISITE: healthmodel-discovery must have run first — this skill refuses to start without `.healthmodel/01-discovery.json` and `.healthmodel/00-brief.md`. DO NOT USE FOR: deploying or designing signals (use healthmodel-design / healthmodel-deploy), generic architecture diagrams unrelated to health models."
 ---
 
 # Health Model Architecture Mapping
@@ -9,16 +9,31 @@ Transform discovered resources into an architecture graph with dependency edges,
 
 ## Rules
 
-1. ⛔ MANDATORY: `.healthmodel/01-discovery.json`, `.healthmodel/resources.json`, and `.healthmodel/00-brief.md` must exist.
+1. ⛔ MANDATORY: `.healthmodel/01-discovery.json`, `.healthmodel/resources.json`, and `.healthmodel/00-brief.md` must exist **and contain real data**. Check that `01-discovery.json` has a `subscription` field, `resources.json` has at least one resource, and `00-brief.md` has user-filled content (not just the template placeholders). If any file is missing, empty, or still contains only placeholder values, **stop immediately** and tell the user: *"Discovery has not been completed. Load `healthmodel-discovery` first."* Do NOT attempt to create or fill these files yourself.
 2. ⛔ MANDATORY: Use Mermaid with `<br/>` (never `\n`) and dark-mode-safe class colors.
 3. ⛔ MANDATORY: Each entity has at most one parent (tree, not DAG).
 4. ⛔ MANDATORY: Telemetry/monitoring resources (AMW, Log Analytics) must be `Suppressed` impact.
-5. ⛔ MANDATORY: Save the graph (Step 6) first, then present the proposed hierarchy to the user for confirmation. If the user requests changes, update and re-save before handing off.
+5. ⛔ MANDATORY: Save the graph (Step 5) first, then present the proposed hierarchy to the user for confirmation. If the user requests changes, update and re-save before handing off.
 
 ## Prerequisites
 
 ```bash
-test -f .healthmodel/01-discovery.json && test -f .healthmodel/resources.json && test -f .healthmodel/00-brief.md || echo "Run healthmodel-discovery first (including the brief checkpoint)"
+# Files must exist AND contain real data
+test -f .healthmodel/01-discovery.json && test -f .healthmodel/resources.json && test -f .healthmodel/00-brief.md \
+  || { echo "STOP: Discovery files missing — run healthmodel-discovery first"; exit 1; }
+
+# discovery.json must have a real subscription ID (UUID format)
+jq -e '.subscription | test("^[0-9a-f]{8}-")' .healthmodel/01-discovery.json >/dev/null 2>&1 \
+  || { echo "STOP: 01-discovery.json has no valid subscription — run healthmodel-discovery"; exit 1; }
+
+# resources.json must have actual Azure resource IDs (not placeholders)
+jq -e '[.[] | select(.id | test("^/subscriptions/[0-9a-f]{8}-"))] | length > 0' .healthmodel/resources.json >/dev/null 2>&1 \
+  || { echo "STOP: resources.json has no real Azure resources — run healthmodel-discovery export against a live subscription"; exit 1; }
+
+# brief §1 Azure Scope must have a real subscription ID filled in
+grep -qE '[0-9a-f]{8}-[0-9a-f]{4}-' .healthmodel/00-brief.md 2>/dev/null \
+  || { echo "STOP: 00-brief.md has no Azure subscription — user must fill in §1 Azure Scope"; exit 1; }
+
 command -v jq >/dev/null
 ```
 

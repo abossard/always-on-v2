@@ -9,7 +9,7 @@ End-to-end workflow for creating and adapting an Azure Monitor Health Model. Use
 
 ## Rules
 
-1. ⛔ MANDATORY: Run phases in order — discovery → architecture → design → deploy. Direct entry to a later phase is allowed ONLY if all required input contracts (checkpoint files) are present and validated.
+1. ⛔ MANDATORY: Discovery MUST always run before architecture — no exceptions. For later phases (design, deploy), direct entry is allowed ONLY if all required input contracts (checkpoint files) are present and validated.
 2. ⛔ MANDATORY: Stop at each human checkpoint and wait for user approval before continuing.
 3. ⛔ MANDATORY: All intermediate state goes to `.healthmodel/` checkpoint files. Never hold state in memory between phases.
 4. ⛔ MANDATORY: Refuse to operate across multiple Azure subscriptions in a single model.
