@@ -39,29 +39,29 @@ A hands-on learning framework for senior software engineers: design, build, and 
 | **[`az healthmodel`](src/az-healthmodel/)** | Azure CLI extension for Health Models | CRUD + live TUI watch mode + SVG export. [See README](src/az-healthmodel/README.md) |
 | **[`scripts/healthmodel/`](scripts/healthmodel/)** | Health model Bicep generator | Generates `healthmodel.bicep` from shared `config.json` |
 | **[`scripts/grafana/`](scripts/grafana/)** | Grafana dashboard generator | Builds JSON dashboards for Azure Monitor |
-| **[Agent Skills](.agents/skills/)** | Agent-driven Health Model workflow | Orchestrator + 5 phase skills (discovery → architecture → design → deploy → catalog). Uses only `az rest` + `az bicep` + `jq` — no extensions. [Install below.](#installing-the-agent-skills) |
+| **[Agent Skills](skills/)** | Agent-driven Health Model workflow | Orchestrator + 5 phase skills (discovery → architecture → design → deploy → catalog). Uses only `az rest` + `az bicep` + `jq` — no extensions. [Install below.](#installing-the-agent-skills) |
 
 ### Installing the Agent Skills
 
-The [`.agents/skills/`](.agents/skills/) directory contains six Agent Skills covering the end-to-end Health Model workflow. They follow the [open Agent Skills standard](https://agentskills.io), which is auto-discovered by Claude Code, GitHub Copilot (VS Code agent mode, CLI, cloud agent), Cursor, Codex, Gemini CLI, JetBrains Copilot, and ~30 other agents. Skills run against any modern `az` CLI install — no Python SDK, no CLI extension, no ARM template deployments.
+The [`skills/`](skills/) directory contains six Agent Skills covering the end-to-end Health Model workflow. They follow the [open Agent Skills standard](https://agentskills.io), which is auto-discovered by Claude Code, GitHub Copilot (VS Code agent mode, CLI, cloud agent), Cursor, Codex, Gemini CLI, JetBrains Copilot, and ~30 other agents. Skills run against any modern `az` CLI install — no Python SDK, no CLI extension, no ARM template deployments.
 
-**This repo** — nothing to do. Cloning the repo gives you the skills at `.agents/skills/`, which every compliant agent auto-discovers when you open the workspace.
+**This repo** — nothing to do. Cloning the repo gives you the skills at `skills/`, which every compliant agent auto-discovers when you open the workspace.
 
 #### Install as a plugin (recommended)
 
 Works with **Claude Code**, **GitHub Copilot CLI**, and **VS Code Copilot** — skills available across every project on your machine:
 
 ```bash
-# Install (monorepo — sparse checkout keeps it lightweight)
-claude plugin marketplace add abossard/always-on-v2 --sparse .claude-plugin .agents
-claude plugin install healthmodel@always-on-v2
+# Install (works with claude or copilot)
+claude plugin marketplace add abossard/always-on-v2
+claude plugin install healthmodel@healthmodel
 ```
 
 or equivalently with `copilot`:
 
 ```bash
-copilot plugin marketplace add abossard/always-on-v2 --sparse .claude-plugin .agents
-copilot plugin install healthmodel@always-on-v2
+copilot plugin marketplace add abossard/always-on-v2
+copilot plugin install healthmodel@healthmodel
 ```
 
 #### Update
@@ -81,13 +81,13 @@ claude plugin uninstall healthmodel
 #### Alternative: manual install from a cloned repo
 
 ```bash
-mkdir -p ~/.agents/skills && cp -R .agents/skills/healthmodel-* ~/.agents/skills/
+mkdir -p ~/.agents/skills && cp -R skills/healthmodel-* ~/.agents/skills/
 ```
 
 `~/.agents/skills/` is the vendor-neutral personal location read by Claude Code, GitHub Copilot, and most other agents.
 
 **Other surfaces** (the same SKILL.md files work everywhere):
-- **VS Code + GitHub Copilot** — natively supported in Copilot agent mode; `.agents/skills/` is one of the default discovery paths. [Details below.](#using-the-skills-with-vs-code--github-copilot)
+- **VS Code + GitHub Copilot** — natively supported in Copilot agent mode; `skills/` and `.agents/skills/` are default discovery paths. [Details below.](#using-the-skills-with-vs-code--github-copilot)
 - **GitHub Copilot CLI / cloud agent** — same auto-discovery as VS Code, or install as plugin above.
 - **Claude.ai web** — upload each `healthmodel-*` folder via the Skills UI.
 - **JetBrains IDEs (Copilot)** — public preview as of 2026; enable via *Settings → GitHub Copilot → Chat → Agent*.
@@ -108,10 +108,10 @@ GitHub Copilot natively supports Agent Skills (`SKILL.md`) in VS Code agent mode
 
 | Scope | Discovered paths |
 |---|---|
-| Per-repo | `.agents/skills/` (vendor-neutral, this repo's choice), `.github/skills/`, `.claude/skills/` |
+| Per-repo | `skills/` (plugin convention, this repo's choice), `.agents/skills/` (symlinked), `.github/skills/`, `.claude/skills/` |
 | Personal (any project) | `~/.agents/skills/`, `~/.copilot/skills/`, `~/.claude/skills/` |
 
-This repo ships the skills under `.agents/skills/`, so opening the workspace in VS Code with Copilot is all you need.
+This repo ships the skills under `skills/` (with a symlink at `.agents/skills/`), so opening the workspace in VS Code with Copilot is all you need.
 
 **Invoke from Copilot Chat:**
 - **Auto-load** (most common): describe the task — Copilot matches against each skill's `description:` and loads the relevant one(s). Example: *"build an Azure Monitor health model for this app"* → `healthmodel-orchestrator` auto-loads.
@@ -120,9 +120,9 @@ This repo ships the skills under `.agents/skills/`, so opening the workspace in 
 
 **Progressive disclosure**: even with all six skills registered, only the 1–3 relevant to the current request are expanded into context. The `healthmodel-signal-catalog` skill uses `disable-model-invocation: true` so it never auto-loads — it's reference data that the other skills pull in by relative path.
 
-**Monorepo tip:** if you open a subfolder rather than the repo root, enable `chat.useCustomizationsInParentRepositories` so VS Code walks up to find `.agents/skills/`.
+**Monorepo tip:** if you open a subfolder rather than the repo root, enable `chat.useCustomizationsInParentRepositories` so VS Code walks up to find `skills/`.
 
-**Other Copilot surfaces:** the same `.agents/skills/` directory is also picked up by the GitHub Copilot CLI and the Copilot cloud agent without changes. JetBrains IDEs support is in public preview — enable via *Settings → GitHub Copilot → Chat → Agent*.
+**Other Copilot surfaces:** the same `skills/` directory is also picked up by the GitHub Copilot CLI and the Copilot cloud agent without changes. JetBrains IDEs support is in public preview — enable via *Settings → GitHub Copilot → Chat → Agent*.
 
 **Verify it's working:** open Copilot Chat, type `/` — you should see `healthmodel-orchestrator`, `healthmodel-discovery`, `healthmodel-architecture`, `healthmodel-design`, `healthmodel-deploy` in the list (the signal catalog is hidden by design).
 
