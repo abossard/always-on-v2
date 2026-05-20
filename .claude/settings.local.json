@@ -1,22 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(mkdir -p /Users/abossard/Desktop/projects/always_on_v2/.claude)",
-      "Bash(ln -s ../.github/skills /Users/abossard/Desktop/projects/always_on_v2/.claude/skills)",
-      "Bash(chmod +x /Users/abossard/Desktop/projects/always_on_v2/.github/skills/healthmodel-discovery/scripts/*.sh /Users/abossard/Desktop/projects/always_on_v2/.github/skills/healthmodel-deploy/scripts/*.sh /Users/abossard/Desktop/projects/always_on_v2/.github/skills/healthmodel-design/scripts/uuid5.py)",
-      "Bash(bash -n .github/skills/healthmodel-discovery/scripts/export-resources.sh)",
-      "Bash(bash -n .github/skills/healthmodel-discovery/scripts/inventory.sh)",
-      "Bash(bash -n .github/skills/healthmodel-discovery/scripts/relationships.sh)",
-      "Bash(bash -n .github/skills/healthmodel-deploy/scripts/preflight.sh)",
-      "Bash(bash -n .github/skills/healthmodel-deploy/scripts/create-signal-defs.sh)",
       "Bash(command -v az)",
       "Bash(az version *)",
       "Bash(az bicep *)",
-      "Bash(bash /Users/abossard/Desktop/projects/always_on_v2/.github/skills/healthmodel-deploy/scripts/validate.sh /tmp/test-design)",
       "Bash(echo \"exit: $?\")",
       "WebFetch(domain:code.visualstudio.com)",
       "WebFetch(domain:docs.github.com)",
-      "Bash(bash /Users/abossard/Desktop/projects/always_on_v2/.agents/skills/healthmodel-deploy/scripts/validate.sh /tmp/test-design)",
       "Bash(gh api *)"
     ]
   }

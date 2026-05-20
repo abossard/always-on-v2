@@ -41,56 +41,25 @@ A hands-on learning framework for senior software engineers: design, build, and 
 | **[`scripts/grafana/`](scripts/grafana/)** | Grafana dashboard generator | Builds JSON dashboards for Azure Monitor |
 | **[Agent Skills](skills/)** | Agent-driven Health Model workflow | Orchestrator + 5 phase skills (discovery → architecture → design → deploy → catalog). Uses only `az rest` + `az bicep` + `jq` — no extensions. [Install below.](#installing-the-agent-skills) |
 
-### Installing the Agent Skills
+### Health Model Agent Skills
 
-The [`skills/`](skills/) directory contains six Agent Skills covering the end-to-end Health Model workflow. They follow the [open Agent Skills standard](https://agentskills.io), which is auto-discovered by Claude Code, GitHub Copilot (VS Code agent mode, CLI, cloud agent), Cursor, Codex, Gemini CLI, JetBrains Copilot, and ~30 other agents. Skills run against any modern `az` CLI install — no Python SDK, no CLI extension, no ARM template deployments.
+The Health Model agent skills have moved to their own repository:
 
-**This repo** — nothing to do. Cloning the repo gives you the skills at `skills/`, which every compliant agent auto-discovers when you open the workspace.
+👉 **[abossard/azure-healthmodel-skills](https://github.com/abossard/azure-healthmodel-skills)**
 
-#### Install as a plugin (recommended)
+Six skills covering the end-to-end Health Model workflow (discovery → architecture → design → deploy), following the [open Agent Skills standard](https://agentskills.io). See that repo's README for install instructions.
 
-Works with **Claude Code**, **GitHub Copilot CLI**, and **VS Code Copilot** — skills available across every project on your machine:
+#### Quick install
 
 ```bash
-# Install (works with claude or copilot)
-claude plugin marketplace add abossard/always-on-v2
+# Plugin install (Claude Code / Copilot CLI)
+claude plugin marketplace add abossard/azure-healthmodel-skills
 claude plugin install healthmodel@healthmodel
-```
 
-or equivalently with `copilot`:
-
-```bash
-copilot plugin marketplace add abossard/always-on-v2
+# or with copilot:
+copilot plugin marketplace add abossard/azure-healthmodel-skills
 copilot plugin install healthmodel@healthmodel
 ```
-
-#### Update
-
-```bash
-claude plugin update healthmodel
-# or: copilot plugin update healthmodel
-```
-
-#### Uninstall
-
-```bash
-claude plugin uninstall healthmodel
-# or: copilot plugin uninstall healthmodel
-```
-
-#### Alternative: manual install from a cloned repo
-
-```bash
-mkdir -p ~/.agents/skills && cp -R skills/healthmodel-* ~/.agents/skills/
-```
-
-`~/.agents/skills/` is the vendor-neutral personal location read by Claude Code, GitHub Copilot, and most other agents.
-
-**Other surfaces** (the same SKILL.md files work everywhere):
-- **VS Code + GitHub Copilot** — natively supported in Copilot agent mode; `skills/` and `.agents/skills/` are default discovery paths. [Details below.](#using-the-skills-with-vs-code--github-copilot)
-- **GitHub Copilot CLI / cloud agent** — same auto-discovery as VS Code, or install as plugin above.
-- **Claude.ai web** — upload each `healthmodel-*` folder via the Skills UI.
-- **JetBrains IDEs (Copilot)** — public preview as of 2026; enable via *Settings → GitHub Copilot → Chat → Agent*.
 
 **Runtime requirements** (host machine running the agent):
 - `az` CLI ≥ 2.60 with `az bicep` available (offline schema validation)
