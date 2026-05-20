@@ -77,6 +77,7 @@ This directory contains all Architecture Decision Records (ADRs) for the AlwaysO
 | [ADR-0059](0059-orleans-cosmos-aspire-known-issues-DI.md) | Orleans/Cosmos/Aspire Known Issues | Accepted | DI |
 | [ADR-0060](0060-console-log-level-warning-only-DI.md) | Console Log Level — Warning Only | Accepted | DI |
 | [ADR-0060](0060-prometheus-scraping-strategy-UI.md) | Prometheus Scraping Strategy | Proposed | UI |
+| [ADR-0061](0061-orleans-per-stamp-cluster-scoping-UNI.md) | Orleans Per-Stamp Cluster Scoping | Proposed | UNI |
 
 ## Format
 
