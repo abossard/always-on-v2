@@ -164,14 +164,93 @@ cd src/HelloAgents
 cd HelloAgents.Web && npm ci && cd ..
 aspire run --apphost HelloAgents.AppHost
 
-# Deploy to Azure
+# Deploy to Azure (one command)
 azd auth login
 azd up
 ```
 
 See each app's README for detailed local development instructions.
 
-## Quick Start
+## Deploy with Azure Developer CLI (`azd`)
+
+`azd up` deploys the entire platform from your local machine in a single command — no hosted Git repository or Flux GitOps required.
+
+### What `azd up` does
+
+```
+azd up
+├── azd provision          Deploys all Azure infrastructure (AKS, ACR, Front Door, Cosmos DB, AI, ...)
+│   └── postprovision      Enables Gateway API on AKS, gets cluster credentials, extracts deploy vars
+├── azd deploy
+│   ├── predeploy          Builds 6 Docker images remotely via `az acr build` (no Docker Desktop needed)
+│   └── postdeploy         Applies K8s manifests via `kustomize build | envsubst | kubectl apply`
+│                          Waits for rollout, verifies health, prints Front Door HTTPS endpoints
+```
+
+### Prerequisites (in addition to general prerequisites)
+
+- [kustomize](https://kubectl.docs.kubernetes.io/installation/kustomize/) — renders K8s manifests
+- `envsubst` — substitutes `${VAR}` patterns (included with `gettext`; `brew install gettext` on macOS)
+- [kubectl](https://kubernetes.io/docs/tasks/tools/) — applies manifests to AKS
+
+### Quick start
+
+```bash
+azd auth login
+azd env new my-env --location swedencentral --subscription <subscription-id>
+azd up
+```
+
+After ~15 minutes, all apps are live at their Front Door HTTPS endpoints (printed at the end).
+
+### Deployment modes
+
+Edit `infra/main.bicepparam` to control deployment mode:
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `enableFlux` | `true` | Enable Flux GitOps on AKS. Set `false` for local-only deployment via `azd`. |
+| `enableCustomDomain` | `true` | Enable custom domain routing (DNS zones, CNAME records). Set `false` to use Front Door default endpoints. |
+
+**Fully local deployment (no Git repo, no custom domain):**
+```bicep
+param enableFlux = false
+param enableCustomDomain = false
+```
+
+**GitOps with custom domain (production):**
+```bicep
+param enableFlux = true
+param enableCustomDomain = true
+```
+
+### Environment profiles
+
+Switch profiles by editing the `env` variable in `infra/main.bicepparam`:
+
+| Profile | Stamps | Regions | Cost |
+|---------|--------|---------|------|
+| `budget` | 1 | 1 (swedencentral) | Lowest — Serverless Cosmos, Free AKS tier, spot instances |
+| `budgetDual` | 2 | 1 | Low — two stamps for testing multi-stamp behavior |
+| `dev` | 2+ | 2+ | Higher — Provisioned Cosmos, Standard AKS, multi-region |
+
+### Tear down
+
+```bash
+azd down --force --purge
+```
+
+### How it works (Flux-free mode)
+
+When `enableFlux = false`, the `postdeploy` hook replaces Flux's reconciliation loop with a local equivalent:
+
+1. **`kustomize build`** — renders the same `clusters/{region}/apps` kustomizations that Flux would
+2. **`envsubst`** — substitutes `${VAR}` patterns using 49 variables from Bicep outputs (same as Flux's `postBuild.substitute`)
+3. **`kubectl apply --server-side`** — applies directly to AKS (same as Flux's reconciliation)
+
+This means existing K8s manifests in `clusters/` are used **unchanged** — no parallel set of manifests to maintain.
+
+## Quick Start (CI/CD)
 
 Infrastructure is deployed via the `Deploy Infrastructure` GitHub Actions workflow using Azure Developer CLI (`azd`) with OIDC federated credentials — no secrets stored in GitHub.
 

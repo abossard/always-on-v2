@@ -129,6 +129,9 @@ for i in $(seq 0 $((STAMP_COUNT - 1))); do
 
   echo "   ✅ App manifests applied"
 
+  # Compute app namespaces from Flux vars (used by patching and rollout wait)
+  NAMESPACES=$(echo "$FLUX_VARS" | jq -r 'to_entries[] | select(.key | endswith("_NAMESPACE")) | .value' | sort -u)
+
   # When no custom domain, remove HTTP-to-HTTPS redirect routes
   # (Front Door handles HTTPS termination; origins serve HTTP only)
   # Also add HTTP listener refs to app routes so they work on port 80
@@ -159,7 +162,6 @@ for i in $(seq 0 $((STAMP_COUNT - 1))); do
 
   # Wait for deployments to roll out
   echo "   ⏳ Waiting for deployments..."
-  NAMESPACES=$(echo "$FLUX_VARS" | jq -r 'to_entries[] | select(.key | endswith("_NAMESPACE")) | .value' | sort -u)
 
   for NS in $NAMESPACES; do
     DEPLOYMENTS=$(kubectl get deployments -n "$NS" -o name 2>/dev/null || echo "")
