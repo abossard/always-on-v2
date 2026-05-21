@@ -21,6 +21,9 @@ param regionConfig object
 @description('Domain name for the parent DNS zone (e.g. alwayson.actor).')
 param domainName string
 
+@description('Enable custom domain DNS resources for this region.')
+param enableCustomDomain bool = true
+
 // ============================================================================
 // Derived Values
 // ============================================================================
@@ -58,7 +61,7 @@ resource monitorWorkspace 'Microsoft.Monitor/accounts@2023-04-03' = {
 // Regional DNS Zone (child of parent zone: {regionKey}.alwayson.actor)
 // ============================================================================
 
-resource childDnsZone 'Microsoft.Network/dnsZones@2023-07-01-preview' = {
+resource childDnsZone 'Microsoft.Network/dnsZones@2023-07-01-preview' = if (enableCustomDomain) {
   name: dnsZoneName(regionKey, domainName)
   location: 'global'
 }
@@ -74,7 +77,7 @@ resource certManagerIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2
 
 var roles = loadJsonContent('roles.json')
 
-resource certManagerDnsRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
+resource certManagerDnsRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (enableCustomDomain) {
   name: guid(childDnsZone.id, certManagerIdentity.id, roles.dnsZoneContributor)
   scope: childDnsZone
   properties: {
@@ -93,8 +96,8 @@ resource certManagerDnsRole 'Microsoft.Authorization/roleAssignments@2022-04-01'
 
 output logAnalyticsWorkspaceId string = logAnalytics.id
 output monitorWorkspaceId string = monitorWorkspace.id
-output childDnsZoneName string = childDnsZone.name
-output childDnsNameServers array = childDnsZone.properties.nameServers
+output childDnsZoneName string = enableCustomDomain ? childDnsZone!.name : ''
+output childDnsNameServers array = enableCustomDomain ? childDnsZone!.properties.nameServers : []
 output certManagerIdentityClientId string = certManagerIdentity.properties.clientId
 output certManagerIdentityId string = certManagerIdentity.id
 output certManagerIdentityName string = certManagerIdentity.name

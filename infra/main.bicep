@@ -65,6 +65,12 @@ param devIdentities array = [
 @description('Service principal object ID for CI/CD (GitHub Actions OIDC). Gets Cognitive Services OpenAI User role.')
 param ciServicePrincipalId string = '48b36630-1f18-4c06-9dc2-62c4a26c894e' // msi-always-on-v2
 
+@description('Enable Flux GitOps on AKS clusters. Set to false for azd-only deployments (hooks deploy via kubectl).')
+param enableFlux bool = true
+
+@description('Enable custom domain routing (DNS zones, custom domains, CNAME records). When false, uses Front Door default endpoints.')
+param enableCustomDomain bool = true
+
 @description('Applications to deploy. Each entry creates per-app infrastructure, routing, and workload identity.')
 param apps array = [
   {
@@ -191,6 +197,7 @@ module global 'global.bicep' = {
     acrSku: acrSku
     frontDoorSku: frontDoorSku
     domainName: domainName
+    enableCustomDomain: enableCustomDomain
     regions: regions
     cosmosMode: cosmosMode
     eventHubsSku: eventHubsSku
@@ -298,6 +305,7 @@ module regional 'region.bicep' = [
       regionKey: region.key
       regionConfig: region
       domainName: domainName
+      enableCustomDomain: enableCustomDomain
     }
   }
 ]
@@ -322,6 +330,7 @@ module regionalLookup 'regional-lookup.bicep' = [
       baseName: baseName
       regionKey: stamp.regionKey
       domainName: domainName
+      enableCustomDomain: enableCustomDomain
     }
   }
 ]
@@ -411,6 +420,7 @@ module stamps 'stamp.bicep' = [
       logAnalyticsWorkspaceId: regionalLookup[i].outputs.logAnalyticsWorkspaceId
       monitorWorkspaceId: regionalLookup[i].outputs.monitorWorkspaceId
       fluxGitRepoUrl: fluxGitRepoUrl
+      enableFlux: enableFlux
       acrLoginServer: global.outputs.acrLoginServer
       cosmosEndpoint: global.outputs.cosmosEndpoint
       appInsightsConnectionString: global.outputs.appInsightsConnectionString
@@ -443,6 +453,7 @@ module wiring 'wiring.bicep' = [
       kubeletPrincipalId: stamps[i].outputs.kubeletIdentityPrincipalId
       parentDnsZoneName: domainName
       childDnsNameServers: regionalLookup[i].outputs.childDnsNameServers
+      enableCustomDomain: enableCustomDomain
     }
   }
 ]
@@ -453,7 +464,7 @@ module wiring 'wiring.bicep' = [
 
 @batchSize(1)
 module dnsFederatedCreds 'dns-federated-credentials.bicep' = [
-  for (stamp, i) in allStamps: {
+  for (stamp, i) in (enableCustomDomain ? allStamps : []): {
     name: 'deploy-dns-fedcred-${stamp.regionKey}-${stamp.stampKey}'
     scope: regionalRgs[stampRegionIndex[i]]
     params: {
@@ -542,7 +553,7 @@ module fedCredGraphorleons 'app-federated-creds.bicep' = [
 // App Front Door Routing (generic module — reused per app)
 // ============================================================================
 
-module helloOrleonsRouting 'app-routing.bicep' = {
+module helloOrleonsRouting 'app-routing.bicep' = if (enableCustomDomain) {
   name: 'deploy-routing-${apps[0].name}'
   scope: globalRg
   params: {
@@ -557,7 +568,18 @@ module helloOrleonsRouting 'app-routing.bicep' = {
   }
 }
 
-module darkUxRouting 'app-routing.bicep' = {
+module helloOrleonsRoutingDefault 'app-routing-default.bicep' = if (!enableCustomDomain) {
+  name: 'deploy-routing-default-${apps[0].name}'
+  scope: globalRg
+  params: {
+    appName: apps[0].name
+    stamps: allStamps
+    probePath: apps[0].probePath
+    frontDoorName: global.outputs.frontDoorName
+  }
+}
+
+module darkUxRouting 'app-routing.bicep' = if (enableCustomDomain) {
   name: 'deploy-routing-${apps[1].name}'
   scope: globalRg
   params: {
@@ -572,7 +594,18 @@ module darkUxRouting 'app-routing.bicep' = {
   }
 }
 
-module helloAgentsRouting 'app-routing.bicep' = {
+module darkUxRoutingDefault 'app-routing-default.bicep' = if (!enableCustomDomain) {
+  name: 'deploy-routing-default-${apps[1].name}'
+  scope: globalRg
+  params: {
+    appName: apps[1].name
+    stamps: allStamps
+    probePath: apps[1].probePath
+    frontDoorName: global.outputs.frontDoorName
+  }
+}
+
+module helloAgentsRouting 'app-routing.bicep' = if (enableCustomDomain) {
   name: 'deploy-routing-${apps[2].name}'
   scope: globalRg
   params: {
@@ -587,7 +620,18 @@ module helloAgentsRouting 'app-routing.bicep' = {
   }
 }
 
-module graphOrleonsRouting 'app-routing.bicep' = {
+module helloAgentsRoutingDefault 'app-routing-default.bicep' = if (!enableCustomDomain) {
+  name: 'deploy-routing-default-${apps[2].name}'
+  scope: globalRg
+  params: {
+    appName: apps[2].name
+    stamps: allStamps
+    probePath: apps[2].probePath
+    frontDoorName: global.outputs.frontDoorName
+  }
+}
+
+module graphOrleonsRouting 'app-routing.bicep' = if (enableCustomDomain) {
   name: 'deploy-routing-${apps[3].name}'
   scope: globalRg
   params: {
@@ -599,6 +643,17 @@ module graphOrleonsRouting 'app-routing.bicep' = {
     probePath: apps[3].probePath
     frontDoorName: global.outputs.frontDoorName
     frontDoorEndpointName: global.outputs.frontDoorEndpointName
+  }
+}
+
+module graphOrleonsRoutingDefault 'app-routing-default.bicep' = if (!enableCustomDomain) {
+  name: 'deploy-routing-default-${apps[3].name}'
+  scope: globalRg
+  params: {
+    appName: apps[3].name
+    stamps: allStamps
+    probePath: apps[3].probePath
+    frontDoorName: global.outputs.frontDoorName
   }
 }
 
@@ -701,34 +756,65 @@ output aiProjectName string = ai.outputs.projectName
 output graphOrleonsIdentityClientId string = appInfra[3].outputs.identityClientId
 
 // Generic app endpoints — used by CI/CD to display all URLs
-output appEndpoints array = [
+output appEndpoints array = enableCustomDomain ? [
   {
     name: apps[0].name
-    frontDoorUrl: 'https://${helloOrleonsRouting.outputs.hostname}'
-    stampOrigins: helloOrleonsRouting.outputs.stampOrigins
+    frontDoorUrl: 'https://${helloOrleonsRouting!.outputs.hostname}'
+    stampOrigins: helloOrleonsRouting!.outputs.stampOrigins
   }
   {
     name: apps[1].name
-    frontDoorUrl: 'https://${darkUxRouting.outputs.hostname}'
-    stampOrigins: darkUxRouting.outputs.stampOrigins
+    frontDoorUrl: 'https://${darkUxRouting!.outputs.hostname}'
+    stampOrigins: darkUxRouting!.outputs.stampOrigins
   }
   {
     name: apps[2].name
-    frontDoorUrl: 'https://${helloAgentsRouting.outputs.hostname}'
-    stampOrigins: helloAgentsRouting.outputs.stampOrigins
+    frontDoorUrl: 'https://${helloAgentsRouting!.outputs.hostname}'
+    stampOrigins: helloAgentsRouting!.outputs.stampOrigins
   }
   {
     name: apps[3].name
-    frontDoorUrl: 'https://${graphOrleonsRouting.outputs.hostname}'
-    stampOrigins: graphOrleonsRouting.outputs.stampOrigins
+    frontDoorUrl: 'https://${graphOrleonsRouting!.outputs.hostname}'
+    stampOrigins: graphOrleonsRouting!.outputs.stampOrigins
+  }
+] : [
+  {
+    name: apps[0].name
+    frontDoorUrl: 'https://${helloOrleonsRoutingDefault!.outputs.hostname}'
+    stampOrigins: []
+  }
+  {
+    name: apps[1].name
+    frontDoorUrl: 'https://${darkUxRoutingDefault!.outputs.hostname}'
+    stampOrigins: []
+  }
+  {
+    name: apps[2].name
+    frontDoorUrl: 'https://${helloAgentsRoutingDefault!.outputs.hostname}'
+    stampOrigins: []
+  }
+  {
+    name: apps[3].name
+    frontDoorUrl: 'https://${graphOrleonsRoutingDefault!.outputs.hostname}'
+    stampOrigins: []
   }
 ]
 output apexDomain string = 'https://${domainName}'
 output frontDoorEndpoint string = 'https://${global.outputs.fdEndpointHostName}'
 
 output fluxSshPublicKeys array = [
-  for (stamp, i) in allStamps: {
+  for (stamp, i) in (enableFlux ? allStamps : []): {
     stampName: stamps[i].outputs.stampName
     sshPublicKey: stamps[i].outputs.fluxSshPublicKey
+  }
+]
+
+output stampDeployVars array = [
+  for (stamp, i) in allStamps: {
+    stampName: stamps[i].outputs.stampName
+    regionKey: stamp.regionKey
+    clusterName: stamps[i].outputs.aksClusterName
+    clusterResourceGroup: stampRgName(baseName, stamp.regionKey, stamp.stampKey)
+    fluxVars: stamps[i].outputs.fluxSubstituteVars
   }
 ]

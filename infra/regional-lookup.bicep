@@ -23,11 +23,14 @@ param regionKey string
 @description('Domain name for DNS zone lookup.')
 param domainName string
 
+@description('Enable child DNS zone lookup for custom domain deployments.')
+param enableCustomDomain bool = true
+
 resource certManagerIdentity 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' existing = {
   name: certManagerIdentityName(baseName, regionKey)
 }
 
-resource childDnsZone 'Microsoft.Network/dnsZones@2023-07-01-preview' existing = {
+resource childDnsZone 'Microsoft.Network/dnsZones@2023-07-01-preview' existing = if (enableCustomDomain) {
   name: dnsZoneName(regionKey, domainName)
 }
 
@@ -43,5 +46,5 @@ output logAnalyticsWorkspaceId string = logAnalytics.id
 output monitorWorkspaceId string = monitorWorkspace.id
 output certManagerIdentityClientId string = certManagerIdentity.properties.clientId
 output certManagerIdentityName string = certManagerIdentity.name
-output childDnsZoneName string = childDnsZone.name
-output childDnsNameServers array = childDnsZone.properties.nameServers
+output childDnsZoneName string = enableCustomDomain ? childDnsZone!.name : ''
+output childDnsNameServers array = enableCustomDomain ? childDnsZone!.properties.nameServers : []

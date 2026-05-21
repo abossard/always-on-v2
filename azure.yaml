@@ -1,0 +1,27 @@
+name: always-on-v2
+metadata:
+  template: always-on-v2@0.0.1
+
+infra:
+  provider: bicep
+  path: infra
+  module: main
+
+hooks:
+  postprovision:
+    shell: sh
+    run: hooks/postprovision.sh
+    interactive: true
+    continueOnError: false
+
+  predeploy:
+    shell: sh
+    run: hooks/predeploy.sh
+    interactive: true
+    continueOnError: false
+
+  postdeploy:
+    shell: sh
+    run: hooks/postdeploy.sh
+    interactive: true
+    continueOnError: false

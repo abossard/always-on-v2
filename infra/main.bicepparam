@@ -110,4 +110,6 @@ param cosmosMode = env.cosmosMode
 param eventHubsSku = env.eventHubsSku
 param enableLoadTesting = env.enableLoadTesting
 param logRetentionDays = env.logRetentionDays
+param enableFlux = true
+param enableCustomDomain = true
 param regions = env.regions

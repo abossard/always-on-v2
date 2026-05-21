@@ -14,6 +14,9 @@ param acrSku string
 @description('Domain name for Azure DNS zone.')
 param domainName string
 
+@description('Enable custom domain routing resources (DNS zone, custom domains, apex redirect).')
+param enableCustomDomain bool = true
+
 @description('Region configurations array.')
 param regions array
 
@@ -230,7 +233,7 @@ resource fdEndpoint 'Microsoft.Cdn/profiles/afdEndpoints@2025-04-15' = {
 // Front Door origins + routes are defined per-app in infra/apps/{name}/routing.bicep.
 
 // Front Door custom domain for apex domain
-resource fdCustomDomain 'Microsoft.Cdn/profiles/customDomains@2025-04-15' = {
+resource fdCustomDomain 'Microsoft.Cdn/profiles/customDomains@2025-04-15' = if (enableCustomDomain) {
   parent: frontDoor
   name: replace(domainName, '.', '-')
   properties: {
@@ -246,12 +249,12 @@ resource fdCustomDomain 'Microsoft.Cdn/profiles/customDomains@2025-04-15' = {
 }
 
 // Apex domain redirect: alwayson.actor → GitHub repo
-resource fdApexRuleSet 'Microsoft.Cdn/profiles/ruleSets@2025-04-15' = {
+resource fdApexRuleSet 'Microsoft.Cdn/profiles/ruleSets@2025-04-15' = if (enableCustomDomain) {
   parent: frontDoor
   name: 'ApexRedirect'
 }
 
-resource fdApexRedirectRule 'Microsoft.Cdn/profiles/ruleSets/rules@2025-04-15' = {
+resource fdApexRedirectRule 'Microsoft.Cdn/profiles/ruleSets/rules@2025-04-15' = if (enableCustomDomain) {
   parent: fdApexRuleSet
   name: 'RedirectToGitHub'
   properties: {
@@ -272,7 +275,7 @@ resource fdApexRedirectRule 'Microsoft.Cdn/profiles/ruleSets/rules@2025-04-15' =
 }
 
 // Dummy origin group required by Front Door (route never reaches it — redirect fires first)
-resource fdApexOriginGroup 'Microsoft.Cdn/profiles/originGroups@2025-04-15' = {
+resource fdApexOriginGroup 'Microsoft.Cdn/profiles/originGroups@2025-04-15' = if (enableCustomDomain) {
   parent: frontDoor
   name: 'og-apex-redirect'
   properties: {
@@ -283,7 +286,7 @@ resource fdApexOriginGroup 'Microsoft.Cdn/profiles/originGroups@2025-04-15' = {
   }
 }
 
-resource fdApexOrigin 'Microsoft.Cdn/profiles/originGroups/origins@2025-04-15' = {
+resource fdApexOrigin 'Microsoft.Cdn/profiles/originGroups/origins@2025-04-15' = if (enableCustomDomain) {
   parent: fdApexOriginGroup
   name: 'placeholder'
   properties: {
@@ -297,9 +300,9 @@ resource fdApexOrigin 'Microsoft.Cdn/profiles/originGroups/origins@2025-04-15' =
 
 // originGroup references fdApexOriginGroup.id but route also needs origin to exist.
 // Referencing fdApexOrigin.id in a local var creates the implicit dependency.
-var apexOriginGroupIdWithDep = split(fdApexOrigin.id, '/origins/')[0]
+var apexOriginGroupIdWithDep = enableCustomDomain ? split(fdApexOrigin.id, '/origins/')[0] : ''
 
-resource fdApexRoute 'Microsoft.Cdn/profiles/afdEndpoints/routes@2025-04-15' = {
+resource fdApexRoute 'Microsoft.Cdn/profiles/afdEndpoints/routes@2025-04-15' = if (enableCustomDomain) {
   parent: fdEndpoint
   name: 'route-apex-redirect'
   properties: {
@@ -322,13 +325,13 @@ resource fdApexRoute 'Microsoft.Cdn/profiles/afdEndpoints/routes@2025-04-15' = {
 // Azure DNS Zone
 // ============================================================================
 
-resource dnsZone 'Microsoft.Network/dnsZones@2023-07-01-preview' = {
+resource dnsZone 'Microsoft.Network/dnsZones@2023-07-01-preview' = if (enableCustomDomain) {
   name: domainName
   location: 'global'
 }
 
 // Alias A record: apex domain → Front Door endpoint
-resource dnsApexAlias 'Microsoft.Network/dnsZones/A@2023-07-01-preview' = {
+resource dnsApexAlias 'Microsoft.Network/dnsZones/A@2023-07-01-preview' = if (enableCustomDomain) {
   parent: dnsZone
   name: '@'
   properties: {
@@ -515,7 +518,7 @@ output frontDoorId string = frontDoor.id
 output frontDoorName string = frontDoor.name
 output frontDoorEndpointName string = fdEndpoint.name
 output fdEndpointHostName string = fdEndpoint.properties.hostName
-output dnsNameServers array = dnsZone.properties.nameServers
+output dnsNameServers array = enableCustomDomain ? dnsZone!.properties.nameServers : []
 output appInsightsConnectionString string = appInsights.properties.ConnectionString
 output appInsightsId string = appInsights.id
 output healthModelIdentityId string = healthModelIdentity.id

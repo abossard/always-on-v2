@@ -18,6 +18,9 @@ param parentDnsZoneName string
 @description('Child DNS zone nameservers (for NS delegation).')
 param childDnsNameServers array
 
+@description('Enable DNS delegation wiring for the custom domain.')
+param enableCustomDomain bool = true
+
 // ============================================================================
 // ACR Pull Role Assignment (kubelet identity)
 // ============================================================================
@@ -45,11 +48,11 @@ resource acrPullRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = {
 // NS Delegation in parent DNS zone (alwayson.actor → {regionKey}.alwayson.actor)
 // ============================================================================
 
-resource parentDnsZone 'Microsoft.Network/dnsZones@2023-07-01-preview' existing = {
+resource parentDnsZone 'Microsoft.Network/dnsZones@2023-07-01-preview' existing = if (enableCustomDomain) {
   name: parentDnsZoneName
 }
 
-resource nsDelegation 'Microsoft.Network/dnsZones/NS@2023-07-01-preview' = {
+resource nsDelegation 'Microsoft.Network/dnsZones/NS@2023-07-01-preview' = if (enableCustomDomain) {
   parent: parentDnsZone
   name: dnsRegionKey
   properties: {
