@@ -84,6 +84,7 @@ resource origins 'Microsoft.Cdn/profiles/originGroups/origins@2025-04-15' = [
 resource route 'Microsoft.Cdn/profiles/afdEndpoints/routes@2025-04-15' = {
   parent: appEndpoint
   name: 'route-${appName}'
+  dependsOn: [origins]
   properties: {
     originGroup: { id: originGroup.id }
     supportedProtocols: ['Http', 'Https']

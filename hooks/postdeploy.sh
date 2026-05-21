@@ -88,6 +88,16 @@ for i in $(seq 0 $((STAMP_COUNT - 1))); do
     REGION_INFRA="clusters/base/infra"
   fi
 
+  # Suspend existing Flux kustomizations (from previous deployments)
+  # to prevent Flux from overwriting our kubectl-applied manifests
+  EXISTING_KUSTOMIZATIONS=$(kubectl get kustomizations.kustomize.toolkit.fluxcd.io -n flux-system -o name 2>/dev/null || true)
+  if [ -n "$EXISTING_KUSTOMIZATIONS" ]; then
+    echo "   ⏸️  Suspending existing Flux kustomizations..."
+    for ks in $EXISTING_KUSTOMIZATIONS; do
+      kubectl patch "$ks" -n flux-system --type=merge -p '{"spec":{"suspend":true}}' 2>/dev/null || true
+    done
+  fi
+
   # Deploy infra manifests (cert-manager, external-dns, etc.)
   if [ -d "$REGION_INFRA" ]; then
     echo "   🏗️  Applying infra manifests from $REGION_INFRA..."
@@ -118,6 +128,34 @@ for i in $(seq 0 $((STAMP_COUNT - 1))); do
     || true
 
   echo "   ✅ App manifests applied"
+
+  # When no custom domain, remove HTTP-to-HTTPS redirect routes
+  # (Front Door handles HTTPS termination; origins serve HTTP only)
+  # Also add HTTP listener refs to app routes so they work on port 80
+  GATEWAY_HOST=$(echo "$FLUX_VARS" | jq -r '.HELLOORLEONS_GATEWAY_HOSTNAME // ""')
+  if echo "$GATEWAY_HOST" | grep -q "cloudapp.azure.com"; then
+    echo "   🔧 No custom domain detected — patching for HTTP-only origin access..."
+    for NS in $NAMESPACES; do
+      # Delete HTTP→HTTPS redirect routes
+      REDIRECTS=$(kubectl get httproute -n "$NS" -o name 2>/dev/null | grep "http-redirect" || true)
+      for route in $REDIRECTS; do
+        kubectl delete "$route" -n "$NS" 2>/dev/null || true
+        echo "      → Deleted $route in $NS"
+      done
+      # Add HTTP listener ref to app routes (so they serve on port 80)
+      APP_ROUTES=$(kubectl get httproute -n "$NS" -o name 2>/dev/null || true)
+      for route in $APP_ROUTES; do
+        GW_NAME=$(kubectl get "$route" -n "$NS" -o json 2>/dev/null | jq -r '.spec.parentRefs[0].name')
+        GW_NS=$(kubectl get "$route" -n "$NS" -o json 2>/dev/null | jq -r '.spec.parentRefs[0].namespace')
+        HAS_HTTP=$(kubectl get "$route" -n "$NS" -o json 2>/dev/null | jq -r '.spec.parentRefs[] | select(.sectionName=="http") | .name')
+        if [ -z "$HAS_HTTP" ]; then
+          kubectl patch "$route" -n "$NS" --type=json \
+            -p "[{\"op\":\"add\",\"path\":\"/spec/parentRefs/-\",\"value\":{\"name\":\"${GW_NAME}\",\"namespace\":\"${GW_NS}\",\"sectionName\":\"http\",\"group\":\"gateway.networking.k8s.io\",\"kind\":\"Gateway\"}}]" 2>/dev/null || true
+          echo "      → Patched $route for HTTP"
+        fi
+      done
+    done
+  fi
 
   # Wait for deployments to roll out
   echo "   ⏳ Waiting for deployments..."

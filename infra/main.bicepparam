@@ -98,7 +98,7 @@ var budgetDual = {
 }
 
 // ── Active environment ────────────────────────────────────────────────────────
-var env = budgetDual  // ← switch between: dev | budget | budgetDual (two stamps, one region)
+var env = budget  // ← switch between: dev | budget | budgetDual (two stamps, one region)
 
 param baseName = 'alwayson'
 param globalLocation = 'swedencentral'
@@ -110,6 +110,6 @@ param cosmosMode = env.cosmosMode
 param eventHubsSku = env.eventHubsSku
 param enableLoadTesting = env.enableLoadTesting
 param logRetentionDays = env.logRetentionDays
-param enableFlux = true
-param enableCustomDomain = true
+param enableFlux = false
+param enableCustomDomain = false
 param regions = env.regions
