@@ -8,6 +8,11 @@ infra:
   module: main
 
 hooks:
+  preprovision:
+    shell: sh
+    run: hooks/preprovision.sh
+    continueOnError: false
+
   postprovision:
     shell: sh
     run: hooks/postprovision.sh

@@ -197,11 +197,26 @@ azd up
 
 ```bash
 azd auth login
-azd env new my-env --location swedencentral --subscription <subscription-id>
+azd env new my-dev --location swedencentral --subscription <subscription-id>
 azd up
 ```
 
+> **⚠️ Important:** Do not use `alwayson` as the azd environment name — it collides with the production `baseName` used by the GitHub Actions pipeline. The `preprovision` hook will block this automatically. Use any other name (e.g. `my-dev`, `test`, `demo`).
+
 After ~15 minutes, all apps are live at their Front Door HTTPS endpoints (printed at the end).
+
+### azd vs GitHub Actions
+
+Both deployment methods use the same Bicep templates but are **independent**:
+
+| | `azd up` | GitHub Actions |
+|---|---|---|
+| **Mechanism** | `azd provision` (ARM deployment) | `az stack sub create` (deployment stacks) |
+| **Resource naming** | `baseName` = azd env name | `baseName` = `alwayson` (from `.bicepparam`) |
+| **Resource groups** | `rg-{env-name}-*` | `rg-alwayson-*` |
+| **When to use** | Local dev/demo, no Git repo needed | CI/CD, production, GitOps |
+
+They target **different resource groups** as long as the azd env name differs from `alwayson`.
 
 ### Deployment modes
 
