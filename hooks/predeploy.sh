@@ -12,7 +12,7 @@ ACR_LOGIN_SERVER="${ACR_LOGIN_SERVER:-$(azd env get-value ACR_LOGIN_SERVER 2>/de
 
 if [ -z "$ACR_LOGIN_SERVER" ]; then
   DEPLOYMENT_NAME=$(az deployment sub list \
-    --query "[?properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
+    --query "[?starts_with(name, '${AZURE_ENV_NAME:-}') && properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
     -o tsv 2>/dev/null || echo "")
   if [ -n "$DEPLOYMENT_NAME" ]; then
     ACR_LOGIN_SERVER=$(az deployment sub show --name "$DEPLOYMENT_NAME" \

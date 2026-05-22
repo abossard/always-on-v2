@@ -28,7 +28,7 @@ fi
 if [ "$STAMP_DEPLOY_VARS" = "[]" ] || [ -z "$STAMP_DEPLOY_VARS" ]; then
   echo "⚠️  STAMP_DEPLOY_VARS not available. Attempting to read from deployment..."
   DEPLOYMENT_NAME=$(az deployment sub list \
-    --query "[?properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
+    --query "[?starts_with(name, '${AZURE_ENV_NAME:-}') && properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
     -o tsv 2>/dev/null || echo "")
   if [ -n "$DEPLOYMENT_NAME" ]; then
     STAMP_DEPLOY_VARS=$(az deployment sub show --name "$DEPLOYMENT_NAME" \
@@ -182,7 +182,7 @@ echo "║  🌐 Application Endpoints                              ║"
 echo "╚══════════════════════════════════════════════════════════╝"
 
 DEPLOYMENT_NAME=$(az deployment sub list \
-  --query "[?properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
+  --query "[?starts_with(name, '${AZURE_ENV_NAME:-}') && properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
   -o tsv 2>/dev/null || echo "")
 
 if [ -n "$DEPLOYMENT_NAME" ]; then

@@ -11,7 +11,7 @@ echo "╚═══════════════════════�
 ENV_NAME="${AZURE_ENV_NAME:-alwayson}"
 
 DEPLOYMENT_NAME=$(az deployment sub list \
-  --query "[?properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
+  --query "[?starts_with(name, '${ENV_NAME}') && properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
   -o tsv 2>/dev/null || echo "")
 
 if [ -z "$DEPLOYMENT_NAME" ]; then
