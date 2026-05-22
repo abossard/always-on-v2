@@ -709,7 +709,8 @@ export function buildHealthModelBicep(): string {
     param({ name: 'stamps', type: 'array', description: 'Stamps: [{key, aksClusterId, amwResourceId, stampCosmosAccountId, originHostname}]' }),
   ];
   const optionalParams = optionalGroups.flatMap(deriveParams);
-  blocks.push(joinBlocks(...coreParams, ...optionalParams));
+  const uniqueParams = [...new Map(optionalParams.map(p => [p.match(/param (\w+)/)?.[1] ?? p, p])).values()];
+  blocks.push(joinBlocks(...coreParams, ...uniqueParams));
 
   // Variables
   blocks.push(section('Variables'));

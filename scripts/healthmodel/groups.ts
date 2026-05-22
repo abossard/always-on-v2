@@ -205,4 +205,100 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
     ],
     params: [],
   },
+
+  // ── Cilium Networking (per-stamp, requires ACNS add-on) ──────────
+  {
+    key: 'cilium',
+    displayName: 'Cilium Networking',
+    enableParam: 'usesCilium',
+    enableDescription: 'Whether this cluster uses Cilium with ACNS observability (DNS, drops, endpoints)',
+    parentKey: 'failures',
+    icon: 'Resource',
+    scope: { kind: 'perStamp' },
+    perStampDisplayName: "'${stamp.key} — Cilium Network'",
+    bindings: [
+      {
+        type: 'azureMonitorWorkspace',
+        resourceIdExpr: 'stamp.amwResourceId',
+        signals: [
+          signals.ciliumDnsErrors(),
+          signals.ciliumPacketDrops(),
+          signals.ciliumEndpointHealth(),
+        ],
+      },
+    ],
+    params: [],
+  },
+
+  // ── Karpenter Lifecycle (per-stamp) ──────────────────────────────
+  {
+    key: 'karpenter',
+    displayName: 'Karpenter Nodes',
+    enableParam: 'usesKarpenter',
+    enableDescription: 'Whether this cluster uses Karpenter (AKS Node Auto-Provisioning)',
+    parentKey: 'failures',
+    icon: 'AzureKubernetesService',
+    scope: { kind: 'perStamp' },
+    perStampDisplayName: "'${stamp.key} — Karpenter'",
+    bindings: [
+      {
+        type: 'azureMonitorWorkspace',
+        resourceIdExpr: 'stamp.amwResourceId',
+        signals: [
+          signals.karpenterNodeChurn(),
+          signals.karpenterDisruptions(),
+          signals.karpenterPendingPods(),
+        ],
+      },
+    ],
+    params: [],
+  },
+
+  // ── Spot Node Health (per-stamp) ─────────────────────────────────
+  {
+    key: 'spotnodes',
+    displayName: 'Spot Nodes',
+    enableParam: 'usesSpotNodes',
+    enableDescription: 'Whether this cluster uses spot/preemptible VM instances',
+    parentKey: 'failures',
+    icon: 'AzureVirtualMachine',
+    scope: { kind: 'perStamp' },
+    perStampDisplayName: "'${stamp.key} — Spot Nodes'",
+    bindings: [
+      {
+        type: 'azureMonitorWorkspace',
+        resourceIdExpr: 'stamp.amwResourceId',
+        signals: [
+          signals.spotInterruptions(),
+          signals.spotNodeReadyRatio(),
+          signals.spotDisruptionEligible(),
+        ],
+      },
+    ],
+    params: [],
+  },
+
+  // ── Spot Workload Impact (per-stamp) ─────────────────────────────
+  {
+    key: 'spotimpact',
+    displayName: 'Spot Impact',
+    enableParam: 'usesSpotNodes',
+    enableDescription: 'Whether this cluster uses spot/preemptible VM instances',
+    parentKey: 'latency',
+    icon: 'Resource',
+    scope: { kind: 'perStamp' },
+    perStampDisplayName: "'${stamp.key} — Spot Impact'",
+    bindings: [
+      {
+        type: 'azureMonitorWorkspace',
+        resourceIdExpr: 'stamp.amwResourceId',
+        signals: [
+          signals.spotReplicaUnavailability('${namespace}'),
+          signals.spotRescheduleLatency(),
+          signals.spotChurnRestarts('${namespace}'),
+        ],
+      },
+    ],
+    params: [],
+  },
 ] as const;

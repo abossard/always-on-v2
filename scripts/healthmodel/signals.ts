@@ -1043,3 +1043,163 @@ export function appIntentRetryRate(namespace: string): PrometheusSignalDef {
     threshold: { direction: 'higher-is-worse', degraded: 10, unhealthy: 30 },
   };
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// Cilium Networking Signals (requires ACNS add-on)
+// ═══════════════════════════════════════════════════════════════════
+
+export function ciliumDnsErrors(): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `(sum(rate(hubble_dns_responses_total{rcode=~"NXDOMAIN|SERVFAIL"}[5m])) / (sum(rate(hubble_dns_responses_total[5m])) + 0.001) * 100) or vector(0)`,
+    timeGrain: 'PT1M',
+    displayName: 'Cilium DNS Error Rate',
+    refreshInterval: 'PT1M',
+    dataUnit: 'Percent',
+    threshold: { direction: 'higher-is-worse', degraded: 5, unhealthy: 15 },
+  };
+}
+
+export function ciliumPacketDrops(): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `sum(rate(cilium_drop_count_total[5m])) or vector(0)`,
+    timeGrain: 'PT1M',
+    displayName: 'Cilium Packet Drops',
+    refreshInterval: 'PT1M',
+    dataUnit: 'CountPerSecond',
+    threshold: { direction: 'higher-is-worse', degraded: 10, unhealthy: 50 },
+  };
+}
+
+export function ciliumEndpointHealth(): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `(sum(cilium_endpoint_state{state!="ready"}) / (sum(cilium_endpoint_state) + 0.001) * 100) or vector(0)`,
+    timeGrain: 'PT1M',
+    displayName: 'Cilium Unhealthy Endpoints',
+    refreshInterval: 'PT1M',
+    dataUnit: 'Percent',
+    threshold: { direction: 'higher-is-worse', degraded: 5, unhealthy: 15 },
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Karpenter Lifecycle Signals (AKS Node Auto-Provisioning)
+// ═══════════════════════════════════════════════════════════════════
+
+export function karpenterNodeChurn(): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `(sum(rate(karpenter_nodes_terminated_total[30m])) * 1800) or vector(0)`,
+    timeGrain: 'PT5M',
+    displayName: 'Karpenter Node Terminations/30m',
+    refreshInterval: 'PT5M',
+    dataUnit: 'Count',
+    threshold: { direction: 'higher-is-worse', degraded: 3, unhealthy: 8 },
+  };
+}
+
+export function karpenterDisruptions(): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `(sum(rate(karpenter_nodeclaims_disrupted_total[30m])) * 1800) or vector(0)`,
+    timeGrain: 'PT5M',
+    displayName: 'Karpenter Disruptions/30m',
+    refreshInterval: 'PT5M',
+    dataUnit: 'Count',
+    threshold: { direction: 'higher-is-worse', degraded: 3, unhealthy: 10 },
+  };
+}
+
+export function karpenterPendingPods(): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `sum(karpenter_pods_state{state="pending"}) or vector(0)`,
+    timeGrain: 'PT1M',
+    displayName: 'Karpenter Pending Pods',
+    refreshInterval: 'PT1M',
+    dataUnit: 'Count',
+    threshold: { direction: 'higher-is-worse', degraded: 3, unhealthy: 10 },
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Spot Node Health Signals (per-stamp)
+// ═══════════════════════════════════════════════════════════════════
+
+export function spotInterruptions(): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `(sum(rate(karpenter_nodeclaims_disrupted_total{reason="interruption"}[30m])) * 1800) or vector(0)`,
+    timeGrain: 'PT5M',
+    displayName: 'Spot Interruptions/30m',
+    refreshInterval: 'PT5M',
+    dataUnit: 'Count',
+    threshold: { direction: 'higher-is-worse', degraded: 1, unhealthy: 3 },
+  };
+}
+
+export function spotNodeReadyRatio(): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `(sum(kube_node_status_condition{condition="Ready",status="true"} * on(node) group_left() kube_node_spec_taint{key="kubernetes.azure.com/scalesetpriority",value="spot"}) / (sum(kube_node_spec_taint{key="kubernetes.azure.com/scalesetpriority",value="spot"}) + 0.001) * 100) or vector(0)`,
+    timeGrain: 'PT1M',
+    displayName: 'Spot Nodes Ready %',
+    refreshInterval: 'PT1M',
+    dataUnit: 'Percent',
+    threshold: { direction: 'lower-is-worse', degraded: 80, unhealthy: 50 },
+  };
+}
+
+export function spotDisruptionEligible(): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `sum(karpenter_voluntary_disruption_eligible_nodes) or vector(0)`,
+    timeGrain: 'PT5M',
+    displayName: 'Disruption-Eligible Nodes',
+    refreshInterval: 'PT5M',
+    dataUnit: 'Count',
+    threshold: { direction: 'higher-is-worse', degraded: 3, unhealthy: 5 },
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Spot Workload Impact Signals (per-stamp)
+// ═══════════════════════════════════════════════════════════════════
+
+export function spotReplicaUnavailability(namespace: string): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `(max(1 - (kube_deployment_status_replicas_available{namespace="${namespace}"} / (kube_deployment_spec_replicas{namespace="${namespace}"} + 0.001))) * 100) or vector(0)`,
+    timeGrain: 'PT1M',
+    displayName: 'Replica Unavailability %',
+    refreshInterval: 'PT1M',
+    dataUnit: 'Percent',
+    threshold: { direction: 'higher-is-worse', degraded: 25, unhealthy: 50 },
+  };
+}
+
+export function spotRescheduleLatency(): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `histogram_quantile(0.95, sum(rate(karpenter_pods_startup_duration_seconds_bucket[30m])) by (le)) or vector(0)`,
+    timeGrain: 'PT5M',
+    displayName: 'Pod Reschedule P95 Latency',
+    refreshInterval: 'PT5M',
+    dataUnit: 'Seconds',
+    threshold: { direction: 'higher-is-worse', degraded: 120, unhealthy: 300 },
+  };
+}
+
+export function spotChurnRestarts(namespace: string): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `(sum(rate(kube_pod_container_status_restarts_total{namespace="${namespace}"}[30m])) * 1800) or vector(0)`,
+    timeGrain: 'PT5M',
+    displayName: 'Restart Rate from Churn',
+    refreshInterval: 'PT5M',
+    dataUnit: 'Count',
+    threshold: { direction: 'higher-is-worse', degraded: 5, unhealthy: 15 },
+  };
+}
