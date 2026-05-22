@@ -52,7 +52,7 @@ jobs:
             --name "azd-stack-$AZURE_ENV_NAME" \
             --location "${{ vars.AZURE_LOCATION }}" \
             --template-file infra/main.bicep \
-            --parameters infra/main.bicepparam \
+            --parameters infra/main.prod.bicepparam \
             --action-on-unmanage detachAll \
             --deny-settings-mode none \
             --yes

@@ -100,6 +100,8 @@ var budgetDual = {
 // ── Active environment ────────────────────────────────────────────────────────
 var env = budgetDual  // ← switch between: dev | budget | budgetDual (two stamps, one region)
 
+// baseName is hardcoded for GH Actions (az stack sub create --parameters main.bicepparam).
+// azd uses main.parameters.json instead (baseName = ${AZURE_ENV_NAME} for isolation).
 param baseName = 'alwayson'
 param globalLocation = 'swedencentral'
 param domainName = 'alwayson.actor'
