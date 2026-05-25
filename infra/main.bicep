@@ -723,9 +723,13 @@ module healthModels 'healthmodel/healthmodel.bicep' = [for (app, i) in apps: {
     usesOrleans:     app.?usesOrleans     ?? true
     usesCertManager: app.?usesCertManager ?? true
     usesAppMetrics:  app.?usesAppMetrics  ?? false
-    usesCilium:      app.?usesCilium      ?? false
+    usesCilium:      app.?usesCilium      ?? true
     usesKarpenter:   app.?usesKarpenter   ?? true
-    usesSpotNodes:   app.?usesSpotNodes   ?? false
+    usesSpotNodes:   app.?usesSpotNodes   ?? true
+    usesNodeMetrics:      app.?usesNodeMetrics      ?? true
+    usesControlPlane:     app.?usesControlPlane     ?? true
+    usesContainerMetrics: app.?usesContainerMetrics ?? true
+    usesWorkloadMetrics:  app.?usesWorkloadMetrics  ?? true
     aiServicesAccountId: app.?usesAI ?? false ? ai.outputs.aiServicesId : ''
     // TODO(multi-stamp-storage): storageAccountId is stamp[0] only — when HM module
     // supports per-stamp storage, move this into the stamps array like aksClusterId.

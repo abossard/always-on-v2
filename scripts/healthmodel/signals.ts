@@ -1203,3 +1203,127 @@ export function spotChurnRestarts(namespace: string): PrometheusSignalDef {
     threshold: { direction: 'higher-is-worse', degraded: 5, unhealthy: 15 },
   };
 }
+
+// ═══════════════════════════════════════════════════════════════════
+// Node USE Signals (Utilization, Saturation, Errors)
+// ═══════════════════════════════════════════════════════════════════
+
+export function nodeUtilCpu(): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(avg(1-rate(node_cpu_seconds_total{mode="idle"}[5m]))*100) or vector(0)`, timeGrain: 'PT1M', displayName: 'Node CPU Utilization', refreshInterval: 'PT1M', dataUnit: 'Percent', threshold: { direction: 'higher-is-worse', degraded: 80, unhealthy: 95 } };
+}
+export function nodeUtilMemory(): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `((1-(sum(node_memory_memavailable_bytes)/sum(node_memory_memtotal_bytes)))*100) or vector(0)`, timeGrain: 'PT1M', displayName: 'Node Memory Utilization', refreshInterval: 'PT1M', dataUnit: 'Percent', threshold: { direction: 'higher-is-worse', degraded: 85, unhealthy: 95 } };
+}
+export function nodeUtilDiskIo(): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(max(rate(node_disk_io_time_seconds_total[5m]))*100) or vector(0)`, timeGrain: 'PT1M', displayName: 'Node Disk IO Utilization', refreshInterval: 'PT1M', dataUnit: 'Percent', threshold: { direction: 'higher-is-worse', degraded: 70, unhealthy: 90 } };
+}
+export function nodeUtilFilesystem(): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(max((1-(node_filesystem_avail_bytes/node_filesystem_size_bytes))*100)) or vector(0)`, timeGrain: 'PT1M', displayName: 'Node Filesystem Utilization', refreshInterval: 'PT1M', dataUnit: 'Percent', threshold: { direction: 'higher-is-worse', degraded: 80, unhealthy: 90 } };
+}
+export function nodeNetworkDrops(): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(sum(rate(node_network_receive_drop_total[5m])+rate(node_network_transmit_drop_total[5m]))) or vector(0)`, timeGrain: 'PT1M', displayName: 'Node Network Drops', refreshInterval: 'PT1M', dataUnit: 'CountPerSecond', threshold: { direction: 'higher-is-worse', degraded: 10, unhealthy: 100 } };
+}
+export function nodeNetworkThroughput(): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(sum(rate(node_network_receive_bytes_total[5m])+rate(node_network_transmit_bytes_total[5m]))/1048576) or vector(0)`, timeGrain: 'PT5M', displayName: 'Node Network Throughput MB/s', refreshInterval: 'PT5M', dataUnit: 'Unspecified', threshold: { direction: 'higher-is-worse', degraded: 500, unhealthy: 900 } };
+}
+export function nodeLoadAvg(): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(avg(node_load1)) or vector(0)`, timeGrain: 'PT1M', displayName: 'Node Load Average (1m)', refreshInterval: 'PT1M', dataUnit: 'Unspecified', threshold: { direction: 'higher-is-worse', degraded: 4, unhealthy: 8 } };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Control Plane Signals (API Server, ETCD, Kubelet)
+// ═══════════════════════════════════════════════════════════════════
+
+export function apiserverRequestRate(): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(sum(rate(apiserver_request_total[5m]))) or vector(0)`, timeGrain: 'PT1M', displayName: 'API Server Request Rate', refreshInterval: 'PT1M', dataUnit: 'CountPerSecond', threshold: { direction: 'higher-is-worse', degraded: 200, unhealthy: 500 } };
+}
+export function apiserverErrorRate(): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(sum(rate(apiserver_request_total{code=~"5.."}[5m]))/(sum(rate(apiserver_request_total[5m]))+0.001)*100) or vector(0)`, timeGrain: 'PT1M', displayName: 'API Server Error Rate', refreshInterval: 'PT1M', dataUnit: 'Percent', threshold: { direction: 'higher-is-worse', degraded: 1, unhealthy: 5 } };
+}
+export function apiserverInflight(): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(sum(apiserver_current_inflight_requests)) or vector(0)`, timeGrain: 'PT1M', displayName: 'API Server Inflight Requests', refreshInterval: 'PT1M', dataUnit: 'Count', threshold: { direction: 'higher-is-worse', degraded: 200, unhealthy: 400 } };
+}
+export function apiserverFlowcontrolSeats(): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(sum(apiserver_flowcontrol_demand_seats_average)) or vector(0)`, timeGrain: 'PT1M', displayName: 'API Flowcontrol Demand Seats', refreshInterval: 'PT1M', dataUnit: 'Count', threshold: { direction: 'higher-is-worse', degraded: 50, unhealthy: 100 } };
+}
+export function etcdDbSize(): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(max(etcd_mvcc_db_total_size_in_bytes)/1048576) or vector(0)`, timeGrain: 'PT5M', displayName: 'ETCD DB Size MB', refreshInterval: 'PT5M', dataUnit: 'Unspecified', threshold: { direction: 'higher-is-worse', degraded: 4096, unhealthy: 7168 } };
+}
+export function etcdHasLeader(): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(min(etcd_server_has_leader)) or vector(0)`, timeGrain: 'PT1M', displayName: 'ETCD Has Leader', refreshInterval: 'PT1M', dataUnit: 'Count', threshold: { direction: 'lower-is-worse', degraded: 1, unhealthy: 0 } };
+}
+export function etcdSlowApplies(): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(sum(rate(etcd_server_slow_apply_total[5m]))) or vector(0)`, timeGrain: 'PT1M', displayName: 'ETCD Slow Applies', refreshInterval: 'PT1M', dataUnit: 'CountPerSecond', threshold: { direction: 'higher-is-worse', degraded: 0.01, unhealthy: 0.1 } };
+}
+export function kubeletRunningPods(): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(sum(kubelet_running_pods)) or vector(0)`, timeGrain: 'PT1M', displayName: 'Running Pods', refreshInterval: 'PT1M', dataUnit: 'Count', threshold: { direction: 'higher-is-worse', degraded: 200, unhealthy: 400 } };
+}
+export function kubeletRunningContainers(): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(sum(kubelet_running_containers{container_state="running"})) or vector(0)`, timeGrain: 'PT1M', displayName: 'Running Containers', refreshInterval: 'PT1M', dataUnit: 'Count', threshold: { direction: 'higher-is-worse', degraded: 400, unhealthy: 800 } };
+}
+export function kubeletRuntimeErrors(): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(sum(rate(kubelet_runtime_operations_errors_total[5m]))) or vector(0)`, timeGrain: 'PT1M', displayName: 'Kubelet Runtime Errors', refreshInterval: 'PT1M', dataUnit: 'CountPerSecond', threshold: { direction: 'higher-is-worse', degraded: 0.1, unhealthy: 1 } };
+}
+export function kubeletPodStartP99(): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(histogram_quantile(0.99,sum(rate(kubelet_pod_start_duration_seconds_bucket[30m]))by(le))) or vector(0)`, timeGrain: 'PT5M', displayName: 'Pod Start P99 Latency', refreshInterval: 'PT5M', dataUnit: 'Seconds', threshold: { direction: 'higher-is-worse', degraded: 30, unhealthy: 120 } };
+}
+export function kubeletPlegRelistP99(): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(histogram_quantile(0.99,sum(rate(kubelet_pleg_relist_duration_seconds_bucket[5m]))by(le))) or vector(0)`, timeGrain: 'PT1M', displayName: 'PLEG Relist P99 Latency', refreshInterval: 'PT1M', dataUnit: 'Seconds', threshold: { direction: 'higher-is-worse', degraded: 1, unhealthy: 5 } };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Container RED Signals
+// ═══════════════════════════════════════════════════════════════════
+
+export function containerMemoryWorkingSet(namespace: string): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(sum(container_memory_working_set_bytes{namespace="${namespace}",container!="",container!="POD"})/1048576) or vector(0)`, timeGrain: 'PT1M', displayName: 'Container Memory Working Set MB', refreshInterval: 'PT1M', dataUnit: 'Unspecified', threshold: { direction: 'higher-is-worse', degraded: 15000, unhealthy: 25000 } };
+}
+export function containerNetRxRate(namespace: string): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(sum(rate(container_network_receive_bytes_total{namespace="${namespace}"}[5m]))/1048576) or vector(0)`, timeGrain: 'PT1M', displayName: 'Container Network RX MB/s', refreshInterval: 'PT1M', dataUnit: 'Unspecified', threshold: { direction: 'higher-is-worse', degraded: 100, unhealthy: 500 } };
+}
+export function containerNetTxRate(namespace: string): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(sum(rate(container_network_transmit_bytes_total{namespace="${namespace}"}[5m]))/1048576) or vector(0)`, timeGrain: 'PT1M', displayName: 'Container Network TX MB/s', refreshInterval: 'PT1M', dataUnit: 'Unspecified', threshold: { direction: 'higher-is-worse', degraded: 100, unhealthy: 500 } };
+}
+export function containerFsWriteRate(namespace: string): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(sum(rate(container_fs_writes_total{namespace="${namespace}"}[5m]))) or vector(0)`, timeGrain: 'PT1M', displayName: 'Container FS Writes/s', refreshInterval: 'PT1M', dataUnit: 'CountPerSecond', threshold: { direction: 'higher-is-worse', degraded: 500, unhealthy: 2000 } };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Hubble Network Observability Signals
+// ═══════════════════════════════════════════════════════════════════
+
+export function hubbleDnsQueryRate(): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(sum(rate(hubble_dns_queries_total[5m]))) or vector(0)`, timeGrain: 'PT1M', displayName: 'DNS Query Rate', refreshInterval: 'PT1M', dataUnit: 'CountPerSecond', threshold: { direction: 'higher-is-worse', degraded: 100, unhealthy: 500 } };
+}
+export function hubblePacketDrops(): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(sum(rate(hubble_drop_total[5m]))) or vector(0)`, timeGrain: 'PT1M', displayName: 'Hubble Packet Drops', refreshInterval: 'PT1M', dataUnit: 'CountPerSecond', threshold: { direction: 'higher-is-worse', degraded: 5, unhealthy: 20 } };
+}
+export function hubbleTcpResets(): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(sum(rate(hubble_tcp_flags_total{flag="RST"}[5m]))) or vector(0)`, timeGrain: 'PT1M', displayName: 'TCP Reset Rate', refreshInterval: 'PT1M', dataUnit: 'CountPerSecond', threshold: { direction: 'higher-is-worse', degraded: 10, unhealthy: 50 } };
+}
+export function hubbleTcpSynRate(): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(sum(rate(hubble_tcp_flags_total{flag="SYN"}[5m]))) or vector(0)`, timeGrain: 'PT1M', displayName: 'TCP Connection Rate', refreshInterval: 'PT1M', dataUnit: 'CountPerSecond', threshold: { direction: 'higher-is-worse', degraded: 500, unhealthy: 2000 } };
+}
+export function ciliumForwardRate(): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(sum(rate(cilium_forward_count_total[5m]))) or vector(0)`, timeGrain: 'PT1M', displayName: 'Cilium Forward Rate', refreshInterval: 'PT1M', dataUnit: 'CountPerSecond', threshold: { direction: 'higher-is-worse', degraded: 50000, unhealthy: 100000 } };
+}
+export function ciliumDropForwardRatio(): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(sum(rate(cilium_drop_count_total[5m]))/(sum(rate(cilium_forward_count_total[5m]))+0.001)*100) or vector(0)`, timeGrain: 'PT1M', displayName: 'Cilium Drop/Forward Ratio', refreshInterval: 'PT1M', dataUnit: 'Percent', threshold: { direction: 'higher-is-worse', degraded: 0.1, unhealthy: 1 } };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Workload Health Signals
+// ═══════════════════════════════════════════════════════════════════
+
+export function deploymentsNotReady2(namespace: string): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(sum(kube_deployment_spec_replicas{namespace="${namespace}"}-kube_deployment_status_replicas_ready{namespace="${namespace}"})) or vector(0)`, timeGrain: 'PT1M', displayName: 'Workload Deployments Not Ready', refreshInterval: 'PT1M', dataUnit: 'Count', threshold: { direction: 'higher-is-worse', degraded: 1, unhealthy: 5 } };
+}
+export function daemonsetsNotReady(namespace: string): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(sum(kube_daemonset_status_desired_number_scheduled{namespace="${namespace}"}-kube_daemonset_status_number_ready{namespace="${namespace}"})) or vector(0)`, timeGrain: 'PT1M', displayName: 'DaemonSets Not Ready', refreshInterval: 'PT1M', dataUnit: 'Count', threshold: { direction: 'higher-is-worse', degraded: 1, unhealthy: 3 } };
+}
+export function podsPending(namespace: string): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(sum(kube_pod_status_phase{namespace="${namespace}",phase="Pending"})) or vector(0)`, timeGrain: 'PT1M', displayName: 'Workload Pods Pending', refreshInterval: 'PT1M', dataUnit: 'Count', threshold: { direction: 'higher-is-worse', degraded: 3, unhealthy: 10 } };
+}
+export function podsFailed(namespace: string): PrometheusSignalDef {
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(sum(kube_pod_status_phase{namespace="${namespace}",phase="Failed"})) or vector(0)`, timeGrain: 'PT1M', displayName: 'Workload Pods Failed', refreshInterval: 'PT1M', dataUnit: 'Count', threshold: { direction: 'higher-is-worse', degraded: 0, unhealthy: 3 } };
+}

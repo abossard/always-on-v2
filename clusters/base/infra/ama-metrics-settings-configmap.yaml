@@ -4,17 +4,35 @@ metadata:
   name: ama-metrics-settings-configmap
   namespace: kube-system
 data:
-  default-scrape-settings-enabled: |-
-    kubelet = true
-    coredns = true
-    cadvisor = true
-    kubeproxy = false
-    apiserver = false
-    kube-state-metrics = true
-    windowsexporter = false
-    windowskubeproxy = false
-    prometheuscollectorhealth = false
-  pod-annotation-based-scraping: |-
-    podannotationnamespaceregex = "darkux|helloagents|helloorleons|graphorleons|aks-istio-ingress|aks-istio-system"
-  default-targets-metrics-keep-list: |-
-    minimalingestionprofile = false
+  cluster-metrics: |-
+    default-targets-scrape-enabled: |-
+      kubelet = true
+      coredns = true
+      cadvisor = true
+      kubeproxy = false
+      apiserver = false
+      kube-state-metrics = true
+      windowsexporter = false
+      windowskubeproxy = false
+      prometheuscollectorhealth = false
+
+    pod-annotation-based-scraping: |-
+      podannotationnamespaceregex = "darkux|helloagents|helloorleons|graphorleons|aks-istio-ingress|aks-istio-system"
+
+    minimal-ingestion-profile: |-
+      enabled = false
+
+  controlplane-metrics: |-
+    default-targets-scrape-enabled: |-
+      apiserver = true
+      etcd = true
+      node-auto-provisioning = true
+      cluster-autoscaler = false
+      kube-scheduler = false
+      kube-controller-manager = false
+
+    default-targets-metrics-keep-list: |-
+      node-auto-provisioning = "karpenter_pods_state|karpenter_nodes_created_total|karpenter_nodes_terminated_total|karpenter_nodeclaims_disrupted_total|karpenter_voluntary_disruption_eligible_nodes|karpenter_voluntary_disruption_decisions_total|karpenter_pods_startup_duration_seconds_bucket|karpenter_pods_startup_duration_seconds_sum|karpenter_pods_startup_duration_seconds_count"
+
+    minimal-ingestion-profile: |-
+      enabled = true

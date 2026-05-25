@@ -231,6 +231,10 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2026-01-01' = {
       networkPluginMode: 'overlay'
       networkDataplane: 'cilium'
       networkPolicy: 'cilium'
+      advancedNetworking: {
+        enabled: true
+        observability: { enabled: true }
+      }
     }
 
     workloadAutoScalerProfile: {
@@ -585,31 +589,6 @@ resource fluxConfig 'Microsoft.KubernetesConfiguration/fluxConfigurations@2024-0
       }
     }
   }
-}
-
-// ============================================================================
-// Chaos Studio Preparation
-// ============================================================================
-
-resource chaosTarget 'Microsoft.Chaos/targets@2024-01-01' = {
-  name: 'Microsoft-AzureKubernetesServiceChaosMesh'
-  scope: aksCluster
-  properties: {}
-}
-
-resource chaosPodChaos 'Microsoft.Chaos/targets/capabilities@2024-01-01' = {
-  parent: chaosTarget
-  name: 'PodChaos-2.2'
-}
-
-resource chaosNetworkChaos 'Microsoft.Chaos/targets/capabilities@2024-01-01' = {
-  parent: chaosTarget
-  name: 'NetworkChaos-2.2'
-}
-
-resource chaosStressChaos 'Microsoft.Chaos/targets/capabilities@2024-01-01' = {
-  parent: chaosTarget
-  name: 'StressChaos-2.2'
 }
 
 // ============================================================================

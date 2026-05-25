@@ -301,4 +301,124 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
     ],
     params: [],
   },
+
+  // ── Node Health — USE methodology (per-stamp) ────────────────────
+  {
+    key: 'nodeuse',
+    displayName: 'Node Health (USE)',
+    enableParam: 'usesNodeMetrics',
+    enableDescription: 'Whether to monitor node-level USE metrics',
+    parentKey: 'root',
+    icon: 'AzureVirtualMachine',
+    scope: { kind: 'perStamp' },
+    perStampDisplayName: "'${stamp.key} — Node USE'",
+    bindings: [
+      {
+        type: 'azureMonitorWorkspace',
+        resourceIdExpr: 'stamp.amwResourceId',
+        signals: [
+          signals.nodeUtilCpu(),
+          signals.nodeUtilMemory(),
+          signals.nodeUtilDiskIo(),
+          signals.nodeUtilFilesystem(),
+          signals.nodeNetworkDrops(),
+          signals.nodeNetworkThroughput(),
+          signals.nodeLoadAvg(),
+        ],
+      },
+    ],
+    params: [],
+  },
+
+  // ── Control Plane Health (per-stamp) ─────────────────────────────
+  {
+    key: 'controlplane',
+    displayName: 'Control Plane',
+    enableParam: 'usesControlPlane',
+    enableDescription: 'Whether to monitor AKS control plane',
+    parentKey: 'root',
+    icon: 'AzureKubernetesService',
+    scope: { kind: 'perStamp' },
+    perStampDisplayName: "'${stamp.key} — Control Plane'",
+    bindings: [
+      {
+        type: 'azureMonitorWorkspace',
+        resourceIdExpr: 'stamp.amwResourceId',
+        signals: [
+          signals.apiserverRequestRate(),
+          signals.apiserverErrorRate(),
+          signals.apiserverInflight(),
+          signals.apiserverFlowcontrolSeats(),
+          signals.etcdDbSize(),
+          signals.etcdHasLeader(),
+          signals.etcdSlowApplies(),
+          signals.kubeletRunningPods(),
+          signals.kubeletRunningContainers(),
+          signals.kubeletRuntimeErrors(),
+          signals.kubeletPodStartP99(),
+          signals.kubeletPlegRelistP99(),
+        ],
+      },
+    ],
+    params: [],
+  },
+
+  // ── Container Resources — RED methodology (per-stamp) ────────────
+  {
+    key: 'containerred',
+    displayName: 'Container Resources (RED)',
+    enableParam: 'usesContainerMetrics',
+    enableDescription: 'Whether to monitor container-level RED metrics',
+    parentKey: 'root',
+    icon: 'Resource',
+    scope: { kind: 'perStamp' },
+    perStampDisplayName: "'${stamp.key} — Container RED'",
+    bindings: [{ type: 'azureMonitorWorkspace', resourceIdExpr: 'stamp.amwResourceId', signals: [
+      signals.containerMemoryWorkingSet('${namespace}'),
+      signals.containerNetRxRate('${namespace}'),
+      signals.containerNetTxRate('${namespace}'),
+      signals.containerFsWriteRate('${namespace}'),
+    ] }],
+    params: [],
+  },
+
+  // ── Hubble Network Observability (per-stamp) ─────────────────────
+  {
+    key: 'hubble',
+    displayName: 'Hubble Network',
+    enableParam: 'usesCilium',
+    enableDescription: 'Whether this cluster uses Cilium with ACNS observability',
+    parentKey: 'root',
+    icon: 'Resource',
+    scope: { kind: 'perStamp' },
+    perStampDisplayName: "'${stamp.key} — Hubble'",
+    bindings: [{ type: 'azureMonitorWorkspace', resourceIdExpr: 'stamp.amwResourceId', signals: [
+      signals.hubbleDnsQueryRate(),
+      signals.hubblePacketDrops(),
+      signals.hubbleTcpResets(),
+      signals.hubbleTcpSynRate(),
+      signals.ciliumForwardRate(),
+      signals.ciliumDropForwardRatio(),
+    ] }],
+    params: [],
+  },
+
+  // ── Workload Readiness (per-stamp) ───────────────────────────────
+  {
+    key: 'workloads',
+    displayName: 'Workload Readiness',
+    enableParam: 'usesWorkloadMetrics',
+    enableDescription: 'Whether to monitor workload readiness',
+    parentKey: 'failures',
+    icon: 'Resource',
+    scope: { kind: 'perStamp' },
+    perStampDisplayName: "'${stamp.key} — Workloads'",
+    bindings: [{ type: 'azureMonitorWorkspace', resourceIdExpr: 'stamp.amwResourceId', signals: [
+      signals.deploymentsNotReady2('${namespace}'),
+      signals.daemonsetsNotReady('${namespace}'),
+      signals.podsPending('${namespace}'),
+      signals.podsFailed('${namespace}'),
+    ] }],
+    params: [],
+  },
 ] as const;

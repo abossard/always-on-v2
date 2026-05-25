@@ -34,3 +34,16 @@ for protected in $PROTECTED_NAMES; do
 done
 
 echo "✅ Pre-provision: env name '$ENV_NAME' is safe (no collision with production)"
+
+# ── Regenerate health model Bicep ─────────────────────────────
+# healthmodel.bicep is auto-generated from scripts/healthmodel/.
+# Regenerate before provisioning to ensure signal definitions are current.
+HM_DIR="scripts/healthmodel"
+if [ -d "$HM_DIR" ] && command -v npx &>/dev/null; then
+  echo "🔧 Regenerating healthmodel.bicep..."
+  (cd "$HM_DIR" && npm ci --silent 2>/dev/null && npx ts-node generate.ts 2>&1) || {
+    echo "⚠️  Health model generation failed (non-fatal — using existing healthmodel.bicep)"
+  }
+else
+  echo "ℹ️  Skipping healthmodel generation (Node.js/npx not available or scripts/healthmodel/ missing)"
+fi
