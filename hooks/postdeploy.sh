@@ -246,4 +246,31 @@ if [ $DEPLOY_ERRORS -gt 0 ]; then
   exit 1
 fi
 
+# ── Grafana dashboard deployment ──────────────────────────────
+echo ""
+echo "╔══════════════════════════════════════════════════════════╗"
+echo "║  📊 Grafana Dashboard Deployment                        ║"
+echo "╚══════════════════════════════════════════════════════════╝"
+
+GRAFANA_SCRIPT="$(cd "$(dirname "$0")/.." && pwd)/scripts/grafana/deploy.sh"
+if [ -f "$GRAFANA_SCRIPT" ]; then
+  GLOBAL_RG=""
+  if [ -n "$DEPLOYMENT_NAME" ]; then
+    GLOBAL_RG=$(az deployment sub show --name "$DEPLOYMENT_NAME" \
+      --query "properties.outputs.globalResourceGroupName.value" -o tsv 2>/dev/null || echo "")
+  fi
+  GLOBAL_RG="${GLOBAL_RG:-rg-${AZURE_ENV_NAME:-aon2}-global}"
+  LOCATION="${AZURE_LOCATION:-swedencentral}"
+
+  echo "   RG: $GLOBAL_RG | Location: $LOCATION"
+  if bash "$GRAFANA_SCRIPT" "$GLOBAL_RG" "$LOCATION"; then
+    echo "   ✅ Grafana dashboards deployed"
+  else
+    echo "   ⚠️  Grafana dashboard deployment failed (non-fatal)"
+  fi
+else
+  echo "   ⏭️  scripts/grafana/deploy.sh not found — skipping"
+fi
+
+echo ""
 echo "✅ Deployment complete"

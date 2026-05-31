@@ -2097,7 +2097,7 @@
                   {
                     "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
                     "resourceGroup": "rg-alwayson-swedencentral-001",
-                    "resourceName": "cosmos-orl-alwayson-swedencentral",
+                    "resourceName": "cosmos-orl-alwayson-swedencentral-001",
                     "metricNamespace": "microsoft.documentdb/databaseaccounts"
                   }
                 ],
@@ -2190,7 +2190,7 @@
                   {
                     "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
                     "resourceGroup": "rg-alwayson-swedencentral-001",
-                    "resourceName": "cosmos-orl-alwayson-swedencentral",
+                    "resourceName": "cosmos-orl-alwayson-swedencentral-001",
                     "metricNamespace": "microsoft.documentdb/databaseaccounts"
                   }
                 ],
@@ -2282,7 +2282,7 @@
                   {
                     "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
                     "resourceGroup": "rg-alwayson-swedencentral-001",
-                    "resourceName": "cosmos-orl-alwayson-swedencentral",
+                    "resourceName": "cosmos-orl-alwayson-swedencentral-001",
                     "metricNamespace": "microsoft.documentdb/databaseaccounts"
                   }
                 ],
@@ -2312,7 +2312,7 @@
           "type": "stat",
           "transparent": false,
           "repeatDirection": "h",
-          "title": "Orleans Cosmos Availability % — centralus",
+          "title": "Orleans Cosmos Availability % — swedencentral",
           "datasource": {
             "uid": "azure-monitor",
             "type": "grafana-azure-monitor-datasource"
@@ -2369,8 +2369,8 @@
                 "resources": [
                   {
                     "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-centralus-001",
-                    "resourceName": "cosmos-orl-alwayson-centralus",
+                    "resourceGroup": "rg-alwayson-swedencentral-002",
+                    "resourceName": "cosmos-orl-alwayson-swedencentral-002",
                     "metricNamespace": "microsoft.documentdb/databaseaccounts"
                   }
                 ],
@@ -2444,7 +2444,7 @@
               "sort": "desc"
             }
           },
-          "title": "Orleans Cosmos Normalized RU % — centralus",
+          "title": "Orleans Cosmos Normalized RU % — swedencentral",
           "datasource": {
             "uid": "azure-monitor",
             "type": "grafana-azure-monitor-datasource"
@@ -2462,8 +2462,8 @@
                 "resources": [
                   {
                     "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-centralus-001",
-                    "resourceName": "cosmos-orl-alwayson-centralus",
+                    "resourceGroup": "rg-alwayson-swedencentral-002",
+                    "resourceName": "cosmos-orl-alwayson-swedencentral-002",
                     "metricNamespace": "microsoft.documentdb/databaseaccounts"
                   }
                 ],
@@ -2536,7 +2536,7 @@
               "sort": "desc"
             }
           },
-          "title": "Orleans Cosmos Throttled (429) — centralus",
+          "title": "Orleans Cosmos Throttled (429) — swedencentral",
           "datasource": {
             "uid": "azure-monitor",
             "type": "grafana-azure-monitor-datasource"
@@ -2554,8 +2554,8 @@
                 "resources": [
                   {
                     "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-centralus-001",
-                    "resourceName": "cosmos-orl-alwayson-centralus",
+                    "resourceGroup": "rg-alwayson-swedencentral-002",
+                    "resourceName": "cosmos-orl-alwayson-swedencentral-002",
                     "metricNamespace": "microsoft.documentdb/databaseaccounts"
                   }
                 ],
@@ -2661,7 +2661,7 @@
                   {
                     "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
                     "resourceGroup": "rg-alwayson-swedencentral-001",
-                    "resourceName": "sthaalwaysonsweden/default",
+                    "resourceName": "sthaalwaysonswe001/default",
                     "metricNamespace": "microsoft.storage/storageaccounts/queueservices"
                   }
                 ],
@@ -2754,7 +2754,7 @@
                   {
                     "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
                     "resourceGroup": "rg-alwayson-swedencentral-001",
-                    "resourceName": "sthaalwaysonsweden/default",
+                    "resourceName": "sthaalwaysonswe001/default",
                     "metricNamespace": "microsoft.storage/storageaccounts/queueservices"
                   }
                 ],

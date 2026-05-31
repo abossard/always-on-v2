@@ -35,6 +35,15 @@ done
 
 echo "✅ Pre-provision: env name '$ENV_NAME' is safe (no collision with production)"
 
+# ── Enable public access on resources ─────────────────────────
+# Overnight policies may disable public endpoints. Re-enable before provisioning.
+ENABLE_SCRIPT="scripts/enable-public-access.sh"
+if [ -f "$ENABLE_SCRIPT" ]; then
+  echo ""
+  echo "🔓 Re-enabling public access (in case overnight policy disabled it)..."
+  bash "$ENABLE_SCRIPT" --base-name "$ENV_NAME" || true
+fi
+
 # ── Regenerate health model Bicep ─────────────────────────────
 # healthmodel.bicep is auto-generated from scripts/healthmodel/.
 # Regenerate before provisioning to ensure signal definitions are current.
