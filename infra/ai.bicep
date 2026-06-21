@@ -21,6 +21,9 @@ param appInsightsId string
 @description('Principal IDs of app identities to grant Cognitive Services OpenAI User role.')
 param appIdentityPrincipalIds array
 
+@description('When true, disable public network access on AI resources (Storage, Key Vault, AI Services, Hub, Project) and enable the hub managed VNet. Private endpoints are created per-stamp.')
+param enablePrivateEndpoints bool = false
+
 @description('Default deployment name for apps. Must be one of models[].name.')
 param defaultModelName string = 'gpt-41-mini'
 
@@ -97,7 +100,8 @@ resource storageAccount 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   properties: {
     accessTier: 'Hot'
     allowBlobPublicAccess: false
-    publicNetworkAccess: 'Enabled'
+    publicNetworkAccess: enablePrivateEndpoints ? 'Disabled' : 'Enabled'
+    networkAcls: enablePrivateEndpoints ? { defaultAction: 'Deny', bypass: 'AzureServices' } : null
     minimumTlsVersion: 'TLS1_2'
     supportsHttpsTrafficOnly: true
   }
@@ -121,7 +125,8 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
     enableRbacAuthorization: true
     enableSoftDelete: true
     softDeleteRetentionInDays: 7
-    publicNetworkAccess: 'Enabled'
+    publicNetworkAccess: enablePrivateEndpoints ? 'Disabled' : 'Enabled'
+    networkAcls: enablePrivateEndpoints ? { defaultAction: 'Deny', bypass: 'AzureServices' } : null
   }
 }
 
@@ -143,7 +148,7 @@ resource aiServices 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' = 
   }
   sku: { name: 'S0' }
   properties: {
-    publicNetworkAccess: 'Enabled'
+    publicNetworkAccess: enablePrivateEndpoints ? 'Disabled' : 'Enabled'
     disableLocalAuth: true
     customSubDomainName: aiServicesName
   }
@@ -193,7 +198,10 @@ resource aiHub 'Microsoft.MachineLearningServices/workspaces@2025-01-01-preview'
     storageAccount: storageAccount.id
     keyVault: keyVault.id
     applicationInsights: appInsightsId
-    publicNetworkAccess: 'Enabled'
+    publicNetworkAccess: enablePrivateEndpoints ? 'Disabled' : 'Enabled'
+    // Managed VNet: hub auto-creates managed outbound private endpoints to its
+    // Storage/Key Vault dependencies even when their public access is disabled.
+    managedNetwork: enablePrivateEndpoints ? { isolationMode: 'AllowOnlyApprovedOutbound' } : null
   }
 }
 
@@ -231,7 +239,7 @@ resource aiProject 'Microsoft.MachineLearningServices/workspaces@2025-01-01-prev
     friendlyName: 'AI Foundry Project — ${baseName}'
     description: 'Default project for ${baseName}'
     hubResourceId: aiHub.id
-    publicNetworkAccess: 'Enabled'
+    publicNetworkAccess: enablePrivateEndpoints ? 'Disabled' : 'Enabled'
   }
 }
 
@@ -263,6 +271,10 @@ resource appAiRbac 'Microsoft.Authorization/roleAssignments@2022-04-01' = [
 output aiServicesEndpoint string = aiServices.properties.endpoint
 output aiServicesName string = aiServices.name
 output aiServicesId string = aiServices.id
+output aiStorageId string = storageAccount.id
+output aiKeyVaultId string = keyVault.id
+output aiHubId string = aiHub.id
+output aiProjectId string = aiProject.id
 output hubName string = aiHub.name
 output projectName string = aiProject.name
 output aiIdentityPrincipalId string = aiIdentity.properties.principalId

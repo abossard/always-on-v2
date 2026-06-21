@@ -21,6 +21,9 @@ param stampKey string
 @description('App identities that need Cosmos RBAC. Each entry: { name, principalId }')
 param appIdentities array
 
+@description('When true, disable public network access on the stamp Cosmos account (private endpoint created in the stamp VNet).')
+param enablePrivateEndpoints bool = false
+
 // ============================================================================
 import { stampCosmosName } from 'naming.bicep'
 
@@ -47,7 +50,7 @@ resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2025-04-15' = {
         isZoneRedundant: false
       }
     ]
-    publicNetworkAccess: 'Enabled'
+    publicNetworkAccess: enablePrivateEndpoints ? 'Disabled' : 'Enabled'
     disableLocalAuth: true
     consistencyPolicy: {
       defaultConsistencyLevel: 'Session'

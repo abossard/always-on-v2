@@ -71,6 +71,12 @@ param enableFlux bool = true
 @description('Enable custom domain routing (DNS zones, custom domains, CNAME records). When false, uses Front Door default endpoints.')
 param enableCustomDomain bool = true
 
+@description('Enable private networking: per-stamp VNet + private endpoints to all backing services, with public network access disabled. AKS nodes join the stamp VNet (API server stays public). Default on — private endpoints are the standard mode.')
+param enablePrivateEndpoints bool = true
+
+@description('Per-stamp VNet address space (CIDR). Carved into AKS + private-endpoint subnets via Bicep CIDR functions. Overlap across stamps is fine (no peering).')
+param stampVnetAddressPrefix string = '10.128.0.0/16'
+
 @description('Applications to deploy. Each entry creates per-app infrastructure, routing, and workload identity.')
 param apps array = [
   {
@@ -203,6 +209,7 @@ module global 'global.bicep' = {
     eventHubsSku: eventHubsSku
     enableLoadTesting: enableLoadTesting
     logRetentionDays: logRetentionDays
+    enablePrivateEndpoints: enablePrivateEndpoints
   }
 }
 
@@ -289,6 +296,7 @@ module ai 'ai.bicep' = {
       appInfra[3].outputs.identityPrincipalId
       ciServicePrincipalId
     ]
+    enablePrivateEndpoints: enablePrivateEndpoints
   }
 }
 
@@ -435,6 +443,15 @@ module stamps 'stamp.bicep' = [
       aiModelDeployments: ai.outputs.modelDeploymentNames
       aiModelDeploymentsCsv: ai.outputs.modelDeploymentsCsv
       aiDefaultModelDeployment: ai.outputs.defaultModelDeployment
+      enablePrivateEndpoints: enablePrivateEndpoints
+      stampVnetAddressPrefix: stampVnetAddressPrefix
+      globalCosmosId: global.outputs.cosmosId
+      eventHubsNamespaceId: global.outputs.eventHubsNamespaceId
+      ehCaptureStorageId: global.outputs.ehCaptureStorageId
+      aiStorageId: ai.outputs.aiStorageId
+      aiKeyVaultId: ai.outputs.aiKeyVaultId
+      aiServicesId: ai.outputs.aiServicesId
+      aiHubId: ai.outputs.aiHubId
     }
   }
 ]

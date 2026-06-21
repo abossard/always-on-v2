@@ -440,7 +440,7 @@ python -m pytest azext_healthmodel/tests/ -v
 | --- | --- | --- |
 | `textual` | `>=8.0.0` | PyPI |
 | `mcp` | `>=1.21.0,<2.0.0` | PyPI |
-| `azure-mgmt-cloudhealth` | `1.0.0b2` | [GitHub](https://github.com/Azure/azure-sdk-for-python/tree/main/sdk/cloudhealth/azure-mgmt-cloudhealth) (not yet published to PyPI) |
+| `azure-mgmt-cloudhealth` | `>=1.0.0b2,<1.0.0b3` | [PyPI](https://pypi.org/project/azure-mgmt-cloudhealth/) (public preview) |
 
 ## API Version
 

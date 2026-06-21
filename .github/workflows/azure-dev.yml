@@ -8,7 +8,7 @@ on:
         type: boolean
         default: false
   schedule:
-    - cron: '0 5 * * *'  # 5:00 UTC = 6:00 CET — re-enables public endpoints after nightly policy
+    - cron: '0 5 * * *'  # 5:00 UTC = 6:00 CET — nightly re-provision to correct drift (private endpoints enforce private networking)
   push:
     branches: [main]
     paths:

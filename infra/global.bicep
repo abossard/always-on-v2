@@ -45,6 +45,9 @@ param enableLoadTesting bool = true
 @maxValue(730)
 param logRetentionDays int = 90
 
+@description('When true, disable public network access on global data services (Cosmos, Event Hubs, capture storage). Private endpoints are created per-stamp.')
+param enablePrivateEndpoints bool = false
+
 // ============================================================================
 // User-Assigned Managed Identities (one per global service)
 // ============================================================================
@@ -148,7 +151,7 @@ resource cosmos 'Microsoft.DocumentDB/databaseAccounts@2025-04-15' = {
   }
   properties: {
     databaseAccountOfferType: 'Standard'
-    publicNetworkAccess: 'Enabled'
+    publicNetworkAccess: enablePrivateEndpoints ? 'Disabled' : 'Enabled'
     enableAutomaticFailover: !isServerless
     enableMultipleWriteLocations: !isServerless
     disableLocalAuth: true
@@ -410,6 +413,9 @@ resource ehCaptureStorage 'Microsoft.Storage/storageAccounts@2025-01-01' = {
     allowBlobPublicAccess: false
     minimumTlsVersion: 'TLS1_2'
     supportsHttpsTrafficOnly: true
+    publicNetworkAccess: enablePrivateEndpoints ? 'Disabled' : 'Enabled'
+    // Trusted-services bypass so Event Hubs Capture (managed identity) still writes Avro.
+    networkAcls: enablePrivateEndpoints ? { defaultAction: 'Deny', bypass: 'AzureServices' } : null
   }
 }
 
@@ -456,7 +462,7 @@ resource ehNamespace 'Microsoft.EventHub/namespaces@2025-05-01-preview' = {
       : null
     disableLocalAuth: true
     minimumTlsVersion: '1.2'
-    publicNetworkAccess: 'Enabled'
+    publicNetworkAccess: enablePrivateEndpoints ? 'Disabled' : 'Enabled'
   }
 }
 
@@ -526,4 +532,5 @@ output healthModelIdentityPrincipalId string = healthModelIdentity.properties.pr
 output cosmosAppRoleId string = cosmosAppRole.id
 output eventHubsNamespaceName string = ehNamespace.name
 output eventHubsNamespaceId string = ehNamespace.id
+output ehCaptureStorageId string = ehCaptureStorage.id
 output graphEventsConnectionString string = 'Endpoint=sb://${ehNamespace.name}.servicebus.windows.net;EntityPath=${graphEventsHub.name}'

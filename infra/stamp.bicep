@@ -73,6 +73,28 @@ param aiDefaultModelDeployment string = ''
 @description('Entra ID object IDs to grant AKS Cluster Admin on this stamp.')
 param devIdentities array = []
 
+// ── Private networking (optional) ─────────────────────────────────────────────
+@description('When true, create a per-stamp VNet + private endpoints and place AKS nodes in that VNet.')
+param enablePrivateEndpoints bool = false
+
+@description('Per-stamp VNet address space (CIDR), carved into AKS + private-endpoint subnets.')
+param stampVnetAddressPrefix string = '10.128.0.0/16'
+
+@description('Global Cosmos DB account id (for the per-stamp private endpoint).')
+param globalCosmosId string = ''
+@description('Global Event Hubs namespace id.')
+param eventHubsNamespaceId string = ''
+@description('Event Hubs Avro capture storage account id.')
+param ehCaptureStorageId string = ''
+@description('AI Foundry storage account id.')
+param aiStorageId string = ''
+@description('AI Foundry Key Vault id.')
+param aiKeyVaultId string = ''
+@description('AI Services (Cognitive) account id.')
+param aiServicesId string = ''
+@description('AI Foundry Hub workspace id.')
+param aiHubId string = ''
+
 // ============================================================================
 // Shared Naming
 // ============================================================================
@@ -104,6 +126,38 @@ var aksIngressType       = stampConfig.?aksIngressType        ?? 'External'
 // a non-zero CPU limit so Karpenter provisions spot (cheapest) → on-demand.
 // When false, the NodePool's CPU limit is "0" → effectively disabled.
 var aksUseSpot           = stampConfig.?aksUseSpot            ?? false
+
+// ============================================================================
+// Per-stamp Network (optional) — VNet + subnets + private DNS zones
+// ============================================================================
+
+module stampNetwork 'modules/stamp-network.bicep' = if (enablePrivateEndpoints) {
+  name: 'deploy-stamp-network-${stampName}'
+  params: {
+    baseName: baseName
+    stampName: stampName
+    location: location
+    addressPrefix: stampVnetAddressPrefix
+  }
+}
+
+// System agent pool. When private networking is on, nodes join the stamp VNet
+// subnet (required for pods to reach private endpoints). API server stays public.
+var systemAgentPool = union(
+  {
+    name: 'system'
+    mode: 'System'
+    count: aksSystemNodeCount
+    vmSize: aksVmSize
+    osType: 'Linux'
+    osSKU: 'AzureLinux'
+    availabilityZones: aksAvailabilityZones
+    nodeTaints: [
+      'CriticalAddonsOnly=true:NoSchedule'
+    ]
+  },
+  enablePrivateEndpoints ? { vnetSubnetID: stampNetwork!.outputs.aksSubnetId } : {}
+)
 
 // ============================================================================
 // Identities
@@ -212,18 +266,7 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2026-01-01' = {
     nodeProvisioningProfile: { mode: 'Auto' }
 
     agentPoolProfiles: [
-      {
-        name: 'system'
-        mode: 'System'
-        count: aksSystemNodeCount
-        vmSize: aksVmSize
-        osType: 'Linux'
-        osSKU: 'AzureLinux'
-        availabilityZones: aksAvailabilityZones
-        nodeTaints: [
-          'CriticalAddonsOnly=true:NoSchedule'
-        ]
-      }
+      systemAgentPool
     ]
 
     networkProfile: {
@@ -381,7 +424,8 @@ resource helloAgentsStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   properties: {
     accessTier: 'Hot'
     allowBlobPublicAccess: false
-    publicNetworkAccess: 'Enabled'
+    publicNetworkAccess: enablePrivateEndpoints ? 'Disabled' : 'Enabled'
+    networkAcls: enablePrivateEndpoints ? { defaultAction: 'Deny', bypass: 'AzureServices' } : null
     minimumTlsVersion: 'TLS1_2'
     supportsHttpsTrafficOnly: true
   }
@@ -416,7 +460,8 @@ resource graphOrleonsStorage 'Microsoft.Storage/storageAccounts@2023-05-01' = {
   properties: {
     accessTier: 'Hot'
     allowBlobPublicAccess: false
-    publicNetworkAccess: 'Enabled'
+    publicNetworkAccess: enablePrivateEndpoints ? 'Disabled' : 'Enabled'
+    networkAcls: enablePrivateEndpoints ? { defaultAction: 'Deny', bypass: 'AzureServices' } : null
     minimumTlsVersion: 'TLS1_2'
     supportsHttpsTrafficOnly: true
   }
@@ -458,8 +503,159 @@ module stampCosmos 'stamp-cosmos.bicep' = {
     regionKey: regionKey
     stampKey: stampKey
     appIdentities: orleansPrincipalIds
+    enablePrivateEndpoints: enablePrivateEndpoints
   }
 }
+
+// ============================================================================
+// Private Endpoints (optional) — stamp-local + global services into stamp VNet
+// ============================================================================
+// All PEs land in the stamp VNet's private-endpoint subnet. Global resources are
+// reached over the Microsoft backbone (no VNet peering). Azure-managed DNS via
+// privateDnsZoneGroups registers records in the per-stamp privatelink zones.
+
+module peStampCosmos 'modules/private-endpoint.bicep' = if (enablePrivateEndpoints) {
+  name: 'pe-stamp-cosmos-${stampName}'
+  params: {
+    name: 'pe-cosmos-orl-${stampName}'
+    location: location
+    subnetId: stampNetwork!.outputs.peSubnetId
+    targetResourceId: stampCosmos.outputs.cosmosId
+    groupIds: [ 'Sql' ]
+    privateDnsZoneIds: [ stampNetwork!.outputs.zoneIds.documents ]
+  }
+}
+
+module peHelloAgentsQueue 'modules/private-endpoint.bicep' = if (enablePrivateEndpoints) {
+  name: 'pe-ha-queue-${stampName}'
+  params: {
+    name: 'pe-ha-queue-${stampName}'
+    location: location
+    subnetId: stampNetwork!.outputs.peSubnetId
+    targetResourceId: helloAgentsStorage.id
+    groupIds: [ 'queue' ]
+    privateDnsZoneIds: [ stampNetwork!.outputs.zoneIds.queue ]
+  }
+}
+
+module peGraphOrleonsQueue 'modules/private-endpoint.bicep' = if (enablePrivateEndpoints) {
+  name: 'pe-go-queue-${stampName}'
+  params: {
+    name: 'pe-go-queue-${stampName}'
+    location: location
+    subnetId: stampNetwork!.outputs.peSubnetId
+    targetResourceId: graphOrleonsStorage.id
+    groupIds: [ 'queue' ]
+    privateDnsZoneIds: [ stampNetwork!.outputs.zoneIds.queue ]
+  }
+}
+
+module peGlobalCosmos 'modules/private-endpoint.bicep' = if (enablePrivateEndpoints) {
+  name: 'pe-global-cosmos-${stampName}'
+  params: {
+    name: 'pe-global-cosmos-${stampName}'
+    location: location
+    subnetId: stampNetwork!.outputs.peSubnetId
+    targetResourceId: globalCosmosId
+    groupIds: [ 'Sql' ]
+    privateDnsZoneIds: [ stampNetwork!.outputs.zoneIds.documents ]
+  }
+}
+
+module peEventHubs 'modules/private-endpoint.bicep' = if (enablePrivateEndpoints) {
+  name: 'pe-eventhubs-${stampName}'
+  params: {
+    name: 'pe-eventhubs-${stampName}'
+    location: location
+    subnetId: stampNetwork!.outputs.peSubnetId
+    targetResourceId: eventHubsNamespaceId
+    groupIds: [ 'namespace' ]
+    privateDnsZoneIds: [ stampNetwork!.outputs.zoneIds.servicebus ]
+  }
+}
+
+module peEhCaptureStorage 'modules/private-endpoint.bicep' = if (enablePrivateEndpoints) {
+  name: 'pe-eh-capture-${stampName}'
+  params: {
+    name: 'pe-eh-capture-${stampName}'
+    location: location
+    subnetId: stampNetwork!.outputs.peSubnetId
+    targetResourceId: ehCaptureStorageId
+    groupIds: [ 'blob' ]
+    privateDnsZoneIds: [ stampNetwork!.outputs.zoneIds.blob ]
+  }
+}
+
+module peAiStorageBlob 'modules/private-endpoint.bicep' = if (enablePrivateEndpoints) {
+  name: 'pe-ai-stg-blob-${stampName}'
+  params: {
+    name: 'pe-ai-stg-blob-${stampName}'
+    location: location
+    subnetId: stampNetwork!.outputs.peSubnetId
+    targetResourceId: aiStorageId
+    groupIds: [ 'blob' ]
+    privateDnsZoneIds: [ stampNetwork!.outputs.zoneIds.blob ]
+  }
+}
+
+module peAiStorageFile 'modules/private-endpoint.bicep' = if (enablePrivateEndpoints) {
+  name: 'pe-ai-stg-file-${stampName}'
+  params: {
+    name: 'pe-ai-stg-file-${stampName}'
+    location: location
+    subnetId: stampNetwork!.outputs.peSubnetId
+    targetResourceId: aiStorageId
+    groupIds: [ 'file' ]
+    privateDnsZoneIds: [ stampNetwork!.outputs.zoneIds.file ]
+  }
+}
+
+module peAiKeyVault 'modules/private-endpoint.bicep' = if (enablePrivateEndpoints) {
+  name: 'pe-ai-kv-${stampName}'
+  params: {
+    name: 'pe-ai-kv-${stampName}'
+    location: location
+    subnetId: stampNetwork!.outputs.peSubnetId
+    targetResourceId: aiKeyVaultId
+    groupIds: [ 'vault' ]
+    privateDnsZoneIds: [ stampNetwork!.outputs.zoneIds.vault ]
+  }
+}
+
+module peAiServices 'modules/private-endpoint.bicep' = if (enablePrivateEndpoints) {
+  name: 'pe-ai-services-${stampName}'
+  params: {
+    name: 'pe-ai-services-${stampName}'
+    location: location
+    subnetId: stampNetwork!.outputs.peSubnetId
+    targetResourceId: aiServicesId
+    groupIds: [ 'account' ]
+    privateDnsZoneIds: [
+      stampNetwork!.outputs.zoneIds.cognitiveservices
+      stampNetwork!.outputs.zoneIds.openai
+      stampNetwork!.outputs.zoneIds.servicesai
+    ]
+  }
+}
+
+module peAiHub 'modules/private-endpoint.bicep' = if (enablePrivateEndpoints) {
+  name: 'pe-ai-hub-${stampName}'
+  params: {
+    name: 'pe-ai-hub-${stampName}'
+    location: location
+    subnetId: stampNetwork!.outputs.peSubnetId
+    targetResourceId: aiHubId
+    groupIds: [ 'amlworkspace' ]
+    privateDnsZoneIds: [
+      stampNetwork!.outputs.zoneIds.amlapi
+      stampNetwork!.outputs.zoneIds.amlnotebooks
+    ]
+  }
+}
+
+// Note: the AI Foundry PROJECT does not take its own private endpoint — the hub's
+// amlworkspace PE (above) covers the project. ("PUT PE operation should be
+// performed on the hub, not on the project workspace.")
 
 var githubSshKnownHosts = 'Z2l0aHViLmNvbSBlY2RzYS1zaGEyLW5pc3RwMjU2IEFBQUFFMlZqWkhOaExYTm9ZVEl0Ym1semRIQXlOVFlBQUFBSWJtbHpkSEF5TlRZQUFBQkJCRW1LU0VOalFFZXpPbXhrWk15N29wS2d3RkI5bmt0NVlScllNak51RzVOODd1UmdnNkNMcmJvNXdBZFQveTZ2MG1LVjBVMncwV1oyWUIvKytUcG9ja2c9'
 
