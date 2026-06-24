@@ -188,6 +188,20 @@ resource clusterToKubeletRole 'Microsoft.Authorization/roleAssignments@2022-04-0
   }
 }
 
+// Required for AKS Node Auto-Provisioning (Karpenter) to inspect and attach to
+// the stamp subnet when private networking is enabled.
+resource clusterNetworkContributorRole 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (enablePrivateEndpoints) {
+  name: guid(resourceGroup().id, clusterIdentity.id, roles.networkContributor)
+  properties: {
+    principalId: clusterIdentity.properties.principalId
+    roleDefinitionId: subscriptionResourceId(
+      'Microsoft.Authorization/roleDefinitions',
+      roles.networkContributor
+    )
+    principalType: 'ServicePrincipal'
+  }
+}
+
 // ============================================================================
 // Prometheus Data Collection Rule
 // ============================================================================

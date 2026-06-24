@@ -66,13 +66,12 @@ for entry in "${IMAGES[@]}"; do
   fi
 
   echo "🔨 Building $IMAGE_NAME..."
+  # Stream ACR logs so long remote builds stay visible in azd output.
   if az acr build \
     --registry "$ACR_NAME" \
     --image "${IMAGE_NAME}:${TAG}" \
     --file "$DOCKERFILE" \
-    "$CONTEXT" \
-    --no-logs \
-    --only-show-errors 2>&1; then
+    "$CONTEXT"; then
     echo "   ✅ $IMAGE_NAME:$TAG pushed"
     SUCCEEDED+=("$IMAGE_NAME")
   else

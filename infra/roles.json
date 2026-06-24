@@ -10,6 +10,7 @@
   "cognitiveServicesOpenAIContributor": "a001fd3d-188f-4b5d-821b-7da978bf7442",
   "cognitiveServicesOpenAIUser": "5e0bd9bd-7b93-4f28-af87-19fc36ad61bd",
   "managedIdentityOperator": "f1a07417-d97a-45cb-824c-7a7467783830",
+  "networkContributor": "4d97b98b-1d4f-4787-a291-c67834d212e7",
   "aksClusterAdmin": "b1ff04bb-8a4e-4dc4-8eb5-8693973ce19b",
   "monitoringReader": "43d0d8ad-25c7-4714-9337-8ba259a9fe05",
   "reader": "acdd72a7-3385-48ef-bd42-f606fba81ae7",
