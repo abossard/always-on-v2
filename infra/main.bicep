@@ -122,11 +122,6 @@ param regions array = [
   {
     key: 'swedencentral'
     location: 'swedencentral'
-    stamps: [ { key: '002' } ]
-  }
-  {
-    key: 'germanywestcentral'
-    location: 'germanywestcentral'
     stamps: [ { key: '001' } ]
   }
 ]

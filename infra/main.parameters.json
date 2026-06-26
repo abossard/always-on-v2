@@ -28,19 +28,6 @@
             "aksUseSpot": true
           },
           "stamps": [{ "key": "001" }]
-        },
-        {
-          "key": "germanywestcentral",
-          "location": "germanywestcentral",
-          "stampDefaults": {
-            "aksNodeVmSize": "Standard_D2s_v5",
-            "aksSystemNodeCount": 1,
-            "aksAvailabilityZones": [],
-            "aksTier": "Free",
-            "aksIngressType": "External",
-            "aksUseSpot": true
-          },
-          "stamps": [{ "key": "001" }]
         }
       ]
     }
