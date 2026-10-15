@@ -9,20 +9,27 @@ import { readFileSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { execSync } from 'child_process';
 import type { PlatformConfig, PrometheusSignalDef } from './types';
-import { buildHealthModelBicep } from './builder';
+import { buildPlatformModelBicep, buildAllPlatformsModelBicep, buildAppModelBicep } from './builder';
 import * as signals from './signals';
 
 const configPath = join(__dirname, '..', 'grafana', 'config.json');
-const outputPath = join(__dirname, '..', '..', 'infra', 'healthmodel', 'healthmodel.bicep');
+const hmDir = join(__dirname, '..', '..', 'infra', 'healthmodel');
 
 const config: PlatformConfig = JSON.parse(readFileSync(configPath, 'utf-8'));
 
 // ── Generate Mode ───────────────────────────────────────────────────
 
 if (!process.argv.includes('--test')) {
-  const bicep = buildHealthModelBicep();
-  writeFileSync(outputPath, bicep);
-  console.log(`✅ Generated ${outputPath}`);
+  const outputs: Array<[string, string]> = [
+    ['platform.bicep', buildPlatformModelBicep()],
+    ['all-platforms.bicep', buildAllPlatformsModelBicep()],
+    ['app.bicep', buildAppModelBicep()],
+  ];
+  for (const [file, content] of outputs) {
+    const path = join(hmDir, file);
+    writeFileSync(path, content);
+    console.log(`✅ Generated ${path}`);
+  }
   process.exit(0);
 }
 

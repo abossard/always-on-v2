@@ -93,4 +93,10 @@ if [ -n "$FD_ENDPOINT" ]; then
 fi
 
 echo ""
+# ── Root the All-Platforms discovery-rule entity (async, post-deploy) ──
+if [ -f scripts/healthmodel/link-discovery-root.sh ]; then
+  bash scripts/healthmodel/link-discovery-root.sh || echo "⚠️  discovery-root linking failed (non-fatal)"
+fi
+
+echo ""
 echo "✅ Post-provision complete"

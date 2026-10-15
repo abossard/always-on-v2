@@ -25,7 +25,13 @@ export type RefreshInterval = 'PT1M' | 'PT5M' | 'PT10M' | 'PT30M' | 'PT1H' | 'PT
 
 export type AlertSeverity = 'Sev0' | 'Sev1' | 'Sev2' | 'Sev3' | 'Sev4';
 
-export type DependenciesAggregationType = 'WorstOf' | 'Thresholds';
+// 2026-01-01-preview replaced the old 'Thresholds' value with the explicit
+// MinHealthy / MaxNotHealthy pair (verified against the azure-rest-api-specs
+// cloudhealth swagger). MinHealthy drives active-active stamp aggregation.
+export type DependenciesAggregationType = 'WorstOf' | 'MinHealthy' | 'MaxNotHealthy';
+
+/** Unit for MinHealthy / MaxNotHealthy thresholds. */
+export type DependenciesThresholdUnit = 'Absolute' | 'Percentage';
 
 export type AuthenticationKind = 'ManagedIdentity';
 
@@ -181,6 +187,10 @@ export interface DependenciesSignalGroup {
   aggregationType: DependenciesAggregationType;
   degradedThreshold?: number;
   unhealthyThreshold?: number;
+  /** Required for MinHealthy / MaxNotHealthy. */
+  unit?: DependenciesThresholdUnit;
+  /** Default true: Unknown children excluded from the healthy/not-healthy count. */
+  ignoreUnknown?: boolean;
 }
 
 export interface AzureResourceSignalGroup {
@@ -276,10 +286,15 @@ export type EntityScope =
   | { readonly kind: 'global' }
   | { readonly kind: 'perStamp' };
 
+/** Which layered model an optional group belongs to. */
+export type ModelLayer = 'stamp' | 'platform' | 'app';
+
 /** A conditional entity group that can be toggled on/off via a Bicep bool param */
 export interface OptionalEntityGroup {
   /** Unique key, e.g. 'queues', 'ai'. Used for Bicep symbolic names and guid seeds. */
   readonly key: string;
+  /** Which layered model this group is emitted into. */
+  readonly layer: ModelLayer;
   /** Display name for the entity */
   readonly displayName: string;
   /** Bicep bool param that enables this group */

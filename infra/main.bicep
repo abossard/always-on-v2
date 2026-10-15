@@ -702,50 +702,93 @@ module healthModelRbac 'healthmodel/rbac.bicep' = {
   }
 }
 
-// ─── Per-App Health Models ──────────────────────────────────────
+// ─── Health Models: per-stamp platform → all-platforms (discovery) → app ───
+//
+// Topology of separate Microsoft.CloudHealth/healthmodels resources:
+//   1. hm-platform-<stamp>  one per stamp — Kubernetes basic health + cluster
+//                           infra. Tagged healthModel=platform.
+//   2. hm-all-platforms     portfolio model: a discovery rule (ARG by tag)
+//                           imports every per-stamp platform model; plus the
+//                           global concerns (Front Door, global Cosmos, cost,
+//                           optional security). The discovery-rule entity is
+//                           rooted by a post-deploy step (postprovision.sh).
+//   3. hm-<app>             use-case driven: Deployment + Database + embedded
+//                           per-stamp Platform under a use-case entity.
+//
+// Embedding = an entity whose azureResource.azureResourceId points at the
+// child model's resource ID (no signals); the service reads the embedded
+// model's root health state. Module outputs are referenced inline in loop
+// params (BCP182 blocks them inside `var` for-expressions).
 
-// Health model stamps data is inlined directly in the module loop params
-// (not in a var) because BCP182 blocks module outputs in var for-expressions.
-// stampLookup[j] and regionalLookup[j] outputs are referenced inline.
-
+// 1) Per-stamp platform models (Kubernetes basic health + cluster infra)
 @batchSize(1) // Health Model preview RP is chatty — serialize deployments
-module healthModels 'healthmodel/healthmodel.bicep' = [for (app, i) in apps: {
-  name: 'deploy-hm-${app.name}'
+module healthModelPlatforms 'healthmodel/platform.bicep' = [for (stamp, j) in allStamps: {
+  name: 'deploy-hm-platform-${stamp.regionKey}-${stamp.stampKey}'
   scope: globalRg
   dependsOn: [stampLookup, regionalLookup]
   params: {
+    name: 'hm-platform-${stamp.regionKey}-${stamp.stampKey}'
+    displayName: 'Platform ${stamp.regionKey}-${stamp.stampKey}'
+    location: healthModelLocation
+    identityId: global.outputs.healthModelIdentityId
+    aksClusterId: stampLookup[j].outputs.aksClusterId
+    amwResourceId: regionalLookup[j].outputs.monitorWorkspaceId
+    stampCosmosAccountId: stampLookup[j].outputs.stampCosmosAccountId
+  }
+}]
+
+// 2) All-Platforms portfolio model — discovery rule imports the platform models
+module healthModelAllPlatforms 'healthmodel/all-platforms.bicep' = {
+  name: 'deploy-hm-all-platforms'
+  scope: globalRg
+  dependsOn: [healthModelPlatforms]
+  params: {
+    name: 'hm-all-platforms'
+    displayName: 'All Platforms'
+    location: healthModelLocation
+    identityId: global.outputs.healthModelIdentityId
+    frontDoorProfileId: global.outputs.frontDoorId
+    cosmosAccountId: global.outputs.cosmosId
+    logAnalyticsWorkspaceId: regionalLookup[0].outputs.logAnalyticsWorkspaceId
+    usesSecurity: false
+  }
+}
+
+// 3) Per-app models — use-case driven, embed the per-stamp platform models
+@batchSize(1) // Health Model preview RP is chatty — serialize deployments
+module healthModels 'healthmodel/app.bicep' = [for (app, i) in apps: {
+  name: 'deploy-hm-${app.name}'
+  scope: globalRg
+  dependsOn: [stampLookup, regionalLookup, healthModelPlatforms]
+  params: {
     name: 'hm-${app.name}'
     displayName: app.displayName
+    useCaseName: app.?useCaseName ?? 'Service'
     namespace: app.namespace
     location: healthModelLocation
     identityId: global.outputs.healthModelIdentityId
-    cosmosAccountId: global.outputs.cosmosId
     frontDoorProfileId: global.outputs.frontDoorId
+    cosmosAccountId: global.outputs.cosmosId
     stamps: [for (stamp, j) in allStamps: {
       key: '${stamp.regionKey}-${stamp.stampKey}'
-      aksClusterId: stampLookup[j].outputs.aksClusterId
       amwResourceId: regionalLookup[j].outputs.monitorWorkspaceId
-      stampCosmosAccountId: stampLookup[j].outputs.stampCosmosAccountId
       originHostname: originHostname(app.name, stamp.regionKey, stamp.stampKey, domainName)
+      platformModelId: healthModelPlatforms[j].outputs.healthModelId
     }]
     usesAI: app.?usesAI ?? false
     usesQueues: app.?usesQueues ?? false
     usesBlobs: app.?usesBlobs ?? false
     usesEventHubs: app.?usesEventHubs ?? false
     usesOrleans:     app.?usesOrleans     ?? true
-    usesCertManager: app.?usesCertManager ?? true
     usesAppMetrics:  app.?usesAppMetrics  ?? false
-    usesCilium:      app.?usesCilium      ?? true
-    usesKarpenter:   app.?usesKarpenter   ?? true
     usesSpotNodes:   app.?usesSpotNodes   ?? true
-    usesNodeMetrics:      app.?usesNodeMetrics      ?? true
-    usesControlPlane:     app.?usesControlPlane     ?? true
     usesContainerMetrics: app.?usesContainerMetrics ?? true
     usesWorkloadMetrics:  app.?usesWorkloadMetrics  ?? true
     aiServicesAccountId: app.?usesAI ?? false ? ai.outputs.aiServicesId : ''
     // TODO(multi-stamp-storage): storageAccountId is stamp[0] only — when HM module
-    // supports per-stamp storage, move this into the stamps array like aksClusterId.
+    // supports per-stamp storage, move this into the stamps array like amwResourceId.
     storageAccountId: app.?usesQueues ?? false ? stampLookup[0].outputs.helloAgentsStorageId : ''
+    blobStorageAccountId: app.?usesBlobs ?? false ? stampLookup[0].outputs.helloAgentsStorageId : ''
     eventHubsNamespaceId: app.?usesEventHubs ?? false ? global.outputs.eventHubsNamespaceId : ''
   }
 }]

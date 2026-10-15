@@ -17,6 +17,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
   // ── Azure Storage Queues ──────────────────────────────────────────
   {
     key: 'queues',
+    layer: 'app',
     displayName: 'Queues',
     enableParam: 'usesQueues',
     enableDescription: 'Whether this app uses Azure Storage Queues',
@@ -47,6 +48,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
   // ── AI Services (Cognitive Services / OpenAI) ─────────────────────
   {
     key: 'ai',
+    layer: 'app',
     displayName: 'AI Models',
     enableParam: 'usesAI',
     enableDescription: 'Whether this app uses Azure AI Services',
@@ -78,6 +80,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
   // ── Azure Blob Storage ────────────────────────────────────────────
   {
     key: 'blobs',
+    layer: 'app',
     displayName: 'Blob Storage',
     enableParam: 'usesBlobs',
     enableDescription: 'Whether this app uses Azure Blob Storage',
@@ -108,6 +111,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
   // ── Azure Event Hubs ──────────────────────────────────────────────
   {
     key: 'eventhubs',
+    layer: 'app',
     displayName: 'Event Hubs',
     enableParam: 'usesEventHubs',
     enableDescription: 'Whether this app uses Azure Event Hubs',
@@ -140,6 +144,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
   // ── Orleans Runtime (per-stamp) ──────────────────────────────────
   {
     key: 'orleans',
+    layer: 'app',
     displayName: 'Orleans Runtime',
     enableParam: 'usesOrleans',
     enableDescription: 'Whether this app uses Microsoft Orleans (per-stamp Prometheus signals)',
@@ -164,6 +169,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
   // ── Cert Manager (per-stamp, cluster-wide queries) ────────────────
   {
     key: 'certmanager',
+    layer: 'stamp',
     displayName: 'Certificates',
     enableParam: 'usesCertManager',
     enableDescription: 'Whether this cluster uses cert-manager for certificate health',
@@ -186,6 +192,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
   // ── App Metrics / HelloAgents (per-stamp) ─────────────────────────
   {
     key: 'appmetrics',
+    layer: 'app',
     displayName: 'App Metrics',
     enableParam: 'usesAppMetrics',
     enableDescription: 'Whether this app exposes custom HelloAgents intent metrics',
@@ -209,6 +216,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
   // ── Cilium Networking (per-stamp, requires ACNS add-on) ──────────
   {
     key: 'cilium',
+    layer: 'stamp',
     displayName: 'Cilium Networking',
     enableParam: 'usesCilium',
     enableDescription: 'Whether this cluster uses Cilium with ACNS observability (DNS, drops, endpoints)',
@@ -233,6 +241,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
   // ── Karpenter Lifecycle (per-stamp) ──────────────────────────────
   {
     key: 'karpenter',
+    layer: 'stamp',
     displayName: 'Karpenter Nodes',
     enableParam: 'usesKarpenter',
     enableDescription: 'Whether this cluster uses Karpenter (AKS Node Auto-Provisioning)',
@@ -257,6 +266,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
   // ── Spot Node Health (per-stamp) ─────────────────────────────────
   {
     key: 'spotnodes',
+    layer: 'stamp',
     displayName: 'Spot Nodes',
     enableParam: 'usesSpotNodes',
     enableDescription: 'Whether this cluster uses spot/preemptible VM instances',
@@ -281,10 +291,11 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
   // ── Spot Workload Impact (per-stamp) ─────────────────────────────
   {
     key: 'spotimpact',
+    layer: 'app',
     displayName: 'Spot Impact',
     enableParam: 'usesSpotNodes',
     enableDescription: 'Whether this cluster uses spot/preemptible VM instances',
-    parentKey: 'latency',
+    parentKey: 'root',
     icon: 'Resource',
     scope: { kind: 'perStamp' },
     perStampDisplayName: "'${stamp.key} — Spot Impact'",
@@ -305,6 +316,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
   // ── Node Health — USE methodology (per-stamp) ────────────────────
   {
     key: 'nodeuse',
+    layer: 'stamp',
     displayName: 'Node Health (USE)',
     enableParam: 'usesNodeMetrics',
     enableDescription: 'Whether to monitor node-level USE metrics',
@@ -333,6 +345,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
   // ── Control Plane Health (per-stamp) ─────────────────────────────
   {
     key: 'controlplane',
+    layer: 'stamp',
     displayName: 'Control Plane',
     enableParam: 'usesControlPlane',
     enableDescription: 'Whether to monitor AKS control plane',
@@ -366,6 +379,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
   // ── Container Resources — RED methodology (per-stamp) ────────────
   {
     key: 'containerred',
+    layer: 'app',
     displayName: 'Container Resources (RED)',
     enableParam: 'usesContainerMetrics',
     enableDescription: 'Whether to monitor container-level RED metrics',
@@ -385,6 +399,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
   // ── Hubble Network Observability (per-stamp) ─────────────────────
   {
     key: 'hubble',
+    layer: 'stamp',
     displayName: 'Hubble Network',
     enableParam: 'usesCilium',
     enableDescription: 'Whether this cluster uses Cilium with ACNS observability',
@@ -406,10 +421,11 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
   // ── Workload Readiness (per-stamp) ───────────────────────────────
   {
     key: 'workloads',
+    layer: 'app',
     displayName: 'Workload Readiness',
     enableParam: 'usesWorkloadMetrics',
     enableDescription: 'Whether to monitor workload readiness',
-    parentKey: 'failures',
+    parentKey: 'root',
     icon: 'Resource',
     scope: { kind: 'perStamp' },
     perStampDisplayName: "'${stamp.key} — Workloads'",

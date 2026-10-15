@@ -23,6 +23,7 @@ import { toHealthModelRules } from './types';
 import type {
   AzureResourceSignalDef,
   PrometheusSignalDef,
+  LogAnalyticsSignalDef,
   SignalDef,
   OptionalEntityGroup,
   SignalBinding,
@@ -110,6 +111,7 @@ const LAYOUT_KEYS = {
 function buildLayoutSpec(
   failures: StampEntitySpec[],
   latency: StampEntitySpec[],
+  groups: readonly OptionalEntityGroup[],
 ): LayoutSpec {
   return {
     rootKey: LAYOUT_KEYS.root,
@@ -123,10 +125,10 @@ function buildLayoutSpec(
       stampGroupKey: LAYOUT_KEYS.latencyStampGroup,
       leafKeys: latency.map(s => s.key),
     },
-    minorGlobals: optionalGroups
+    minorGlobals: groups
       .filter(g => g.scope.kind === 'global')
       .map(g => LAYOUT_KEYS.globalOptional(g.key)),
-    minorPerStamp: optionalGroups
+    minorPerStamp: groups
       .filter(g => g.scope.kind === 'perStamp')
       .map(g => ({
         categoryKey: LAYOUT_KEYS.perStampCategory(g.key),
@@ -237,163 +239,7 @@ class SignalRegistry {
 
 const ns = '\${namespace}'; // Bicep interpolation placeholder
 
-function buildFailureEntities(): StampEntitySpec[] {
-  return [
-    {
-      key: 'aks-failures',
-      displayNameExpr: "'AKS Failures'",
-      icon: 'Resource',
-      category: 'failures',
-      bindingType: 'azureResource',
-      resourceIdExpr: 'stamp.aksClusterId',
-      signals: ['aks-failed-pods'],
-    },
-    {
-      key: 'prom-failures',
-      displayNameExpr: "'Pod Failures'",
-      icon: 'Resource',
-      category: 'failures',
-      bindingType: 'azureMonitorWorkspace',
-      resourceIdExpr: 'stamp.amwResourceId',
-      signals: ['pod-restarts', 'oomkilled', 'crashloop', 'pods-notready-nodes', 'deployments-min-replicas', 'deployments-not-ready', 'pending-pods', 'containers-waiting-noncrash', 'hpa-at-ceiling'],
-    },
-    {
-      key: 'fd-failures',
-      displayNameExpr: "'Front Door Errors'",
-      icon: 'Resource',
-      category: 'failures',
-      bindingType: 'azureResource',
-      resourceIdExpr: 'frontDoorProfileId',
-      signals: ['fd-5xx', 'fd-4xx'],
-    },
-    {
-      key: 'cosmos-failures',
-      displayNameExpr: "'Cosmos Errors'",
-      icon: 'Resource',
-      category: 'failures',
-      bindingType: 'azureResource',
-      resourceIdExpr: 'cosmosAccountId',
-      signals: ['cosmos-availability', 'cosmos-client-errors', 'cosmos-server-errors'],
-    },
-    {
-      key: 'cosmos-orleans-failures',
-      displayNameExpr: "'Orleans Cosmos Errors'",
-      icon: 'Resource',
-      category: 'failures',
-      bindingType: 'azureResource',
-      resourceIdExpr: 'stamp.stampCosmosAccountId',
-      signals: ['cosmos-availability', 'cosmos-client-errors'],
-    },
-    {
-      key: 'gateway-failures',
-      displayNameExpr: "'Gateway Health'",
-      icon: 'Resource',
-      category: 'failures',
-      bindingType: 'azureMonitorWorkspace',
-      resourceIdExpr: 'stamp.amwResourceId',
-      signals: ['gateway-error-rate', 'container-network-errors', 'gateway-4xx-rate'],
-    },
-  ];
-}
-
-function buildLatencyEntities(): StampEntitySpec[] {
-  return [
-    {
-      key: 'fd-latency',
-      displayNameExpr: "'FD Latency'",
-      icon: 'Resource',
-      category: 'latency',
-      bindingType: 'azureResource',
-      resourceIdExpr: 'frontDoorProfileId',
-      signals: ['fd-origin-latency', 'fd-total-latency'],
-    },
-    {
-      key: 'cosmos-latency',
-      displayNameExpr: "'Cosmos Latency'",
-      icon: 'Resource',
-      category: 'latency',
-      bindingType: 'azureResource',
-      resourceIdExpr: 'cosmosAccountId',
-      signals: ['cosmos-normalized-ru', 'cosmos-throttled', 'cosmos-server-latency'],
-    },
-    {
-      key: 'cosmos-orleans-latency',
-      displayNameExpr: "'Orleans Cosmos Latency'",
-      icon: 'Resource',
-      category: 'latency',
-      bindingType: 'azureResource',
-      resourceIdExpr: 'stamp.stampCosmosAccountId',
-      signals: ['cosmos-throttled'],
-    },
-    {
-      key: 'prom-latency',
-      displayNameExpr: "'Resource Pressure'",
-      icon: 'Resource',
-      category: 'latency',
-      bindingType: 'azureMonitorWorkspace',
-      resourceIdExpr: 'stamp.amwResourceId',
-      signals: [
-        'cpu-pressure', 'memory-pressure',
-        'pods-high-cpu-nodes', 'pods-high-mem-nodes',
-        'pods-disk-pressure-nodes', 'pods-pid-pressure-nodes',
-        'pods-mem-pressure-nodes',
-      ],
-    },
-    {
-      key: 'gateway-latency',
-      displayNameExpr: "'Gateway Latency'",
-      icon: 'Resource',
-      category: 'latency',
-      bindingType: 'azureMonitorWorkspace',
-      resourceIdExpr: 'stamp.amwResourceId',
-      signals: ['gateway-p99-latency'],
-    },
-  ];
-}
-
-/** Register all signals used by the per-stamp entity tables. */
-function registerCoreSignals(reg: SignalRegistry): void {
-  const failSigs = signals.buildFailureSignals(ns);
-  const latSigs = signals.buildLatencySignals(ns);
-
-  // Failure signals (all model-scoped — no stamp-specific values)
-  reg.register('aks-failed-pods', failSigs.aksFailedPods);
-  reg.register('pod-restarts', failSigs.podRestarts);
-  reg.register('oomkilled', failSigs.oomKilled);
-  reg.register('crashloop', failSigs.crashLoop);
-  reg.register('pods-notready-nodes', failSigs.podsOnNotReadyNodes);
-  reg.register('deployments-min-replicas', failSigs.deploymentsMinReplicas);
-  reg.register('deployments-not-ready', failSigs.deploymentsNotReady);
-  reg.register('gateway-error-rate', failSigs.gatewayErrorRate);
-  reg.register('fd-5xx', failSigs.fd5xx);
-  reg.register('fd-4xx', failSigs.fd4xx);
-  reg.register('cosmos-availability', failSigs.cosmosAvailability);
-  reg.register('cosmos-client-errors', failSigs.cosmosClientErrors);
-  reg.register('cosmos-server-errors', failSigs.cosmosServerErrors);
-  reg.register('pending-pods', failSigs.pendingPods);
-  reg.register('containers-waiting-noncrash', failSigs.containersWaitingNonCrash);
-  reg.register('hpa-at-ceiling', failSigs.hpaAtCeiling);
-  reg.register('container-network-errors', failSigs.containerNetworkErrors);
-  reg.register('gateway-4xx-rate', failSigs.gateway4xxRate);
-
-  // Latency signals (all model-scoped)
-  reg.register('fd-total-latency', latSigs.fdTotalLatency);
-  reg.register('cosmos-normalized-ru', latSigs.cosmosNormalizedRU);
-  reg.register('cosmos-throttled', latSigs.cosmosThrottled);
-  reg.register('cosmos-server-latency', latSigs.cosmosServerLatency);
-  reg.register('cpu-pressure', latSigs.cpuPressure);
-  reg.register('cpu-throttling', latSigs.cpuThrottling);
-  reg.register('memory-pressure', latSigs.memoryPressure);
-  reg.register('gateway-p99-latency', latSigs.gatewayP99Latency);
-  reg.register('pods-high-cpu-nodes', latSigs.podsOnHighCpuNodes);
-  reg.register('pods-high-mem-nodes', latSigs.podsOnHighMemoryNodes);
-  reg.register('pods-disk-pressure-nodes', latSigs.podsOnDiskPressureNodes);
-  reg.register('pods-pid-pressure-nodes', latSigs.podsOnPidPressureNodes);
-  reg.register('pods-mem-pressure-nodes', latSigs.podsOnMemoryPressureNodes);
-
-  // FD Origin Latency — the only per-stamp signal (dimensionFilter varies)
-  reg.register('fd-origin-latency', signals.fdOriginLatency('PLACEHOLDER'), 'perStamp');
-}
+// (App entity tables removed — the app model is now use-case driven; see buildAppModelBicep.)
 
 // ─── Signal → Bicep Object Conversion ───────────────────────────────
 
@@ -429,6 +275,11 @@ function signalDefProperties(sig: SignalDef): Record<string, BicepValue> {
     const s = sig as PrometheusSignalDef;
     props.queryText = s.queryText;
     if (s.timeGrain) props.timeGrain = s.timeGrain;
+  } else if (sig.signalKind === 'LogAnalyticsQuery') {
+    const s = sig as LogAnalyticsSignalDef;
+    props.queryText = s.queryText;
+    if (s.timeGrain) props.timeGrain = s.timeGrain;
+    if (s.valueColumnName) props.valueColumnName = s.valueColumnName;
   }
 
   return props;
@@ -561,14 +412,17 @@ function emitRelationshipLoop(opts: {
   parentExpr: string;
   childExpr: string;
   condition?: string;
+  arrayExpr?: string;
+  itemVar?: string;
+  indexVar?: string;
 }): string {
   return resourceLoop({
     symbolic: opts.symbolic,
     type: 'Microsoft.CloudHealth/healthmodels/relationships',
     apiVersion: API_VERSION,
-    arrayExpr: 'stamps',
-    itemVar: 'stamp',
-    indexVar: 'i',
+    arrayExpr: opts.arrayExpr ?? 'stamps',
+    itemVar: opts.itemVar ?? 'stamp',
+    indexVar: opts.indexVar ?? 'i',
     condition: opts.condition,
     body: {
       parent: raw('hm'),
@@ -683,59 +537,210 @@ function derivePerStampGroup(
   return blocks;
 }
 
-export function buildHealthModelBicep(): string {
+export function buildAppModelBicep(): string {
   const blocks: string[] = [];
 
-  // File header
+  // Only optional groups whose layer is 'app' belong in the per-app model.
+  const appGroups = optionalGroups.filter(g => g.layer === 'app');
+
   blocks.push([
     comment('============================================================================'),
-    comment('Health Model — Microsoft.CloudHealth/healthmodels (preview)'),
+    comment('App Health Model (use-case driven) — Microsoft.CloudHealth/healthmodels (preview)'),
     comment('============================================================================'),
     comment('AUTO-GENERATED by scripts/healthmodel/generate.ts — DO NOT EDIT BY HAND.'),
-    comment('Reusable module: called once per app from main.bicep.'),
-    comment('Entity tree: Root → {Failures, Latency, [NodeHealth], [Queues]} → per-stamp leaves.'),
+    comment('One model per app. A use-case entity rolls up the components it depends on:'),
+    comment('Deployment (per-stamp namespace PromQL), Database (Cosmos), and the embedded'),
+    comment('per-stamp Platform model. Plus user latency + optional app feature groups.'),
   ].join('\n'));
 
-  // Parameters
   blocks.push(section('Parameters'));
   const coreParams = [
     param({ name: 'name', type: 'string', description: 'Health model name (e.g. hm-helloorleons)' }),
     param({ name: 'displayName', type: 'string', description: 'Display name for the root entity' }),
+    param({ name: 'useCaseName', type: 'string', description: 'Primary use-case display name (e.g. "Checkout")', defaultValue: "'Service'" }),
     param({ name: 'namespace', type: 'string', description: 'App Kubernetes namespace' }),
     param({ name: 'location', type: 'string', description: 'Azure region for the health model resource' }),
     param({ name: 'identityId', type: 'string', description: 'Resource ID of the user-assigned managed identity' }),
-    param({ name: 'cosmosAccountId', type: 'string', description: 'Cosmos DB account resource ID' }),
-    param({ name: 'frontDoorProfileId', type: 'string', description: 'Front Door profile resource ID' }),
-    param({ name: 'stamps', type: 'array', description: 'Stamps: [{key, aksClusterId, amwResourceId, stampCosmosAccountId, originHostname}]' }),
+    param({ name: 'frontDoorProfileId', type: 'string', description: 'Front Door profile resource ID (user latency)' }),
+    param({ name: 'cosmosAccountId', type: 'string', description: 'Cosmos DB account resource ID for the app database entity' }),
+    param({ name: 'healthObjective', type: 'int', description: 'Root SLO target (percent healthy)', defaultValue: '99' }),
+    param({ name: 'stamps', type: 'array', description: 'Stamps: [{key, amwResourceId, originHostname, platformModelId}]' }),
   ];
-  const optionalParams = optionalGroups.flatMap(deriveParams);
+  const optionalParams = appGroups.flatMap(deriveParams);
   const uniqueParams = [...new Map(optionalParams.map(p => [p.match(/param (\w+)/)?.[1] ?? p, p])).values()];
   blocks.push(joinBlocks(...coreParams, ...uniqueParams));
 
-  // Variables
+  // Layout only drives the optional-group canvas positions; the use-case
+  // components are positioned manually below.
+  const layouts = computeLayout(buildLayoutSpec([], [], appGroups));
+
+  emitScaffolding(blocks);
+  emitRootEntity(blocks, 1100, 0);
+
+  // ─── Use case (primary value flow) ─────────────────────────────────
+  blocks.push(section('Use Case'));
+  blocks.push(resource({
+    symbolic: 'eUsecase',
+    type: 'Microsoft.CloudHealth/healthmodels/entities',
+    apiVersion: API_VERSION,
+    body: {
+      parent: raw('hm'),
+      name: guid('name', "'usecase'"),
+      properties: {
+        displayName: raw("'${displayName} — ${useCaseName}'"),
+        canvasPosition: { x: jsonNum(1100), y: jsonNum(250) },
+        icon: { iconName: 'UserFlow' },
+        impact: 'Standard',
+        tags: {},
+      },
+    },
+  }));
+  blocks.push(emitRelationship({ symbolic: 'rel_usecase', parentExpr: 'root.name', childExpr: 'eUsecase.name' }));
+
+  // ─── Signal registry ───────────────────────────────────────────────
+  const reg = new SignalRegistry();
+  // Deployment (namespace-scoped; same query across stamps -> model-scoped defs)
+  reg.register('deploy-notready', signals.deploymentsNotReady(ns));
+  reg.register('deploy-minreplicas', signals.deploymentsMinReplicas(ns));
+  reg.register('deploy-podsfailed', signals.podsFailed(ns));
+  reg.register('deploy-podspending', signals.podsPending(ns));
+  // Database (Cosmos on the involved account)
+  reg.register('db-avail', signals.cosmosAvailability());
+  reg.register('db-clienterr', signals.cosmosClientErrors());
+  reg.register('db-servererr', signals.cosmosServerErrors());
+  reg.register('db-latency', signals.cosmosServerLatency());
+  // User latency (per-stamp dimensionFilter -> perStamp def)
+  reg.register('fd-origin-latency', signals.fdOriginLatency('PLACEHOLDER'), 'perStamp');
+  // Optional app feature group signals
+  for (const group of appGroups) {
+    for (const binding of group.bindings) {
+      for (const sig of binding.signals) {
+        const sigKey = `${group.key}-${sig.displayName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
+        if (!reg.has(sigKey)) reg.register(sigKey, sig, 'model', group.enableParam);
+      }
+    }
+  }
+  blocks.push(...reg.emit());
+
+  // ─── Database entity (single) -> use case ──────────────────────────
+  blocks.push(section('Database'));
+  flatEntity(blocks, reg, {
+    sym: 'eDatabase', seed: 'database', displayName: 'Database', icon: 'AzureCosmosDb',
+    x: 700, y: 550, parentSym: 'eUsecase',
+    group: { kind: 'azureResource', idExpr: 'cosmosAccountId', keys: ['db-avail', 'db-clienterr', 'db-servererr', 'db-latency'] },
+  });
+
+  // ─── Deployment entity (per stamp) -> use case ─────────────────────
+  blocks.push(section('Deployment (per stamp)'));
+  const deploySigs = ['deploy-notready', 'deploy-minreplicas', 'deploy-podsfailed', 'deploy-podspending']
+    .map(k => reg.ref(k, `guid(name, stamp.key, '${k}')`));
+  blocks.push(resourceLoop({
+    symbolic: 'eDeployment',
+    type: 'Microsoft.CloudHealth/healthmodels/entities',
+    apiVersion: API_VERSION,
+    arrayExpr: 'stamps', itemVar: 'stamp', indexVar: 'i',
+    body: {
+      parent: raw('hm'),
+      name: guid('name', 'stamp.key', "'deployment'"),
+      properties: {
+        displayName: raw("'Deployment — ${stamp.key}'"),
+        canvasPosition: { x: jsonNum(1100), y: raw("json('${550 + i * 300}')") },
+        icon: { iconName: 'Resource' },
+        impact: 'Standard',
+        tags: {},
+        signalGroups: { azureMonitorWorkspace: { authenticationSetting: raw('auth.name'), azureMonitorWorkspaceResourceId: raw('stamp.amwResourceId'), signals: deploySigs } },
+      },
+    },
+  }));
+  blocks.push(emitRelationshipLoop({ symbolic: 'rel_deployment', parentExpr: 'eUsecase.name', childExpr: 'eDeployment[i].name' }));
+
+  // ─── Embedded per-stamp Platform model -> use case ─────────────────
+  blocks.push(section('Embedded Platform (per stamp)'));
+  blocks.push(resourceLoop({
+    symbolic: 'ePlatform',
+    type: 'Microsoft.CloudHealth/healthmodels/entities',
+    apiVersion: API_VERSION,
+    arrayExpr: 'stamps', itemVar: 'stamp', indexVar: 'i',
+    body: {
+      parent: raw('hm'),
+      name: guid('name', 'stamp.key', "'platform'"),
+      properties: {
+        displayName: raw("'Platform — ${stamp.key}'"),
+        canvasPosition: { x: jsonNum(1500), y: raw("json('${550 + i * 300}')") },
+        icon: { iconName: 'AzureKubernetesService' },
+        impact: 'Standard',
+        tags: {},
+        signalGroups: { azureResource: { authenticationSetting: raw('auth.name'), azureResourceId: raw('stamp.platformModelId') } },
+      },
+    },
+  }));
+  blocks.push(emitRelationshipLoop({ symbolic: 'rel_platform', parentExpr: 'eUsecase.name', childExpr: 'ePlatform[i].name' }));
+
+  // ─── User latency (per stamp, FD origin) -> use case ───────────────
+  blocks.push(section('User Latency (per stamp)'));
+  blocks.push(resourceLoop({
+    symbolic: 'eLatency',
+    type: 'Microsoft.CloudHealth/healthmodels/entities',
+    apiVersion: API_VERSION,
+    arrayExpr: 'stamps', itemVar: 'stamp', indexVar: 'i',
+    body: {
+      parent: raw('hm'),
+      name: guid('name', 'stamp.key', "'user-latency'"),
+      properties: {
+        displayName: raw("'User Latency — ${stamp.key}'"),
+        canvasPosition: { x: jsonNum(1900), y: raw("json('${550 + i * 300}')") },
+        icon: { iconName: 'AzureFrontDoor' },
+        impact: 'Standard',
+        tags: {},
+        signalGroups: { azureResource: { authenticationSetting: raw('auth.name'), azureResourceId: raw('frontDoorProfileId'), signals: [reg.ref('fd-origin-latency', "guid(name, stamp.key, 'fd-origin-latency')")] } },
+      },
+    },
+  }));
+  blocks.push(emitRelationshipLoop({ symbolic: 'rel_latency', parentExpr: 'eUsecase.name', childExpr: 'eLatency[i].name' }));
+
+  // ─── Optional app feature groups (queues / AI / blobs / event-hubs / ...) -> root ─
+  blocks.push(section('Optional Entity Groups'));
+  blocks.push(comment('Generated from groups.ts (layer: app) — add new features there.'));
+  for (const group of appGroups) {
+    if (group.scope.kind === 'global') {
+      blocks.push(...deriveGlobalEntity(group, layouts, reg));
+    } else if (group.scope.kind === 'perStamp') {
+      blocks.push(...derivePerStampGroup(group, layouts, reg));
+    }
+  }
+
+  blocks.push(section('Outputs'));
+  blocks.push(joinBlocks(
+    output('healthModelId', 'string', 'hm.id'),
+    output('healthModelName', 'string', 'hm.name'),
+  ));
+  return blocks.join('\n\n');
+}
+
+// ════════════════════════════════════════════════════════════════════
+// Shared scaffolding for the flat (stamp / platform) models
+// ════════════════════════════════════════════════════════════════════
+
+function emitScaffolding(blocks: string[], opts?: { tags?: BicepValue }): void {
   blocks.push(section('Variables'));
   blocks.push(joinBlocks(
     variable('identityName', "last(split(identityId, '/'))"),
     variable('authSettingName', 'toLower(identityName)'),
   ));
-
-  // Health Model + Auth
   blocks.push(section('Health Model + Auth'));
+  const hmBody: Record<string, BicepValue> = {
+    name: raw('name'),
+    location: raw('location'),
+    identity: { type: 'UserAssigned', userAssignedIdentities: { '${identityId}': {} } },
+    properties: {},
+  };
+  if (opts?.tags) hmBody.tags = opts.tags;
   blocks.push(resource({
     symbolic: 'hm',
     type: 'Microsoft.CloudHealth/healthmodels',
     apiVersion: API_VERSION,
-    body: {
-      name: raw('name'),
-      location: raw('location'),
-      identity: {
-        type: 'UserAssigned',
-        userAssignedIdentities: { '${identityId}': {} },
-      },
-      properties: {},
-    },
+    body: hmBody,
   }));
-
   blocks.push(resource({
     symbolic: 'auth',
     type: 'Microsoft.CloudHealth/healthmodels/authenticationsettings',
@@ -750,15 +755,9 @@ export function buildHealthModelBicep(): string {
       },
     },
   }));
+}
 
-  // ─── Layout ─────────────────────────────────────────────────────────
-  // Build the logical entity tree first so every emitted entity can use
-  // canvas coordinates produced by the bottom-up tree layout algorithm.
-  const failureEntities = buildFailureEntities();
-  const latencyEntities = buildLatencyEntities();
-  const layouts = computeLayout(buildLayoutSpec(failureEntities, latencyEntities));
-
-  // Root Entity
+function emitRootEntity(blocks: string[], x: number, y: number): void {
   blocks.push(section('Root Entity'));
   blocks.push(resource({
     symbolic: 'root',
@@ -769,222 +768,251 @@ export function buildHealthModelBicep(): string {
       name: raw('name'),
       properties: {
         displayName: raw('displayName'),
-        canvasPosition: canvasPositionFor(getSingle(layouts, LAYOUT_KEYS.root)),
+        canvasPosition: { x: jsonNum(x), y: jsonNum(y) },
         icon: { iconName: 'UserFlow' },
         impact: 'Standard',
+        healthObjective: raw('healthObjective'),
         tags: {},
       },
     },
   }));
+}
 
-  // Category Entities
-  blocks.push(section('Category Entities'));
+type FlatBindingKind = 'azureResource' | 'azureMonitorWorkspace' | 'azureLogAnalytics';
+
+function modelSignalGroupValue(
+  reg: SignalRegistry,
+  kind: FlatBindingKind,
+  idExpr: string,
+  keys: string[],
+): Record<string, BicepValue> {
+  const sigs = keys.map(k => reg.ref(k, `guid(name, '${k}')`));
+  const idField = kind === 'azureResource'
+    ? 'azureResourceId'
+    : kind === 'azureMonitorWorkspace'
+      ? 'azureMonitorWorkspaceResourceId'
+      : 'logAnalyticsWorkspaceResourceId';
+  return { [kind]: { authenticationSetting: raw('auth.name'), [idField]: raw(idExpr), signals: sigs } };
+}
+
+/** Emit a single (non-looped) entity bound to one signal group, plus its
+ *  relationship to a parent (default: the model root). */
+function flatEntity(blocks: string[], reg: SignalRegistry, opts: {
+  sym: string;
+  seed: string;
+  displayName: string;
+  icon: string;
+  x: number;
+  y: number;
+  impact?: string;
+  condition?: string;
+  parentSym?: string;
+  group: { kind: FlatBindingKind; idExpr: string; keys: string[] };
+}): void {
+  const props: Record<string, BicepValue> = {
+    displayName: opts.displayName,
+    canvasPosition: { x: jsonNum(opts.x), y: jsonNum(opts.y) },
+    icon: { iconName: opts.icon },
+    impact: opts.impact ?? 'Standard',
+    tags: {},
+    signalGroups: modelSignalGroupValue(reg, opts.group.kind, opts.group.idExpr, opts.group.keys),
+  };
   blocks.push(resource({
-    symbolic: 'failuresEntity',
+    symbolic: opts.sym,
     type: 'Microsoft.CloudHealth/healthmodels/entities',
     apiVersion: API_VERSION,
-    body: {
-      parent: raw('hm'),
-      name: guid('name', "'failures'"),
-      properties: {
-        displayName: 'Failures',
-        canvasPosition: canvasPositionFor(getSingle(layouts, LAYOUT_KEYS.failures)),
-        icon: { iconName: 'SystemComponent' },
-        impact: 'Standard',
-        tags: {},
-      },
-    },
+    condition: opts.condition,
+    body: { parent: raw('hm'), name: guid('name', `'${opts.seed}'`), properties: props },
   }));
-
-  blocks.push(resource({
-    symbolic: 'latencyEntity',
-    type: 'Microsoft.CloudHealth/healthmodels/entities',
-    apiVersion: API_VERSION,
-    body: {
-      parent: raw('hm'),
-      name: guid('name', "'latency'"),
-      properties: {
-        displayName: 'Latency',
-        canvasPosition: canvasPositionFor(getSingle(layouts, LAYOUT_KEYS.latency)),
-        icon: { iconName: 'SystemComponent' },
-        impact: 'Limited',
-        tags: {},
-      },
-    },
-  }));
-
-  // Root → Category relationships
   blocks.push(emitRelationship({
-    symbolic: 'relRootFailures',
-    parentExpr: 'root.name',
-    childExpr: 'failuresEntity.name',
+    symbolic: `rel_${opts.sym}`,
+    parentExpr: `${opts.parentSym ?? 'root'}.name`,
+    childExpr: `${opts.sym}.name`,
+    condition: opts.condition,
   }));
+}
 
-  blocks.push(emitRelationship({
-    symbolic: 'relRootLatency',
-    parentExpr: 'root.name',
-    childExpr: 'latencyEntity.name',
-  }));
+// ════════════════════════════════════════════════════════════════════
+// Platform model — one per stamp. Basic Kubernetes platform health
+// (enough nodes, kube-system, node pressure) + cluster infra. Tagged
+// healthModel=platform so the All-Platforms discovery rule imports it.
+// ════════════════════════════════════════════════════════════════════
 
-  // ─── Signal Registry + Entity Tables ─────────────────────────────────
+export function buildPlatformModelBicep(): string {
+  const blocks: string[] = [];
+  blocks.push([
+    comment('============================================================================'),
+    comment('Platform Health Model (per stamp) — Microsoft.CloudHealth/healthmodels (preview)'),
+    comment('============================================================================'),
+    comment('AUTO-GENERATED by scripts/healthmodel/generate.ts — DO NOT EDIT BY HAND.'),
+    comment('One model per stamp. Kubernetes basic health (Node Capacity, Node Pressure,'),
+    comment('kube-system) + cluster infra (AKS, control plane, networking, node lifecycle,'),
+    comment('certs, node USE, Orleans Cosmos). Tagged healthModel=platform; imported by the'),
+    comment('All-Platforms portfolio model via a discovery rule; embedded by app models.'),
+  ].join('\n'));
+
+  blocks.push(section('Parameters'));
+  blocks.push(joinBlocks(
+    param({ name: 'name', type: 'string', description: 'Health model name (e.g. hm-platform-swedencentral-001)' }),
+    param({ name: 'displayName', type: 'string', description: 'Display name for the root entity' }),
+    param({ name: 'location', type: 'string', description: 'Azure region for the health model resource' }),
+    param({ name: 'identityId', type: 'string', description: 'User-assigned managed identity resource ID' }),
+    param({ name: 'aksClusterId', type: 'string', description: 'AKS cluster resource ID' }),
+    param({ name: 'amwResourceId', type: 'string', description: 'Azure Monitor Workspace (Prometheus) resource ID' }),
+    param({ name: 'stampCosmosAccountId', type: 'string', description: 'Stamp-local Orleans Cosmos account resource ID' }),
+    param({ name: 'healthObjective', type: 'int', description: 'Root SLO target (percent healthy)', defaultValue: '99' }),
+  ));
+
+  emitScaffolding(blocks, { tags: { healthModel: 'platform' } });
+  emitRootEntity(blocks, 1100, 0);
+
   const reg = new SignalRegistry();
-  registerCoreSignals(reg);
-
-  // Register optional group signals with conditions
-  for (const group of optionalGroups) {
-    for (const binding of group.bindings) {
-      for (const sig of binding.signals) {
-        const sigKey = `${group.key}-${sig.displayName.toLowerCase().replace(/[^a-z0-9]/g, '-')}`;
-        if (!reg.has(sigKey)) {
-          reg.register(sigKey, sig, 'model', group.enableParam);
-        }
-      }
-    }
-  }
-
-  // Emit all signal definitions (model-scoped + per-stamp)
+  // Kubernetes basic-health signals
+  reg.register('nodes-ready', signals.nodesReady());
+  reg.register('nodes-notready', signals.nodesNotReady());
+  reg.register('nodes-mempressure', signals.nodesUnderMemoryPressure());
+  reg.register('nodes-diskpressure', signals.nodesUnderDiskPressure());
+  reg.register('nodes-pidpressure', signals.nodesUnderPidPressure());
+  reg.register('ksys-deploy', signals.deploymentsNotReady('kube-system'));
+  reg.register('ksys-daemon', signals.daemonsetsNotReady('kube-system'));
+  reg.register('ksys-failed', signals.podsFailed('kube-system'));
+  reg.register('ksys-pending', signals.podsPending('kube-system'));
+  // Cluster infra
+  reg.register('aks-failed-pods', signals.aksFailedPods());
+  reg.register('node-cpu', signals.nodeUtilCpu());
+  reg.register('node-mem', signals.nodeUtilMemory());
+  reg.register('node-diskio', signals.nodeUtilDiskIo());
+  reg.register('node-fs', signals.nodeUtilFilesystem());
+  reg.register('node-netdrops', signals.nodeNetworkDrops());
+  reg.register('node-load', signals.nodeLoadAvg());
+  reg.register('cp-apierr', signals.apiserverErrorRate());
+  reg.register('cp-apiinflight', signals.apiserverInflight());
+  reg.register('cp-etcdleader', signals.etcdHasLeader());
+  reg.register('cp-etcdslow', signals.etcdSlowApplies());
+  reg.register('cp-kubeleterr', signals.kubeletRuntimeErrors());
+  reg.register('cp-podstart', signals.kubeletPodStartP99());
+  reg.register('net-ciliumdns', signals.ciliumDnsErrors());
+  reg.register('net-ciliumdrops', signals.ciliumPacketDrops());
+  reg.register('net-ciliumep', signals.ciliumEndpointHealth());
+  reg.register('net-hubbledrops', signals.hubblePacketDrops());
+  reg.register('net-hubbletcp', signals.hubbleTcpResets());
+  reg.register('life-churn', signals.karpenterNodeChurn());
+  reg.register('life-disrupt', signals.karpenterDisruptions());
+  reg.register('life-pending', signals.karpenterPendingPods());
+  reg.register('life-spotint', signals.spotInterruptions());
+  reg.register('life-spotready', signals.spotNodeReadyRatio());
+  reg.register('certs-notready', signals.certsNotReady());
+  reg.register('scosmos-avail', signals.cosmosAvailability());
+  reg.register('scosmos-clienterr', signals.cosmosClientErrors());
+  reg.register('scosmos-throttled', signals.cosmosThrottled());
   blocks.push(...reg.emit());
 
-  // Override per-stamp origin latency def to inject stamp.originHostname
-  // (The registry emits a generic one; we replace it with the specialized version)
-  // Remove the generic one and emit the specialized one manually
-  // Actually — the registry already emitted it as perStamp. We need to override
-  // the dimensionFilter. Let's handle this as a special case in the per-stamp emission.
+  blocks.push(section('Kubernetes Basic Health'));
+  flatEntity(blocks, reg, { sym: 'eNodeCapacity', seed: 'node-capacity', displayName: 'Node Capacity', icon: 'AzureVirtualMachine', x: 200, y: 300, group: { kind: 'azureMonitorWorkspace', idExpr: 'amwResourceId', keys: ['nodes-ready', 'nodes-notready'] } });
+  flatEntity(blocks, reg, { sym: 'eNodePressure', seed: 'node-pressure', displayName: 'Node Pressure', icon: 'AzureVirtualMachine', x: 500, y: 300, group: { kind: 'azureMonitorWorkspace', idExpr: 'amwResourceId', keys: ['nodes-mempressure', 'nodes-diskpressure', 'nodes-pidpressure'] } });
+  flatEntity(blocks, reg, { sym: 'eKubeSystem', seed: 'kube-system', displayName: 'kube-system', icon: 'AzureKubernetesService', x: 800, y: 300, group: { kind: 'azureMonitorWorkspace', idExpr: 'amwResourceId', keys: ['ksys-deploy', 'ksys-daemon', 'ksys-failed', 'ksys-pending'] } });
 
-  // ─── Per-Stamp Grouping + Entity Emission ──────────────────────────
+  blocks.push(section('Cluster Infra Entities'));
+  flatEntity(blocks, reg, { sym: 'eAks', seed: 'aks', displayName: 'AKS Cluster', icon: 'AzureKubernetesService', x: 1100, y: 300, group: { kind: 'azureResource', idExpr: 'aksClusterId', keys: ['aks-failed-pods'] } });
+  flatEntity(blocks, reg, { sym: 'eNodes', seed: 'nodes', displayName: 'Node Health', icon: 'AzureVirtualMachine', x: 1400, y: 300, group: { kind: 'azureMonitorWorkspace', idExpr: 'amwResourceId', keys: ['node-cpu', 'node-mem', 'node-diskio', 'node-fs', 'node-netdrops', 'node-load'] } });
+  flatEntity(blocks, reg, { sym: 'eControlPlane', seed: 'control-plane', displayName: 'Control Plane', icon: 'AzureKubernetesService', x: 1700, y: 300, group: { kind: 'azureMonitorWorkspace', idExpr: 'amwResourceId', keys: ['cp-apierr', 'cp-apiinflight', 'cp-etcdleader', 'cp-etcdslow', 'cp-kubeleterr', 'cp-podstart'] } });
+  flatEntity(blocks, reg, { sym: 'eNetworking', seed: 'networking', displayName: 'Networking', icon: 'Resource', x: 2000, y: 300, group: { kind: 'azureMonitorWorkspace', idExpr: 'amwResourceId', keys: ['net-ciliumdns', 'net-ciliumdrops', 'net-ciliumep', 'net-hubbledrops', 'net-hubbletcp'] } });
+  flatEntity(blocks, reg, { sym: 'eLifecycle', seed: 'lifecycle', displayName: 'Node Lifecycle', icon: 'AzureVirtualMachine', x: 2300, y: 300, group: { kind: 'azureMonitorWorkspace', idExpr: 'amwResourceId', keys: ['life-churn', 'life-disrupt', 'life-pending', 'life-spotint', 'life-spotready'] } });
+  flatEntity(blocks, reg, { sym: 'eCerts', seed: 'certificates', displayName: 'Certificates', icon: 'Resource', x: 2600, y: 300, group: { kind: 'azureMonitorWorkspace', idExpr: 'amwResourceId', keys: ['certs-notready'] } });
+  flatEntity(blocks, reg, { sym: 'eStampCosmos', seed: 'orleans-cosmos', displayName: 'Orleans Cosmos', icon: 'AzureCosmosDb', x: 2900, y: 300, group: { kind: 'azureResource', idExpr: 'stampCosmosAccountId', keys: ['scosmos-avail', 'scosmos-clienterr', 'scosmos-throttled'] } });
 
-  // Stamp grouping entities
-  blocks.push(section('Per-Stamp Grouping Entities'));
+  blocks.push(section('Outputs'));
+  blocks.push(joinBlocks(output('healthModelId', 'string', 'hm.id'), output('healthModelName', 'string', 'hm.name')));
+  return blocks.join('\n\n');
+}
 
-  blocks.push(resourceLoop({
-    symbolic: 'stampFailuresGroup',
-    type: 'Microsoft.CloudHealth/healthmodels/entities',
+// ════════════════════════════════════════════════════════════════════
+// All-Platforms model — one global portfolio model. A discovery rule
+// (ARG query by tag) imports every per-stamp platform model; plus the
+// global concerns (Front Door, global Cosmos, cost, optional security).
+// ════════════════════════════════════════════════════════════════════
+
+export function buildAllPlatformsModelBicep(): string {
+  const blocks: string[] = [];
+  blocks.push([
+    comment('============================================================================'),
+    comment('All-Platforms Health Model — Microsoft.CloudHealth/healthmodels (preview)'),
+    comment('============================================================================'),
+    comment('AUTO-GENERATED by scripts/healthmodel/generate.ts — DO NOT EDIT BY HAND.'),
+    comment('One global portfolio model. A discovery rule imports every per-stamp'),
+    comment("platform model (tag healthModel=platform) as entities. Plus Front Door,"),
+    comment('global Cosmos, cost (Suppressed) and optional security (Suppressed).'),
+    comment('NOTE: the discovery-rule entity is created asynchronously (~5 min) and is'),
+    comment('rooted by a post-deploy az step (hooks/postprovision.sh) — see entityName output.'),
+  ].join('\n'));
+
+  blocks.push(section('Parameters'));
+  blocks.push(joinBlocks(
+    param({ name: 'name', type: 'string', description: 'Health model name (e.g. hm-all-platforms)' }),
+    param({ name: 'displayName', type: 'string', description: 'Display name for the root entity' }),
+    param({ name: 'location', type: 'string', description: 'Azure region for the health model resource' }),
+    param({ name: 'identityId', type: 'string', description: 'User-assigned managed identity resource ID (needs subscription Reader for the ARG query)' }),
+    param({ name: 'frontDoorProfileId', type: 'string', description: 'Front Door profile resource ID' }),
+    param({ name: 'cosmosAccountId', type: 'string', description: 'Global Cosmos DB account resource ID' }),
+    param({ name: 'logAnalyticsWorkspaceId', type: 'string', description: 'Log Analytics workspace resource ID (for security signals)', defaultValue: "''" }),
+    param({ name: 'usesSecurity', type: 'bool', description: 'Include the Defender security concern (Log Analytics arg query)', defaultValue: 'false' }),
+    param({ name: 'healthObjective', type: 'int', description: 'Root SLO target (percent healthy)', defaultValue: '99' }),
+  ));
+
+  emitScaffolding(blocks);
+  emitRootEntity(blocks, 1100, 0);
+
+  // Discovery rule — imports every per-stamp platform model by tag.
+  // addRecommendedSignals Disabled: health models expose no useful ARM metrics;
+  // the discovered entity's azureResourceId points at the platform model so the
+  // service reads that model's root health state (the embedded-model behavior).
+  blocks.push(section('Discovery Rule — import platform models by tag'));
+  blocks.push(resource({
+    symbolic: 'platformDiscovery',
+    type: 'Microsoft.CloudHealth/healthmodels/discoveryrules',
     apiVersion: API_VERSION,
-    arrayExpr: 'stamps',
-    itemVar: 'stamp',
-    indexVar: 'i',
     body: {
       parent: raw('hm'),
-      name: guid('name', 'stamp.key', "'stamp-failures'"),
+      name: 'discover-platform-models',
       properties: {
-        displayName: raw("'Stamp ${stamp.key}'"),
-        canvasPosition: canvasPositionFor(getLoop(layouts, LAYOUT_KEYS.failuresStampGroup)),
-        icon: { iconName: 'AzureKubernetesService' },
-        impact: 'Standard',
-        tags: {},
-      },
-    },
-  }));
-
-  blocks.push(resourceLoop({
-    symbolic: 'stampLatencyGroup',
-    type: 'Microsoft.CloudHealth/healthmodels/entities',
-    apiVersion: API_VERSION,
-    arrayExpr: 'stamps',
-    itemVar: 'stamp',
-    indexVar: 'i',
-    body: {
-      parent: raw('hm'),
-      name: guid('name', 'stamp.key', "'stamp-latency'"),
-      properties: {
-        displayName: raw("'Stamp ${stamp.key}'"),
-        canvasPosition: canvasPositionFor(getLoop(layouts, LAYOUT_KEYS.latencyStampGroup)),
-        icon: { iconName: 'AzureKubernetesService' },
-        impact: 'Standard',
-        tags: {},
-      },
-    },
-  }));
-
-  blocks.push(emitRelationshipLoop({
-    symbolic: 'rel_failuresStampGroup',
-    parentExpr: 'failuresEntity.name',
-    childExpr: 'stampFailuresGroup[i].name',
-  }));
-
-  blocks.push(emitRelationshipLoop({
-    symbolic: 'rel_latencyStampGroup',
-    parentExpr: 'latencyEntity.name',
-    childExpr: 'stampLatencyGroup[i].name',
-  }));
-
-  // Compile entity tables into Bicep resource loops
-  function emitEntityTable(entities: StampEntitySpec[], groupSymbol: string): void {
-    const categoryLabel = entities[0]?.category === 'failures' ? 'Failure' : 'Latency';
-    blocks.push(section(`Per-Stamp ${categoryLabel} Entities`));
-
-    for (let e = 0; e < entities.length; e++) {
-      const spec = entities[e];
-      const sym = `stamp_${spec.key.replace(/-/g, '_')}`;
-
-      // Build signal references
-      const sigRefs = spec.signals.map(sigKey =>
-        reg.ref(sigKey, `guid(name, stamp.key, '${sigKey}')`)
-      );
-
-      // Build signal group
-      const sigGroupKey = spec.bindingType === 'azureResource' ? 'azureResource' : 'azureMonitorWorkspace';
-      const sigGroupValue: Record<string, BicepValue> = {
+        displayName: 'Platform Health Models',
         authenticationSetting: raw('auth.name'),
-      };
-      if (spec.bindingType === 'azureResource') {
-        sigGroupValue.azureResourceId = raw(spec.resourceIdExpr);
-      } else {
-        sigGroupValue.azureMonitorWorkspaceResourceId = raw(spec.resourceIdExpr);
-      }
-      sigGroupValue.signals = sigRefs;
-
-      blocks.push(resourceLoop({
-        symbolic: sym,
-        type: 'Microsoft.CloudHealth/healthmodels/entities',
-        apiVersion: API_VERSION,
-        arrayExpr: 'stamps',
-        itemVar: 'stamp',
-        indexVar: 'i',
-        body: {
-          parent: raw('hm'),
-          name: guid('name', 'stamp.key', `'${spec.key}'`),
-          properties: {
-            displayName: raw(`'\${stamp.key} — ${spec.displayNameExpr.replace(/'/g, '')}'`),
-            canvasPosition: canvasPositionFor(getLoop(layouts, spec.key)),
-            icon: { iconName: spec.icon },
-            impact: 'Standard',
-            tags: {},
-            signalGroups: { [sigGroupKey]: sigGroupValue },
-          },
+        addRecommendedSignals: 'Disabled',
+        discoverRelationships: 'Disabled',
+        specification: {
+          kind: 'ResourceGraphQuery',
+          resourceGraphQuery: `resources | where type =~ 'microsoft.cloudhealth/healthmodels' | where tags['healthModel'] =~ 'platform' | project id`,
         },
-      }));
+      },
+    },
+  }));
 
-      // Emit relationship: stamp group → entity
-      blocks.push(emitRelationshipLoop({
-        symbolic: `rel_${sym}`,
-        parentExpr: `${groupSymbol}[i].name`,
-        childExpr: `${sym}[i].name`,
-      }));
-    }
-  }
+  const reg = new SignalRegistry();
+  reg.register('fd-5xx', signals.fdPercentage5xx());
+  reg.register('fd-4xx', signals.fdRequestCount4xx());
+  reg.register('fd-latency', signals.fdTotalLatency());
+  reg.register('gc-avail', signals.cosmosAvailability());
+  reg.register('gc-clienterr', signals.cosmosClientErrors());
+  reg.register('gc-servererr', signals.cosmosServerErrors());
+  reg.register('gc-ru', signals.cosmosNormalizedRU());
+  reg.register('gc-throttled', signals.cosmosThrottled());
+  reg.register('gc-latency', signals.cosmosServerLatency());
+  reg.register('cost-cosmos', signals.cosmosCostUtilization());
+  reg.register('sec-defender', signals.defenderUnhealthyAssessments(), 'model', 'usesSecurity');
+  blocks.push(...reg.emit());
 
-  emitEntityTable(failureEntities, 'stampFailuresGroup');
-  emitEntityTable(latencyEntities, 'stampLatencyGroup');
+  blocks.push(section('Global Concerns'));
+  flatEntity(blocks, reg, { sym: 'eFrontDoor', seed: 'front-door', displayName: 'Front Door', icon: 'AzureFrontDoor', x: 900, y: 300, group: { kind: 'azureResource', idExpr: 'frontDoorProfileId', keys: ['fd-5xx', 'fd-4xx', 'fd-latency'] } });
+  flatEntity(blocks, reg, { sym: 'eCosmos', seed: 'global-cosmos', displayName: 'Global Cosmos', icon: 'AzureCosmosDb', x: 1200, y: 300, group: { kind: 'azureResource', idExpr: 'cosmosAccountId', keys: ['gc-avail', 'gc-clienterr', 'gc-servererr', 'gc-ru', 'gc-throttled', 'gc-latency'] } });
+  flatEntity(blocks, reg, { sym: 'eCost', seed: 'cost', displayName: 'Cost Efficiency', icon: 'Resource', x: 1500, y: 300, impact: 'Suppressed', group: { kind: 'azureResource', idExpr: 'cosmosAccountId', keys: ['cost-cosmos'] } });
+  flatEntity(blocks, reg, { sym: 'eSecurity', seed: 'security', displayName: 'Security (Defender)', icon: 'Resource', x: 1800, y: 300, impact: 'Suppressed', condition: 'usesSecurity', group: { kind: 'azureLogAnalytics', idExpr: 'logAnalyticsWorkspaceId', keys: ['sec-defender'] } });
 
-  // Optional Entity Groups (generic: queues, AI, etc.)
-  blocks.push(section('Optional Entity Groups'));
-  blocks.push(comment('Generated from groups.ts — add new features there, not here.'));
-
-  for (const group of optionalGroups) {
-    if (group.scope.kind === 'global') {
-      blocks.push(...deriveGlobalEntity(group, layouts, reg));
-    } else if (group.scope.kind === 'perStamp') {
-      blocks.push(...derivePerStampGroup(group, layouts, reg));
-    }
-  }
-
-  // Outputs
   blocks.push(section('Outputs'));
   blocks.push(joinBlocks(
     output('healthModelId', 'string', 'hm.id'),
     output('healthModelName', 'string', 'hm.name'),
+    output('rootEntityName', 'string', 'root.name'),
+    output('discoveryRuleEntityName', 'string', 'platformDiscovery.properties.entityName'),
   ));
-
   return blocks.join('\n\n');
 }

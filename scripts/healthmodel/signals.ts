@@ -10,6 +10,7 @@
 import type {
   AzureResourceSignalDef,
   PrometheusSignalDef,
+  LogAnalyticsSignalDef,
   UnifiedThreshold,
 } from './types';
 
@@ -1143,7 +1144,10 @@ export function spotInterruptions(): PrometheusSignalDef {
 export function spotNodeReadyRatio(): PrometheusSignalDef {
   return {
     signalKind: 'PrometheusMetricsQuery',
-    queryText: `(sum(kube_node_status_condition{condition="Ready",status="true"} * on(node) group_left() kube_node_spec_taint{key="kubernetes.azure.com/scalesetpriority",value="spot"}) / (sum(kube_node_spec_taint{key="kubernetes.azure.com/scalesetpriority",value="spot"}) + 0.001) * 100) or vector(0)`,
+    // Ratio of ready spot nodes. Default to 100% when there are no spot nodes
+    // (zero denominator): "all zero spot nodes are ready" is vacuously healthy,
+    // so absence of spot capacity must not read as 0% / Unhealthy.
+    queryText: `(sum(kube_node_status_condition{condition="Ready",status="true"} * on(node) group_left() kube_node_spec_taint{key="kubernetes.azure.com/scalesetpriority",value="spot"}) / (sum(kube_node_spec_taint{key="kubernetes.azure.com/scalesetpriority",value="spot"}) + 0.001) * 100) or vector(100)`,
     timeGrain: 'PT1M',
     displayName: 'Spot Nodes Ready %',
     refreshInterval: 'PT1M',
@@ -1250,7 +1254,10 @@ export function etcdDbSize(): PrometheusSignalDef {
   return { signalKind: 'PrometheusMetricsQuery', queryText: `(max(etcd_mvcc_db_total_size_in_bytes)/1048576) or vector(0)`, timeGrain: 'PT5M', displayName: 'ETCD DB Size MB', refreshInterval: 'PT5M', dataUnit: 'Unspecified', threshold: { direction: 'higher-is-worse', degraded: 4096, unhealthy: 7168 } };
 }
 export function etcdHasLeader(): PrometheusSignalDef {
-  return { signalKind: 'PrometheusMetricsQuery', queryText: `(min(etcd_server_has_leader)) or vector(0)`, timeGrain: 'PT1M', displayName: 'ETCD Has Leader', refreshInterval: 'PT1M', dataUnit: 'Count', threshold: { direction: 'lower-is-worse', degraded: 1, unhealthy: 0 } };
+  // Default to 1 (has leader) when the metric is absent: AKS control-plane
+  // metrics are opt-in per cluster/region, so a missing series must not read
+  // as "no leader" (0 -> Unhealthy), which would cascade stamp->platform->apps.
+  return { signalKind: 'PrometheusMetricsQuery', queryText: `(min(etcd_server_has_leader)) or vector(1)`, timeGrain: 'PT1M', displayName: 'ETCD Has Leader', refreshInterval: 'PT1M', dataUnit: 'Count', threshold: { direction: 'lower-is-worse', degraded: 1, unhealthy: 0 } };
 }
 export function etcdSlowApplies(): PrometheusSignalDef {
   return { signalKind: 'PrometheusMetricsQuery', queryText: `(sum(rate(etcd_server_slow_apply_total[5m]))) or vector(0)`, timeGrain: 'PT1M', displayName: 'ETCD Slow Applies', refreshInterval: 'PT1M', dataUnit: 'CountPerSecond', threshold: { direction: 'higher-is-worse', degraded: 0.01, unhealthy: 0.1 } };
@@ -1326,4 +1333,101 @@ export function podsPending(namespace: string): PrometheusSignalDef {
 }
 export function podsFailed(namespace: string): PrometheusSignalDef {
   return { signalKind: 'PrometheusMetricsQuery', queryText: `(sum(kube_pod_status_phase{namespace="${namespace}",phase="Failed"})) or vector(0)`, timeGrain: 'PT1M', displayName: 'Workload Pods Failed', refreshInterval: 'PT1M', dataUnit: 'Count', threshold: { direction: 'higher-is-worse', degraded: 0, unhealthy: 3 } };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Cost Optimization Signals (WAF Cost pillar — Suppressed propagation)
+// ═══════════════════════════════════════════════════════════════════
+
+/** Cosmos provisioned-throughput utilization. LOW utilization = wasted spend
+ *  (over-provisioned). Lower-is-worse; surfaced as a Suppressed cost concern. */
+export function cosmosCostUtilization(): AzureResourceSignalDef {
+  return {
+    signalKind: 'AzureResourceMetric',
+    metricNamespace: 'microsoft.documentdb/databaseaccounts',
+    metricName: 'NormalizedRUConsumption',
+    timeGrain: 'PT1H',
+    aggregationType: 'Maximum',
+    displayName: 'Cosmos Throughput Utilization',
+    refreshInterval: 'PT1H',
+    dataUnit: 'Percent',
+    threshold: { direction: 'lower-is-worse', degraded: 20, unhealthy: 5 },
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Security Signals (WAF Security pillar — Suppressed/Limited propagation)
+// ═══════════════════════════════════════════════════════════════════
+
+/** Count of unhealthy Microsoft Defender for Cloud assessments (recommendations)
+ *  in the subscription, read via Azure Resource Graph from a Log Analytics query
+ *  with the arg("") operator. Surfaced as a Suppressed security concern. */
+export function defenderUnhealthyAssessments(): LogAnalyticsSignalDef {
+  return {
+    signalKind: 'LogAnalyticsQuery',
+    queryText: `arg("").securityresources | where type == "microsoft.security/assessments" | where tostring(properties.status.code) == "Unhealthy" | summarize Count = count()`,
+    timeGrain: 'PT1H',
+    valueColumnName: 'Count',
+    displayName: 'Defender Unhealthy Recommendations',
+    refreshInterval: 'PT1H',
+    dataUnit: 'Count',
+    threshold: { direction: 'higher-is-worse', degraded: 1, unhealthy: 25 },
+  };
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// Cluster-wide Node Capacity / Pressure Signals (platform model)
+// ═══════════════════════════════════════════════════════════════════
+
+/** Count of Ready nodes across the cluster ("enough nodes"). Lower-is-worse:
+ *  degraded at <=1 ready node (no redundancy), unhealthy at 0 (cluster down).
+ *  Bare query (no `or vector`) so an absent metric reads as Unknown, not 0. */
+export function nodesReady(): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `sum(kube_node_status_condition{condition="Ready",status="true"})`,
+    timeGrain: 'PT1M',
+    displayName: 'Ready Nodes',
+    refreshInterval: 'PT1M',
+    dataUnit: 'Count',
+    threshold: { direction: 'lower-is-worse', degraded: 2, unhealthy: 1 },
+  };
+}
+
+/** Count of NotReady nodes. Higher-is-worse; absent -> 0 (healthy). */
+export function nodesNotReady(): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `sum(kube_node_status_condition{condition="Ready",status="false"}) or vector(0)`,
+    timeGrain: 'PT1M',
+    displayName: 'NotReady Nodes',
+    refreshInterval: 'PT1M',
+    dataUnit: 'Count',
+    threshold: { direction: 'higher-is-worse', degraded: 1, unhealthy: 2 },
+  };
+}
+
+function nodesUnderPressure(condition: string, name: string): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `sum(kube_node_status_condition{condition="${condition}",status="true"}) or vector(0)`,
+    timeGrain: 'PT1M',
+    displayName: name,
+    refreshInterval: 'PT1M',
+    dataUnit: 'Count',
+    threshold: { direction: 'higher-is-worse', degraded: 1, unhealthy: 2 },
+  };
+}
+
+/** Cluster-wide nodes reporting MemoryPressure. Higher-is-worse; absent -> 0. */
+export function nodesUnderMemoryPressure(): PrometheusSignalDef {
+  return nodesUnderPressure('MemoryPressure', 'Nodes Under Memory Pressure');
+}
+/** Cluster-wide nodes reporting DiskPressure. Higher-is-worse; absent -> 0. */
+export function nodesUnderDiskPressure(): PrometheusSignalDef {
+  return nodesUnderPressure('DiskPressure', 'Nodes Under Disk Pressure');
+}
+/** Cluster-wide nodes reporting PIDPressure. Higher-is-worse; absent -> 0. */
+export function nodesUnderPidPressure(): PrometheusSignalDef {
+  return nodesUnderPressure('PIDPressure', 'Nodes Under PID Pressure');
 }

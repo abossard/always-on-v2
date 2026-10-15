@@ -41,14 +41,14 @@ echo "✅ Pre-provision: env name '$ENV_NAME' is safe (no collision with product
 # scripts/enable-public-access.sh remains available for manual public-mode use.
 
 # ── Regenerate health model Bicep ─────────────────────────────
-# healthmodel.bicep is auto-generated from scripts/healthmodel/.
+# stamp.bicep / platform.bicep / app.bicep are auto-generated from scripts/healthmodel/.
 # Regenerate before provisioning to ensure signal definitions are current.
 HM_DIR="scripts/healthmodel"
 if [ -d "$HM_DIR" ] && command -v npx &>/dev/null; then
-  echo "🔧 Regenerating healthmodel.bicep..."
+  echo "🔧 Regenerating health model Bicep (stamp/platform/app)..."
   (cd "$HM_DIR" && npm ci --silent 2>/dev/null && npx ts-node generate.ts 2>&1) || {
-    echo "⚠️  Health model generation failed (non-fatal — using existing healthmodel.bicep)"
+    echo "⚠️  Health model generation failed (non-fatal — using existing *.bicep)"
   }
 else
-  echo "ℹ️  Skipping healthmodel generation (Node.js/npx not available or scripts/healthmodel/ missing)"
+  echo "ℹ️  Skipping health model generation (Node.js/npx not available or scripts/healthmodel/ missing)"
 fi
