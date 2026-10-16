@@ -2,6 +2,7 @@
 
 using DarkUxChallenge.Api;
 using DarkUxChallenge.Api.TarPit;
+using Microsoft.Azure.Cosmos;
 
 var builder = WebApplication.CreateSlimBuilder(args);
 builder.AddServiceDefaults();
@@ -12,7 +13,8 @@ builder.Services.AddAppConfiguration(builder.Configuration);
 // Aspire Cosmos integration
 var cosmosConnStr = builder.Configuration.GetConnectionString("cosmos");
 if (!string.IsNullOrEmpty(cosmosConnStr))
-    builder.AddAzureCosmosClient("cosmos");
+    builder.AddAzureCosmosClient("cosmos",
+        configureClientOptions: options => options.ConnectionMode = ConnectionMode.Gateway);
 
 // Storage — selected by config
 builder.Services.AddUserStorage(builder.Configuration);

@@ -1,9 +1,11 @@
 version: v0.1
 testId: graphorleons-hot-tenant-load-test
 displayName: GraphOrleons Hot Tenant Load Test
-description: Single hot hospital tenant, zero think time, saturate writes + SSE
+description: Single hot hospital tenant, zero think time, hospital writes, reads and SSE
 testType: Locust
 testPlan: locustfile.py
+configurationFiles:
+  - requirements.txt
 engineInstances: 1
 env:
   - name: HOT_MODE

@@ -32,17 +32,17 @@ See [STREAM-ARCHITECTURE-PLAN.md](STREAM-ARCHITECTURE-PLAN.md) for the full desi
 | [HelloAgents.Web](HelloAgents.Web/) | Next.js React frontend with SSE real-time updates |
 | [HelloAgents.AppHost](HelloAgents.AppHost/) | Aspire orchestrator (Cosmos DB + Azure Queue Storage emulators) |
 | [HelloAgents.ServiceDefaults](HelloAgents.ServiceDefaults/) | OpenTelemetry, health checks, Azure Monitor |
-| [HelloAgents.Tests](HelloAgents.Tests/) | TUnit backend tests (in-memory + Cosmos matrix) |
-| [HelloAgents.E2E](HelloAgents.E2E/) | Playwright E2E tests (26 tests including SSE verification) |
+| [HelloAgents.Tests](HelloAgents.Tests/) | TUnit backend tests against the Aspire Cosmos stack, including metrics |
+| [HelloAgents.E2E](HelloAgents.E2E/) | Playwright E2E tests including SSE, workflows and HITL |
 
 ## Local Development
 
 ### Prerequisites
 
-- .NET 10 SDK
-- Node.js (LTS)
-- Aspire CLI: `dotnet tool install -g Aspire.Cli`
-- Aspire workload: `dotnet workload install aspire`
+- .NET SDK 10.0.402 (see root `global.json`)
+- Node.js 26 (CI and image builds use 26.12.0)
+- Aspire CLI: `dotnet tool install -g Aspire.Cli --version 13.6.1`
+- Docker for Cosmos DB and Azure Storage emulators. No Aspire workload is required.
 - Optional: [LM Studio](https://lmstudio.ai/) for local LLM (otherwise uses NoOp placeholder)
 
 ### Run the Full Stack (Aspire CLI)
@@ -78,7 +78,7 @@ cd src/HelloAgents
 dotnet run --project HelloAgents.Api
 ```
 
-Uses in-memory storage and NoOp LLM client. API available at `http://localhost:5100`.
+Requires the `AlwaysOn__` Cosmos and storage settings supplied by Aspire or deployment configuration. Missing required Orleans settings fail startup; there is no in-memory storage fallback.
 
 ## Testing
 
@@ -89,7 +89,7 @@ cd src/HelloAgents
 dotnet run --project HelloAgents.Tests
 ```
 
-Runs 11 tests against the in-memory backend. For Cosmos DB tests, use the `cosmos` category with the full AppHost.
+The fixture starts the Aspire stack with real Cosmos and Azure Storage emulators. The existing abstract suites are bound through `TestMatrix.cs`, including metrics.
 
 ### Playwright E2E (via Aspire CLI)
 
@@ -97,19 +97,21 @@ Runs 11 tests against the in-memory backend. For Cosmos DB tests, use the `cosmo
 cd src/HelloAgents
 
 # Start the stack in the background
-aspire run --apphost HelloAgents.AppHost --detach
+aspire start --apphost HelloAgents.AppHost/HelloAgents.AppHost.csproj
 
 # Wait for services, then run E2E
 aspire wait api
 aspire wait web
 aspire resource e2e start
 aspire wait e2e --status down --timeout 300
+aspire describe e2e --format json |
+  jq -e '.resources | length == 1 and .[0].exitCode == 0'
 
 # Stop when done
 aspire stop
 ```
 
-The 26 E2E tests cover:
+The local E2E tests cover:
 - Layout, group/agent CRUD, chat messaging
 - SSE delivery (message, agent join/leave, discussion, ordering)
 - Multi-tab real-time (cross-tab message delivery via SSE)
@@ -119,13 +121,16 @@ The 26 E2E tests cover:
 
 ```bash
 # Start the stack
-aspire run --apphost HelloAgents.AppHost --detach
+aspire start --apphost HelloAgents.AppHost/HelloAgents.AppHost.csproj
 aspire wait api && aspire wait web
 
-# Run Playwright directly (Aspire injects services__web__http__0 and services__api__http__0)
+# Export the actual web/API URLs from the running Aspire stack into this shell first.
+# Require both services__web__http__0 and services__api__http__0.
 cd HelloAgents.E2E
-npx playwright test --headed  # or: npm test
+npx playwright test --project=local --headed
 ```
+
+HelloAgents retains ESLint 9.39.5 because the current stable Next.js lint plugins exclude ESLint 10. This deprecated-version compatibility exception is explicit; no peer checks or lint rules are bypassed.
 
 ## CI and Deployment
 

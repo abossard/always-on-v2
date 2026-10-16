@@ -9,7 +9,7 @@ namespace GraphOrleons.Tests;
 /// Tests the system's promises from the HTTP boundary.
 /// No grain internals, no storage internals — just API in, API out.
 /// </summary>
-public abstract class SystemPromiseTests(HttpClient client)
+public abstract class SystemPromiseTests(HttpClient client, IGraphStore store)
 {
     private readonly GraphOrleonsApi api = new(client);
 
@@ -125,6 +125,33 @@ public abstract class SystemPromiseTests(HttpClient client)
             return graph.GetProperty("components").EnumerateArray()
                 .Select(n => n.GetString()!).ToList();
         }).Eventually(assert => assert.Contains("only-in-t2"), timeout: TimeSpan.FromSeconds(10));
+    }
+
+    [Test]
+    [Arguments(false)]
+    [Arguments(true)]
+    public async Task PersistedModelsRemainIsolatedOnFirstActivation(bool sameTenantDifferentModel)
+    {
+        var id = Guid.NewGuid().ToString("N");
+        var tenant = $"target-{id}";
+        var foreignTenant = sameTenantDifferentModel ? tenant : $"foreign-{id}";
+        var foreignModel = sameTenantDifferentModel ? "other-model" : "default";
+        var foreignComponent = $"foreign-component-{id}";
+        await store.SaveModelComponentsAsync(foreignTenant, foreignModel,
+            [new ModelComponentDocument { Id = foreignComponent }]);
+
+        var source = $"own-source-{id}";
+        var target = $"own-target-{id}";
+        await api.PostEvent(tenant, $"{source}/{target}", new { impact = "Full" });
+        var graph = await api.GetGraph(tenant);
+        var components = graph.GetProperty("components").EnumerateArray()
+            .Select(component => component.GetString()!).ToArray();
+
+        await Assert.That(components.Length).IsEqualTo(2);
+        await Assert.That(components).Contains(source);
+        await Assert.That(components).Contains(target);
+        await Assert.That(components).DoesNotContain(foreignComponent);
+        await Assert.That(graph.GetProperty("edges").GetArrayLength()).IsEqualTo(1);
     }
 
     // ── Promise: validation rejects bad input ──

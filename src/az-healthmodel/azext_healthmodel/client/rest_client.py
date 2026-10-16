@@ -88,7 +88,8 @@ class CloudHealthClient:
         from azure.mgmt.cloudhealth import CloudHealthMgmtClient
 
         self._sdk = get_mgmt_service_client(
-            cli_ctx, CloudHealthMgmtClient, subscription_id=subscription_id
+            cli_ctx, CloudHealthMgmtClient, subscription_id=subscription_id,
+            api_version=API_VERSION,
         )
 
     # ─── SDK bridges (DRY exception translation) ──────────────────────

@@ -125,6 +125,7 @@ export function ChatView({ groupId, messages, onSendMessage, onStartDiscussion, 
           return (
             <div
               key={msg.id}
+              data-testid={`chat-message-${msg.id}`}
               className={`flex gap-3 ${msg.senderType === "User" ? "justify-end" : ""}`}
             >
               {msg.senderType === "Agent" && (

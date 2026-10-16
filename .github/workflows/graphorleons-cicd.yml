@@ -5,11 +5,25 @@ on:
     branches: [main]
     paths:
       - 'src/GraphOrleons/**'
+      - 'src/AlwaysOn.Orleans/**'
+      - 'src/AlwaysOn.ServiceDefaults/**'
+      - 'src/Directory.Build.props'
+      - '.dockerignore'
+      - '.editorconfig'
+      - 'global.json'
+      - '.github/workflows/app-build-push.yml'
       - '.github/workflows/graphorleons-cicd.yml'
   pull_request:
     branches: [main]
     paths:
       - 'src/GraphOrleons/**'
+      - 'src/AlwaysOn.Orleans/**'
+      - 'src/AlwaysOn.ServiceDefaults/**'
+      - 'src/Directory.Build.props'
+      - '.dockerignore'
+      - '.editorconfig'
+      - 'global.json'
+      - '.github/workflows/app-build-push.yml'
       - '.github/workflows/graphorleons-cicd.yml'
   workflow_dispatch:
 
@@ -33,9 +47,7 @@ jobs:
       - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
-      - name: Install Aspire workload
-        run: dotnet workload install aspire
+          global-json-file: global.json
       - name: Restore
         run: dotnet restore
         working-directory: src/GraphOrleons
@@ -87,16 +99,14 @@ jobs:
       - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 'lts/*'
-      - name: Install Aspire workload
-        run: dotnet workload install aspire
+          node-version: '26.12.0'
       - name: Install Aspire CLI
         run: |
-          dotnet tool install -g Aspire.Cli
+          dotnet tool install -g Aspire.Cli --version 13.6.1
           echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
       - name: Install Web dependencies
         run: npm ci
@@ -127,6 +137,10 @@ jobs:
         run: |
           aspire resource e2e start --non-interactive --nologo
           aspire wait e2e --status down --timeout 300 --non-interactive --nologo
+          aspire describe e2e --format json --non-interactive --nologo |
+            jq -e '.resources | length == 1 and .[0].exitCode == 0'
+          jq -e '(.errors | length) == 0 and .stats.unexpected == 0 and .stats.skipped == 0 and (.stats.expected + .stats.flaky) > 0' \
+            GraphOrleons.E2E/test-results/results.json
         working-directory: src/GraphOrleons
       - name: Collect E2E logs on failure
         if: failure()
@@ -206,14 +220,6 @@ jobs:
               {
                 "name": "GRAPH_TENANT",
                 "value": "hot-tenant"
-              },
-              {
-                "name": "GRAPH_BRANCH_COUNT",
-                "value": "6"
-              },
-              {
-                "name": "GRAPH_LEAVES_PER_BRANCH",
-                "value": "6"
               }
             ]
 

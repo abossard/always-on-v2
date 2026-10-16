@@ -17,7 +17,7 @@ Provides CRUD operations for health models, entities, signals, relationships, an
 
 ```bash
 cd src/az-healthmodel
-python -m pip install build -q
+python -m pip install build==1.6.1 -q
 python -m build --wheel -q
 az extension add --source dist/az_healthmodel-*.whl --upgrade --yes
 ```
@@ -430,17 +430,23 @@ mcp/             ← Actions: MCP server (delegates to shared operations)
 
 ```bash
 cd src/az-healthmodel
-pip install -e .
-python -m pytest azext_healthmodel/tests/ -v
+python3.15 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements-dev.txt
+python -m pytest azext_healthmodel/tests/ --ignore=azext_healthmodel/tests/test_e2e.py -v
 ```
+
+The local suites use fixture-backed SDK/CLI clients and headless Textual apps.
+`test_e2e.py` is a separate live-Azure suite that creates and deletes health
+models. Do not include it in local verification.
 
 ## Dependencies
 
 | Package | Version | Source |
 | --- | --- | --- |
-| `textual` | `>=8.0.0` | PyPI |
-| `mcp` | `>=1.21.0,<2.0.0` | PyPI |
-| `azure-mgmt-cloudhealth` | `>=1.0.0b2,<1.0.0b3` | [PyPI](https://pypi.org/project/azure-mgmt-cloudhealth/) (public preview) |
+| `textual` | `8.2.8` | PyPI |
+| `mcp` | `2.3.0` | PyPI |
+| `azure-mgmt-cloudhealth` | `1.0.0b5` | [PyPI](https://pypi.org/project/azure-mgmt-cloudhealth/) (preview-only SDK for the public-preview service) |
 
 ## API Version
 

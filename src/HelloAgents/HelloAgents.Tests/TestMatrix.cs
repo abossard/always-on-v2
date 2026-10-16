@@ -21,3 +21,8 @@ public class WorkflowSuite(AspireFixture f)
 [ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
 public class WorkflowFirstSuite(AspireFixture f)
     : WorkflowFirstTests(f.Client);
+
+[InheritsTests]
+[ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
+public class MetricsSuite(AspireFixture f)
+    : MetricsApiTests(f.Client);

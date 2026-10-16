@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { enterLevel, startChallenge } from '../navigation';
 
 test.describe('Level 5: Preselection — Automation detects and unchecks all pre-selected options', () => {
   test('detects all pre-selected toggles and unchecks them', async ({ page }) => {
-    await page.goto('/');
-    await page.getByTestId('start-challenge').click();
-    await page.getByTestId('level-link-5').click();
+    await startChallenge(page);
+    await enterLevel(page, 5);
 
     // Wait for settings to load
     const saveBtn = page.getByTestId('save-settings');

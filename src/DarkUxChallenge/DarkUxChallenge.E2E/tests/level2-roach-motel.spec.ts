@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { enterLevel, startChallenge } from '../navigation';
 
 test.describe('Level 2: Roach Motel — Automation navigates cancellation gauntlet', () => {
   test('subscribes with one click, then navigates all cancel steps', async ({ page }) => {
-    await page.goto('/');
-    await page.getByTestId('start-challenge').click();
-    await page.getByTestId('level-link-2').click();
+    await startChallenge(page);
+    await enterLevel(page, 2);
 
     // Step 1: Subscribe (one click — easy!)
     await page.getByTestId('subscribe-button').click();

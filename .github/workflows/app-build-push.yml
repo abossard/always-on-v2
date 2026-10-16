@@ -106,6 +106,7 @@ jobs:
         uses: docker/bake-action@v7
         with:
           source: ./${{ inputs.bake_source }}
+          allow: fs.read=${{ github.workspace }}
           push: true
           provenance: false
         env:

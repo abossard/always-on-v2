@@ -11,8 +11,8 @@ group "default" {
 }
 
 target "api" {
-  context    = ".."
-  dockerfile = "GraphOrleons/GraphOrleons.Api/Dockerfile"
+  context    = "../.."
+  dockerfile = "src/GraphOrleons/GraphOrleons.Api/Dockerfile"
   tags       = tag("graphorleons")
   platforms  = ["linux/amd64", "linux/arm64"]
   cache-from = ["type=gha,scope=graphorleons-api"]

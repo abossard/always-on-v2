@@ -1,26 +1,28 @@
 <Solution>
-  <Folder Name="/PlayersOnOrleons/">
-    <Project Path="PlayersOnOrleons/PlayersOnOrleons.Abstractions/PlayersOnOrleons.Abstractions.csproj" />
-    <Project Path="PlayersOnOrleons/PlayersOnOrleons.Api/PlayersOnOrleons.Api.csproj" />
-    <Project Path="PlayersOnOrleons/PlayersOnOrleons.AppHost/PlayersOnOrleons.AppHost.csproj" />
-    <Project Path="PlayersOnOrleons/PlayersOnOrleons.ServiceDefaults/PlayersOnOrleons.ServiceDefaults.csproj" />
-    <Project Path="PlayersOnOrleons/PlayersOnOrleons.Tests/PlayersOnOrleons.Tests.csproj" />
+  <Project Path="AlwaysOn.Orleans/AlwaysOn.Orleans.csproj" />
+  <Project Path="AlwaysOn.ServiceDefaults/AlwaysOn.ServiceDefaults.csproj" />
+  <Folder Name="/DarkUxChallenge/">
+    <Project Path="DarkUxChallenge/DarkUxChallenge.Api/DarkUxChallenge.Api.csproj" />
+    <Project Path="DarkUxChallenge/DarkUxChallenge.AppHost/DarkUxChallenge.AppHost.csproj" />
+    <Project Path="DarkUxChallenge/DarkUxChallenge.ServiceDefaults/DarkUxChallenge.ServiceDefaults.csproj" />
+    <Project Path="DarkUxChallenge/DarkUxChallenge.Tests/DarkUxChallenge.Tests.csproj" />
   </Folder>
-  <Project Path="AlwaysOn.Client.Host.Console/AlwaysOn.Client.Host.Console.csproj" />
-  <Project Path="AlwaysOn.GrainInterface/AlwaysOn.GrainInterface.csproj" />
-  <Project Path="AlwaysOn.Grains/AlwaysOn.Grains.csproj" />
-  <Project Path="AlwaysOn.Host.Console/AlwaysOn.Host.Console.csproj" />
-  <Project Path="AlwaysOn.Silo.Host.Console/AlwaysOn.Silo.Host.Console.csproj" />
-  <Folder Name="/Orthereum/">
-    <Project Path="Orthereum/Orthereum.Abstractions/Orthereum.Abstractions.csproj" />
-    <Project Path="Orthereum/Orthereum.Grains/Orthereum.Grains.csproj" />
-    <Project Path="Orthereum/Orthereum.Host/Orthereum.Host.csproj" />
-    <Project Path="Orthereum/Orthereum.Tests/Orthereum.Tests.csproj" />
+  <Folder Name="/GraphOrleons/">
+    <Project Path="GraphOrleons/GraphOrleons.Api/GraphOrleons.Api.csproj" />
+    <Project Path="GraphOrleons/GraphOrleons.AppHost/GraphOrleons.AppHost.csproj" />
+    <Project Path="GraphOrleons/GraphOrleons.ServiceDefaults/GraphOrleons.ServiceDefaults.csproj" />
+    <Project Path="GraphOrleons/GraphOrleons.Tests/GraphOrleons.Tests.csproj" />
   </Folder>
-  <Folder Name="/PlayersOn/">
-    <Project Path="PlayersOn/PlayersOn.Abstractions/PlayersOn.Abstractions.csproj" />
-    <Project Path="PlayersOn/PlayersOn.Grains/PlayersOn.Grains.csproj" />
-    <Project Path="PlayersOn/PlayersOn.Host/PlayersOn.Host.csproj" />
-    <Project Path="PlayersOn/PlayersOn.Tests/PlayersOn.Tests.csproj" />
+  <Folder Name="/HelloAgents/">
+    <Project Path="HelloAgents/HelloAgents.Api/HelloAgents.Api.csproj" />
+    <Project Path="HelloAgents/HelloAgents.AppHost/HelloAgents.AppHost.csproj" />
+    <Project Path="HelloAgents/HelloAgents.ServiceDefaults/HelloAgents.ServiceDefaults.csproj" />
+    <Project Path="HelloAgents/HelloAgents.Tests/HelloAgents.Tests.csproj" />
+  </Folder>
+  <Folder Name="/HelloOrleons/">
+    <Project Path="HelloOrleons/HelloOrleons.Api/HelloOrleons.Api.csproj" />
+    <Project Path="HelloOrleons/HelloOrleons.AppHost/HelloOrleons.AppHost.csproj" />
+    <Project Path="HelloOrleons/HelloOrleons.ServiceDefaults/HelloOrleons.ServiceDefaults.csproj" />
+    <Project Path="HelloOrleons/HelloOrleons.Tests/HelloOrleons.Tests.csproj" />
   </Folder>
 </Solution>

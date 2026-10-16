@@ -1,34 +1,40 @@
 // AppHost Program.cs — Aspire orchestrator for dev-time only.
 
 using DarkUxChallenge.AppHost;
+using Microsoft.Extensions.Configuration;
 
 var builder = DistributedApplication.CreateBuilder(args);
 
-#pragma warning disable ASPIRECOSMOSDB001
 var cosmos = builder.AddAzureCosmosDB(ResourceNames.CosmosDb)
-    .RunAsPreviewEmulator(emulator =>
+    .RunAsEmulator(emulator =>
     {
-        emulator.WithLifetime(ContainerLifetime.Persistent);
-        emulator.WithDataVolume();
+        if (!builder.Configuration.GetValue<bool>("CosmosDb:UseEphemeralEmulator"))
+        {
+            emulator.WithLifetime(ContainerLifetime.Persistent);
+            emulator.WithDataVolume();
+        }
     });
-#pragma warning restore ASPIRECOSMOSDB001
 
 var db = cosmos.AddCosmosDatabase(ResourceNames.Database);
-db.AddContainer(ResourceNames.Container, ResourceNames.PartitionKey);
+var users = db.AddContainer(ResourceNames.Container, ResourceNames.PartitionKey);
 
 var api = builder.AddProject<Projects.DarkUxChallenge_Api>(ResourceNames.Api)
     .WithReference(cosmos)
-    .WaitFor(cosmos)
+    .WaitFor(users)
     .WithEnvironment("Storage__Provider", "CosmosDb")
+    .WithEnvironment("CosmosDb__DatabaseName", ResourceNames.Database)
     .WithEnvironment("CosmosDb__InitializeOnStartup", "true")
     .WithEnvironment("ASPNETCORE_ENVIRONMENT", "Development");
 
-var web = builder.AddNpmApp(ResourceNames.Web, "../DarkUxChallenge.SPA.Web", "dev")
+var web = builder.AddJavaScriptApp(ResourceNames.Web, "../DarkUxChallenge.SPA.Web", "dev")
+    .WithNpm(installCommand: "ci")
     .WithReference(api)
     .WithHttpEndpoint(port: 4200, env: "PORT")
     .WithExternalHttpEndpoints();
 
-builder.AddNpmApp("e2e", "../DarkUxChallenge.E2E", "test")
+builder.AddJavaScriptApp("e2e", "../DarkUxChallenge.E2E", "test")
+    .WithNpm(installCommand: "ci")
+    .WithRunScript("test", ["--", "--project=chromium"])
     .WithReference(web)
     .WithParentRelationship(web)
     .WithExplicitStart()

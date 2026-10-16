@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { startChallenge } from '../navigation';
 
 test.describe('Smoke Tests', () => {
   test('welcome page loads and has start button', async ({ page }) => {
@@ -7,8 +8,7 @@ test.describe('Smoke Tests', () => {
   });
 
   test('start challenge navigates to hub with level cards', async ({ page }) => {
-    await page.goto('/');
-    await page.getByTestId('start-challenge').click();
+    await startChallenge(page);
     await expect(page.getByTestId('level-card-1')).toBeVisible();
     await expect(page.getByTestId('level-card-2')).toBeVisible();
     await expect(page.getByTestId('level-card-3')).toBeVisible();

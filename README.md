@@ -32,13 +32,13 @@ Full catalog and sources: **[FEATURES.md](FEATURES.md)**.
 
 ## Prerequisites
 
-- [.NET 10 SDK](https://dotnet.microsoft.com/download)
-- [Aspire CLI](https://learn.microsoft.com/dotnet/aspire/fundamentals/cli): `dotnet tool install -g Aspire.Cli`
+- [.NET SDK 10.0.402](https://dotnet.microsoft.com/download), pinned in `global.json`
+- [Aspire CLI 13.6.1](https://aspire.dev/get-started/install-cli/): `dotnet tool install -g Aspire.Cli --version 13.6.1`. No Aspire workload is required.
 - [Azure CLI](https://learn.microsoft.com/cli/azure/install-azure-cli)
 - [Azure Developer CLI (azd)](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd)
 - [Docker Desktop](https://www.docker.com/products/docker-desktop/) or Podman (local dev only — `azd` builds images remotely)
 - [kubectl](https://kubernetes.io/docs/tasks/tools/)
-- Node.js (LTS) — for the React SPAs and Playwright E2E
+- Node.js 26 for the React SPAs and Playwright E2E. CI and frontend build images use 26.12.0.
 
 **Also required by the `azd` deploy hooks** (the `postdeploy` step renders K8s manifests locally):
 
@@ -60,6 +60,66 @@ aspire run --apphost HelloAgents.AppHost
 ```
 
 See each app folder (linked from [FEATURES.md](FEATURES.md)) for app-specific notes.
+
+### Local verification
+
+**Build and .NET tests**
+
+```bash
+dotnet build src/src.slnx
+dotnet test --solution src/src.slnx --no-build \
+  --max-parallel-test-modules 1 --zero-tests-policy strict
+```
+
+**Playwright**
+
+```bash
+(
+  set -e
+  for app in DarkUxChallenge HelloOrleons GraphOrleons HelloAgents; do
+    (
+      cd "src/$app"
+      npm ci --prefix "$app.E2E"
+      (cd "$app.E2E" && npx playwright install chromium)
+      trap 'aspire stop --non-interactive --nologo' EXIT
+      CI=true OPENAI_ENDPOINT= aspire start --apphost "$app.AppHost/$app.AppHost.csproj" \
+        --non-interactive -- --AZURE_OPENAI_ENDPOINT= --CosmosDb:UseEphemeralEmulator=true
+      aspire wait api --timeout 240
+      if [ "$app" != HelloOrleons ]; then
+        aspire wait web --timeout 240
+      fi
+      aspire resource e2e start
+      aspire wait e2e --status down --timeout 300
+      aspire describe e2e --format json |
+        jq -e '.resources | length == 1 and .[0].exitCode == 0'
+    )
+  done
+)
+```
+
+**Python**
+
+```bash
+(
+  set -e
+  cd src/az-healthmodel
+  python3 -m venv .venv
+  .venv/bin/python -m pip install -r requirements-dev.txt
+  .venv/bin/python -m pytest azext_healthmodel/tests/ --ignore=azext_healthmodel/tests/test_e2e.py
+)
+```
+
+**Docker images**
+
+```bash
+(
+  set -e
+  for app in DarkUxChallenge HelloOrleons GraphOrleons HelloAgents; do
+    (cd "src/$app" && docker buildx bake --allow=fs.read=../.. \
+      --set '*.cache-from=' --set '*.cache-to=')
+  done
+)
+```
 
 ### Deploy to Azure
 

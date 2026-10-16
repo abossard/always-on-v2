@@ -125,7 +125,7 @@ graph LR
     end
 
     TG & CG & MG & TR -->|grain state| GC[(🟣 Cosmos Global<br/>cosmos-alwayson-a2nyh4<br/>graphorleons-grainstate)]
-    MG -->|model docs| MC[(🟣 Cosmos Global<br/>graphorleons-models<br/>partition: /tenantId)]
+    MG -->|model docs| MC[(🟣 Cosmos Global<br/>graphorleons-models<br/>HPK: /tenantId<br/>/modelId)]
     SILO -->|clustering + pubsub| SC[(Cosmos Stamp<br/>cosmos-orl-alwayson-region<br/>cluster · pubsub)]
     SILO -->|ComponentUpdates stream| QS[(Queue Storage<br/>sthaalwayson-region<br/>tenant-stream-0..3)]
     SILO -->|event archival| EH[🟣 Event Hub<br/>eh-alwayson/graph-events<br/>4 partitions]
@@ -141,7 +141,7 @@ graph LR
 |-----------|--------|--------|
 | **Grains** | `TenantGrain` · `ComponentGrain` (periodic flush) · `ModelGrain` (FSM) · `TenantRegistryGrain` | [`GraphOrleons.Api/`](../src/GraphOrleons/GraphOrleons.Api/) |
 | **Grain State** | 🟣 Global Cosmos → `graphorleons` / `graphorleons-grainstate` | [`ResourceNames.cs`](../src/GraphOrleons/GraphOrleons.AppHost/ResourceNames.cs) |
-| **Models Store** | 🟣 Global Cosmos → `graphorleons-models` (partition: `/tenantId`) | [`AppHost.cs:14`](../src/GraphOrleons/GraphOrleons.AppHost/AppHost.cs) |
+| **Models Store** | 🟣 Global Cosmos → `graphorleons-models` (hierarchical partition: `/tenantId`, `/modelId`) | [`AppHost.cs`](../src/GraphOrleons/GraphOrleons.AppHost/AppHost.cs) |
 | **Clustering** | Stamp Cosmos → `graphorleons-cluster` + `graphorleons-pubsub` | [`ResourceNames.cs`](../src/GraphOrleons/GraphOrleons.AppHost/ResourceNames.cs) |
 | **Streaming** | `AzureQueueStreams("ComponentUpdates")` → `tenant-stream-{0..3}` | [`Program.cs:49,62`](../src/GraphOrleons/GraphOrleons.Api/Program.cs) · [`Domain.cs:111`](../src/GraphOrleons/GraphOrleons.Api/Domain.cs) |
 | **Event Archival** | 🟣 `EventHubEventArchive` → `eh-alwayson/graph-events` | [`EventHubEventArchive.cs`](../src/GraphOrleons/GraphOrleons.Api/EventHubEventArchive.cs) |
@@ -241,13 +241,17 @@ graph LR
 | **E2E (Browser)** | Playwright | All 4 | `cd src/<App>/<App>.E2E && npm ci && npx playwright test` | e.g. [`HelloAgents.E2E/`](../src/HelloAgents/HelloAgents.E2E/) |
 | **Load** | Locust | All 4 | `cd src/<App>/<App>.LoadTest && locust -f locustfile.py` | e.g. [`HelloAgents.LoadTest/`](../src/HelloAgents/HelloAgents.LoadTest/) |
 | **Accessibility** | axe-core/playwright | DarkUxChallenge | Integrated in E2E suite | [`DarkUxChallenge.E2E/`](../src/DarkUxChallenge/DarkUxChallenge.E2E/) |
-| **Health Model** | pytest | az-healthmodel | `cd src/az-healthmodel && pytest azext_healthmodel/tests/ -v` | [`az-healthmodel/tests/`](../src/az-healthmodel/azext_healthmodel/tests/) |
+| **Health Model (local)** | pytest | az-healthmodel | `cd src/az-healthmodel && python -m pytest azext_healthmodel/tests/ --ignore=azext_healthmodel/tests/test_e2e.py -v` | [`az-healthmodel/tests/`](../src/az-healthmodel/azext_healthmodel/tests/) |
+
+Use the SDK pinned in root `global.json`; no Aspire workload is required. `src/src.slnx` now covers all 18 current .NET projects. Run Docker-backed app stacks sequentially because local ports overlap.
+
+Browser runs require the actual Aspire-injected endpoint variables and an explicit local project: `chromium` for DarkUxChallenge, `local` for the other apps. Production aliases are not local test targets. The excluded Python E2E file mutates live Azure resources and is not part of local verification.
 
 ### CI Test Strategy
 
-- Unit tests: **3× retry** on failure (Cosmos emulator flakiness)
+- DarkUx backend tests: up to **3 attempts**, with a nonzero result if all fail
 - E2E: **2 retries** in CI, run via Aspire orchestrator
-- Results: TRX reports published, Playwright HTML artifacts (5-day retention)
+- Results: TRX reports published, Playwright HTML artifacts (5-day retention); Aspire-hosted E2E checks both the resource exit code and the test report
 
 ---
 

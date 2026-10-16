@@ -4,6 +4,8 @@ displayName: HelloOrleons Load Test
 description: 200 concurrent users hitting /hello/:name for 60s (direct gateway, bypasses Front Door)
 testType: Locust
 testPlan: locustfile.py
+configurationFiles:
+  - requirements.txt
 engineInstances: 1
 failureCriteria:
   - avg(response_time_ms) > 500

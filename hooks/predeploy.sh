@@ -40,12 +40,12 @@ azd env set IMAGE_TAG "$TAG" 2>/dev/null || true
 # ── Build images ──────────────────────────────────────────────
 # Each entry: IMAGE_NAME | DOCKERFILE | CONTEXT (relative to repo root)
 IMAGES=(
-  "helloorleons|src/HelloOrleons/HelloOrleons.Api/Dockerfile|src"
-  "helloagents|src/HelloAgents/HelloAgents.Api/Dockerfile|src"
+  "helloorleons|src/HelloOrleons/HelloOrleons.Api/Dockerfile|."
+  "helloagents|src/HelloAgents/HelloAgents.Api/Dockerfile|."
   "helloagents-web|src/HelloAgents/HelloAgents.Web/Dockerfile|src/HelloAgents/HelloAgents.Web"
-  "darkux|src/DarkUxChallenge/DarkUxChallenge.Api/Dockerfile|src/DarkUxChallenge"
+  "darkux|src/DarkUxChallenge/DarkUxChallenge.Api/Dockerfile|."
   "darkux-web|src/DarkUxChallenge/DarkUxChallenge.SPA.Web/Dockerfile|src/DarkUxChallenge/DarkUxChallenge.SPA.Web"
-  "graphorleons|src/GraphOrleons/GraphOrleons.Api/Dockerfile|src"
+  "graphorleons|src/GraphOrleons/GraphOrleons.Api/Dockerfile|."
   "graphorleons-web|src/GraphOrleons/GraphOrleons.Web/Dockerfile|src/GraphOrleons/GraphOrleons.Web"
 )
 

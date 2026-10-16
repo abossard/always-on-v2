@@ -5,10 +5,8 @@ Env.TraversePath().Load();
 
 var builder = DistributedApplication.CreateBuilder(args);
 
-#pragma warning disable ASPIRECOSMOSDB001
 var cosmos = builder.AddAzureCosmosDB(ResourceNames.CosmosDb)
-    .RunAsPreviewEmulator();
-#pragma warning restore ASPIRECOSMOSDB001
+    .RunAsEmulator();
 
 var db = cosmos.AddCosmosDatabase(ResourceNames.Database);
 db.AddContainer(ResourceNames.Container, "/PartitionKey");
@@ -48,13 +46,16 @@ var api = builder.AddProject<Projects.HelloAgents_Api>(ResourceNames.Api)
 // Pass the API URL to the frontend for direct API calls (static SPA)
 var apiUrl = api.GetEndpoint("http");
 
-var web = builder.AddNpmApp(ResourceNames.Web, "../HelloAgents.Web", "dev")
+var web = builder.AddJavaScriptApp(ResourceNames.Web, "../HelloAgents.Web", "dev")
+    .WithNpm(installCommand: "ci")
     .WithReference(api)
     .WithHttpEndpoint(port: 4200, env: "PORT")
     .WithExternalHttpEndpoints()
     .WithEnvironment("NEXT_PUBLIC_API_URL", apiUrl);
 
-builder.AddNpmApp("e2e", "../HelloAgents.E2E", "test")
+builder.AddJavaScriptApp("e2e", "../HelloAgents.E2E", "test")
+    .WithNpm(installCommand: "ci")
+    .WithRunScript("test", ["--", "--project=local"])
     .WithReference(web)
     .WithReference(api)
     .WithParentRelationship(web)

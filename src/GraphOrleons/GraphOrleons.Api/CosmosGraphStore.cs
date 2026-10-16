@@ -42,7 +42,10 @@ public sealed class CosmosGraphStore : IGraphStore
     public async Task<List<ModelComponentDocument>> LoadModelComponentsAsync(string tenantId, string modelId)
     {
         var pk = new PartitionKeyBuilder().Add(tenantId).Add(modelId).Build();
-        var query = new QueryDefinition("SELECT * FROM c WHERE c.type = 'ModelComponent'");
+        var query = new QueryDefinition(
+            "SELECT * FROM c WHERE c.type = 'ModelComponent' AND c.tenantId = @tenantId AND c.modelId = @modelId")
+            .WithParameter("@tenantId", tenantId)
+            .WithParameter("@modelId", modelId);
 
         var results = new List<ModelComponentDocument>();
         using var iterator = Container.GetItemQueryIterator<ModelComponentDocument>(query,

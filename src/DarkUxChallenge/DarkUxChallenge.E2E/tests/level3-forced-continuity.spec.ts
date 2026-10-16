@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { enterLevel, startChallenge } from '../navigation';
 
 test.describe('Level 3: Forced Continuity — Automation detects silent conversion', () => {
   test('starts trial and cancels before silent conversion', async ({ page }) => {
-    await page.goto('/');
-    await page.getByTestId('start-challenge').click();
-    await page.getByTestId('level-link-3').click();
+    await startChallenge(page);
+    await enterLevel(page, 3);
 
     // Start free trial
     await page.getByTestId('start-trial-button').click();
@@ -39,10 +39,8 @@ test.describe('Level 3: Forced Continuity — Automation detects silent conversi
   });
 
   test('fine print about charges is barely visible', async ({ page }) => {
-    // Must visit welcome + hub first to create a user in localStorage
-    await page.goto('/');
-    await page.getByTestId('start-challenge').click();
-    await page.getByTestId('level-link-3').click();
+    await startChallenge(page);
+    await enterLevel(page, 3);
 
     await expect(page.getByRole('heading', { name: 'Level 3: Forced Continuity' })).toBeVisible();
 

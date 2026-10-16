@@ -201,7 +201,7 @@ interface Props {
 export function WorkflowView({ groupId, agents }: Props) {
   return (
     <ReactFlowProvider>
-      <Inner groupId={groupId} agents={agents} />
+      <Inner key={groupId} groupId={groupId} agents={agents} />
     </ReactFlowProvider>
   );
 }
@@ -222,6 +222,16 @@ function Inner({ groupId, agents }: Props) {
     try {
       const exec = await api.getWorkflowExecution(groupId);
       setExecution(exec);
+      if (exec) {
+        setHitlSubmitting((prev) => {
+          const next = new Set(prev);
+          for (const id of prev) {
+            const state = exec.nodeStates[id]?.status;
+            if (state && state !== "awaiting_hitl") next.delete(id);
+          }
+          return next.size === prev.size ? prev : next;
+        });
+      }
     } catch (err) {
       console.error("[Workflow] refresh error:", err);
     }
@@ -238,7 +248,6 @@ function Inner({ groupId, agents }: Props) {
   // One-shot hydration: workflow definition + current execution state.
   useEffect(() => {
     let cancelled = false;
-    setIsLoading(true);
     (async () => {
       try {
         const wf = await api.getWorkflow(groupId);
@@ -269,24 +278,7 @@ function Inner({ groupId, agents }: Props) {
     }
   });
 
-  // Clear "submitting" guards when SSE confirms a HITL node has moved on.
-  useEffect(() => {
-    if (!execution || hitlSubmitting.size === 0) return;
-    setHitlSubmitting((prev) => {
-      let changed = false;
-      const next = new Set(prev);
-      for (const id of prev) {
-        const s = execution.nodeStates[id]?.status;
-        if (s && s !== "awaiting_hitl") {
-          next.delete(id);
-          changed = true;
-        }
-      }
-      return changed ? next : prev;
-    });
-  }, [execution, hitlSubmitting]);
-
-  const states = execution?.nodeStates ?? {};
+  const states = useMemo(() => execution?.nodeStates ?? {}, [execution]);
 
   const flowNodes = useMemo(
     () => (definition ? toFlowNodes(definition, agents, states, selectedId) : []),
@@ -332,7 +324,7 @@ function Inner({ groupId, agents }: Props) {
       setHitlInputs((m) => ({ ...m, [nodeId]: "" }));
       setStatus(`HITL submitted for ${nodeId}`);
       // Don't clear the submitting flag here — wait for SSE to confirm the
-      // node has moved off awaiting_hitl (handled in the effect above).
+      // node has moved off awaiting_hitl (handled when execution is refreshed).
     } catch (err) {
       setStatus(`HITL failed: ${err instanceof Error ? err.message : err}`);
       setHitlSubmitting((prev) => {

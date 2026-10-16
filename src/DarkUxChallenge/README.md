@@ -1,13 +1,12 @@
 # DarkUxChallenge
 
-This project includes two route scopes for the SPA:
+Local tests use fresh, session-scoped Cosmos emulator storage. For manual verification, pass `--CosmosDb:UseEphemeralEmulator=true` after the Aspire CLI's `--` separator. Normal development keeps its existing persistent volume; this option does not reset or migrate that data. Older emulator catalogs may be incompatible with the current emulator image.
 
-- Baseline mode at `/:userId`
-- Challenge mode at `/challenge/:userId`
+The welcome page enters a hardened session at `/:userId`; level routes are `/:userId/levels/:level`. Browser checks acknowledge each route briefing, wait for the sync curtain, and confirm hub entries.
 
-Challenge mode is sandbox-only. It intentionally adds extra friction for automation practice without corrupting labels, roles, or accessible names.
+The hardened flow is sandbox-only. It intentionally adds extra friction for automation practice without corrupting labels, roles, or accessible names.
 
-Current challenge-mode mechanics:
+Current hardened-flow mechanics:
 
 - Focus-trapped route briefing dialog
 - Delayed enablement before route entry
@@ -15,4 +14,4 @@ Current challenge-mode mechanics:
 - Short-lived sync curtain after navigation
 - Two-step level entry from the hub
 
-Do not copy challenge-mode mechanics into production applications. They exist here only for educational testing of hostile-but-truthful flows.
+Do not copy these mechanics into production applications. They exist here only for educational testing of hostile-but-truthful flows.

@@ -66,19 +66,16 @@ jobs:
       - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 'lts/*'
-
-      - name: Install Aspire workload
-        run: dotnet workload install aspire
+          node-version: '26.12.0'
 
       - name: Install Aspire CLI
         run: |
-          dotnet tool install -g Aspire.Cli
+          dotnet tool install -g Aspire.Cli --version 13.6.1
           echo "$HOME/.dotnet/tools" >> $GITHUB_PATH
 
       - name: Install extra npm dependencies
@@ -122,13 +119,7 @@ jobs:
         run: |
           aspire start --apphost ${{ inputs.apphost_project }} --non-interactive --nologo --isolated || {
             echo "## ❌ Aspire AppHost failed to start" >> $GITHUB_STEP_SUMMARY
-            echo "Dumping Aspire CLI logs:" >> $GITHUB_STEP_SUMMARY
-            for f in ~/.aspire/logs/*.log; do
-              echo "### $(basename "$f")" >> $GITHUB_STEP_SUMMARY
-              echo '```' >> $GITHUB_STEP_SUMMARY
-              cat "$f" 2>/dev/null | tee -a $GITHUB_STEP_SUMMARY
-              echo '```' >> $GITHUB_STEP_SUMMARY
-            done
+            echo "Aspire CLI diagnostics remain on the runner under ~/.aspire/logs; raw configuration-bearing logs are not published." >> $GITHUB_STEP_SUMMARY
             exit 1
           }
         working-directory: ${{ inputs.working_dir }}
@@ -150,6 +141,10 @@ jobs:
         run: |
           aspire resource e2e start --non-interactive --nologo
           aspire wait e2e --status down --timeout 300 --non-interactive --nologo
+          aspire describe e2e --format json --non-interactive --nologo |
+            jq -e '.resources | length == 1 and .[0].exitCode == 0'
+          jq -e '(.errors | length) == 0 and .stats.unexpected == 0 and .stats.skipped == 0 and (.stats.expected + .stats.flaky) > 0' \
+            "${{ github.workspace }}/${{ inputs.e2e_dir }}/test-results/results.json"
         working-directory: ${{ inputs.working_dir }}
 
       - name: Collect E2E logs on failure

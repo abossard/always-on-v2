@@ -11,8 +11,8 @@ group "default" {
 }
 
 target "api" {
-  context    = "."
-  dockerfile = "DarkUxChallenge.Api/Dockerfile"
+  context    = "../.."
+  dockerfile = "src/DarkUxChallenge/DarkUxChallenge.Api/Dockerfile"
   tags       = tag("darkux")
   platforms  = ["linux/amd64", "linux/arm64"]
   cache-from = ["type=gha,scope=darkux-api"]

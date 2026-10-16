@@ -8,5 +8,10 @@
 
     <!-- Treat ALL warnings as errors to prevent regressions -->
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(IsAspireHost)' == 'true'">
+    <AspireUseCliBundle>true</AspireUseCliBundle>
+    <AspireCliInvocationMode>DnxPinned</AspireCliInvocationMode>
   </PropertyGroup>
 </Project>

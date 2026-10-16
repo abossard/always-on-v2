@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { enterLevel, startChallenge } from '../navigation';
 
 test.describe('Level 10: Emotional Manipulation — Automation detects fake urgency signals', () => {
   test('detects countdown timer resets and fake stock numbers', async ({ page }) => {
-    await page.goto('/');
-    await page.getByTestId('start-challenge').click();
-    await page.getByTestId('level-link-10').click();
+    await startChallenge(page);
+    await enterLevel(page, 10);
 
     // Read countdown data — automation checks the data attribute, not the visual timer
     const countdown = page.getByTestId('countdown');

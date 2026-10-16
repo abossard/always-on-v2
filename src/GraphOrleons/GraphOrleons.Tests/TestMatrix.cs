@@ -5,4 +5,4 @@ namespace GraphOrleons.Tests;
 [InheritsTests]
 [ClassDataSource<AspireFixture>(Shared = SharedType.PerTestSession)]
 public class AspireSystemPromiseTests(AspireFixture f)
-    : SystemPromiseTests(f.Client);
+    : SystemPromiseTests(f.Client, f.Store);

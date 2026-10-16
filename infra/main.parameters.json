@@ -3,7 +3,7 @@
   "contentVersion": "1.0.0.0",
   "parameters": {
     "baseName": { "value": "${AZURE_ENV_NAME}" },
-    "globalLocation": { "value": "${AZURE_LOCATION=swedencentral}" },
+    "globalLocation": { "value": "${AZURE_LOCATION}" },
     "acrSku": { "value": "Basic" },
     "frontDoorSku": { "value": "Standard_AzureFrontDoor" },
     "cosmosAutoscaleMaxThroughput": { "value": 1000 },

@@ -4,6 +4,8 @@ displayName: DarkUxChallenge Load Test
 description: 200 users exercising user creation, level progression, and read-heavy challenge flows for 60s
 testType: Locust
 testPlan: locustfile.py
+configurationFiles:
+  - requirements.txt
 engineInstances: 1
 failureCriteria:
   - avg(response_time_ms) > 500

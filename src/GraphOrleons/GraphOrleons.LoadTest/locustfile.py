@@ -11,6 +11,8 @@ Environment variables:
   WARDS_PER_DEPT      -- wards per department (default: 2)
   ROOMS_PER_WARD      -- rooms per ward (default: 3)
   DEVICES_PER_ROOM    -- devices per room (default: 4)
+  HOT_MODE            -- "1" targets one hospital with zero think time
+  GRAPH_TENANT        -- hot-mode tenant name (default: hot-tenant)
 
 Run locally against Aspire:
   locust -f locustfile.py --host http://localhost:5201 --users 20 --spawn-rate 2 -t 120s
@@ -301,6 +303,8 @@ HOSPITAL_COUNT = _env_int("HOSPITAL_COUNT", 20)
 WARDS_PER_DEPT = _env_int("WARDS_PER_DEPT", 2)
 ROOMS_PER_WARD = _env_int("ROOMS_PER_WARD", 3)
 DEVICES_PER_ROOM = _env_int("DEVICES_PER_ROOM", 4)
+HOT_MODE = os.getenv("HOT_MODE", "0") == "1"
+GRAPH_TENANT = os.getenv("GRAPH_TENANT", "hot-tenant")
 
 
 # ==============================================================================
@@ -310,13 +314,13 @@ DEVICES_PER_ROOM = _env_int("DEVICES_PER_ROOM", 4)
 class HospitalUser(HttpUser):
     """Simulates a hospital as a tenant: rich graph init then realistic traffic."""
 
-    wait_time = between(0.2, 1.0)
+    wait_time = between(0, 0) if HOT_MODE else between(0.2, 1.0)
 
     # ---- lifecycle -----------------------------------------------------------
 
     def on_start(self) -> None:
         hospital_id = random.randint(0, HOSPITAL_COUNT - 1)
-        tenant = f"hospital-{hospital_id:03d}"
+        tenant = GRAPH_TENANT if HOT_MODE else f"hospital-{hospital_id:03d}"
 
         self.graph = build_hospital_graph(
             tenant=tenant,

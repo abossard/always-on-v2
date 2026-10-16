@@ -9,6 +9,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
+from mcp.server.mcpserver.exceptions import ToolError
 
 from azext_healthmodel.actions import operations as ops_module
 from azext_healthmodel.client.errors import (
@@ -105,6 +106,32 @@ def test_mcp_tool_routes_to_operation(monkeypatch, tool_name, kwargs, ops_attr, 
             f"value {value!r} from tool kwargs not forwarded to ops.{ops_attr}; "
             f"got {flat!r}"
         )
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    "error",
+    [
+        AuthenticationError("denied"),
+        ThrottledError("slow", retry_after=1),
+        HealthModelNotFoundError("missing"),
+        ArmError("oops", status_code=500),
+        ValueError("invalid model name"),
+    ],
+    ids=["auth", "throttled", "not_found", "arm", "validation"],
+)
+async def test_mcp_single_call_preserves_error_message(monkeypatch, error):
+    monkeypatch.setattr(
+        ops_module, "healthmodel_show", MagicMock(side_effect=error),
+    )
+    server = create_server(MagicMock(name="cloud_health_client"))
+
+    with pytest.raises(ToolError) as raised:
+        await server.call_tool(
+            "healthmodel_show", {"resource_group": "rg", "name": "m"},
+        )
+
+    assert str(raised.value) == f"Error executing tool healthmodel_show: {error}"
 
 
 @pytest.mark.parametrize(

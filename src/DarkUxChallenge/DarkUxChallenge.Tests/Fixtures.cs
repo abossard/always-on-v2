@@ -21,7 +21,8 @@ public class AspireFixture : IAsyncInitializer, IAsyncDisposable
     public async Task InitializeAsync()
     {
         var builder = await DistributedApplicationTestingBuilder
-            .CreateAsync<Projects.DarkUxChallenge_AppHost>();
+            .CreateAsync<Projects.DarkUxChallenge_AppHost>(
+                ["--CosmosDb:UseEphemeralEmulator=true"]);
 
         _app = await builder.BuildAsync();
         await _app.StartAsync();

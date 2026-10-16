@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useCallback } from "react";
+import { useEffect, useEffectEvent } from "react";
 import type { ChatMessage } from "@/lib/types";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
@@ -9,43 +9,44 @@ export function useEventSource(
   groupId: string | null,
   onMessage: (msg: ChatMessage) => void
 ) {
-  const esRef = useRef<EventSource | null>(null);
-  const onMessageRef = useRef(onMessage);
-  onMessageRef.current = onMessage;
-
-  const connect = useCallback(() => {
-    if (!groupId) return;
-
-    esRef.current?.close();
-    // Connect directly to the API SSE endpoint (no Next.js proxy)
-    const es = new EventSource(`${API_BASE}/api/groups/${groupId}/stream`);
-
-    es.onmessage = (event) => {
-      try {
-        const msg: ChatMessage = JSON.parse(event.data);
-        // Validate required fields — join/leave events may have content as agentId
-        if (msg.id && msg.senderName) {
-          onMessageRef.current(msg);
-        }
-      } catch (e) {
-        console.warn("[SSE] Failed to parse event:", event.data, e);
-      }
-    };
-
-    es.onerror = () => {
-      es.close();
-      // Reconnect after 3 seconds
-      setTimeout(() => connect(), 3000);
-    };
-
-    esRef.current = es;
-  }, [groupId]);
+  const handleMessage = useEffectEvent(onMessage);
 
   useEffect(() => {
+    if (!groupId) return;
+
+    let source: EventSource | null = null;
+    let reconnectTimer: ReturnType<typeof setTimeout> | undefined;
+    let disposed = false;
+    function connect() {
+      source?.close();
+      // Connect directly to the API SSE endpoint (no Next.js proxy)
+      const es = new EventSource(`${API_BASE}/api/groups/${groupId}/stream`);
+      source = es;
+
+      es.onmessage = (event) => {
+        try {
+          const msg: ChatMessage = JSON.parse(event.data);
+          // Validate required fields — join/leave events may have content as agentId
+          if (msg.id && msg.senderName) {
+            handleMessage(msg);
+          }
+        } catch (e) {
+          console.warn("[SSE] Failed to parse event:", event.data, e);
+        }
+      };
+
+      es.onerror = () => {
+        es.close();
+        // Reconnect after 3 seconds
+        if (!disposed) reconnectTimer = setTimeout(connect, 3000);
+      };
+    }
+
     connect();
     return () => {
-      esRef.current?.close();
-      esRef.current = null;
+      disposed = true;
+      clearTimeout(reconnectTimer);
+      source?.close();
     };
-  }, [connect]);
+  }, [groupId]);
 }

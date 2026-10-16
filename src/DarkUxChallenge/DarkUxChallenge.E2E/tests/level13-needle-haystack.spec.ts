@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { enterLevel, startChallenge } from '../navigation';
 
 test.describe('Level 13: Needle Haystack — Automation selects the hidden safe clause', () => {
   test('exposes the hidden correctness marker without choosing a clause', async ({ page }) => {
-    await page.goto('/');
-    await page.getByTestId('start-challenge').click();
-    await page.getByTestId('level-link-13').click();
+    await startChallenge(page);
+    await enterLevel(page, 13);
 
     const clauses = page.locator('[data-testid^="needle-clause-"]');
     await expect(clauses.first()).toBeVisible();

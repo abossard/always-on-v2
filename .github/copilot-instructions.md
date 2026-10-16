@@ -30,23 +30,23 @@ Multi-region active-active platform on Azure. Each "stamp" is an AKS cluster in 
 
 ```bash
 # Run locally (example: HelloAgents)
-cd src/HelloAgents
-aspire run --apphost HelloAgents.AppHost
+aspire run --apphost src/HelloAgents/HelloAgents.AppHost/HelloAgents.AppHost.csproj
 
 # Build
-dotnet build src/HelloAgents/HelloAgents.slnx
+dotnet build src/src.slnx
 
 # Run all tests (requires Docker for Cosmos emulator)
-dotnet test src/HelloAgents/HelloAgents.slnx
+dotnet test --solution src/src.slnx --no-build \
+  --max-parallel-test-modules 1 --zero-tests-policy strict
 
-# Run a single test
-dotnet test src/HelloAgents/HelloAgents.Tests --filter "WorkflowTests"
+# Run one project's tests
+dotnet run --project src/HelloAgents/HelloAgents.Tests --no-build
 
 # Lint (warnings-as-errors via Directory.Build.props)
-dotnet build src/HelloAgents/HelloAgents.slnx --no-restore
+dotnet build src/src.slnx --no-restore
 ```
 
-Each app has its own `.slnx` under `src/{App}/`. The top-level `src/src.slnx` covers older non-Aspire projects only.
+Each app has its own `.slnx` under `src/{App}/`. `src/src.slnx` includes all 18 current .NET projects.
 
 ### Bicep (infrastructure)
 
@@ -62,18 +62,13 @@ cd scripts/healthmodel && npx tsc --noEmit -p tsconfig.json
 
 ### E2E tests (Playwright)
 
-```bash
-cd src/DarkUxChallenge/DarkUxChallenge.E2E
-npm ci && npx playwright test
-# Single test file:
-npx playwright test tests/some-test.spec.ts
-```
+[Run all four local Playwright projects](../README.md#local-verification).
 
 ### az-healthmodel CLI extension (Python)
 
 ```bash
 cd src/az-healthmodel
-python3 -m pytest azext_healthmodel/tests/test_e2e.py -v
+python3 -m pytest azext_healthmodel/tests/ --ignore=azext_healthmodel/tests/test_e2e.py
 ```
 
 ## Conventions

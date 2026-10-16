@@ -18,10 +18,7 @@ export function HitlChatCard({ groupId, nodeId, prompt, onSubmitted }: Props) {
   const [loadingContext, setLoadingContext] = useState(true);
 
   useEffect(() => {
-    if (submitted) {
-      setLoadingContext(false);
-      return;
-    }
+    if (submitted) return;
     let cancelled = false;
     Promise.all([
       api.getWorkflowExecution(groupId),
@@ -34,11 +31,11 @@ export function HitlChatCard({ groupId, nodeId, prompt, onSubmitted }: Props) {
           return;
         }
         const predNodeIds = wf.edges
-          .filter((e: any) => e.toNodeId === nodeId)
-          .map((e: any) => e.fromNodeId);
+          .filter((e) => e.toNodeId === nodeId)
+          .map((e) => e.fromNodeId);
         const preds = predNodeIds
-          .map((pid: string) => {
-            const node = wf.nodes.find((n: any) => n.id === pid);
+          .map((pid) => {
+            const node = wf.nodes.find((n) => n.id === pid);
             const label = node?.agentId ? `Agent: ${pid}` : pid;
             return {
               nodeId: pid,
@@ -46,11 +43,12 @@ export function HitlChatCard({ groupId, nodeId, prompt, onSubmitted }: Props) {
               result: exec.nodeStates?.[pid]?.result ?? "",
             };
           })
-          .filter((p: any) => p.result);
+          .filter((p) => p.result);
         setPredecessors(preds);
         setLoadingContext(false);
       })
-      .catch(() => {
+      .catch((err) => {
+        console.error("[HITL] Failed to load context:", err);
         if (!cancelled) setLoadingContext(false);
       });
     return () => {

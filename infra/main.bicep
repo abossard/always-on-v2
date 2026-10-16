@@ -13,8 +13,8 @@ import { originHostname, stampRgName, regionalRgName } from 'naming.bicep'
 param baseName string = 'alwayson'
 
 @description('Primary location for global resources. Maps to AZURE_LOCATION.')
-@metadata({ azd: { type: 'location' } })
-param globalLocation string = 'swedencentral'
+@metadata({ azd: { type: 'location', default: 'swedencentral' } })
+param globalLocation string
 
 @description('SKU for Azure Container Registry. Premium required for geo-replication.')
 @allowed(['Basic', 'Standard', 'Premium'])

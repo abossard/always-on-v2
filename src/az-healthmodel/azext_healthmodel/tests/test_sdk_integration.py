@@ -34,6 +34,34 @@ def _load_json(fixtures_dir: Path, name: str) -> Any:
 # ─── A. rest_client.py — SDK method delegation tests ──────────────────
 
 
+@pytest.mark.parametrize("subscription_id", ["test-sub", "other-sub"])
+def test_client_preserves_api_version(monkeypatch, subscription_id) -> None:
+    import importlib
+    import sys
+    from types import SimpleNamespace
+
+    from azext_healthmodel.client.rest_client import API_VERSION, CloudHealthClient
+
+    sdk_type = MagicMock(name="CloudHealthMgmtClient")
+    monkeypatch.setitem(
+        sys.modules, "azure.mgmt.cloudhealth",
+        SimpleNamespace(CloudHealthMgmtClient=sdk_type),
+    )
+    factory = MagicMock()
+    factory_module = importlib.import_module(
+        "azure.cli.core.commands.client_factory",
+    )
+    monkeypatch.setattr(factory_module, "get_mgmt_service_client", factory, raising=False)
+    cli_ctx = MagicMock()
+
+    client = CloudHealthClient(cli_ctx, subscription_id)
+
+    factory.assert_called_once_with(
+        cli_ctx, sdk_type, subscription_id=subscription_id, api_version=API_VERSION,
+    )
+    assert client._sdk is factory.return_value
+
+
 def test_dispatch_table_includes_discovery_rules() -> None:
     from azext_healthmodel.client.rest_client import _resource_type_to_ops
 

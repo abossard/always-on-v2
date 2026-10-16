@@ -16,9 +16,9 @@ CLASSIFIERS = [
 ]
 
 DEPENDENCIES = [
-    "textual>=8.0.0",
-    "mcp>=1.21.0,<2.0.0",
-    "azure-mgmt-cloudhealth>=1.0.0b2,<1.0.0b3",
+    "textual==8.2.8",
+    "mcp==2.3.0",
+    "azure-mgmt-cloudhealth==1.0.0b5",
 ]
 
 setup(

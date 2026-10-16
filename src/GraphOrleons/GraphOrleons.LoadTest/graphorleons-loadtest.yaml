@@ -1,9 +1,11 @@
 version: v0.1
 testId: graphorleons-load-test
 displayName: GraphOrleons Load Test
-description: Multi-tenant mixed load — 50 tenants, instrument events, graph edges, SSE streams
+description: Multi-tenant hospital load, 20 tenants, device events, graph edges, SSE streams
 testType: Locust
 testPlan: locustfile.py
+configurationFiles:
+  - requirements.txt
 engineInstances: 1
 failureCriteria:
   - avg(response_time_ms) > 500

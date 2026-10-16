@@ -28,6 +28,21 @@ export default function HomePage() {
   const [view, setView] = useState<"chat" | "workflow">("chat");
   const [hasWorkflow, setHasWorkflow] = useState(false);
 
+  const handleSelectGroup = useCallback((id: string | null) => {
+    if (id === selectedGroupId) return;
+    setSelectedGroupId(id);
+    setThinkingAgents(new Map());
+    setIsLoadingGroup(id !== null);
+    if (!id) {
+      setGroupDetail(null);
+      setMessages([]);
+      setGroupAgents([]);
+      setStreamEvents([]);
+      setHasWorkflow(false);
+      setView("chat");
+    }
+  }, [selectedGroupId]);
+
   // Fetch groups and agents on mount
   const refreshGroups = useCallback(async () => {
     const g = await api.listGroups();
@@ -40,29 +55,17 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    refreshGroups();
-    refreshAgents();
-  }, [refreshGroups, refreshAgents]);
+    api.listGroups().then(setGroups).catch((err) => console.error("[Groups] Failed to load:", err));
+    api.listAgents().then(setAllAgents).catch((err) => console.error("[Agents] Failed to load:", err));
+  }, []);
 
   // Fetch group detail when selected
   useEffect(() => {
-    // Always clear ephemeral thinking state on any group change
-    setThinkingAgents(new Map());
+    if (!selectedGroupId) return;
 
-    if (!selectedGroupId) {
-      setGroupDetail(null);
-      setMessages([]);
-      setGroupAgents([]);
-      setStreamEvents([]);
-      setHasWorkflow(false);
-      setView("chat");
-      return;
-    }
-
-    setIsLoadingGroup(true);
     api.getWorkflow(selectedGroupId)
       .then((wf) => setHasWorkflow(!!wf && (wf.nodes.length > 1 || !wf.id.startsWith("system:"))))
-      .catch(() => setHasWorkflow(false));
+      .catch((err) => { console.error("[Workflow] Failed to load:", err); setHasWorkflow(false); });
     api.getGroup(selectedGroupId).then(async (detail) => {
       setGroupDetail(detail);
       // Separate persisted messages from ephemeral pending messages (thinking/streaming)
@@ -145,27 +148,22 @@ export default function HomePage() {
         setGroupAgents(agents.filter(Boolean) as AgentInfo[]);
       } catch (err) {
         console.debug("[Refresh] Group may have been deleted:", err);
-        setSelectedGroupId(null);
-        setGroupDetail(null);
-        setMessages([]);
-        setGroupAgents([]);
-        setStreamEvents([]);
-        setThinkingAgents(new Map());
+        handleSelectGroup(null);
       }
     }
-  }, [refreshGroups, refreshAgents, selectedGroupId]);
+  }, [refreshGroups, refreshAgents, selectedGroupId, handleSelectGroup]);
 
   // ─── Handlers ───────────────────────────────────────────
 
   const handleCreateGroup = async (name: string, description: string) => {
     const group = await api.createGroup({ name, description });
     await refreshGroups();
-    setSelectedGroupId(group.id);
+    handleSelectGroup(group.id);
   };
 
   const handleDeleteGroup = async (id: string) => {
     await api.deleteGroup(id);
-    if (selectedGroupId === id) setSelectedGroupId(null);
+    if (selectedGroupId === id) handleSelectGroup(null);
     await refreshGroups();
   };
 
@@ -244,7 +242,7 @@ export default function HomePage() {
             <GroupList
               groups={groups}
               selectedId={selectedGroupId}
-              onSelect={setSelectedGroupId}
+              onSelect={handleSelectGroup}
               onCreate={handleCreateGroup}
               onDelete={handleDeleteGroup}
             />

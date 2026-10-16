@@ -1,10 +1,10 @@
 import { test, expect } from '@playwright/test';
+import { enterLevel, startChallenge } from '../navigation';
 
 test.describe('Level 11: Speed Trap — Automation reads the machine hint before time pressure wins', () => {
   test('exposes machine-readable timing metadata on the challenge surface', async ({ page }) => {
-    await page.goto('/');
-    await page.getByTestId('start-challenge').click();
-    await page.getByTestId('level-link-11').click();
+    await startChallenge(page);
+    await enterLevel(page, 11);
 
     const challenge = page.getByTestId('level11-challenge');
     await expect(challenge).toBeVisible();

@@ -5,11 +5,26 @@ on:
     branches: [main]
     paths:
       - 'src/HelloOrleons/**'
+      - 'src/AlwaysOn.Orleans/**'
+      - 'src/AlwaysOn.ServiceDefaults/**'
+      - 'src/Directory.Build.props'
+      - '.dockerignore'
+      - '.editorconfig'
+      - 'global.json'
+      - '.github/workflows/app-build-push.yml'
+      - '.github/workflows/app-e2e-aspire.yml'
       - '.github/workflows/helloorleons-cicd.yml'
   pull_request:
     branches: [main]
     paths:
       - 'src/HelloOrleons/**'
+      - 'src/AlwaysOn.Orleans/**'
+      - 'src/AlwaysOn.ServiceDefaults/**'
+      - 'src/Directory.Build.props'
+      - '.dockerignore'
+      - '.editorconfig'
+      - 'global.json'
+      - '.github/workflows/app-build-push.yml'
       - '.github/workflows/helloorleons-cicd.yml'
       - '.github/workflows/app-e2e-aspire.yml'
   workflow_dispatch:
@@ -34,9 +49,7 @@ jobs:
       - name: Setup .NET 10
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
-      - name: Install Aspire workload
-        run: dotnet workload install aspire
+          global-json-file: global.json
       - name: Restore
         run: dotnet restore
         working-directory: src/HelloOrleons

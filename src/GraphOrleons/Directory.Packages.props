@@ -4,42 +4,41 @@
   </PropertyGroup>
   <ItemGroup>
     <!-- Orleans -->
-    <PackageVersion Include="Aspire.Azure.Storage.Queues" Version="13.2.2" />
-    <PackageVersion Include="Microsoft.Orleans.Persistence.Cosmos" Version="10.0.1" />
-    <PackageVersion Include="Microsoft.Orleans.Sdk" Version="10.0.1" />
-    <PackageVersion Include="Microsoft.Orleans.Server" Version="10.0.1" />
-    <PackageVersion Include="Microsoft.Orleans.Streaming" Version="10.0.1" />
-    <PackageVersion Include="Microsoft.Orleans.Hosting.Kubernetes" Version="10.0.1" />
-    <PackageVersion Include="Microsoft.Orleans.Clustering.Cosmos" Version="10.0.1" />
-    <PackageVersion Include="Microsoft.Orleans.Dashboard" Version="10.0.1" />
+    <PackageVersion Include="Aspire.Azure.Storage.Queues" Version="13.6.1" />
+    <PackageVersion Include="Microsoft.Orleans.Persistence.Cosmos" Version="10.4.0" />
+    <PackageVersion Include="Microsoft.Orleans.Sdk" Version="10.4.0" />
+    <PackageVersion Include="Microsoft.Orleans.Server" Version="10.4.0" />
+    <PackageVersion Include="Microsoft.Orleans.Streaming" Version="10.4.0" />
+    <PackageVersion Include="Microsoft.Orleans.Hosting.Kubernetes" Version="10.4.0" />
+    <PackageVersion Include="Microsoft.Orleans.Clustering.Cosmos" Version="10.4.0" />
+    <PackageVersion Include="Microsoft.Orleans.Dashboard" Version="10.4.0" />
     <!-- Aspire -->
-    <PackageVersion Include="Aspire.Hosting.Azure.CosmosDB" Version="13.2.2" />
-    <PackageVersion Include="Aspire.Hosting.Azure.EventHubs" Version="13.2.2" />
-    <PackageVersion Include="Aspire.Hosting.NodeJs" Version="9.5.2" />
-    <PackageVersion Include="Aspire.Hosting.Orleans" Version="13.2.1" />
-    <PackageVersion Include="Aspire.Hosting.Testing" Version="13.2.1" />
+    <PackageVersion Include="Aspire.Hosting.Azure.CosmosDB" Version="13.6.1" />
+    <PackageVersion Include="Aspire.Hosting.Azure.EventHubs" Version="13.6.1" />
+    <PackageVersion Include="Aspire.Hosting.JavaScript" Version="13.6.1" />
+    <PackageVersion Include="Aspire.Hosting.Testing" Version="13.6.1" />
     <!-- Aspire Client Integrations -->
-    <PackageVersion Include="Aspire.Microsoft.Azure.Cosmos" Version="13.2.2" />
-    <PackageVersion Include="Aspire.Azure.Storage.Blobs" Version="13.2.2" />
-    <PackageVersion Include="Aspire.Azure.Messaging.EventHubs" Version="13.2.2" />
-    <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="13.2.2" />
+    <PackageVersion Include="Aspire.Microsoft.Azure.Cosmos" Version="13.6.1" />
+    <PackageVersion Include="Aspire.Azure.Messaging.EventHubs" Version="13.6.1" />
+    <PackageVersion Include="Aspire.Hosting.Azure.Storage" Version="13.6.1" />
     <!-- Azure Identity -->
-    <PackageVersion Include="Azure.Identity" Version="1.20.0" />
+    <PackageVersion Include="Azure.Identity" Version="1.21.0" />
     <!-- OpenTelemetry -->
-    <PackageVersion Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.4.0" />
-    <PackageVersion Include="Microsoft.Orleans.Streaming.AzureStorage" Version="10.0.1" />
-    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.15.3" />
-    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.15.3" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.15.2" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.15.1" />
-    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.15.1" />
+    <PackageVersion Include="Azure.Monitor.OpenTelemetry.AspNetCore" Version="1.6.0" />
+    <PackageVersion Include="Microsoft.Orleans.Streaming.AzureStorage" Version="10.4.0" />
+    <PackageVersion Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" Version="1.20.0" />
+    <PackageVersion Include="OpenTelemetry.Extensions.Hosting" Version="1.20.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.AspNetCore" Version="1.20.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Http" Version="1.20.0" />
+    <PackageVersion Include="OpenTelemetry.Instrumentation.Runtime" Version="1.20.0" />
     <!-- API -->
-    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.5" />
-    <PackageVersion Include="Scalar.AspNetCore" Version="2.13.19" />
-    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.4.0" />
-    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.4.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.OpenApi" Version="10.0.13" />
+    <PackageVersion Include="Scalar.AspNetCore" Version="2.18.0" />
+    <PackageVersion Include="Microsoft.Extensions.Http.Resilience" Version="10.11.0" />
+    <PackageVersion Include="Microsoft.Extensions.ServiceDiscovery" Version="10.11.0" />
     <!-- Testing -->
-    <PackageVersion Include="TUnit" Version="1.24.31" />
-    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.5" />
+    <PackageVersion Include="MessagePack" Version="3.1.12" />
+    <PackageVersion Include="TUnit" Version="1.75.0" />
+    <PackageVersion Include="Microsoft.AspNetCore.Mvc.Testing" Version="10.0.13" />
   </ItemGroup>
 </Project>

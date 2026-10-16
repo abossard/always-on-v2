@@ -5,25 +5,28 @@ dicts) to execute multiple operations in one round-trip.  Each item in
 the response carries ``{ok: true, data: ...}`` or ``{ok: false, error: ...}``.
 
 All business logic lives in :mod:`azext_healthmodel.actions.operations`;
-this module just adapts those functions to FastMCP tools with the bulk
+this module just adapts those functions to MCPServer tools with the bulk
 protocol.
 
 Start via:  ``az healthmodel mcp -g myRg --model myModel``
 """
 from __future__ import annotations
 
+from functools import wraps
 from typing import Any
 
-from mcp.server.fastmcp import FastMCP
+from mcp.server.mcpserver import MCPServer
+from mcp.server.mcpserver.exceptions import ToolError
 
 from azext_healthmodel.actions import operations as ops
+from azext_healthmodel.client.errors import HealthModelError
 from azext_healthmodel.client.rest_client import CloudHealthClient
 
 
-def create_server(client: CloudHealthClient) -> FastMCP:
-    """Build a FastMCP server wired to *client* for all healthmodel tools."""
+def create_server(client: CloudHealthClient) -> MCPServer:
+    """Build an MCP server wired to *client* for all healthmodel tools."""
 
-    mcp = FastMCP(
+    mcp = MCPServer(
         "healthmodel",
         instructions=(
             "Azure Health Model management tools. "
@@ -32,6 +35,16 @@ def create_server(client: CloudHealthClient) -> FastMCP:
             "returned as {results: [{ok, data/error}, ...]}."
         ),
     )
+
+    def tool(fn):
+        @wraps(fn)
+        def invoke(*args, **kwargs):
+            try:
+                return fn(*args, **kwargs)
+            except (HealthModelError, ValueError) as exc:
+                raise ToolError(str(exc)) from exc
+
+        return mcp.tool()(invoke)
 
     # ── bulk helper ───────────────────────────────────────────────────
 
@@ -55,12 +68,12 @@ def create_server(client: CloudHealthClient) -> FastMCP:
 
     # ── Health Model tools ────────────────────────────────────────────
 
-    @mcp.tool()
+    @tool
     def healthmodel_list(resource_group: str | None = None) -> Any:
         """List health models in a resource group (or all in subscription)."""
         return ops.healthmodel_list(client, resource_group)
 
-    @mcp.tool()
+    @tool
     def healthmodel_show(
         resource_group: str = "",
         name: str = "",
@@ -71,7 +84,7 @@ def create_server(client: CloudHealthClient) -> FastMCP:
             return ops.healthmodel_show(client, resource_group, name)
         return _bulk(_do, {"resource_group": resource_group, "name": name, "items": items})
 
-    @mcp.tool()
+    @tool
     def healthmodel_create(
         resource_group: str = "",
         name: str = "",
@@ -101,7 +114,7 @@ def create_server(client: CloudHealthClient) -> FastMCP:
             },
         )
 
-    @mcp.tool()
+    @tool
     def healthmodel_delete(
         resource_group: str = "",
         name: str = "",
@@ -114,12 +127,12 @@ def create_server(client: CloudHealthClient) -> FastMCP:
 
     # ── Entity tools ──────────────────────────────────────────────────
 
-    @mcp.tool()
+    @tool
     def entity_list(resource_group: str, model_name: str) -> Any:
         """List all entities in a health model."""
         return ops.entity_list(client, resource_group, model_name)
 
-    @mcp.tool()
+    @tool
     def entity_show(
         resource_group: str = "",
         model_name: str = "",
@@ -131,7 +144,7 @@ def create_server(client: CloudHealthClient) -> FastMCP:
             return ops.entity_show(client, resource_group, model_name, name)
         return _bulk(_do, {"resource_group": resource_group, "model_name": model_name, "name": name, "items": items})
 
-    @mcp.tool()
+    @tool
     def entity_create(
         resource_group: str = "",
         model_name: str = "",
@@ -159,7 +172,7 @@ def create_server(client: CloudHealthClient) -> FastMCP:
             },
         )
 
-    @mcp.tool()
+    @tool
     def entity_delete(
         resource_group: str = "",
         model_name: str = "",
@@ -173,7 +186,7 @@ def create_server(client: CloudHealthClient) -> FastMCP:
 
     # ── Entity Signal tools ───────────────────────────────────────────
 
-    @mcp.tool()
+    @tool
     def entity_signal_list(
         resource_group: str = "",
         model_name: str = "",
@@ -187,7 +200,7 @@ def create_server(client: CloudHealthClient) -> FastMCP:
             )
         return _bulk(_do, {"resource_group": resource_group, "model_name": model_name, "entity_name": entity_name, "items": items})
 
-    @mcp.tool()
+    @tool
     def entity_signal_add(
         resource_group: str = "",
         model_name: str = "",
@@ -220,7 +233,7 @@ def create_server(client: CloudHealthClient) -> FastMCP:
             },
         )
 
-    @mcp.tool()
+    @tool
     def entity_signal_remove(
         resource_group: str = "",
         model_name: str = "",
@@ -250,7 +263,7 @@ def create_server(client: CloudHealthClient) -> FastMCP:
             },
         )
 
-    @mcp.tool()
+    @tool
     def entity_signal_history(
         resource_group: str = "",
         model_name: str = "",
@@ -287,7 +300,7 @@ def create_server(client: CloudHealthClient) -> FastMCP:
             },
         )
 
-    @mcp.tool()
+    @tool
     def entity_signal_ingest(
         resource_group: str = "",
         model_name: str = "",
@@ -339,12 +352,12 @@ def create_server(client: CloudHealthClient) -> FastMCP:
 
     # ── Signal Definition tools ───────────────────────────────────────
 
-    @mcp.tool()
+    @tool
     def signal_definition_list(resource_group: str, model_name: str) -> Any:
         """List all signal definitions in a health model."""
         return ops.signal_list(client, resource_group, model_name)
 
-    @mcp.tool()
+    @tool
     def signal_definition_show(
         resource_group: str = "",
         model_name: str = "",
@@ -356,7 +369,7 @@ def create_server(client: CloudHealthClient) -> FastMCP:
             return ops.signal_show(client, resource_group, model_name, name)
         return _bulk(_do, {"resource_group": resource_group, "model_name": model_name, "name": name, "items": items})
 
-    @mcp.tool()
+    @tool
     def signal_definition_create(
         resource_group: str = "",
         model_name: str = "",
@@ -375,7 +388,7 @@ def create_server(client: CloudHealthClient) -> FastMCP:
             return ops.signal_create(client, resource_group, model_name, name, body)
         return _bulk(_do, {"resource_group": resource_group, "model_name": model_name, "name": name, "body": body, "items": items})
 
-    @mcp.tool()
+    @tool
     def signal_definition_delete(
         resource_group: str = "",
         model_name: str = "",
@@ -389,12 +402,12 @@ def create_server(client: CloudHealthClient) -> FastMCP:
 
     # ── Relationship tools ────────────────────────────────────────────
 
-    @mcp.tool()
+    @tool
     def relationship_list(resource_group: str, model_name: str) -> Any:
         """List all relationships in a health model."""
         return ops.relationship_list(client, resource_group, model_name)
 
-    @mcp.tool()
+    @tool
     def relationship_create(
         resource_group: str = "",
         model_name: str = "",
@@ -427,7 +440,7 @@ def create_server(client: CloudHealthClient) -> FastMCP:
             },
         )
 
-    @mcp.tool()
+    @tool
     def relationship_delete(
         resource_group: str = "",
         model_name: str = "",
@@ -441,12 +454,12 @@ def create_server(client: CloudHealthClient) -> FastMCP:
 
     # ── Auth Settings tools ───────────────────────────────────────────
 
-    @mcp.tool()
+    @tool
     def auth_list(resource_group: str, model_name: str) -> Any:
         """List all authentication settings in a health model."""
         return ops.auth_list(client, resource_group, model_name)
 
-    @mcp.tool()
+    @tool
     def auth_create(
         resource_group: str = "",
         model_name: str = "",
@@ -476,7 +489,7 @@ def create_server(client: CloudHealthClient) -> FastMCP:
             },
         )
 
-    @mcp.tool()
+    @tool
     def auth_delete(
         resource_group: str = "",
         model_name: str = "",
@@ -490,7 +503,7 @@ def create_server(client: CloudHealthClient) -> FastMCP:
 
     # ── Signal Execution tool ─────────────────────────────────────────
 
-    @mcp.tool()
+    @tool
     def signal_definition_execute(
         resource_group: str = "",
         model_name: str = "",

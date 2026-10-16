@@ -1,12 +1,12 @@
 import { test, expect } from '@playwright/test';
+import { enterLevel, startChallenge } from '../navigation';
 
 test.describe('Level 1: Confirmshaming — Automation defeats guilt-trip', () => {
   test('identifies manipulative decline text and clicks it anyway', async ({ page }) => {
-    await page.goto('/');
-    await page.getByTestId('start-challenge').click();
+    await startChallenge(page);
 
     // Navigate to Level 1
-    await page.getByTestId('level-link-1').click();
+    await enterLevel(page, 1);
 
     // Wait for the confirmshaming popup
     const popup = page.getByTestId('confirmshaming-popup');
@@ -28,10 +28,8 @@ test.describe('Level 1: Confirmshaming — Automation defeats guilt-trip', () =>
   });
 
   test('accept button is visually prominent (larger, colored)', async ({ page }) => {
-    // Must visit welcome + hub first to create a user in localStorage
-    await page.goto('/');
-    await page.getByTestId('start-challenge').click();
-    await page.getByTestId('level-link-1').click();
+    await startChallenge(page);
+    await enterLevel(page, 1);
 
     const acceptBtn = page.getByTestId('accept-button');
     const declineBtn = page.getByTestId('decline-button');

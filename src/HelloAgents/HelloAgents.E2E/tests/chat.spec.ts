@@ -438,11 +438,64 @@ test.describe('SSE Delivery', () => {
     // Give SSE time to connect
     await page.waitForTimeout(1_500);
 
-    // Trigger discussion — new code returns 202, responses ONLY via SSE
-    await page.getByRole('button', { name: /Start Discussion/ }).click();
+    type Message = {
+      id: string;
+      senderName: string;
+      senderType: string;
+      eventType: string;
+      content: string;
+      timestamp: string;
+    };
+    const readMessages = async (): Promise<Message[]> => {
+      const response = await request.get(`${apiBaseURL}/api/groups/${group.id}`);
+      expect(response.status()).toBe(200);
+      const detail: { messages: Message[] } = await response.json();
+      return detail.messages;
+    };
+    const previousIds = new Set((await readMessages()).map(message => message.id));
+    const topic = uid('SSE-discuss-topic');
+    await page.getByPlaceholder('Discussion topic...').fill(topic);
 
-    // Agent response can ONLY arrive via SSE (discuss is async)
-    await expect(page.getByTestId('chat-messages').getByText(agentName, { exact: true })).toBeVisible({ timeout: 60_000 });
+    // Browser snapshots must not supply the new reply; the API client only identifies it.
+    await page.route(
+      url => url.pathname === '/api/groups' || url.pathname === `/api/groups/${group.id}`,
+      route => route.request().method() === 'GET' ? route.abort() : route.continue(),
+    );
+
+    const discussionResponse = page.waitForResponse(response =>
+      response.url() === `${apiBaseURL}/api/groups/${group.id}/discuss`
+      && response.request().method() === 'POST',
+    );
+    const responseDeadline = Date.now() + 60_000;
+    await page.getByRole('button', { name: /Start Discussion/ }).click();
+    expect((await discussionResponse).status()).toBe(202);
+
+    const observed: { reply?: Message } = {};
+    await expect.poll(async () => {
+      const messages = await readMessages();
+      const trigger = messages.find(message =>
+        !previousIds.has(message.id)
+        && message.senderType === 'System'
+        && message.content === topic,
+      );
+      if (!trigger) return false;
+      observed.reply = messages.find(message =>
+        !previousIds.has(message.id)
+        && message.senderType === 'Agent'
+        && message.senderName === agentName
+        && message.eventType === 'Message'
+        && Date.parse(message.timestamp) >= Date.parse(trigger.timestamp),
+      );
+      return observed.reply !== undefined;
+    }, { timeout: Math.max(1, responseDeadline - Date.now()) }).toBe(true);
+
+    const reply = observed.reply;
+    if (!reply) throw new Error('Discussion response identity was not observed.');
+    const card = page.getByTestId('chat-messages').getByTestId(`chat-message-${reply.id}`);
+    await expect(card).toBeVisible({ timeout: Math.max(1, responseDeadline - Date.now()) });
+    await expect(card).toHaveCount(1);
+    await expect(card.getByText(agentName, { exact: true })).toBeVisible();
+    await expect(card.locator('p')).toHaveText(reply.content);
     await expect(page.getByRole('button', { name: /Start Discussion/ })).toBeEnabled({ timeout: 5_000 });
   });
 
