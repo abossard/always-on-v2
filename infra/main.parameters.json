@@ -9,6 +9,8 @@
     "cosmosAutoscaleMaxThroughput": { "value": 1000 },
     "cosmosMode": { "value": "Serverless" },
     "eventHubsSku": { "value": "Standard" },
+    "devIdentities": { "value": ["${AZURE_PRINCIPAL_ID}"] },
+    "ciServicePrincipalId": { "value": "${CI_SERVICE_PRINCIPAL_ID}" },
     "enableLoadTesting": { "value": false },
     "logRetentionDays": { "value": 30 },
     "enableFlux": { "value": false },
@@ -21,6 +23,19 @@
           "location": "swedencentral",
           "stampDefaults": {
             "aksNodeVmSize": "Standard_D2s_v5",
+            "aksSystemNodeCount": 1,
+            "aksAvailabilityZones": [],
+            "aksTier": "Free",
+            "aksIngressType": "External",
+            "aksUseSpot": true
+          },
+          "stamps": [{ "key": "001" }]
+        },
+        {
+          "key": "eastus2",
+          "location": "eastus2",
+          "stampDefaults": {
+            "aksNodeVmSize": "Standard_D2s_v6",
             "aksSystemNodeCount": 1,
             "aksAvailabilityZones": [],
             "aksTier": "Free",

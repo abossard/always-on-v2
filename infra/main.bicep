@@ -62,7 +62,7 @@ param devIdentities array = [
   'c64dabd5-242b-481b-ac5d-92be5c683e9f' // anbossar
 ]
 
-@description('Service principal object ID for CI/CD (GitHub Actions OIDC). Gets Cognitive Services OpenAI User role.')
+@description('Service principal object ID for CI/CD (GitHub Actions OIDC). Optional for local azd runs. When empty, CI OpenAI RBAC assignment is skipped.')
 param ciServicePrincipalId string = '48b36630-1f18-4c06-9dc2-62c4a26c894e' // msi-always-on-v2
 
 @description('Enable Flux GitOps on AKS clusters. Set to false for azd-only deployments (hooks deploy via kubectl).')
@@ -284,13 +284,12 @@ module ai 'ai.bicep' = {
     baseName: baseName
     location: globalLocation
     appInsightsId: global.outputs.appInsightsId
-    appIdentityPrincipalIds: [
+    appIdentityPrincipalIds: concat([
       appInfra[0].outputs.identityPrincipalId
       appInfra[1].outputs.identityPrincipalId
       appInfra[2].outputs.identityPrincipalId
       appInfra[3].outputs.identityPrincipalId
-      ciServicePrincipalId
-    ]
+    ], empty(ciServicePrincipalId) ? [] : [ciServicePrincipalId])
     enablePrivateEndpoints: enablePrivateEndpoints
   }
 }

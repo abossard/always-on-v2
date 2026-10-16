@@ -35,6 +35,54 @@ done
 
 echo "✅ Pre-provision: env name '$ENV_NAME' is safe (no collision with production)"
 
+# ── Dev principal guardrail ───────────────────────────────────
+# devIdentities is bound from ${AZURE_PRINCIPAL_ID} in infra/main.parameters.json.
+# Fail fast if the env value is missing or does not match the current signed-in user
+# in the selected tenant.
+DEPLOYER_PRINCIPAL_ID="${AZURE_PRINCIPAL_ID:-}"
+if [ -z "$DEPLOYER_PRINCIPAL_ID" ]; then
+  echo "❌ AZURE_PRINCIPAL_ID is empty. Set it in the azd environment before provisioning."
+  echo "   Example: azd env set AZURE_PRINCIPAL_ID <entra-object-id>"
+  exit 1
+fi
+
+CLI_USER_TYPE="$(az account show --query 'user.type' -o tsv 2>/dev/null || echo "")"
+if [ "$CLI_USER_TYPE" != "user" ]; then
+  echo "❌ Azure CLI is not signed in as a user principal (user.type=$CLI_USER_TYPE)."
+  echo "   This deployment expects AZURE_PRINCIPAL_ID to be a user object ID."
+  exit 1
+fi
+
+ENV_TENANT_ID="${AZURE_TENANT_ID:-}"
+CLI_TENANT_ID="$(az account show --query tenantId -o tsv 2>/dev/null || echo "")"
+if [ -z "$ENV_TENANT_ID" ] || [ -z "$CLI_TENANT_ID" ]; then
+  echo "❌ Tenant validation failed: AZURE_TENANT_ID or CLI tenantId is empty."
+  exit 1
+fi
+
+if [ "$ENV_TENANT_ID" != "$CLI_TENANT_ID" ]; then
+  echo "❌ AZURE_TENANT_ID does not match the active Azure CLI tenant."
+  echo "   AZURE_TENANT_ID=$ENV_TENANT_ID"
+  echo "   cli_tenant_id=$CLI_TENANT_ID"
+  echo "   Fix: azd env set AZURE_TENANT_ID $CLI_TENANT_ID"
+  exit 1
+fi
+
+CLI_USER_OBJECT_ID="$(az ad signed-in-user show --query id -o tsv 2>/dev/null || echo "")"
+if [ -z "$CLI_USER_OBJECT_ID" ]; then
+  echo "❌ Could not resolve signed-in user object ID from Microsoft Graph."
+  exit 1
+fi
+
+if [ "$DEPLOYER_PRINCIPAL_ID" != "$CLI_USER_OBJECT_ID" ]; then
+  echo "❌ AZURE_PRINCIPAL_ID does not match the signed-in user object ID."
+  echo "   AZURE_PRINCIPAL_ID=$DEPLOYER_PRINCIPAL_ID"
+  echo "   signed_in_user_id=$CLI_USER_OBJECT_ID"
+  echo "   Fix: azd env set AZURE_PRINCIPAL_ID $CLI_USER_OBJECT_ID"
+  exit 1
+fi
+echo "✅ Pre-provision: AZURE_PRINCIPAL_ID matches signed-in user object ID"
+
 # ── Public access ─────────────────────────────────────────────
 # Private endpoints are the default (enablePrivateEndpoints=true): backing
 # services stay private, so we no longer re-enable public network access here.

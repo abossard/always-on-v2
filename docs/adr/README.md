@@ -78,6 +78,7 @@ This directory contains all Architecture Decision Records (ADRs) for the AlwaysO
 | [ADR-0060](0060-console-log-level-warning-only-DI.md) | Console Log Level — Warning Only | Accepted | DI |
 | [ADR-0060](0060-prometheus-scraping-strategy-UI.md) | Prometheus Scraping Strategy | Proposed | UI |
 | [ADR-0063](0063-cross-stamp-streaming-UNI.md) | Cross-Stamp / Cross-Region Live Streaming | Proposed | UNI |
+| [ADR-0064](0064-two-region-deployment-UI.md) | Two-Region Deployment and Verification Record | In progress | UI |
 
 ## Format
 

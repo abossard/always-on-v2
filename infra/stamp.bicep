@@ -302,7 +302,7 @@ resource aksCluster 'Microsoft.ContainerService/managedClusters@2026-01-01' = {
     serviceMeshProfile: {
       mode: 'Istio'
       istio: {
-        revisions: ['asm-1-28']
+        revisions: ['asm-1-29']
         components: {
           ingressGateways: [
             {
@@ -368,7 +368,7 @@ resource aksClusterAdminRoleAssignment 'Microsoft.Authorization/roleAssignments@
 // Maintenance Windows — Sunday afternoon CET
 // ============================================================================
 
-resource autoUpgradeMaintenanceWindow 'Microsoft.ContainerService/managedClusters/maintenanceConfigurations@2024-09-02-preview' = {
+resource autoUpgradeMaintenanceWindow 'Microsoft.ContainerService/managedClusters/maintenanceConfigurations@2024-09-01' = {
   parent: aksCluster
   name: 'aksManagedAutoUpgradeSchedule'
   properties: {
@@ -387,7 +387,7 @@ resource autoUpgradeMaintenanceWindow 'Microsoft.ContainerService/managedCluster
   }
 }
 
-resource nodeOSMaintenanceWindow 'Microsoft.ContainerService/managedClusters/maintenanceConfigurations@2024-09-02-preview' = {
+resource nodeOSMaintenanceWindow 'Microsoft.ContainerService/managedClusters/maintenanceConfigurations@2024-09-01' = {
   parent: aksCluster
   name: 'aksManagedNodeOSUpgradeSchedule'
   properties: {
