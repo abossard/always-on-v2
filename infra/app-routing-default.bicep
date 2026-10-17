@@ -7,6 +7,9 @@
 @description('App name (used for Azure resource naming).')
 param appName string
 
+@description('Base environment name used for deterministic DNS label qualification.')
+param baseName string
+
 @description('All stamps: array of { regionKey, stampKey, location }.')
 param stamps array
 
@@ -15,6 +18,8 @@ param probePath string = '/'
 
 @description('Front Door profile name.')
 param frontDoorName string
+
+import { gatewayCloudappHostname } from 'naming.bicep'
 
 // ============================================================================
 // Existing resources
@@ -60,16 +65,16 @@ resource originGroup 'Microsoft.Cdn/profiles/originGroups@2025-04-15' = {
   }
 }
 
-// One origin per stamp using Azure-provided DNS label
+// One origin per stamp using the same qualified DNS label formula as stamp Flux vars.
 resource origins 'Microsoft.Cdn/profiles/originGroups/origins@2025-04-15' = [
   for stamp in stamps: {
     parent: originGroup
     name: 'origin-${stamp.regionKey}-${stamp.stampKey}'
     properties: {
-      hostName: '${appName}-${stamp.regionKey}-${stamp.stampKey}.${stamp.location}.cloudapp.azure.com'
+      hostName: gatewayCloudappHostname(appName, baseName, stamp.regionKey, stamp.stampKey, stamp.location)
       httpPort: 80
       httpsPort: 443
-      originHostHeader: '${appName}-${stamp.regionKey}-${stamp.stampKey}.${stamp.location}.cloudapp.azure.com'
+      originHostHeader: gatewayCloudappHostname(appName, baseName, stamp.regionKey, stamp.stampKey, stamp.location)
       priority: 1
       weight: 1000
       enabledState: 'Enabled'

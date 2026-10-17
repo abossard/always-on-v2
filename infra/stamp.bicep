@@ -29,6 +29,12 @@ param fluxGitRepoUrl string
 @description('Enable Flux GitOps extension and configuration on the AKS cluster.')
 param enableFlux bool = true
 
+@description('Enable custom-domain routing mode. False means cloudapp origin mode.')
+param enableCustomDomain bool = true
+
+@description('Enable HelloOrleons API docs in non-development environments.')
+param enableHelloOrleonsApiDocs bool = false
+
 // ── Flux postBuild substitution values (injected from main.bicep) ─────────────
 @description('ACR login server hostname.')
 param acrLoginServer string
@@ -101,6 +107,7 @@ param aiHubId string = ''
 
 import {
   aksClusterName
+  gatewayDnsLabel
   helloAgentsStorageName
   graphOrleonsStorageName
 } from 'naming.bicep'
@@ -136,8 +143,11 @@ module stampNetwork 'modules/stamp-network.bicep' = if (enablePrivateEndpoints) 
   params: {
     baseName: baseName
     stampName: stampName
+    regionKey: regionKey
     location: location
     addressPrefix: stampVnetAddressPrefix
+    enableCustomDomain: enableCustomDomain
+    aksIngressType: aksIngressType
   }
 }
 
@@ -674,6 +684,10 @@ module peAiHub 'modules/private-endpoint.bicep' = if (enablePrivateEndpoints) {
 var githubSshKnownHosts = 'Z2l0aHViLmNvbSBlY2RzYS1zaGEyLW5pc3RwMjU2IEFBQUFFMlZqWkhOaExYTm9ZVEl0Ym1semRIQXlOVFlBQUFBSWJtbHpkSEF5TlRZQUFBQkJCRW1LU0VOalFFZXpPbXhrWk15N29wS2d3RkI5bmt0NVlScllNak51RzVOODd1UmdnNkNMcmJvNXdBZFQveTZ2MG1LVjBVMncwV1oyWUIvKytUcG9ja2c9'
 
 var gatewayHostnameSuffix = empty(dnsZoneName) ? '${location}.cloudapp.azure.com' : dnsZoneName
+var helloOrleonsGatewayDnsLabel = empty(dnsZoneName) ? gatewayDnsLabel('helloorleons', baseName, regionKey, stampKey) : 'helloorleons-${stampName}'
+var darkuxGatewayDnsLabel = empty(dnsZoneName) ? gatewayDnsLabel('darkux', baseName, regionKey, stampKey) : 'darkux-${stampName}'
+var helloAgentsGatewayDnsLabel = empty(dnsZoneName) ? gatewayDnsLabel('helloagents', baseName, regionKey, stampKey) : 'helloagents-${stampName}'
+var graphOrleonsGatewayDnsLabel = empty(dnsZoneName) ? gatewayDnsLabel('graphorleons', baseName, regionKey, stampKey) : 'graphorleons-${stampName}'
 
 // Shared vars (available to all apps)
 var sharedFluxVars = {
@@ -681,6 +695,10 @@ var sharedFluxVars = {
   REGION: regionKey
   STAMP_KEY: stampKey
   LOCATION: location
+  ENABLE_FLUX: enableFlux ? 'true' : 'false'
+  ENABLE_CUSTOM_DOMAIN: enableCustomDomain ? 'true' : 'false'
+  YAML_QUOTE: '"'
+  HELLOORLEONS_API_DOCS_ENABLED: enableHelloOrleonsApiDocs ? 'true' : 'false'
   ACR_LOGIN_SERVER: acrLoginServer
   COSMOS_ENDPOINT: cosmosEndpoint
   APPLICATIONINSIGHTS_CONNECTION_STRING: appInsightsConnectionString
@@ -715,8 +733,8 @@ var helloOrleonsFluxVars = length(appFluxVars) > 0 && appFluxVars[0].name == 'he
   HELLOORLEONS_COSMOS_DATABASE: appFluxVars[0].cosmosDatabase
   HELLOORLEONS_COSMOS_CONTAINER: appFluxVars[0].cosmosContainer
   HELLOORLEONS_ORLEANS_CLUSTER_CONTAINER: stampCosmos.outputs.orleansContainers.helloorleonsCluster
-  HELLOORLEONS_DNS_LABEL: 'helloorleons-${stampName}'
-  HELLOORLEONS_GATEWAY_HOSTNAME: 'helloorleons-${stampName}.${gatewayHostnameSuffix}'
+  HELLOORLEONS_DNS_LABEL: helloOrleonsGatewayDnsLabel
+  HELLOORLEONS_GATEWAY_HOSTNAME: '${helloOrleonsGatewayDnsLabel}.${gatewayHostnameSuffix}'
 } : {}
 
 var darkuxFluxVars = length(appFluxVars) > 1 && appFluxVars[1].name == 'darkux' ? {
@@ -726,8 +744,8 @@ var darkuxFluxVars = length(appFluxVars) > 1 && appFluxVars[1].name == 'darkux' 
   DARKUX_IDENTITY_ID: appFluxVars[1].identityId
   DARKUX_COSMOS_DATABASE: appFluxVars[1].cosmosDatabase
   DARKUX_COSMOS_CONTAINER: appFluxVars[1].cosmosContainer
-  DARKUX_DNS_LABEL: 'darkux-${stampName}'
-  DARKUX_GATEWAY_HOSTNAME: 'darkux-${stampName}.${gatewayHostnameSuffix}'
+  DARKUX_DNS_LABEL: darkuxGatewayDnsLabel
+  DARKUX_GATEWAY_HOSTNAME: '${darkuxGatewayDnsLabel}.${gatewayHostnameSuffix}'
 } : {}
 
 var helloAgentsFluxVars = length(appFluxVars) > 2 && appFluxVars[2].name == 'helloagents' ? {
@@ -739,8 +757,8 @@ var helloAgentsFluxVars = length(appFluxVars) > 2 && appFluxVars[2].name == 'hel
   HELLOAGENTS_COSMOS_CONTAINER: appFluxVars[2].cosmosContainer
   HELLOAGENTS_ORLEANS_CLUSTER_CONTAINER: stampCosmos.outputs.orleansContainers.helloagentsCluster
   HELLOAGENTS_STORAGE_QUEUE_ENDPOINT: helloAgentsStorage.properties.primaryEndpoints.queue
-  HELLOAGENTS_DNS_LABEL: 'helloagents-${stampName}'
-  HELLOAGENTS_GATEWAY_HOSTNAME: 'helloagents-${stampName}.${gatewayHostnameSuffix}'
+  HELLOAGENTS_DNS_LABEL: helloAgentsGatewayDnsLabel
+  HELLOAGENTS_GATEWAY_HOSTNAME: '${helloAgentsGatewayDnsLabel}.${gatewayHostnameSuffix}'
 } : {}
 
 var graphorleonsFluxVars = length(appFluxVars) > 3 && appFluxVars[3].name == 'graphorleons' ? {
@@ -755,8 +773,8 @@ var graphorleonsFluxVars = length(appFluxVars) > 3 && appFluxVars[3].name == 'gr
   GRAPHORLEONS_COSMOS_MODELS_CONTAINER: appFluxVars[3].cosmosModelsContainer
   GRAPHORLEONS_EVENTHUB_ENDPOINT: appFluxVars[3].eventHubEndpoint
   GRAPHORLEONS_STORAGE_QUEUE_ENDPOINT: graphOrleonsStorage.properties.primaryEndpoints.queue
-  GRAPHORLEONS_DNS_LABEL: 'graphorleons-${stampName}'
-  GRAPHORLEONS_GATEWAY_HOSTNAME: 'graphorleons-${stampName}.${gatewayHostnameSuffix}'
+  GRAPHORLEONS_DNS_LABEL: graphOrleonsGatewayDnsLabel
+  GRAPHORLEONS_GATEWAY_HOSTNAME: '${graphOrleonsGatewayDnsLabel}.${gatewayHostnameSuffix}'
 } : {}
 
 var fluxSubstitute = union(sharedFluxVars, helloOrleonsFluxVars, darkuxFluxVars, helloAgentsFluxVars, graphorleonsFluxVars)

@@ -41,6 +41,14 @@ func childDnsZoneName(regionKey string, domainName string) string =>
   '${regionKey}.${domainName}'
 
 @export()
+func gatewayDnsLabel(appName string, baseName string, regionKey string, stampKey string) string =>
+  '${appName}-${substring(uniqueString(subscription().id, baseName), 0, 6)}-${regionKey}-${stampKey}'
+
+@export()
+func gatewayCloudappHostname(appName string, baseName string, regionKey string, stampKey string, location string) string =>
+  '${gatewayDnsLabel(appName, baseName, regionKey, stampKey)}.${location}.cloudapp.azure.com'
+
+@export()
 func originHostname(appName string, regionKey string, stampKey string, domainName string) string =>
   '${appName}-${regionKey}-${stampKey}.${regionKey}.${domainName}:443'
 

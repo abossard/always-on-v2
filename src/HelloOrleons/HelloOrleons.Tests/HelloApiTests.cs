@@ -1,4 +1,7 @@
 using System.Net;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Hosting;
 
 namespace HelloOrleons.Tests;
 
@@ -52,5 +55,28 @@ public abstract class HelloApiTests(HttpClient client)
 
         var result2 = await api.SayHello(name2);
         await Assert.That(result2!.Count).IsEqualTo(2);
+    }
+
+    [Test]
+    [Arguments("Development", false, true)]
+    [Arguments("Production", false, false)]
+    [Arguments("Production", true, true)]
+    public async Task ApiDocsEnabledPolicyFollowsEnvironmentAndConfig(
+        string environmentName,
+        bool apiDocsEnabled,
+        bool expected)
+    {
+        var builder = WebApplication.CreateSlimBuilder(new WebApplicationOptions
+        {
+            EnvironmentName = environmentName
+        });
+        builder.Configuration.AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["AlwaysOn:ApiDocsEnabled"] = apiDocsEnabled.ToString()
+        });
+
+        await using var app = builder.Build();
+
+        await Assert.That(app.IsApiDocsEnabled()).IsEqualTo(expected);
     }
 }

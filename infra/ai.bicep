@@ -27,6 +27,10 @@ param enablePrivateEndpoints bool = false
 @description('Default deployment name for apps. Must be one of models[].name.')
 param defaultModelName string = 'gpt-41-mini'
 
+@description('GlobalStandard capacity units for gpt-41-mini.')
+@minValue(1)
+param gpt41MiniCapacity int = 10
+
 @description('Model deployments to create. Each entry: { name, modelName, modelVersion, skuName, skuCapacity }.')
 param models array = [
   {
@@ -43,7 +47,7 @@ param models array = [
     modelVersion: '2025-04-14'
     modelFormat: 'OpenAI'
     skuName: 'GlobalStandard'
-    skuCapacity: 10
+    skuCapacity: gpt41MiniCapacity
   }
   {
     name: 'gpt-41-nano'

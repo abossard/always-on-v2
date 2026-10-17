@@ -14,11 +14,24 @@ param baseName string
 @description('Stamp name (regionKey-stampKey), used in resource naming.')
 param stampName string
 
+@description('Region key (short name, e.g. swedencentral), used in naming.')
+param regionKey string
+
 @description('Location for the VNet.')
 param location string
 
 @description('Per-stamp VNet address space (CIDR). Carved into subnets below.')
 param addressPrefix string
+
+@description('Enable custom-domain routing mode. False means cloudapp origin mode.')
+param enableCustomDomain bool
+
+@description('AKS ingress mode. External uses public LB, Internal uses private LB.')
+@allowed([
+  'External'
+  'Internal'
+])
+param aksIngressType string
 
 // ── Subnet math via Bicep native CIDR functions ──────────────────────────────
 // aks  = first /22 of the space (node NICs; pods use overlay IPs)
@@ -29,6 +42,41 @@ var peSubnetPrefix = cidrSubnet(addressPrefix, 24, 4)
 
 var aksSubnetName = 'aks'
 var peSubnetName = 'private-endpoints'
+var aksSubnetNsgName = 'vnet-${baseName}-${stampName}-aks-nsg-${regionKey}'
+var peSubnetNsgName = 'vnet-${baseName}-${stampName}-${peSubnetName}-nsg-${regionKey}'
+var frontDoorDestinationPorts = enableCustomDomain ? [
+  '80'
+  '443'
+] : [
+  '80'
+]
+
+resource aksSubnetNsg 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
+  name: aksSubnetNsgName
+  location: location
+  properties: {
+    securityRules: aksIngressType == 'External' ? [
+      {
+        name: 'allow-frontdoor-backend-http'
+        properties: {
+          access: 'Allow'
+          direction: 'Inbound'
+          priority: 500
+          protocol: 'Tcp'
+          sourcePortRange: '*'
+          destinationPortRanges: frontDoorDestinationPorts
+          sourceAddressPrefix: 'AzureFrontDoor.Backend'
+          destinationAddressPrefix: '*'
+        }
+      }
+    ] : []
+  }
+}
+
+resource peSubnetNsg 'Microsoft.Network/networkSecurityGroups@2024-05-01' = {
+  name: peSubnetNsgName
+  location: location
+}
 
 resource vnet 'Microsoft.Network/virtualNetworks@2024-05-01' = {
   name: 'vnet-${baseName}-${stampName}'
@@ -44,6 +92,9 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-05-01' = {
         name: aksSubnetName
         properties: {
           addressPrefix: aksSubnetPrefix
+          networkSecurityGroup: {
+            id: aksSubnetNsg.id
+          }
         }
       }
       {
@@ -51,6 +102,9 @@ resource vnet 'Microsoft.Network/virtualNetworks@2024-05-01' = {
         properties: {
           addressPrefix: peSubnetPrefix
           privateEndpointNetworkPolicies: 'Disabled'
+          networkSecurityGroup: {
+            id: peSubnetNsg.id
+          }
         }
       }
     ]

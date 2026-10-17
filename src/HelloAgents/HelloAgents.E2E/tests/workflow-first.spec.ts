@@ -599,8 +599,6 @@ test.describe('Workflow-first: HITL prompt cards in chat', () => {
     test.setTimeout(120_000);
 
     const group = await createGroupViaAPI(request, uid('WF6HitlMsgGrp'));
-    const agent = await createAgentViaAPI(request, uid('PreHitl'), 'Pre-HITL agent', '🧠');
-    await addAgentToGroupViaAPI(request, group.id, agent.id);
 
     const hitlNodeId = 'hitl_review';
     const promptText = 'Please review and confirm the agent output.';
@@ -608,7 +606,7 @@ test.describe('Workflow-first: HITL prompt cards in chat', () => {
       uid('wf-hitl-msg'),
       'HITL chat message',
       [
-        { id: 'agent1', type: 'agent', agentId: agent.id },
+        { id: 'agent1', type: 'tool', toolName: 'calculator', config: { input: '2+2' } },
         { id: hitlNodeId, type: 'hitl', config: { prompt: promptText } },
       ],
       [{ fromNodeId: 'agent1', toNodeId: hitlNodeId }],
@@ -641,8 +639,6 @@ test.describe('Workflow-first: HITL prompt cards in chat', () => {
 
     const groupName = uid('WF6HitlCardGrp');
     const group = await createGroupViaAPI(request, groupName);
-    const agent = await createAgentViaAPI(request, uid('PreHitl'), 'Pre-HITL agent', '🧠');
-    await addAgentToGroupViaAPI(request, group.id, agent.id);
 
     const hitlNodeId = 'hitl_card';
     const promptText = 'Approve the next step?';
@@ -650,7 +646,7 @@ test.describe('Workflow-first: HITL prompt cards in chat', () => {
       uid('wf-hitl-card'),
       'HITL card',
       [
-        { id: 'agent1', type: 'agent', agentId: agent.id },
+        { id: 'agent1', type: 'tool', toolName: 'calculator', config: { input: '12*3' } },
         { id: hitlNodeId, type: 'hitl', config: { prompt: promptText } },
       ],
       [{ fromNodeId: 'agent1', toNodeId: hitlNodeId }],
@@ -683,8 +679,6 @@ test.describe('Workflow-first: HITL prompt cards in chat', () => {
 
     const groupName = uid('WF6HitlSubmitGrp');
     const group = await createGroupViaAPI(request, groupName);
-    const agent = await createAgentViaAPI(request, uid('PreHitl'), 'Pre-HITL agent', '🧠');
-    await addAgentToGroupViaAPI(request, group.id, agent.id);
 
     const hitlNodeId = 'hitl_submit';
     const promptText = 'Confirm to proceed.';
@@ -692,7 +686,7 @@ test.describe('Workflow-first: HITL prompt cards in chat', () => {
       uid('wf-hitl-submit'),
       'HITL submit',
       [
-        { id: 'agent1', type: 'agent', agentId: agent.id },
+        { id: 'agent1', type: 'tool', toolName: 'calculator', config: { input: '10/2' } },
         { id: hitlNodeId, type: 'hitl', config: { prompt: promptText } },
       ],
       [{ fromNodeId: 'agent1', toNodeId: hitlNodeId }],
@@ -723,24 +717,22 @@ test.describe('Workflow-first: HITL prompt cards in chat', () => {
     await waitForNodeStatus(request, group.id, hitlNodeId, 'done', 60_000);
   });
 
-  test('Test 6.4: HITL card shows predecessor context', async ({ page, request }) => {
+  test('Test 6.4: HITL card shows predecessor tool context', async ({ page, request }) => {
     test.setTimeout(120_000);
 
     const groupName = uid('WF6CtxGrp');
     const group = await createGroupViaAPI(request, groupName);
-    const agent = await createAgentViaAPI(request, uid('CtxAgent'), 'Always responds with a clear answer', '🧠');
-    await addAgentToGroupViaAPI(request, group.id, agent.id);
 
     const wf = buildWorkflow(uid('wf-ctx'), 'Context test', [
-      { id: 'agent1', type: 'agent', agentId: agent.id },
-      { id: 'hitl1', type: 'hitl', config: { prompt: 'Review the agent output above and approve.' } },
+      { id: 'agent1', type: 'tool', toolName: 'calculator', config: { input: '7+8' } },
+      { id: 'hitl1', type: 'hitl', config: { prompt: 'Review the predecessor output above and approve.' } },
     ], [{ fromNodeId: 'agent1', toNodeId: 'hitl1' }]);
     await putWorkflowViaAPI(request, group.id, wf);
 
     await executeWorkflowViaAPI(request, group.id, 'Tell me about cats');
     await waitForNodeStatus(request, group.id, 'hitl1', 'awaiting_hitl', 60_000);
 
-    // Verify agent1 has a result
+    // Verify predecessor node has a result
     const exec = await getCurrentExecutionViaAPI(request, group.id);
     expect(exec).not.toBeNull();
     expect(exec!.nodeStates.agent1.status).toBe('done');
@@ -758,7 +750,7 @@ test.describe('Workflow-first: HITL prompt cards in chat', () => {
     const context = card.locator('[data-test-id="hitl-predecessor-context"]');
     await expect(context).toBeVisible({ timeout: 10_000 });
 
-    // Should contain some text from the agent's response
+    // Should contain some text from the predecessor output
     await expect(context).not.toBeEmpty();
 
     // Should show the predecessor node identifier

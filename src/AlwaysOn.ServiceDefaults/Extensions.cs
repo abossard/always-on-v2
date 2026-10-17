@@ -20,6 +20,8 @@ namespace Microsoft.Extensions.Hosting;
 
 public static class ServiceDefaultsExtensions
 {
+    const string ApiDocsEnabledConfigKey = "AlwaysOn:ApiDocsEnabled";
+
     public static IHostApplicationBuilder AddServiceDefaults(this IHostApplicationBuilder builder)
     {
         builder.ConfigureOpenTelemetry();
@@ -41,6 +43,10 @@ public static class ServiceDefaultsExtensions
         if (app.Environment.IsDevelopment())
         {
             app.MapHealthChecks("/alive", new HealthCheckOptions { Predicate = r => r.Tags.Contains("live") });
+        }
+
+        if (app.IsApiDocsEnabled())
+        {
             app.MapOpenApi();
             app.MapScalarApiReference();
         }
@@ -48,6 +54,12 @@ public static class ServiceDefaultsExtensions
         app.MapHealthChecks("/health");
 
         return app;
+    }
+
+    public static bool IsApiDocsEnabled(this WebApplication app)
+    {
+        return app.Environment.IsDevelopment() ||
+               app.Configuration.GetValue(ApiDocsEnabledConfigKey, false);
     }
 
     static IHostApplicationBuilder ConfigureOpenTelemetry(this IHostApplicationBuilder builder)

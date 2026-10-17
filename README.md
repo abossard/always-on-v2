@@ -9,8 +9,8 @@ azd auth login
 azd up
 ```
 
-That deploys a **single stamp** in one region. Scaling to two stamps or two regions is one
-small edit (see [Deploy](#deploy-with-azure-developer-cli-azd)).
+The current azd sample configures **two stamps**, one in Sweden Central and one in East US 2.
+Change the topology in the `regions` array (see [Deploy](#deploy-with-azure-developer-cli-azd)).
 
 - 📦 **What's inside** → [FEATURES.md](FEATURES.md) — every app, tool, and platform feature, with links and sources.
 - 🏭 **CI/CD, Flux & production topology** → [ci-cd/](ci-cd/README.md).
@@ -129,7 +129,8 @@ azd env new my-dev --location swedencentral --subscription <subscription-id>
 azd up
 ```
 
-After ~15 minutes every app is live at its Front Door HTTPS endpoint (printed at the end).
+After provisioning and application rollouts succeed, each app is available at its Front Door
+HTTPS endpoint printed by the deploy hook.
 
 > **⚠️ Don't name the env `alwayson`** — it collides with the production `baseName`. The
 > `preprovision` hook blocks it. Use any other name (`my-dev`, `test`, `demo`).
@@ -151,14 +152,17 @@ azd up
                        verifies health, prints Front Door endpoints
 ```
 
-### Stamps & regions — start with one
+### Stamps & regions
 
 The topology is **data** in [`infra/main.parameters.json`](infra/main.parameters.json) (the
 `regions` array). Stamps and regions are added by editing that array — the hooks and Bicep
 iterate over whatever you declare, so a single stamp "just works".
 
-**Default (shipped): 1 region, 1 stamp.** This is what most people want — lowest cost
-(Serverless Cosmos, Free AKS tier, spot workers), one region.
+**Current azd sample: 2 regions, 1 stamp per region.** Sweden Central uses `Standard_D2s_v5`;
+East US 2 uses `Standard_D2s_v6`. The spot NodePool admits D/E generations 4, 5, and 6.
+Verify subscription-specific VM availability and quota before choosing another region.
+
+For a lower-cost single-region deployment, reduce `regions` to one entry:
 
 ```jsonc
 "regions": {
@@ -204,9 +208,16 @@ Set these in [`infra/main.parameters.json`](infra/main.parameters.json):
 |---|---|---|
 | `enableFlux` | `false` | Flux GitOps on AKS. `azd` deploys via the `postdeploy` hook when off. See [ci-cd/](ci-cd/README.md). |
 | `enableCustomDomain` | `false` | Custom-domain routing (DNS zones, CNAMEs). Off uses Front Door default endpoints. |
+| `enableHelloOrleonsApiDocs` | `true` in the azd sample | Opts HelloOrleons into OpenAPI/Scalar outside Development. The Bicep default is `false`, so production profiles remain unchanged unless explicitly enabled. |
+| `gpt41MiniCapacity` | `100` in the azd sample | Allocates existing `GlobalStandard` quota to `gpt-41-mini` for concurrent agent workflows. The Bicep default remains `10`; other model allocations and the pay-per-token SKU are unchanged. |
 | `enablePrivateEndpoints` | `true` | Per-stamp VNet + private endpoints, public access disabled. |
 | `cosmosMode` | `Serverless` | `Provisioned` enables autoscale + multi-region write. |
 | `frontDoorSku` | `Standard_AzureFrontDoor` | `Premium_AzureFrontDoor` for WAF + Private Link to internal LB. |
+
+With private networking enabled, Bicep owns the subnet NSGs and their associations.
+External gateways allow `AzureFrontDoor.Backend` traffic on TCP 80, plus 443 in custom-domain
+mode. Internal gateways retain private-network ingress. Node-NIC allow rules do not override
+a subnet NSG's inbound deny.
 
 ### How it works (Flux-free, the default)
 
@@ -216,6 +227,10 @@ local equivalent, using the **same** manifests in [`clusters/`](clusters/) uncha
 1. `kustomize build` renders `clusters/<region>/apps` (what Flux would render).
 2. `envsubst` substitutes `${VAR}` patterns from Bicep outputs (same as Flux `postBuild.substitute`).
 3. `kubectl apply --server-side` applies to AKS (same as Flux reconciliation).
+
+The hook omits Flux-only resources when Flux is disabled and certificate-only resources when
+custom domains are disabled. Render, apply, missing-workload, and rollout errors fail deployment
+rather than being treated as successful delivery.
 
 ### Tear down
 

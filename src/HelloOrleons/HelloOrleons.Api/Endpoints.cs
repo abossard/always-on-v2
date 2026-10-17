@@ -4,7 +4,7 @@ public static class HelloEndpoints
 {
     public static WebApplication MapHelloEndpoints(this WebApplication app)
     {
-        var redirectTarget = app.Environment.IsDevelopment() ? "/scalar/v1" : "/health";
+        var redirectTarget = app.IsApiDocsEnabled() ? "/scalar/v1" : "/health";
         app.MapGet(Routes.Root, () => Results.Redirect(redirectTarget))
             .ExcludeFromDescription();
 

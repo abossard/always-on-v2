@@ -71,6 +71,13 @@ param enableFlux bool = true
 @description('Enable custom domain routing (DNS zones, custom domains, CNAME records). When false, uses Front Door default endpoints.')
 param enableCustomDomain bool = true
 
+@description('Enable HelloOrleons API docs in non-development environments. Default false for production safety.')
+param enableHelloOrleonsApiDocs bool = false
+
+@description('GlobalStandard capacity units for the gpt-41-mini deployment. Default preserves production behavior.')
+@minValue(1)
+param gpt41MiniCapacity int = 10
+
 @description('Enable private networking: per-stamp VNet + private endpoints to all backing services, with public network access disabled. AKS nodes join the stamp VNet (API server stays public). Default on — private endpoints are the standard mode.')
 param enablePrivateEndpoints bool = true
 
@@ -92,7 +99,7 @@ param apps array = [
     subdomain: 'darkux'
     namespace: 'darkux'
     cacheDuration: ''
-    probePath: '/'
+    probePath: '/health'
     displayName: 'DarkUX Challenge'
   }
   {
@@ -291,6 +298,7 @@ module ai 'ai.bicep' = {
       appInfra[3].outputs.identityPrincipalId
     ], empty(ciServicePrincipalId) ? [] : [ciServicePrincipalId])
     enablePrivateEndpoints: enablePrivateEndpoints
+    gpt41MiniCapacity: gpt41MiniCapacity
   }
 }
 
@@ -423,6 +431,8 @@ module stamps 'stamp.bicep' = [
       monitorWorkspaceId: regionalLookup[i].outputs.monitorWorkspaceId
       fluxGitRepoUrl: fluxGitRepoUrl
       enableFlux: enableFlux
+      enableCustomDomain: enableCustomDomain
+      enableHelloOrleonsApiDocs: enableHelloOrleonsApiDocs
       acrLoginServer: global.outputs.acrLoginServer
       cosmosEndpoint: global.outputs.cosmosEndpoint
       appInsightsConnectionString: global.outputs.appInsightsConnectionString
@@ -584,6 +594,7 @@ module helloOrleonsRoutingDefault 'app-routing-default.bicep' = if (!enableCusto
   scope: globalRg
   params: {
     appName: apps[0].name
+    baseName: baseName
     stamps: allStamps
     probePath: apps[0].probePath
     frontDoorName: global.outputs.frontDoorName
@@ -610,6 +621,7 @@ module darkUxRoutingDefault 'app-routing-default.bicep' = if (!enableCustomDomai
   scope: globalRg
   params: {
     appName: apps[1].name
+    baseName: baseName
     stamps: allStamps
     probePath: apps[1].probePath
     frontDoorName: global.outputs.frontDoorName
@@ -636,6 +648,7 @@ module helloAgentsRoutingDefault 'app-routing-default.bicep' = if (!enableCustom
   scope: globalRg
   params: {
     appName: apps[2].name
+    baseName: baseName
     stamps: allStamps
     probePath: apps[2].probePath
     frontDoorName: global.outputs.frontDoorName
@@ -662,6 +675,7 @@ module graphOrleonsRoutingDefault 'app-routing-default.bicep' = if (!enableCusto
   scope: globalRg
   params: {
     appName: apps[3].name
+    baseName: baseName
     stamps: allStamps
     probePath: apps[3].probePath
     frontDoorName: global.outputs.frontDoorName

@@ -87,6 +87,8 @@ spec:
               value: helloorleons-cluster
             - name: AlwaysOn__Clustering__Database
               value: ${ORLEANS_CLUSTER_DB}
+            - name: AlwaysOn__ApiDocsEnabled
+              value: ${YAML_QUOTE}${HELLOORLEONS_API_DOCS_ENABLED}${YAML_QUOTE}
           resizePolicy:
             - resourceName: cpu
               restartPolicy: NotRequired
