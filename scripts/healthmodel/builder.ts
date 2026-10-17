@@ -35,16 +35,18 @@ import * as signals from './signals';
 import { optionalGroups } from './groups';
 import {
   computeLayout,
+  arrangeTree,
   renderLinear,
   renderLoopAxis,
   type LayoutSpec,
+  type LayoutNode,
   type Linear,
   type NodeLayout,
   type SingleLayout,
   type LoopLayout,
 } from './layout';
 
-const API_VERSION = '2026-01-01-preview';
+const API_VERSION = '2026-11-01';
 
 // ─── Layout helpers ─────────────────────────────────────────────────
 // Convert a NodeLayout into a `canvasPosition` object for use in entity bodies.
@@ -81,6 +83,10 @@ function getLoop(layouts: Map<string, NodeLayout>, key: string): LoopLayout {
   if (!l) throw new Error(`No layout for '${key}'`);
   if (l.kind !== 'loop') throw new Error(`Expected loop layout for '${key}', got '${l.kind}'`);
   return l;
+}
+
+function arrangePositions(nodes: readonly LayoutNode[]): Record<string, { x: number; y: number }> {
+  return arrangeTree(nodes).positions;
 }
 
 // Layout tree keys — kept centralized so emission code and tree builder agree.
@@ -204,7 +210,7 @@ class SignalRegistry {
         const props = signalDefProperties(entry.signal);
         // Per-stamp signals may need Bicep runtime overrides
         if (entry.key === 'fd-origin-latency') {
-          props.dimensionFilter = raw('stamp.originHostname');
+          props.dimensionFilter = raw("endsWith(toLower(stamp.originHostname), ':443') ? format('Origin eq \\'{0}\\'', replace(stamp.originHostname, '\\'', '\\'\\'')) : format('Origin eq \\'{0}:443\\'', replace(stamp.originHostname, '\\'', '\\'\\''))");
           props.displayName = raw("'Origin Latency ${stamp.key}'");
         }
         blocks.push(resourceLoop({
@@ -269,8 +275,12 @@ function signalDefProperties(sig: SignalDef): Record<string, BicepValue> {
     props.metricName = s.metricName;
     props.timeGrain = s.timeGrain;
     props.aggregationType = s.aggregationType;
-    if (s.dimension) props.dimension = s.dimension;
-    if (s.dimensionFilter) props.dimensionFilter = s.dimensionFilter;
+    if (s.dimensionFilter) {
+      if (s.dimensionFilter.length < 1 || s.dimensionFilter.length > 2048) {
+        throw new Error(`dimensionFilter length for ${s.displayName} must be between 1 and 2048 characters`);
+      }
+      props.dimensionFilter = s.dimensionFilter;
+    }
   } else if (sig.signalKind === 'PrometheusMetricsQuery') {
     const s = sig as PrometheusSignalDef;
     props.queryText = s.queryText;
@@ -472,7 +482,7 @@ function derivePerStampGroup(
   const leafSym = `${group.key}StampLeaf`;
   const relRootSym = `rel_root_${group.key}`;
   const relLeafSym = `rel_${group.key}_leaf`;
-  const perStampDisplay = group.perStampDisplayName ?? `'\${stamp.key} — ${group.displayName}'`;
+  const perStampDisplay = group.perStampDisplayName ?? `'\${stamp.key} - ${group.displayName}'`;
   const categoryLayout = getSingle(layouts, LAYOUT_KEYS.perStampCategory(group.key));
   const leafLayout = getLoop(layouts, LAYOUT_KEYS.perStampLeaf(group.key));
 
@@ -553,6 +563,17 @@ export function buildAppModelBicep(): string {
     comment('per-stamp Platform model. Plus user latency + optional app feature groups.'),
   ].join('\n'));
 
+  blocks.push(section('Type Definitions'));
+  blocks.push(`@description('Stamp input. originHostname is bounded to legal DNS host length (<=253) plus optional https port (:443), so max input length is 257.')
+type stampInput = {
+  key: string
+  amwResourceId: string
+  @minLength(1)
+  @maxLength(257)
+  originHostname: string
+  platformModelId: string
+}`);
+
   blocks.push(section('Parameters'));
   const coreParams = [
     param({ name: 'name', type: 'string', description: 'Health model name (e.g. hm-helloorleons)' }),
@@ -564,18 +585,27 @@ export function buildAppModelBicep(): string {
     param({ name: 'frontDoorProfileId', type: 'string', description: 'Front Door profile resource ID (user latency)' }),
     param({ name: 'cosmosAccountId', type: 'string', description: 'Cosmos DB account resource ID for the app database entity' }),
     param({ name: 'healthObjective', type: 'int', description: 'Root SLO target (percent healthy)', defaultValue: '99' }),
-    param({ name: 'stamps', type: 'array', description: 'Stamps: [{key, amwResourceId, originHostname, platformModelId}]' }),
+    param({ name: 'stamps', type: 'stampInput[]', description: 'Stamps: [{key, amwResourceId, originHostname, platformModelId}]' }),
   ];
   const optionalParams = appGroups.flatMap(deriveParams);
   const uniqueParams = [...new Map(optionalParams.map(p => [p.match(/param (\w+)/)?.[1] ?? p, p])).values()];
   blocks.push(joinBlocks(...coreParams, ...uniqueParams));
+
+  const appCorePositions = arrangePositions([
+    { id: 'root', parentId: null, order: 0 },
+    { id: 'usecase', parentId: 'root', order: 0 },
+    { id: 'database', parentId: 'usecase', order: 0 },
+    { id: 'deployment', parentId: 'usecase', order: 1 },
+    { id: 'platform', parentId: 'usecase', order: 2 },
+    { id: 'user-latency', parentId: 'usecase', order: 3 },
+  ]);
 
   // Layout only drives the optional-group canvas positions; the use-case
   // components are positioned manually below.
   const layouts = computeLayout(buildLayoutSpec([], [], appGroups));
 
   emitScaffolding(blocks);
-  emitRootEntity(blocks, 1100, 0);
+  emitRootEntity(blocks, appCorePositions.root.x, appCorePositions.root.y);
 
   // ─── Use case (primary value flow) ─────────────────────────────────
   blocks.push(section('Use Case'));
@@ -587,8 +617,8 @@ export function buildAppModelBicep(): string {
       parent: raw('hm'),
       name: guid('name', "'usecase'"),
       properties: {
-        displayName: raw("'${displayName} — ${useCaseName}'"),
-        canvasPosition: { x: jsonNum(1100), y: jsonNum(250) },
+        displayName: raw("'${displayName} - ${useCaseName}'"),
+        canvasPosition: { x: jsonNum(appCorePositions.usecase.x), y: jsonNum(appCorePositions.usecase.y) },
         icon: { iconName: 'UserFlow' },
         impact: 'Standard',
         tags: {},
@@ -626,7 +656,7 @@ export function buildAppModelBicep(): string {
   blocks.push(section('Database'));
   flatEntity(blocks, reg, {
     sym: 'eDatabase', seed: 'database', displayName: 'Database', icon: 'AzureCosmosDb',
-    x: 700, y: 550, parentSym: 'eUsecase',
+    x: appCorePositions.database.x, y: appCorePositions.database.y, parentSym: 'eUsecase',
     group: { kind: 'azureResource', idExpr: 'cosmosAccountId', keys: ['db-avail', 'db-clienterr', 'db-servererr', 'db-latency'] },
   });
 
@@ -643,8 +673,8 @@ export function buildAppModelBicep(): string {
       parent: raw('hm'),
       name: guid('name', 'stamp.key', "'deployment'"),
       properties: {
-        displayName: raw("'Deployment — ${stamp.key}'"),
-        canvasPosition: { x: jsonNum(1100), y: raw("json('${550 + i * 300}')") },
+        displayName: raw("'Deployment - ${stamp.key}'"),
+        canvasPosition: { x: jsonNum(appCorePositions.deployment.x), y: raw(`json('\${${appCorePositions.deployment.y} + i * 300}')`) },
         icon: { iconName: 'Resource' },
         impact: 'Standard',
         tags: {},
@@ -665,8 +695,8 @@ export function buildAppModelBicep(): string {
       parent: raw('hm'),
       name: guid('name', 'stamp.key', "'platform'"),
       properties: {
-        displayName: raw("'Platform — ${stamp.key}'"),
-        canvasPosition: { x: jsonNum(1500), y: raw("json('${550 + i * 300}')") },
+        displayName: raw("'Platform - ${stamp.key}'"),
+        canvasPosition: { x: jsonNum(appCorePositions.platform.x), y: raw(`json('\${${appCorePositions.platform.y} + i * 300}')`) },
         icon: { iconName: 'AzureKubernetesService' },
         impact: 'Standard',
         tags: {},
@@ -687,8 +717,8 @@ export function buildAppModelBicep(): string {
       parent: raw('hm'),
       name: guid('name', 'stamp.key', "'user-latency'"),
       properties: {
-        displayName: raw("'User Latency — ${stamp.key}'"),
-        canvasPosition: { x: jsonNum(1900), y: raw("json('${550 + i * 300}')") },
+        displayName: raw("'User Latency - ${stamp.key}'"),
+        canvasPosition: { x: jsonNum(appCorePositions['user-latency'].x), y: raw(`json('\${${appCorePositions['user-latency'].y} + i * 300}')`) },
         icon: { iconName: 'AzureFrontDoor' },
         impact: 'Standard',
         tags: {},
@@ -863,8 +893,25 @@ export function buildPlatformModelBicep(): string {
     param({ name: 'healthObjective', type: 'int', description: 'Root SLO target (percent healthy)', defaultValue: '99' }),
   ));
 
+  const platformPositions = arrangePositions([
+    { id: 'root', parentId: null, order: 0 },
+    { id: 'flow-networking', parentId: 'root', order: 0 },
+    { id: 'flow-compute', parentId: 'root', order: 1 },
+    { id: 'flow-persistancy', parentId: 'root', order: 2 },
+    { id: 'networking', parentId: 'flow-networking', order: 0 },
+    { id: 'certificates', parentId: 'flow-networking', order: 1 },
+    { id: 'node-capacity', parentId: 'flow-compute', order: 0 },
+    { id: 'node-pressure', parentId: 'flow-compute', order: 1 },
+    { id: 'kube-system', parentId: 'flow-compute', order: 2 },
+    { id: 'aks', parentId: 'flow-compute', order: 3 },
+    { id: 'nodes', parentId: 'flow-compute', order: 4 },
+    { id: 'control-plane', parentId: 'flow-compute', order: 5 },
+    { id: 'lifecycle', parentId: 'flow-compute', order: 6 },
+    { id: 'orleans-cosmos', parentId: 'flow-persistancy', order: 0 },
+  ]);
+
   emitScaffolding(blocks, { tags: { healthModel: 'platform' } });
-  emitRootEntity(blocks, 1100, 0);
+  emitRootEntity(blocks, platformPositions.root.x, platformPositions.root.y);
 
   const reg = new SignalRegistry();
   // Kubernetes basic-health signals
@@ -907,19 +954,75 @@ export function buildPlatformModelBicep(): string {
   reg.register('scosmos-throttled', signals.cosmosThrottled());
   blocks.push(...reg.emit());
 
-  blocks.push(section('Kubernetes Basic Health'));
-  flatEntity(blocks, reg, { sym: 'eNodeCapacity', seed: 'node-capacity', displayName: 'Node Capacity', icon: 'AzureVirtualMachine', x: 200, y: 300, group: { kind: 'azureMonitorWorkspace', idExpr: 'amwResourceId', keys: ['nodes-ready', 'nodes-notready'] } });
-  flatEntity(blocks, reg, { sym: 'eNodePressure', seed: 'node-pressure', displayName: 'Node Pressure', icon: 'AzureVirtualMachine', x: 500, y: 300, group: { kind: 'azureMonitorWorkspace', idExpr: 'amwResourceId', keys: ['nodes-mempressure', 'nodes-diskpressure', 'nodes-pidpressure'] } });
-  flatEntity(blocks, reg, { sym: 'eKubeSystem', seed: 'kube-system', displayName: 'kube-system', icon: 'AzureKubernetesService', x: 800, y: 300, group: { kind: 'azureMonitorWorkspace', idExpr: 'amwResourceId', keys: ['ksys-deploy', 'ksys-daemon', 'ksys-failed', 'ksys-pending'] } });
+  blocks.push(section('System Flows'));
+  blocks.push(resource({
+    symbolic: 'eFlowNetworking',
+    type: 'Microsoft.CloudHealth/healthmodels/entities',
+    apiVersion: API_VERSION,
+    body: {
+      parent: raw('hm'),
+      name: guid('name', "'system-flow-networking'"),
+      properties: {
+        displayName: 'Networking',
+        canvasPosition: { x: jsonNum(platformPositions['flow-networking'].x), y: jsonNum(platformPositions['flow-networking'].y) },
+        icon: { iconName: 'UserFlow' },
+        impact: 'Standard',
+        tags: {},
+        signalGroups: { dependencies: { aggregationType: 'WorstOf' } },
+      },
+    },
+  }));
+  blocks.push(emitRelationship({ symbolic: 'rel_flow_networking', parentExpr: 'root.name', childExpr: 'eFlowNetworking.name' }));
 
-  blocks.push(section('Cluster Infra Entities'));
-  flatEntity(blocks, reg, { sym: 'eAks', seed: 'aks', displayName: 'AKS Cluster', icon: 'AzureKubernetesService', x: 1100, y: 300, group: { kind: 'azureResource', idExpr: 'aksClusterId', keys: ['aks-failed-pods'] } });
-  flatEntity(blocks, reg, { sym: 'eNodes', seed: 'nodes', displayName: 'Node Health', icon: 'AzureVirtualMachine', x: 1400, y: 300, group: { kind: 'azureMonitorWorkspace', idExpr: 'amwResourceId', keys: ['node-cpu', 'node-mem', 'node-diskio', 'node-fs', 'node-netdrops', 'node-load'] } });
-  flatEntity(blocks, reg, { sym: 'eControlPlane', seed: 'control-plane', displayName: 'Control Plane', icon: 'AzureKubernetesService', x: 1700, y: 300, group: { kind: 'azureMonitorWorkspace', idExpr: 'amwResourceId', keys: ['cp-apierr', 'cp-apiinflight', 'cp-etcdleader', 'cp-etcdslow', 'cp-kubeleterr', 'cp-podstart'] } });
-  flatEntity(blocks, reg, { sym: 'eNetworking', seed: 'networking', displayName: 'Networking', icon: 'Resource', x: 2000, y: 300, group: { kind: 'azureMonitorWorkspace', idExpr: 'amwResourceId', keys: ['net-ciliumdns', 'net-ciliumdrops', 'net-ciliumep', 'net-hubbledrops', 'net-hubbletcp'] } });
-  flatEntity(blocks, reg, { sym: 'eLifecycle', seed: 'lifecycle', displayName: 'Node Lifecycle', icon: 'AzureVirtualMachine', x: 2300, y: 300, group: { kind: 'azureMonitorWorkspace', idExpr: 'amwResourceId', keys: ['life-churn', 'life-disrupt', 'life-pending', 'life-spotint', 'life-spotready'] } });
-  flatEntity(blocks, reg, { sym: 'eCerts', seed: 'certificates', displayName: 'Certificates', icon: 'Resource', x: 2600, y: 300, group: { kind: 'azureMonitorWorkspace', idExpr: 'amwResourceId', keys: ['certs-notready'] } });
-  flatEntity(blocks, reg, { sym: 'eStampCosmos', seed: 'orleans-cosmos', displayName: 'Orleans Cosmos', icon: 'AzureCosmosDb', x: 2900, y: 300, group: { kind: 'azureResource', idExpr: 'stampCosmosAccountId', keys: ['scosmos-avail', 'scosmos-clienterr', 'scosmos-throttled'] } });
+  blocks.push(resource({
+    symbolic: 'eFlowCompute',
+    type: 'Microsoft.CloudHealth/healthmodels/entities',
+    apiVersion: API_VERSION,
+    body: {
+      parent: raw('hm'),
+      name: guid('name', "'system-flow-compute'"),
+      properties: {
+        displayName: 'Compute',
+        canvasPosition: { x: jsonNum(platformPositions['flow-compute'].x), y: jsonNum(platformPositions['flow-compute'].y) },
+        icon: { iconName: 'UserFlow' },
+        impact: 'Standard',
+        tags: {},
+        signalGroups: { dependencies: { aggregationType: 'WorstOf' } },
+      },
+    },
+  }));
+  blocks.push(emitRelationship({ symbolic: 'rel_flow_compute', parentExpr: 'root.name', childExpr: 'eFlowCompute.name' }));
+
+  blocks.push(resource({
+    symbolic: 'eFlowPersistancy',
+    type: 'Microsoft.CloudHealth/healthmodels/entities',
+    apiVersion: API_VERSION,
+    body: {
+      parent: raw('hm'),
+      name: guid('name', "'system-flow-persistancy'"),
+      properties: {
+        displayName: 'Persistancy',
+        canvasPosition: { x: jsonNum(platformPositions['flow-persistancy'].x), y: jsonNum(platformPositions['flow-persistancy'].y) },
+        icon: { iconName: 'UserFlow' },
+        impact: 'Standard',
+        tags: {},
+        signalGroups: { dependencies: { aggregationType: 'WorstOf' } },
+      },
+    },
+  }));
+  blocks.push(emitRelationship({ symbolic: 'rel_flow_persistancy', parentExpr: 'root.name', childExpr: 'eFlowPersistancy.name' }));
+
+  blocks.push(section('System Flow Leaves'));
+  flatEntity(blocks, reg, { sym: 'eNodeCapacity', seed: 'node-capacity', displayName: 'Node Capacity', icon: 'AzureVirtualMachine', x: platformPositions['node-capacity'].x, y: platformPositions['node-capacity'].y, parentSym: 'eFlowCompute', group: { kind: 'azureMonitorWorkspace', idExpr: 'amwResourceId', keys: ['nodes-ready', 'nodes-notready'] } });
+  flatEntity(blocks, reg, { sym: 'eNodePressure', seed: 'node-pressure', displayName: 'Node Pressure', icon: 'AzureVirtualMachine', x: platformPositions['node-pressure'].x, y: platformPositions['node-pressure'].y, parentSym: 'eFlowCompute', group: { kind: 'azureMonitorWorkspace', idExpr: 'amwResourceId', keys: ['nodes-mempressure', 'nodes-diskpressure', 'nodes-pidpressure'] } });
+  flatEntity(blocks, reg, { sym: 'eKubeSystem', seed: 'kube-system', displayName: 'kube-system', icon: 'AzureKubernetesService', x: platformPositions['kube-system'].x, y: platformPositions['kube-system'].y, parentSym: 'eFlowCompute', group: { kind: 'azureMonitorWorkspace', idExpr: 'amwResourceId', keys: ['ksys-deploy', 'ksys-daemon', 'ksys-failed', 'ksys-pending'] } });
+  flatEntity(blocks, reg, { sym: 'eAks', seed: 'aks', displayName: 'AKS Cluster', icon: 'AzureKubernetesService', x: platformPositions.aks.x, y: platformPositions.aks.y, parentSym: 'eFlowCompute', group: { kind: 'azureResource', idExpr: 'aksClusterId', keys: ['aks-failed-pods'] } });
+  flatEntity(blocks, reg, { sym: 'eNodes', seed: 'nodes', displayName: 'Node Health', icon: 'AzureVirtualMachine', x: platformPositions.nodes.x, y: platformPositions.nodes.y, parentSym: 'eFlowCompute', group: { kind: 'azureMonitorWorkspace', idExpr: 'amwResourceId', keys: ['node-cpu', 'node-mem', 'node-diskio', 'node-fs', 'node-netdrops', 'node-load'] } });
+  flatEntity(blocks, reg, { sym: 'eControlPlane', seed: 'control-plane', displayName: 'Control Plane', icon: 'AzureKubernetesService', x: platformPositions['control-plane'].x, y: platformPositions['control-plane'].y, parentSym: 'eFlowCompute', group: { kind: 'azureMonitorWorkspace', idExpr: 'amwResourceId', keys: ['cp-apierr', 'cp-apiinflight', 'cp-etcdleader', 'cp-etcdslow', 'cp-kubeleterr', 'cp-podstart'] } });
+  flatEntity(blocks, reg, { sym: 'eLifecycle', seed: 'lifecycle', displayName: 'Node Lifecycle', icon: 'AzureVirtualMachine', x: platformPositions.lifecycle.x, y: platformPositions.lifecycle.y, parentSym: 'eFlowCompute', group: { kind: 'azureMonitorWorkspace', idExpr: 'amwResourceId', keys: ['life-churn', 'life-disrupt', 'life-pending', 'life-spotint', 'life-spotready'] } });
+  flatEntity(blocks, reg, { sym: 'eNetworking', seed: 'networking', displayName: 'Networking', icon: 'Resource', x: platformPositions.networking.x, y: platformPositions.networking.y, parentSym: 'eFlowNetworking', group: { kind: 'azureMonitorWorkspace', idExpr: 'amwResourceId', keys: ['net-ciliumdns', 'net-ciliumdrops', 'net-ciliumep', 'net-hubbledrops', 'net-hubbletcp'] } });
+  flatEntity(blocks, reg, { sym: 'eCerts', seed: 'certificates', displayName: 'Certificates', icon: 'Resource', x: platformPositions.certificates.x, y: platformPositions.certificates.y, parentSym: 'eFlowNetworking', group: { kind: 'azureMonitorWorkspace', idExpr: 'amwResourceId', keys: ['certs-notready'] } });
+  flatEntity(blocks, reg, { sym: 'eStampCosmos', seed: 'orleans-cosmos', displayName: 'Orleans Cosmos', icon: 'AzureCosmosDb', x: platformPositions['orleans-cosmos'].x, y: platformPositions['orleans-cosmos'].y, parentSym: 'eFlowPersistancy', group: { kind: 'azureResource', idExpr: 'stampCosmosAccountId', keys: ['scosmos-avail', 'scosmos-clienterr', 'scosmos-throttled'] } });
 
   blocks.push(section('Outputs'));
   blocks.push(joinBlocks(output('healthModelId', 'string', 'hm.id'), output('healthModelName', 'string', 'hm.name')));
@@ -934,6 +1037,13 @@ export function buildPlatformModelBicep(): string {
 
 export function buildAllPlatformsModelBicep(): string {
   const blocks: string[] = [];
+  const allPlatformsPositions = arrangePositions([
+    { id: 'root', parentId: null, order: 0 },
+    { id: 'front-door', parentId: 'root', order: 0 },
+    { id: 'global-cosmos', parentId: 'root', order: 1 },
+    { id: 'cost', parentId: 'root', order: 2 },
+    { id: 'security', parentId: 'root', order: 3 },
+  ]);
   blocks.push([
     comment('============================================================================'),
     comment('All-Platforms Health Model — Microsoft.CloudHealth/healthmodels (preview)'),
@@ -960,7 +1070,7 @@ export function buildAllPlatformsModelBicep(): string {
   ));
 
   emitScaffolding(blocks);
-  emitRootEntity(blocks, 1100, 0);
+  emitRootEntity(blocks, allPlatformsPositions.root.x, allPlatformsPositions.root.y);
 
   // Discovery rule — imports every per-stamp platform model by tag.
   // addRecommendedSignals Disabled: health models expose no useful ARM metrics;
@@ -979,6 +1089,7 @@ export function buildAllPlatformsModelBicep(): string {
         authenticationSetting: raw('auth.name'),
         addRecommendedSignals: 'Disabled',
         discoverRelationships: 'Disabled',
+        addResourceHealthSignal: 'Disabled',
         specification: {
           kind: 'ResourceGraphQuery',
           resourceGraphQuery: `resources | where type =~ 'microsoft.cloudhealth/healthmodels' | where tags['healthModel'] =~ 'platform' | project id`,
@@ -1002,10 +1113,10 @@ export function buildAllPlatformsModelBicep(): string {
   blocks.push(...reg.emit());
 
   blocks.push(section('Global Concerns'));
-  flatEntity(blocks, reg, { sym: 'eFrontDoor', seed: 'front-door', displayName: 'Front Door', icon: 'AzureFrontDoor', x: 900, y: 300, group: { kind: 'azureResource', idExpr: 'frontDoorProfileId', keys: ['fd-5xx', 'fd-4xx', 'fd-latency'] } });
-  flatEntity(blocks, reg, { sym: 'eCosmos', seed: 'global-cosmos', displayName: 'Global Cosmos', icon: 'AzureCosmosDb', x: 1200, y: 300, group: { kind: 'azureResource', idExpr: 'cosmosAccountId', keys: ['gc-avail', 'gc-clienterr', 'gc-servererr', 'gc-ru', 'gc-throttled', 'gc-latency'] } });
-  flatEntity(blocks, reg, { sym: 'eCost', seed: 'cost', displayName: 'Cost Efficiency', icon: 'Resource', x: 1500, y: 300, impact: 'Suppressed', group: { kind: 'azureResource', idExpr: 'cosmosAccountId', keys: ['cost-cosmos'] } });
-  flatEntity(blocks, reg, { sym: 'eSecurity', seed: 'security', displayName: 'Security (Defender)', icon: 'Resource', x: 1800, y: 300, impact: 'Suppressed', condition: 'usesSecurity', group: { kind: 'azureLogAnalytics', idExpr: 'logAnalyticsWorkspaceId', keys: ['sec-defender'] } });
+  flatEntity(blocks, reg, { sym: 'eFrontDoor', seed: 'front-door', displayName: 'Front Door', icon: 'AzureFrontDoor', x: allPlatformsPositions['front-door'].x, y: allPlatformsPositions['front-door'].y, group: { kind: 'azureResource', idExpr: 'frontDoorProfileId', keys: ['fd-5xx', 'fd-4xx', 'fd-latency'] } });
+  flatEntity(blocks, reg, { sym: 'eCosmos', seed: 'global-cosmos', displayName: 'Global Cosmos', icon: 'AzureCosmosDb', x: allPlatformsPositions['global-cosmos'].x, y: allPlatformsPositions['global-cosmos'].y, group: { kind: 'azureResource', idExpr: 'cosmosAccountId', keys: ['gc-avail', 'gc-clienterr', 'gc-servererr', 'gc-ru', 'gc-throttled', 'gc-latency'] } });
+  flatEntity(blocks, reg, { sym: 'eCost', seed: 'cost', displayName: 'Cost Efficiency', icon: 'Resource', x: allPlatformsPositions.cost.x, y: allPlatformsPositions.cost.y, impact: 'Suppressed', group: { kind: 'azureResource', idExpr: 'cosmosAccountId', keys: ['cost-cosmos'] } });
+  flatEntity(blocks, reg, { sym: 'eSecurity', seed: 'security', displayName: 'Security (Defender)', icon: 'Resource', x: allPlatformsPositions.security.x, y: allPlatformsPositions.security.y, impact: 'Suppressed', condition: 'usesSecurity', group: { kind: 'azureLogAnalytics', idExpr: 'logAnalyticsWorkspaceId', keys: ['sec-defender'] } });
 
   blocks.push(section('Outputs'));
   blocks.push(joinBlocks(

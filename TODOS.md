@@ -15,7 +15,7 @@
 - [ ] Deploy using the new `budget` environment config in `main.bicepparam` (set `var env = budget`) — full end-to-end
 - [ ] Run `az bicep build` on all changed Bicep files to verify no compile errors
 
-### az-healthmodel — New CLI Commands
+### az-healthmodel - New CLI Commands
 
 - [ ] `az healthmodel entity signal list` — returns signals grouped by signal group with `_signalGroup` annotation
 - [ ] `az healthmodel entity signal add` — adds a signal instance to an entity's signal group, verify entity PUT round-trip
@@ -26,7 +26,7 @@
 - [ ] Verify old `healthmodel signal` commands are now under `healthmodel signal-definition` (rename didn't break anything)
 - [ ] `az healthmodel mcp` — starts MCP stdio server, responds to tool list/call requests
 
-### az-healthmodel — Signal Query Executor (`query_executor.py`)
+### az-healthmodel - Signal Query Executor (`query_executor.py`)
 
 - [ ] PromQL query execution against Azure Monitor Workspace — correct URL construction, auth, response parsing
 - [ ] Azure resource metrics query execution — correct ARM metrics API call, aggregation type mapping
@@ -35,7 +35,7 @@
 - [ ] Signal definition resolution — instance overrides definition fields (signalKind, queryText, timeGrain, etc.)
 - [ ] Error handling — query failures return error in result dict, resolution failures raise ValueError
 
-### az-healthmodel — MCP Server (`mcp/server.py`)
+### az-healthmodel - MCP Server (`mcp/server.py`)
 
 - [ ] Bulk operations — passing `items` list executes multiple operations, returns `{results: [{ok, data/error}]}`
 - [ ] Single operations — all healthmodel CRUD tools work (model, entity, signal-definition, relationship, auth)
@@ -44,7 +44,7 @@
 - [ ] Watch tool — returns export SVG content via MCP
 - [ ] Error isolation — one failing item in a bulk call doesn't break other items
 
-### az-healthmodel — Search Feature (TUI)
+### az-healthmodel - Search Feature (TUI)
 
 - [ ] Search modal opens with `/` key, closes with `Escape`
 - [ ] Typing filters entities and signals with case-insensitive matching
@@ -56,21 +56,21 @@
 - [ ] Special characters in query don't crash the search
 - [ ] Status bar shows search keybinding hint
 
-### az-healthmodel — Domain Model Changes
+### az-healthmodel - Domain Model Changes
 
 - [ ] New `SearchResult` dataclass works correctly with all fields (entity_id, display_name, is_signal, health_state, signal_value, parent_display_name)
 - [ ] New `models/enums.py` enums are used correctly by the rest of the code
 - [ ] `parse.py` changes handle the new domain model structure without regressions
 
-### az-healthmodel — Auth Settings
+### az-healthmodel - Auth Settings
 
 - [ ] Verify `auth_create` now sends `authenticationKind: ManagedIdentity` + `managedIdentityName` instead of old `identityName` field
 
-### az-healthmodel — Identity Handling
+### az-healthmodel - Identity Handling
 
 - [ ] Verify `healthmodel_create` with `--identity-type` preserves existing identity fields (uses `setdefault` instead of overwriting)
 
-### az-healthmodel — Tests
+### az-healthmodel - Tests
 
 - [ ] Run existing E2E tests: `cd src/az-healthmodel && python3 -m pytest azext_healthmodel/tests/test_e2e.py -v`
 - [ ] Run search E2E tests: `cd src/az-healthmodel && python3 -m pytest azext_healthmodel/tests/test_search_e2e.py -v`

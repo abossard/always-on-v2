@@ -1,5 +1,5 @@
 // ============================================================================
-// Health Model TypeScript Types — Microsoft.CloudHealth 2026-01-01-preview
+// Health Model TypeScript Types — Microsoft.CloudHealth 2026-11-01
 // ============================================================================
 // Derived from the TypeSpec at:
 //   azure-rest-api-specs/specification/monitoringservice/resource-manager/
@@ -106,7 +106,6 @@ export interface AzureResourceSignalDef extends BaseSignal {
   metricName: string;
   timeGrain: string;
   aggregationType: AggregationType;
-  dimension?: string;
   dimensionFilter?: string;
 }
 
@@ -146,7 +145,7 @@ export interface RegisteredSignal {
 export interface StampEntitySpec {
   /** Stable key (used in GUIDs, Bicep names). Never derived from displayName. */
   readonly key: string;
-  /** Bicep expression for display name (e.g. "'AKS Failures'" or "'${stamp.key} — AKS'"). */
+  /** Bicep expression for display name (e.g. "'AKS Failures'" or "'${stamp.key} - AKS'"). */
   readonly displayNameExpr: string;
   /** Icon name for the entity. */
   readonly icon: string;

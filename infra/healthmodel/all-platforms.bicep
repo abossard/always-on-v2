@@ -46,7 +46,7 @@ var authSettingName = toLower(identityName)
 // ─── Health Model + Auth ─────────────────────────────────────────────
 
 #disable-next-line BCP081
-resource hm 'Microsoft.CloudHealth/healthmodels@2026-01-01-preview' = {
+resource hm 'Microsoft.CloudHealth/healthmodels@2026-11-01' = {
   name: name
   location: location
   identity: {
@@ -59,7 +59,7 @@ resource hm 'Microsoft.CloudHealth/healthmodels@2026-01-01-preview' = {
 }
 
 #disable-next-line BCP081
-resource auth 'Microsoft.CloudHealth/healthmodels/authenticationsettings@2026-01-01-preview' = {
+resource auth 'Microsoft.CloudHealth/healthmodels/authenticationsettings@2026-11-01' = {
   parent: hm
   name: authSettingName
   properties: {
@@ -72,13 +72,13 @@ resource auth 'Microsoft.CloudHealth/healthmodels/authenticationsettings@2026-01
 // ─── Root Entity ─────────────────────────────────────────────────────
 
 #disable-next-line BCP081
-resource root 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = {
+resource root 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = {
   parent: hm
   name: name
   properties: {
     displayName: displayName
     canvasPosition: {
-      x: json('1100')
+      x: json('375')
       y: json('0')
     }
     icon: {
@@ -93,7 +93,7 @@ resource root 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' =
 // ─── Discovery Rule — import platform models by tag ──────────────────
 
 #disable-next-line BCP081
-resource platformDiscovery 'Microsoft.CloudHealth/healthmodels/discoveryrules@2026-01-01-preview' = {
+resource platformDiscovery 'Microsoft.CloudHealth/healthmodels/discoveryrules@2026-11-01' = {
   parent: hm
   name: 'discover-platform-models'
   properties: {
@@ -101,6 +101,7 @@ resource platformDiscovery 'Microsoft.CloudHealth/healthmodels/discoveryrules@20
     authenticationSetting: auth.name
     addRecommendedSignals: 'Disabled'
     discoverRelationships: 'Disabled'
+    addResourceHealthSignal: 'Disabled'
     specification: {
       kind: 'ResourceGraphQuery'
       resourceGraphQuery: 'resources | where type =~ \'microsoft.cloudhealth/healthmodels\' | where tags[\'healthModel\'] =~ \'platform\' | project id'
@@ -111,7 +112,7 @@ resource platformDiscovery 'Microsoft.CloudHealth/healthmodels/discoveryrules@20
 // ─── Signal Definitions (model-scoped — one per model) ───────────────
 
 #disable-next-line BCP081
-resource def_fd_5xx 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_fd_5xx 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-fd-5xx')
   properties: {
@@ -137,7 +138,7 @@ resource def_fd_5xx 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-0
 }
 
 #disable-next-line BCP081
-resource def_fd_4xx 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_fd_4xx 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-fd-4xx')
   properties: {
@@ -159,13 +160,12 @@ resource def_fd_4xx 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-0
     metricName: 'RequestCount'
     timeGrain: 'PT1M'
     aggregationType: 'Total'
-    dimension: 'HttpStatusGroup'
-    dimensionFilter: '4XX'
+    dimensionFilter: 'HttpStatusGroup eq \'4XX\''
   }
 }
 
 #disable-next-line BCP081
-resource def_fd_latency 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_fd_latency 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-fd-latency')
   properties: {
@@ -191,7 +191,7 @@ resource def_fd_latency 'Microsoft.CloudHealth/healthmodels/signaldefinitions@20
 }
 
 #disable-next-line BCP081
-resource def_gc_avail 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_gc_avail 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-gc-avail')
   properties: {
@@ -217,7 +217,7 @@ resource def_gc_avail 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026
 }
 
 #disable-next-line BCP081
-resource def_gc_clienterr 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_gc_clienterr 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-gc-clienterr')
   properties: {
@@ -239,13 +239,12 @@ resource def_gc_clienterr 'Microsoft.CloudHealth/healthmodels/signaldefinitions@
     metricName: 'TotalRequests'
     timeGrain: 'PT1M'
     aggregationType: 'Count'
-    dimension: 'Status'
-    dimensionFilter: 'ClientOtherError'
+    dimensionFilter: 'Status eq \'ClientOtherError\''
   }
 }
 
 #disable-next-line BCP081
-resource def_gc_servererr 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_gc_servererr 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-gc-servererr')
   properties: {
@@ -267,13 +266,12 @@ resource def_gc_servererr 'Microsoft.CloudHealth/healthmodels/signaldefinitions@
     metricName: 'TotalRequests'
     timeGrain: 'PT5M'
     aggregationType: 'Count'
-    dimension: 'StatusCode'
-    dimensionFilter: '500'
+    dimensionFilter: 'StatusCode eq \'500\''
   }
 }
 
 #disable-next-line BCP081
-resource def_gc_ru 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_gc_ru 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-gc-ru')
   properties: {
@@ -299,7 +297,7 @@ resource def_gc_ru 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01
 }
 
 #disable-next-line BCP081
-resource def_gc_throttled 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_gc_throttled 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-gc-throttled')
   properties: {
@@ -321,13 +319,12 @@ resource def_gc_throttled 'Microsoft.CloudHealth/healthmodels/signaldefinitions@
     metricName: 'TotalRequests'
     timeGrain: 'PT5M'
     aggregationType: 'Count'
-    dimension: 'StatusCode'
-    dimensionFilter: '429'
+    dimensionFilter: 'StatusCode eq \'429\''
   }
 }
 
 #disable-next-line BCP081
-resource def_gc_latency 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_gc_latency 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-gc-latency')
   properties: {
@@ -353,7 +350,7 @@ resource def_gc_latency 'Microsoft.CloudHealth/healthmodels/signaldefinitions@20
 }
 
 #disable-next-line BCP081
-resource def_cost_cosmos 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_cost_cosmos 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-cost-cosmos')
   properties: {
@@ -379,7 +376,7 @@ resource def_cost_cosmos 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2
 }
 
 #disable-next-line BCP081
-resource def_sec_defender 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesSecurity) {
+resource def_sec_defender 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesSecurity) {
   parent: hm
   name: guid(name, 'def-sec-defender')
   properties: {
@@ -406,14 +403,14 @@ resource def_sec_defender 'Microsoft.CloudHealth/healthmodels/signaldefinitions@
 // ─── Global Concerns ─────────────────────────────────────────────────
 
 #disable-next-line BCP081
-resource eFrontDoor 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = {
+resource eFrontDoor 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = {
   parent: hm
   name: guid(name, 'front-door')
   properties: {
     displayName: 'Front Door'
     canvasPosition: {
-      x: json('900')
-      y: json('300')
+      x: json('0')
+      y: json('193')
     }
     icon: {
       iconName: 'AzureFrontDoor'
@@ -450,7 +447,7 @@ resource eFrontDoor 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-prev
 }
 
 #disable-next-line BCP081
-resource rel_eFrontDoor 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = {
+resource rel_eFrontDoor 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = {
   parent: hm
   name: guid(name, root.name, eFrontDoor.name)
   properties: {
@@ -460,14 +457,14 @@ resource rel_eFrontDoor 'Microsoft.CloudHealth/healthmodels/relationships@2026-0
 }
 
 #disable-next-line BCP081
-resource eCosmos 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = {
+resource eCosmos 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = {
   parent: hm
   name: guid(name, 'global-cosmos')
   properties: {
     displayName: 'Global Cosmos'
     canvasPosition: {
-      x: json('1200')
-      y: json('300')
+      x: json('250')
+      y: json('193')
     }
     icon: {
       iconName: 'AzureCosmosDb'
@@ -522,7 +519,7 @@ resource eCosmos 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview
 }
 
 #disable-next-line BCP081
-resource rel_eCosmos 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = {
+resource rel_eCosmos 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = {
   parent: hm
   name: guid(name, root.name, eCosmos.name)
   properties: {
@@ -532,14 +529,14 @@ resource rel_eCosmos 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-0
 }
 
 #disable-next-line BCP081
-resource eCost 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = {
+resource eCost 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = {
   parent: hm
   name: guid(name, 'cost')
   properties: {
     displayName: 'Cost Efficiency'
     canvasPosition: {
-      x: json('1500')
-      y: json('300')
+      x: json('500')
+      y: json('193')
     }
     icon: {
       iconName: 'Resource'
@@ -564,7 +561,7 @@ resource eCost 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' 
 }
 
 #disable-next-line BCP081
-resource rel_eCost 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = {
+resource rel_eCost 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = {
   parent: hm
   name: guid(name, root.name, eCost.name)
   properties: {
@@ -574,14 +571,14 @@ resource rel_eCost 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-
 }
 
 #disable-next-line BCP081
-resource eSecurity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = if (usesSecurity) {
+resource eSecurity 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = if (usesSecurity) {
   parent: hm
   name: guid(name, 'security')
   properties: {
     displayName: 'Security (Defender)'
     canvasPosition: {
-      x: json('1800')
-      y: json('300')
+      x: json('750')
+      y: json('193')
     }
     icon: {
       iconName: 'Resource'
@@ -606,7 +603,7 @@ resource eSecurity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-previ
 }
 
 #disable-next-line BCP081
-resource rel_eSecurity 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = if (usesSecurity) {
+resource rel_eSecurity 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = if (usesSecurity) {
   parent: hm
   name: guid(name, root.name, eSecurity.name)
   properties: {

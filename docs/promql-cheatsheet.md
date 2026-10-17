@@ -1,15 +1,15 @@
-# PromQL Cheatsheet — Kubernetes Health Model
+# PromQL Cheatsheet - Kubernetes Health Model
 
 > Extracted from `scripts/healthmodel/signals.ts`
 > `<ns>` = Kubernetes namespace
 
 ---
 
-## 1 — Discovery & Investigation Queries
+## 1 - Discovery & Investigation Queries
 
 Useful for ad-hoc troubleshooting — find out what's available before you alert on it.
 
-### Node conditions — list all distinct conditions & their status
+### Node conditions - list all distinct conditions & their status
 ```promql
 group by (condition, status) (kube_node_status_condition == 1)
 ```
@@ -92,7 +92,7 @@ kube_horizontalpodautoscaler_status_current_replicas
 
 ---
 
-## 2 — Pod Health Signals
+## 2 - Pod Health Signals
 
 ### Pod Restarts (15m window)
 ```promql
@@ -125,7 +125,7 @@ count(kube_pod_container_status_waiting{namespace="<ns>"} == 1)
 
 ---
 
-## 3 — CPU & Memory Utilization
+## 3 - CPU & Memory Utilization
 
 ### CPU usage vs requests (%)
 ```promql
@@ -153,7 +153,7 @@ sum(container_memory_working_set_bytes{namespace="<ns>", container!="", containe
 
 ---
 
-## 4 — Node Pressure (cross-metric join pattern)
+## 4 - Node Pressure (cross-metric join pattern)
 
 All of these follow the same pattern — count your namespace's running pods that
 land on nodes with a specific condition:
@@ -195,7 +195,7 @@ label_replace(
 
 ### Pods on DiskPressure / MemoryPressure / PIDPressure / NotReady Nodes
 ```promql
-# <node_condition_expr> — swap in the condition you need:
+# <node_condition_expr> - swap in the condition you need:
 kube_node_status_condition{condition="DiskPressure",    status="true"}  == 1
 kube_node_status_condition{condition="MemoryPressure",  status="true"}  == 1
 kube_node_status_condition{condition="PIDPressure",     status="true"}  == 1
@@ -213,7 +213,7 @@ kube_node_status_condition{condition="Ready",           status="false"} == 1
 
 ---
 
-## 5 — Deployment & Scaling
+## 5 - Deployment & Scaling
 
 ### Minimum Deployment Replicas
 ```promql
@@ -237,7 +237,7 @@ count(
 
 ---
 
-## 6 — Networking
+## 6 - Networking
 
 ### Container Network Errors
 ```promql
@@ -270,7 +270,7 @@ sum(
 
 ---
 
-## 7 — Cert Manager
+## 7 - Cert Manager
 
 ### Certificate Days to Expiry
 ```promql

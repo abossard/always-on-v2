@@ -6,6 +6,18 @@
 // Deployment (per-stamp namespace PromQL), Database (Cosmos), and the embedded
 // per-stamp Platform model. Plus user latency + optional app feature groups.
 
+// ─── Type Definitions ────────────────────────────────────────────────
+
+@description('Stamp input. originHostname is bounded to legal DNS host length (<=253) plus optional https port (:443), so max input length is 257.')
+type stampInput = {
+  key: string
+  amwResourceId: string
+  @minLength(1)
+  @maxLength(257)
+  originHostname: string
+  platformModelId: string
+}
+
 // ─── Parameters ──────────────────────────────────────────────────────
 
 @description('Health model name (e.g. hm-helloorleons)')
@@ -36,7 +48,7 @@ param cosmosAccountId string
 param healthObjective int = 99
 
 @description('Stamps: [{key, amwResourceId, originHostname, platformModelId}]')
-param stamps array
+param stamps stampInput[]
 
 @description('Whether this app uses Azure Storage Queues')
 param usesQueues bool = false
@@ -86,7 +98,7 @@ var authSettingName = toLower(identityName)
 // ─── Health Model + Auth ─────────────────────────────────────────────
 
 #disable-next-line BCP081
-resource hm 'Microsoft.CloudHealth/healthmodels@2026-01-01-preview' = {
+resource hm 'Microsoft.CloudHealth/healthmodels@2026-11-01' = {
   name: name
   location: location
   identity: {
@@ -99,7 +111,7 @@ resource hm 'Microsoft.CloudHealth/healthmodels@2026-01-01-preview' = {
 }
 
 #disable-next-line BCP081
-resource auth 'Microsoft.CloudHealth/healthmodels/authenticationsettings@2026-01-01-preview' = {
+resource auth 'Microsoft.CloudHealth/healthmodels/authenticationsettings@2026-11-01' = {
   parent: hm
   name: authSettingName
   properties: {
@@ -112,13 +124,13 @@ resource auth 'Microsoft.CloudHealth/healthmodels/authenticationsettings@2026-01
 // ─── Root Entity ─────────────────────────────────────────────────────
 
 #disable-next-line BCP081
-resource root 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = {
+resource root 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = {
   parent: hm
   name: name
   properties: {
     displayName: displayName
     canvasPosition: {
-      x: json('1100')
+      x: json('375')
       y: json('0')
     }
     icon: {
@@ -133,14 +145,14 @@ resource root 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' =
 // ─── Use Case ────────────────────────────────────────────────────────
 
 #disable-next-line BCP081
-resource eUsecase 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = {
+resource eUsecase 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = {
   parent: hm
   name: guid(name, 'usecase')
   properties: {
-    displayName: '${displayName} — ${useCaseName}'
+    displayName: '${displayName} - ${useCaseName}'
     canvasPosition: {
-      x: json('1100')
-      y: json('250')
+      x: json('375')
+      y: json('193')
     }
     icon: {
       iconName: 'UserFlow'
@@ -151,7 +163,7 @@ resource eUsecase 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-previe
 }
 
 #disable-next-line BCP081
-resource rel_usecase 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = {
+resource rel_usecase 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = {
   parent: hm
   name: guid(name, root.name, eUsecase.name)
   properties: {
@@ -163,7 +175,7 @@ resource rel_usecase 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-0
 // ─── Signal Definitions (model-scoped — one per model) ───────────────
 
 #disable-next-line BCP081
-resource def_deploy_notready 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_deploy_notready 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-deploy-notready')
   properties: {
@@ -187,7 +199,7 @@ resource def_deploy_notready 'Microsoft.CloudHealth/healthmodels/signaldefinitio
 }
 
 #disable-next-line BCP081
-resource def_deploy_minreplicas 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_deploy_minreplicas 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-deploy-minreplicas')
   properties: {
@@ -211,7 +223,7 @@ resource def_deploy_minreplicas 'Microsoft.CloudHealth/healthmodels/signaldefini
 }
 
 #disable-next-line BCP081
-resource def_deploy_podsfailed 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_deploy_podsfailed 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-deploy-podsfailed')
   properties: {
@@ -235,7 +247,7 @@ resource def_deploy_podsfailed 'Microsoft.CloudHealth/healthmodels/signaldefinit
 }
 
 #disable-next-line BCP081
-resource def_deploy_podspending 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_deploy_podspending 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-deploy-podspending')
   properties: {
@@ -259,7 +271,7 @@ resource def_deploy_podspending 'Microsoft.CloudHealth/healthmodels/signaldefini
 }
 
 #disable-next-line BCP081
-resource def_db_avail 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_db_avail 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-db-avail')
   properties: {
@@ -285,7 +297,7 @@ resource def_db_avail 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026
 }
 
 #disable-next-line BCP081
-resource def_db_clienterr 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_db_clienterr 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-db-clienterr')
   properties: {
@@ -307,13 +319,12 @@ resource def_db_clienterr 'Microsoft.CloudHealth/healthmodels/signaldefinitions@
     metricName: 'TotalRequests'
     timeGrain: 'PT1M'
     aggregationType: 'Count'
-    dimension: 'Status'
-    dimensionFilter: 'ClientOtherError'
+    dimensionFilter: 'Status eq \'ClientOtherError\''
   }
 }
 
 #disable-next-line BCP081
-resource def_db_servererr 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_db_servererr 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-db-servererr')
   properties: {
@@ -335,13 +346,12 @@ resource def_db_servererr 'Microsoft.CloudHealth/healthmodels/signaldefinitions@
     metricName: 'TotalRequests'
     timeGrain: 'PT5M'
     aggregationType: 'Count'
-    dimension: 'StatusCode'
-    dimensionFilter: '500'
+    dimensionFilter: 'StatusCode eq \'500\''
   }
 }
 
 #disable-next-line BCP081
-resource def_db_latency 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_db_latency 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-db-latency')
   properties: {
@@ -367,7 +377,7 @@ resource def_db_latency 'Microsoft.CloudHealth/healthmodels/signaldefinitions@20
 }
 
 #disable-next-line BCP081
-resource def_queues_queue_availability 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesQueues) {
+resource def_queues_queue_availability 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesQueues) {
   parent: hm
   name: guid(name, 'def-queues-queue-availability')
   properties: {
@@ -393,7 +403,7 @@ resource def_queues_queue_availability 'Microsoft.CloudHealth/healthmodels/signa
 }
 
 #disable-next-line BCP081
-resource def_queues_queue_e2e_latency 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesQueues) {
+resource def_queues_queue_e2e_latency 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesQueues) {
   parent: hm
   name: guid(name, 'def-queues-queue-e2e-latency')
   properties: {
@@ -419,7 +429,7 @@ resource def_queues_queue_e2e_latency 'Microsoft.CloudHealth/healthmodels/signal
 }
 
 #disable-next-line BCP081
-resource def_queues_queue_errors 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesQueues) {
+resource def_queues_queue_errors 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesQueues) {
   parent: hm
   name: guid(name, 'def-queues-queue-errors')
   properties: {
@@ -441,13 +451,12 @@ resource def_queues_queue_errors 'Microsoft.CloudHealth/healthmodels/signaldefin
     metricName: 'Transactions'
     timeGrain: 'PT5M'
     aggregationType: 'Total'
-    dimension: 'ResponseType'
-    dimensionFilter: 'ClientOtherError'
+    dimensionFilter: 'ResponseType eq \'ClientOtherError\''
   }
 }
 
 #disable-next-line BCP081
-resource def_ai_ai_availability 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesAI) {
+resource def_ai_ai_availability 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesAI) {
   parent: hm
   name: guid(name, 'def-ai-ai-availability')
   properties: {
@@ -473,7 +482,7 @@ resource def_ai_ai_availability 'Microsoft.CloudHealth/healthmodels/signaldefini
 }
 
 #disable-next-line BCP081
-resource def_ai_ai_response_latency 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesAI) {
+resource def_ai_ai_response_latency 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesAI) {
   parent: hm
   name: guid(name, 'def-ai-ai-response-latency')
   properties: {
@@ -499,7 +508,7 @@ resource def_ai_ai_response_latency 'Microsoft.CloudHealth/healthmodels/signalde
 }
 
 #disable-next-line BCP081
-resource def_ai_ai_server_errors 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesAI) {
+resource def_ai_ai_server_errors 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesAI) {
   parent: hm
   name: guid(name, 'def-ai-ai-server-errors')
   properties: {
@@ -525,7 +534,7 @@ resource def_ai_ai_server_errors 'Microsoft.CloudHealth/healthmodels/signaldefin
 }
 
 #disable-next-line BCP081
-resource def_ai_ai_content_blocked 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesAI) {
+resource def_ai_ai_content_blocked 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesAI) {
   parent: hm
   name: guid(name, 'def-ai-ai-content-blocked')
   properties: {
@@ -551,7 +560,7 @@ resource def_ai_ai_content_blocked 'Microsoft.CloudHealth/healthmodels/signaldef
 }
 
 #disable-next-line BCP081
-resource def_blobs_blob_availability 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesBlobs) {
+resource def_blobs_blob_availability 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesBlobs) {
   parent: hm
   name: guid(name, 'def-blobs-blob-availability')
   properties: {
@@ -577,7 +586,7 @@ resource def_blobs_blob_availability 'Microsoft.CloudHealth/healthmodels/signald
 }
 
 #disable-next-line BCP081
-resource def_blobs_blob_e2e_latency 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesBlobs) {
+resource def_blobs_blob_e2e_latency 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesBlobs) {
   parent: hm
   name: guid(name, 'def-blobs-blob-e2e-latency')
   properties: {
@@ -603,7 +612,7 @@ resource def_blobs_blob_e2e_latency 'Microsoft.CloudHealth/healthmodels/signalde
 }
 
 #disable-next-line BCP081
-resource def_blobs_blob_errors 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesBlobs) {
+resource def_blobs_blob_errors 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesBlobs) {
   parent: hm
   name: guid(name, 'def-blobs-blob-errors')
   properties: {
@@ -625,13 +634,12 @@ resource def_blobs_blob_errors 'Microsoft.CloudHealth/healthmodels/signaldefinit
     metricName: 'Transactions'
     timeGrain: 'PT5M'
     aggregationType: 'Total'
-    dimension: 'ResponseType'
-    dimensionFilter: 'ClientOtherError'
+    dimensionFilter: 'ResponseType eq \'ClientOtherError\''
   }
 }
 
 #disable-next-line BCP081
-resource def_eventhubs_event_hub_throttled 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesEventHubs) {
+resource def_eventhubs_event_hub_throttled 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesEventHubs) {
   parent: hm
   name: guid(name, 'def-eventhubs-event-hub-throttled')
   properties: {
@@ -657,7 +665,7 @@ resource def_eventhubs_event_hub_throttled 'Microsoft.CloudHealth/healthmodels/s
 }
 
 #disable-next-line BCP081
-resource def_eventhubs_event_hub_server_errors 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesEventHubs) {
+resource def_eventhubs_event_hub_server_errors 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesEventHubs) {
   parent: hm
   name: guid(name, 'def-eventhubs-event-hub-server-errors')
   properties: {
@@ -683,7 +691,7 @@ resource def_eventhubs_event_hub_server_errors 'Microsoft.CloudHealth/healthmode
 }
 
 #disable-next-line BCP081
-resource def_eventhubs_event_hub_capture_backlog 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesEventHubs) {
+resource def_eventhubs_event_hub_capture_backlog 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesEventHubs) {
   parent: hm
   name: guid(name, 'def-eventhubs-event-hub-capture-backlog')
   properties: {
@@ -709,7 +717,7 @@ resource def_eventhubs_event_hub_capture_backlog 'Microsoft.CloudHealth/healthmo
 }
 
 #disable-next-line BCP081
-resource def_eventhubs_event_hub_geo_replication_lag 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesEventHubs) {
+resource def_eventhubs_event_hub_geo_replication_lag 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesEventHubs) {
   parent: hm
   name: guid(name, 'def-eventhubs-event-hub-geo-replication-lag')
   properties: {
@@ -735,7 +743,7 @@ resource def_eventhubs_event_hub_geo_replication_lag 'Microsoft.CloudHealth/heal
 }
 
 #disable-next-line BCP081
-resource def_eventhubs_event_hub_replication_lag_duration 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesEventHubs) {
+resource def_eventhubs_event_hub_replication_lag_duration 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesEventHubs) {
   parent: hm
   name: guid(name, 'def-eventhubs-event-hub-replication-lag-duration')
   properties: {
@@ -761,7 +769,7 @@ resource def_eventhubs_event_hub_replication_lag_duration 'Microsoft.CloudHealth
 }
 
 #disable-next-line BCP081
-resource def_orleans_orleans_grain_call_failures 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesOrleans) {
+resource def_orleans_orleans_grain_call_failures 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesOrleans) {
   parent: hm
   name: guid(name, 'def-orleans-orleans-grain-call-failures')
   properties: {
@@ -785,7 +793,7 @@ resource def_orleans_orleans_grain_call_failures 'Microsoft.CloudHealth/healthmo
 }
 
 #disable-next-line BCP081
-resource def_orleans_orleans_blocked_activations 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesOrleans) {
+resource def_orleans_orleans_blocked_activations 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesOrleans) {
   parent: hm
   name: guid(name, 'def-orleans-orleans-blocked-activations')
   properties: {
@@ -809,7 +817,7 @@ resource def_orleans_orleans_blocked_activations 'Microsoft.CloudHealth/healthmo
 }
 
 #disable-next-line BCP081
-resource def_orleans_orleans_dead_silos 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesOrleans) {
+resource def_orleans_orleans_dead_silos 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesOrleans) {
   parent: hm
   name: guid(name, 'def-orleans-orleans-dead-silos')
   properties: {
@@ -833,7 +841,7 @@ resource def_orleans_orleans_dead_silos 'Microsoft.CloudHealth/healthmodels/sign
 }
 
 #disable-next-line BCP081
-resource def_appmetrics_app_failed_intents 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesAppMetrics) {
+resource def_appmetrics_app_failed_intents 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesAppMetrics) {
   parent: hm
   name: guid(name, 'def-appmetrics-app-failed-intents')
   properties: {
@@ -857,7 +865,7 @@ resource def_appmetrics_app_failed_intents 'Microsoft.CloudHealth/healthmodels/s
 }
 
 #disable-next-line BCP081
-resource def_appmetrics_app_expired_intents 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesAppMetrics) {
+resource def_appmetrics_app_expired_intents 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesAppMetrics) {
   parent: hm
   name: guid(name, 'def-appmetrics-app-expired-intents')
   properties: {
@@ -881,7 +889,7 @@ resource def_appmetrics_app_expired_intents 'Microsoft.CloudHealth/healthmodels/
 }
 
 #disable-next-line BCP081
-resource def_spotimpact_replica_unavailability__ 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesSpotNodes) {
+resource def_spotimpact_replica_unavailability__ 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesSpotNodes) {
   parent: hm
   name: guid(name, 'def-spotimpact-replica-unavailability--')
   properties: {
@@ -905,7 +913,7 @@ resource def_spotimpact_replica_unavailability__ 'Microsoft.CloudHealth/healthmo
 }
 
 #disable-next-line BCP081
-resource def_spotimpact_pod_reschedule_p95_latency 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesSpotNodes) {
+resource def_spotimpact_pod_reschedule_p95_latency 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesSpotNodes) {
   parent: hm
   name: guid(name, 'def-spotimpact-pod-reschedule-p95-latency')
   properties: {
@@ -929,7 +937,7 @@ resource def_spotimpact_pod_reschedule_p95_latency 'Microsoft.CloudHealth/health
 }
 
 #disable-next-line BCP081
-resource def_spotimpact_restart_rate_from_churn 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesSpotNodes) {
+resource def_spotimpact_restart_rate_from_churn 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesSpotNodes) {
   parent: hm
   name: guid(name, 'def-spotimpact-restart-rate-from-churn')
   properties: {
@@ -953,7 +961,7 @@ resource def_spotimpact_restart_rate_from_churn 'Microsoft.CloudHealth/healthmod
 }
 
 #disable-next-line BCP081
-resource def_containerred_container_memory_working_set_mb 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesContainerMetrics) {
+resource def_containerred_container_memory_working_set_mb 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesContainerMetrics) {
   parent: hm
   name: guid(name, 'def-containerred-container-memory-working-set-mb')
   properties: {
@@ -977,7 +985,7 @@ resource def_containerred_container_memory_working_set_mb 'Microsoft.CloudHealth
 }
 
 #disable-next-line BCP081
-resource def_containerred_container_network_rx_mb_s 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesContainerMetrics) {
+resource def_containerred_container_network_rx_mb_s 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesContainerMetrics) {
   parent: hm
   name: guid(name, 'def-containerred-container-network-rx-mb-s')
   properties: {
@@ -1001,7 +1009,7 @@ resource def_containerred_container_network_rx_mb_s 'Microsoft.CloudHealth/healt
 }
 
 #disable-next-line BCP081
-resource def_containerred_container_network_tx_mb_s 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesContainerMetrics) {
+resource def_containerred_container_network_tx_mb_s 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesContainerMetrics) {
   parent: hm
   name: guid(name, 'def-containerred-container-network-tx-mb-s')
   properties: {
@@ -1025,7 +1033,7 @@ resource def_containerred_container_network_tx_mb_s 'Microsoft.CloudHealth/healt
 }
 
 #disable-next-line BCP081
-resource def_containerred_container_fs_writes_s 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesContainerMetrics) {
+resource def_containerred_container_fs_writes_s 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesContainerMetrics) {
   parent: hm
   name: guid(name, 'def-containerred-container-fs-writes-s')
   properties: {
@@ -1049,7 +1057,7 @@ resource def_containerred_container_fs_writes_s 'Microsoft.CloudHealth/healthmod
 }
 
 #disable-next-line BCP081
-resource def_workloads_workload_deployments_not_ready 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesWorkloadMetrics) {
+resource def_workloads_workload_deployments_not_ready 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesWorkloadMetrics) {
   parent: hm
   name: guid(name, 'def-workloads-workload-deployments-not-ready')
   properties: {
@@ -1073,7 +1081,7 @@ resource def_workloads_workload_deployments_not_ready 'Microsoft.CloudHealth/hea
 }
 
 #disable-next-line BCP081
-resource def_workloads_daemonsets_not_ready 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesWorkloadMetrics) {
+resource def_workloads_daemonsets_not_ready 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesWorkloadMetrics) {
   parent: hm
   name: guid(name, 'def-workloads-daemonsets-not-ready')
   properties: {
@@ -1097,7 +1105,7 @@ resource def_workloads_daemonsets_not_ready 'Microsoft.CloudHealth/healthmodels/
 }
 
 #disable-next-line BCP081
-resource def_workloads_workload_pods_pending 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesWorkloadMetrics) {
+resource def_workloads_workload_pods_pending 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesWorkloadMetrics) {
   parent: hm
   name: guid(name, 'def-workloads-workload-pods-pending')
   properties: {
@@ -1121,7 +1129,7 @@ resource def_workloads_workload_pods_pending 'Microsoft.CloudHealth/healthmodels
 }
 
 #disable-next-line BCP081
-resource def_workloads_workload_pods_failed 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = if (usesWorkloadMetrics) {
+resource def_workloads_workload_pods_failed 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesWorkloadMetrics) {
   parent: hm
   name: guid(name, 'def-workloads-workload-pods-failed')
   properties: {
@@ -1147,7 +1155,7 @@ resource def_workloads_workload_pods_failed 'Microsoft.CloudHealth/healthmodels/
 // ─── Signal Definitions (per-stamp — one per stamp) ──────────────────
 
 #disable-next-line BCP081
-resource def_fd_origin_latency 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = [
+resource def_fd_origin_latency 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = [
   for (stamp, i) in stamps: {
     parent: hm
     name: guid(name, stamp.key, 'def-fd-origin-latency')
@@ -1170,8 +1178,7 @@ resource def_fd_origin_latency 'Microsoft.CloudHealth/healthmodels/signaldefinit
       metricName: 'OriginLatency'
       timeGrain: 'PT1M'
       aggregationType: 'Average'
-      dimension: 'Origin'
-      dimensionFilter: stamp.originHostname
+      dimensionFilter: endsWith(toLower(stamp.originHostname), ':443') ? format('Origin eq \'{0}\'', replace(stamp.originHostname, '\'', '\'\'')) : format('Origin eq \'{0}:443\'', replace(stamp.originHostname, '\'', '\'\''))
     }
   }
 ]
@@ -1179,14 +1186,14 @@ resource def_fd_origin_latency 'Microsoft.CloudHealth/healthmodels/signaldefinit
 // ─── Database ────────────────────────────────────────────────────────
 
 #disable-next-line BCP081
-resource eDatabase 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = {
+resource eDatabase 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = {
   parent: hm
   name: guid(name, 'database')
   properties: {
     displayName: 'Database'
     canvasPosition: {
-      x: json('700')
-      y: json('550')
+      x: json('0')
+      y: json('386')
     }
     icon: {
       iconName: 'AzureCosmosDb'
@@ -1229,7 +1236,7 @@ resource eDatabase 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-previ
 }
 
 #disable-next-line BCP081
-resource rel_eDatabase 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = {
+resource rel_eDatabase 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = {
   parent: hm
   name: guid(name, eUsecase.name, eDatabase.name)
   properties: {
@@ -1241,15 +1248,15 @@ resource rel_eDatabase 'Microsoft.CloudHealth/healthmodels/relationships@2026-01
 // ─── Deployment (per stamp) ──────────────────────────────────────────
 
 #disable-next-line BCP081
-resource eDeployment 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = [
+resource eDeployment 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = [
   for (stamp, i) in stamps: {
     parent: hm
     name: guid(name, stamp.key, 'deployment')
     properties: {
-      displayName: 'Deployment — ${stamp.key}'
+      displayName: 'Deployment - ${stamp.key}'
       canvasPosition: {
-        x: json('1100')
-        y: json('${550 + i * 300}')
+        x: json('250')
+        y: json('${386 + i * 300}')
       }
       icon: {
         iconName: 'Resource'
@@ -1293,7 +1300,7 @@ resource eDeployment 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-pre
 ]
 
 #disable-next-line BCP081
-resource rel_deployment 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
+resource rel_deployment 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = [
   for (stamp, i) in stamps: {
     parent: hm
     name: guid(name, eUsecase.name, eDeployment[i].name)
@@ -1307,15 +1314,15 @@ resource rel_deployment 'Microsoft.CloudHealth/healthmodels/relationships@2026-0
 // ─── Embedded Platform (per stamp) ───────────────────────────────────
 
 #disable-next-line BCP081
-resource ePlatform 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = [
+resource ePlatform 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = [
   for (stamp, i) in stamps: {
     parent: hm
     name: guid(name, stamp.key, 'platform')
     properties: {
-      displayName: 'Platform — ${stamp.key}'
+      displayName: 'Platform - ${stamp.key}'
       canvasPosition: {
-        x: json('1500')
-        y: json('${550 + i * 300}')
+        x: json('500')
+        y: json('${386 + i * 300}')
       }
       icon: {
         iconName: 'AzureKubernetesService'
@@ -1333,7 +1340,7 @@ resource ePlatform 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-previ
 ]
 
 #disable-next-line BCP081
-resource rel_platform 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
+resource rel_platform 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = [
   for (stamp, i) in stamps: {
     parent: hm
     name: guid(name, eUsecase.name, ePlatform[i].name)
@@ -1347,15 +1354,15 @@ resource rel_platform 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-
 // ─── User Latency (per stamp) ────────────────────────────────────────
 
 #disable-next-line BCP081
-resource eLatency 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = [
+resource eLatency 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = [
   for (stamp, i) in stamps: {
     parent: hm
     name: guid(name, stamp.key, 'user-latency')
     properties: {
-      displayName: 'User Latency — ${stamp.key}'
+      displayName: 'User Latency - ${stamp.key}'
       canvasPosition: {
-        x: json('1900')
-        y: json('${550 + i * 300}')
+        x: json('750')
+        y: json('${386 + i * 300}')
       }
       icon: {
         iconName: 'AzureFrontDoor'
@@ -1381,7 +1388,7 @@ resource eLatency 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-previe
 ]
 
 #disable-next-line BCP081
-resource rel_latency 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
+resource rel_latency 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = [
   for (stamp, i) in stamps: {
     parent: hm
     name: guid(name, eUsecase.name, eLatency[i].name)
@@ -1397,7 +1404,7 @@ resource rel_latency 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-0
 // Generated from groups.ts (layer: app) — add new features there.
 
 #disable-next-line BCP081
-resource queuesEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = if (usesQueues) {
+resource queuesEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = if (usesQueues) {
   parent: hm
   name: guid(name, 'queues')
   properties: {
@@ -1441,7 +1448,7 @@ resource queuesEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-pr
 }
 
 #disable-next-line BCP081
-resource rel_queues 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = if (usesQueues) {
+resource rel_queues 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = if (usesQueues) {
   parent: hm
   name: guid(name, root.name, queuesEntity.name)
   properties: {
@@ -1451,7 +1458,7 @@ resource rel_queues 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01
 }
 
 #disable-next-line BCP081
-resource aiEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = if (usesAI) {
+resource aiEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = if (usesAI) {
   parent: hm
   name: guid(name, 'ai')
   properties: {
@@ -1501,7 +1508,7 @@ resource aiEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-previe
 }
 
 #disable-next-line BCP081
-resource rel_ai 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = if (usesAI) {
+resource rel_ai 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = if (usesAI) {
   parent: hm
   name: guid(name, root.name, aiEntity.name)
   properties: {
@@ -1511,7 +1518,7 @@ resource rel_ai 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-pre
 }
 
 #disable-next-line BCP081
-resource blobsEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = if (usesBlobs) {
+resource blobsEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = if (usesBlobs) {
   parent: hm
   name: guid(name, 'blobs')
   properties: {
@@ -1555,7 +1562,7 @@ resource blobsEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-pre
 }
 
 #disable-next-line BCP081
-resource rel_blobs 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = if (usesBlobs) {
+resource rel_blobs 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = if (usesBlobs) {
   parent: hm
   name: guid(name, root.name, blobsEntity.name)
   properties: {
@@ -1565,7 +1572,7 @@ resource rel_blobs 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-
 }
 
 #disable-next-line BCP081
-resource eventhubsEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = if (usesEventHubs) {
+resource eventhubsEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = if (usesEventHubs) {
   parent: hm
   name: guid(name, 'eventhubs')
   properties: {
@@ -1621,7 +1628,7 @@ resource eventhubsEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01
 }
 
 #disable-next-line BCP081
-resource rel_eventhubs 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = if (usesEventHubs) {
+resource rel_eventhubs 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = if (usesEventHubs) {
   parent: hm
   name: guid(name, root.name, eventhubsEntity.name)
   properties: {
@@ -1631,7 +1638,7 @@ resource rel_eventhubs 'Microsoft.CloudHealth/healthmodels/relationships@2026-01
 }
 
 #disable-next-line BCP081
-resource orleansCategory 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = if (usesOrleans) {
+resource orleansCategory 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = if (usesOrleans) {
   parent: hm
   name: guid(name, 'orleans-category')
   properties: {
@@ -1649,12 +1656,12 @@ resource orleansCategory 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01
 }
 
 #disable-next-line BCP081
-resource orleansStampLeaf 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = [
+resource orleansStampLeaf 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = [
   for (stamp, i) in stamps: if (usesOrleans) {
     parent: hm
     name: guid(name, stamp.key, 'orleans-leaf')
     properties: {
-      displayName: '${stamp.key} — Orleans'
+      displayName: '${stamp.key} - Orleans'
       canvasPosition: {
         x: json('1500')
         y: json('${600 + 800 * length(stamps) + i * 300}')
@@ -1695,7 +1702,7 @@ resource orleansStampLeaf 'Microsoft.CloudHealth/healthmodels/entities@2026-01-0
 ]
 
 #disable-next-line BCP081
-resource rel_root_orleans 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = if (usesOrleans) {
+resource rel_root_orleans 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = if (usesOrleans) {
   parent: hm
   name: guid(name, root.name, orleansCategory.name)
   properties: {
@@ -1705,7 +1712,7 @@ resource rel_root_orleans 'Microsoft.CloudHealth/healthmodels/relationships@2026
 }
 
 #disable-next-line BCP081
-resource rel_orleans_leaf 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
+resource rel_orleans_leaf 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = [
   for (stamp, i) in stamps: if (usesOrleans) {
     parent: hm
     name: guid(name, orleansCategory.name, orleansStampLeaf[i].name)
@@ -1717,7 +1724,7 @@ resource rel_orleans_leaf 'Microsoft.CloudHealth/healthmodels/relationships@2026
 ]
 
 #disable-next-line BCP081
-resource appmetricsCategory 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = if (usesAppMetrics) {
+resource appmetricsCategory 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = if (usesAppMetrics) {
   parent: hm
   name: guid(name, 'appmetrics-category')
   properties: {
@@ -1735,12 +1742,12 @@ resource appmetricsCategory 'Microsoft.CloudHealth/healthmodels/entities@2026-01
 }
 
 #disable-next-line BCP081
-resource appmetricsStampLeaf 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = [
+resource appmetricsStampLeaf 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = [
   for (stamp, i) in stamps: if (usesAppMetrics) {
     parent: hm
     name: guid(name, stamp.key, 'appmetrics-leaf')
     properties: {
-      displayName: '${stamp.key} — App Metrics'
+      displayName: '${stamp.key} - App Metrics'
       canvasPosition: {
         x: json('1833')
         y: json('${600 + 800 * length(stamps) + i * 300}')
@@ -1775,7 +1782,7 @@ resource appmetricsStampLeaf 'Microsoft.CloudHealth/healthmodels/entities@2026-0
 ]
 
 #disable-next-line BCP081
-resource rel_root_appmetrics 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = if (usesAppMetrics) {
+resource rel_root_appmetrics 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = if (usesAppMetrics) {
   parent: hm
   name: guid(name, root.name, appmetricsCategory.name)
   properties: {
@@ -1785,7 +1792,7 @@ resource rel_root_appmetrics 'Microsoft.CloudHealth/healthmodels/relationships@2
 }
 
 #disable-next-line BCP081
-resource rel_appmetrics_leaf 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
+resource rel_appmetrics_leaf 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = [
   for (stamp, i) in stamps: if (usesAppMetrics) {
     parent: hm
     name: guid(name, appmetricsCategory.name, appmetricsStampLeaf[i].name)
@@ -1797,7 +1804,7 @@ resource rel_appmetrics_leaf 'Microsoft.CloudHealth/healthmodels/relationships@2
 ]
 
 #disable-next-line BCP081
-resource spotimpactCategory 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = if (usesSpotNodes) {
+resource spotimpactCategory 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = if (usesSpotNodes) {
   parent: hm
   name: guid(name, 'spotimpact-category')
   properties: {
@@ -1815,12 +1822,12 @@ resource spotimpactCategory 'Microsoft.CloudHealth/healthmodels/entities@2026-01
 }
 
 #disable-next-line BCP081
-resource spotimpactStampLeaf 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = [
+resource spotimpactStampLeaf 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = [
   for (stamp, i) in stamps: if (usesSpotNodes) {
     parent: hm
     name: guid(name, stamp.key, 'spotimpact-leaf')
     properties: {
-      displayName: '${stamp.key} — Spot Impact'
+      displayName: '${stamp.key} - Spot Impact'
       canvasPosition: {
         x: json('2167')
         y: json('${600 + 800 * length(stamps) + i * 300}')
@@ -1861,7 +1868,7 @@ resource spotimpactStampLeaf 'Microsoft.CloudHealth/healthmodels/entities@2026-0
 ]
 
 #disable-next-line BCP081
-resource rel_root_spotimpact 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = if (usesSpotNodes) {
+resource rel_root_spotimpact 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = if (usesSpotNodes) {
   parent: hm
   name: guid(name, root.name, spotimpactCategory.name)
   properties: {
@@ -1871,7 +1878,7 @@ resource rel_root_spotimpact 'Microsoft.CloudHealth/healthmodels/relationships@2
 }
 
 #disable-next-line BCP081
-resource rel_spotimpact_leaf 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
+resource rel_spotimpact_leaf 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = [
   for (stamp, i) in stamps: if (usesSpotNodes) {
     parent: hm
     name: guid(name, spotimpactCategory.name, spotimpactStampLeaf[i].name)
@@ -1883,7 +1890,7 @@ resource rel_spotimpact_leaf 'Microsoft.CloudHealth/healthmodels/relationships@2
 ]
 
 #disable-next-line BCP081
-resource containerredCategory 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = if (usesContainerMetrics) {
+resource containerredCategory 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = if (usesContainerMetrics) {
   parent: hm
   name: guid(name, 'containerred-category')
   properties: {
@@ -1901,12 +1908,12 @@ resource containerredCategory 'Microsoft.CloudHealth/healthmodels/entities@2026-
 }
 
 #disable-next-line BCP081
-resource containerredStampLeaf 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = [
+resource containerredStampLeaf 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = [
   for (stamp, i) in stamps: if (usesContainerMetrics) {
     parent: hm
     name: guid(name, stamp.key, 'containerred-leaf')
     properties: {
-      displayName: '${stamp.key} — Container RED'
+      displayName: '${stamp.key} - Container RED'
       canvasPosition: {
         x: json('2500')
         y: json('${600 + 800 * length(stamps) + i * 300}')
@@ -1953,7 +1960,7 @@ resource containerredStampLeaf 'Microsoft.CloudHealth/healthmodels/entities@2026
 ]
 
 #disable-next-line BCP081
-resource rel_root_containerred 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = if (usesContainerMetrics) {
+resource rel_root_containerred 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = if (usesContainerMetrics) {
   parent: hm
   name: guid(name, root.name, containerredCategory.name)
   properties: {
@@ -1963,7 +1970,7 @@ resource rel_root_containerred 'Microsoft.CloudHealth/healthmodels/relationships
 }
 
 #disable-next-line BCP081
-resource rel_containerred_leaf 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
+resource rel_containerred_leaf 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = [
   for (stamp, i) in stamps: if (usesContainerMetrics) {
     parent: hm
     name: guid(name, containerredCategory.name, containerredStampLeaf[i].name)
@@ -1975,7 +1982,7 @@ resource rel_containerred_leaf 'Microsoft.CloudHealth/healthmodels/relationships
 ]
 
 #disable-next-line BCP081
-resource workloadsCategory 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = if (usesWorkloadMetrics) {
+resource workloadsCategory 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = if (usesWorkloadMetrics) {
   parent: hm
   name: guid(name, 'workloads-category')
   properties: {
@@ -1993,12 +2000,12 @@ resource workloadsCategory 'Microsoft.CloudHealth/healthmodels/entities@2026-01-
 }
 
 #disable-next-line BCP081
-resource workloadsStampLeaf 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = [
+resource workloadsStampLeaf 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = [
   for (stamp, i) in stamps: if (usesWorkloadMetrics) {
     parent: hm
     name: guid(name, stamp.key, 'workloads-leaf')
     properties: {
-      displayName: '${stamp.key} — Workloads'
+      displayName: '${stamp.key} - Workloads'
       canvasPosition: {
         x: json('2833')
         y: json('${600 + 800 * length(stamps) + i * 300}')
@@ -2045,7 +2052,7 @@ resource workloadsStampLeaf 'Microsoft.CloudHealth/healthmodels/entities@2026-01
 ]
 
 #disable-next-line BCP081
-resource rel_root_workloads 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = if (usesWorkloadMetrics) {
+resource rel_root_workloads 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = if (usesWorkloadMetrics) {
   parent: hm
   name: guid(name, root.name, workloadsCategory.name)
   properties: {
@@ -2055,7 +2062,7 @@ resource rel_root_workloads 'Microsoft.CloudHealth/healthmodels/relationships@20
 }
 
 #disable-next-line BCP081
-resource rel_workloads_leaf 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = [
+resource rel_workloads_leaf 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = [
   for (stamp, i) in stamps: if (usesWorkloadMetrics) {
     parent: hm
     name: guid(name, workloadsCategory.name, workloadsStampLeaf[i].name)

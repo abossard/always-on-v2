@@ -1,4 +1,4 @@
-# ADR-0033: Coding Principles — Grokking Simplicity & A Philosophy of Software Design
+# ADR-0033: Coding Principles - Grokking Simplicity & A Philosophy of Software Design
 
 **Status:** Decided
 

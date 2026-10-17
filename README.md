@@ -1,4 +1,4 @@
-# AlwaysOn v2 — Mission-Critical Apps on Azure (azd sample)
+# AlwaysOn v2 - Mission-Critical Apps on Azure (azd sample)
 
 A lightweight **Azure Developer CLI (`azd`) sample** that deploys a globally distributed,
 mission-critical platform on Azure — AKS stamps, Cosmos DB, Front Door, Orleans apps, and
@@ -102,10 +102,10 @@ dotnet test --solution src/src.slnx --no-build \
 ```bash
 (
   set -e
-  cd src/az-healthmodel
+  cd src/health-models-tui
   python3 -m venv .venv
   .venv/bin/python -m pip install -r requirements-dev.txt
-  .venv/bin/python -m pytest azext_healthmodel/tests/ --ignore=azext_healthmodel/tests/test_e2e.py
+  .venv/bin/python -m pytest azext_health_models_tui/tests/
 )
 ```
 
@@ -245,7 +245,7 @@ azd down --force --purge
 | Path | What |
 |---|---|
 | [`FEATURES.md`](FEATURES.md) | Applications, tools, and platform features — with sources |
-| [`src/`](src/) | .NET 10 / Orleans apps + shared libraries + `az healthmodel` CLI |
+| [`src/`](src/) | .NET 10 / Orleans apps + shared libraries + `az health-models-tui` CLI |
 | [`infra/`](infra/) | Bicep IaC (`main.bicep` entry point) + `main.parameters.json` |
 | [`clusters/`](clusters/) | Kustomize/Flux manifests (also used by the `azd` postdeploy hook) |
 | [`hooks/`](hooks/) | `azd` lifecycle hooks (pre/post provision & deploy) |

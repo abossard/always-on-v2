@@ -345,7 +345,7 @@
           "sort": "desc"
         }
       },
-      "title": "FD Origin Latency — all origins",
+      "title": "FD Origin Latency - all origins",
       "datasource": {
         "uid": "azure-monitor",
         "type": "grafana-azure-monitor-datasource"
@@ -767,7 +767,7 @@
       "type": "stat",
       "transparent": false,
       "repeatDirection": "h",
-      "title": "Pod Restarts — all stamps",
+      "title": "Pod Restarts - all stamps",
       "datasource": {
         "uid": "-- Mixed --",
         "type": "datasource"
@@ -834,7 +834,7 @@
       "type": "stat",
       "transparent": false,
       "repeatDirection": "h",
-      "title": "OOMKills — all stamps",
+      "title": "OOMKills - all stamps",
       "datasource": {
         "uid": "-- Mixed --",
         "type": "datasource"
@@ -901,7 +901,7 @@
       "type": "stat",
       "transparent": false,
       "repeatDirection": "h",
-      "title": "CrashLoop — all stamps",
+      "title": "CrashLoop - all stamps",
       "datasource": {
         "uid": "-- Mixed --",
         "type": "datasource"
@@ -981,7 +981,7 @@
       "type": "gauge",
       "transparent": false,
       "repeatDirection": "h",
-      "title": "CPU Pressure — per cluster",
+      "title": "CPU Pressure - per cluster",
       "datasource": {
         "uid": "-- Mixed --",
         "type": "datasource"
@@ -1047,7 +1047,7 @@
       "type": "gauge",
       "transparent": false,
       "repeatDirection": "h",
-      "title": "Memory Pressure — per cluster",
+      "title": "Memory Pressure - per cluster",
       "datasource": {
         "uid": "-- Mixed --",
         "type": "datasource"
@@ -1591,7 +1591,7 @@
           "type": "stat",
           "transparent": false,
           "repeatDirection": "h",
-          "title": "Orleans Cosmos Availability % — swedencentral",
+          "title": "Orleans Cosmos Availability % - swedencentral",
           "datasource": {
             "uid": "azure-monitor",
             "type": "grafana-azure-monitor-datasource"
@@ -1723,7 +1723,7 @@
               "sort": "desc"
             }
           },
-          "title": "Orleans Cosmos Normalized RU % — swedencentral",
+          "title": "Orleans Cosmos Normalized RU % - swedencentral",
           "datasource": {
             "uid": "azure-monitor",
             "type": "grafana-azure-monitor-datasource"
@@ -1815,7 +1815,7 @@
               "sort": "desc"
             }
           },
-          "title": "Orleans Cosmos Throttled (429) — swedencentral",
+          "title": "Orleans Cosmos Throttled (429) - swedencentral",
           "datasource": {
             "uid": "azure-monitor",
             "type": "grafana-azure-monitor-datasource"
@@ -1864,7 +1864,7 @@
           "type": "stat",
           "transparent": false,
           "repeatDirection": "h",
-          "title": "Orleans Cosmos Availability % — swedencentral",
+          "title": "Orleans Cosmos Availability % - swedencentral",
           "datasource": {
             "uid": "azure-monitor",
             "type": "grafana-azure-monitor-datasource"
@@ -1996,7 +1996,7 @@
               "sort": "desc"
             }
           },
-          "title": "Orleans Cosmos Normalized RU % — swedencentral",
+          "title": "Orleans Cosmos Normalized RU % - swedencentral",
           "datasource": {
             "uid": "azure-monitor",
             "type": "grafana-azure-monitor-datasource"
@@ -2088,7 +2088,7 @@
               "sort": "desc"
             }
           },
-          "title": "Orleans Cosmos Throttled (429) — swedencentral",
+          "title": "Orleans Cosmos Throttled (429) - swedencentral",
           "datasource": {
             "uid": "azure-monitor",
             "type": "grafana-azure-monitor-datasource"

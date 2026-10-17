@@ -1,4 +1,4 @@
-# ADR-0039: Matrix Testing — Behavior Tests Across All Port Implementations
+# ADR-0039: Matrix Testing - Behavior Tests Across All Port Implementations
 
 **Status:** Decided
 

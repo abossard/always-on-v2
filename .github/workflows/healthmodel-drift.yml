@@ -32,14 +32,18 @@ jobs:
         run: npm ci
         working-directory: scripts/healthmodel
 
-      - name: Regenerate healthmodel.bicep
+      - name: Test healthmodel contracts
+        run: npm run test:contracts
+        working-directory: scripts/healthmodel
+
+      - name: Regenerate healthmodel modules
         run: npm run generate
         working-directory: scripts/healthmodel
 
       - name: Check for drift
         run: |
-          if ! git diff --exit-code -- infra/healthmodel/healthmodel.bicep; then
-            echo "::error::infra/healthmodel/healthmodel.bicep is out of sync with the generator."
+          if ! git diff --exit-code -- infra/healthmodel/platform.bicep infra/healthmodel/all-platforms.bicep infra/healthmodel/app.bicep; then
+            echo "::error::Generated healthmodel modules are out of sync with the generator."
             echo "::error::Run: cd scripts/healthmodel && npm run generate"
             exit 1
           fi

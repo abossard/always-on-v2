@@ -81,7 +81,15 @@ if [ "$STAMP_VARS" != "[]" ] && [ "$STAMP_VARS" != "null" ]; then
   STAMP_COUNT=$(echo "$STAMP_VARS" | jq length)
   echo "   STAMP_DEPLOY_VARS stored ($STAMP_COUNT stamps)"
 else
-  echo "⚠️  stampDeployVars not found in outputs (deploy hooks will query Azure directly)"
+  echo "ERROR: stampDeployVars missing from deployment outputs"
+  exit 1
+fi
+
+APP_ENDPOINTS=$(az deployment sub show --name "$DEPLOYMENT_NAME" \
+  --query "properties.outputs.appEndpoints.value" -o json 2>/dev/null || echo "[]")
+if [ "$APP_ENDPOINTS" = "[]" ] || [ "$APP_ENDPOINTS" = "null" ]; then
+  echo "ERROR: appEndpoints missing from deployment outputs"
+  exit 1
 fi
 
 # Store Front Door endpoint
@@ -95,7 +103,29 @@ fi
 echo ""
 # ── Root the All-Platforms discovery-rule entity (async, post-deploy) ──
 if [ -f scripts/healthmodel/link-discovery-root.sh ]; then
-  bash scripts/healthmodel/link-discovery-root.sh || echo "⚠️  discovery-root linking failed (non-fatal)"
+  HEALTHMODEL_TARGET_MODELS_JSON="$(
+    jq -cn \
+      --argjson appEndpoints "$APP_ENDPOINTS" \
+      --argjson stampVars "$STAMP_VARS" '
+      (
+        ["hm-all-platforms"]
+        + ($appEndpoints | map("hm-" + .name))
+        + ($stampVars
+            | map(. as $s
+                | if (($s.regionKey // "") | length) == 0 then error("stampVars missing regionKey")
+                elif (($s.stampName // "") | length) == 0 then error("stampVars missing stampName")
+                elif (($s.stampName | startswith($s.regionKey + "-")) | not) then error("stampName does not match regionKey-prefix contract")
+                else
+                  "hm-platform-" + $s.regionKey + "-" + ($s.stampName | ltrimstr($s.regionKey + "-"))
+                end
+              ))
+      )
+      | unique
+      | sort
+      '
+  )"
+  export HEALTHMODEL_TARGET_MODELS_JSON
+  bash scripts/healthmodel/link-discovery-root.sh
 fi
 
 echo ""

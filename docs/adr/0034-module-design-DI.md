@@ -1,4 +1,4 @@
-# ADR-0034: Module Design — Full Business Functionality, No Hosting or Storage Concerns
+# ADR-0034: Module Design - Full Business Functionality, No Hosting or Storage Concerns
 
 **Status:** Decided
 

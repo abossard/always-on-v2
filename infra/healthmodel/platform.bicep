@@ -42,7 +42,7 @@ var authSettingName = toLower(identityName)
 // ─── Health Model + Auth ─────────────────────────────────────────────
 
 #disable-next-line BCP081
-resource hm 'Microsoft.CloudHealth/healthmodels@2026-01-01-preview' = {
+resource hm 'Microsoft.CloudHealth/healthmodels@2026-11-01' = {
   name: name
   location: location
   identity: {
@@ -58,7 +58,7 @@ resource hm 'Microsoft.CloudHealth/healthmodels@2026-01-01-preview' = {
 }
 
 #disable-next-line BCP081
-resource auth 'Microsoft.CloudHealth/healthmodels/authenticationsettings@2026-01-01-preview' = {
+resource auth 'Microsoft.CloudHealth/healthmodels/authenticationsettings@2026-11-01' = {
   parent: hm
   name: authSettingName
   properties: {
@@ -71,13 +71,13 @@ resource auth 'Microsoft.CloudHealth/healthmodels/authenticationsettings@2026-01
 // ─── Root Entity ─────────────────────────────────────────────────────
 
 #disable-next-line BCP081
-resource root 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = {
+resource root 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = {
   parent: hm
   name: name
   properties: {
     displayName: displayName
     canvasPosition: {
-      x: json('1100')
+      x: json('1250')
       y: json('0')
     }
     icon: {
@@ -92,7 +92,7 @@ resource root 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' =
 // ─── Signal Definitions (model-scoped — one per model) ───────────────
 
 #disable-next-line BCP081
-resource def_nodes_ready 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_nodes_ready 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-nodes-ready')
   properties: {
@@ -116,7 +116,7 @@ resource def_nodes_ready 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2
 }
 
 #disable-next-line BCP081
-resource def_nodes_notready 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_nodes_notready 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-nodes-notready')
   properties: {
@@ -140,7 +140,7 @@ resource def_nodes_notready 'Microsoft.CloudHealth/healthmodels/signaldefinition
 }
 
 #disable-next-line BCP081
-resource def_nodes_mempressure 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_nodes_mempressure 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-nodes-mempressure')
   properties: {
@@ -164,7 +164,7 @@ resource def_nodes_mempressure 'Microsoft.CloudHealth/healthmodels/signaldefinit
 }
 
 #disable-next-line BCP081
-resource def_nodes_diskpressure 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_nodes_diskpressure 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-nodes-diskpressure')
   properties: {
@@ -188,7 +188,7 @@ resource def_nodes_diskpressure 'Microsoft.CloudHealth/healthmodels/signaldefini
 }
 
 #disable-next-line BCP081
-resource def_nodes_pidpressure 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_nodes_pidpressure 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-nodes-pidpressure')
   properties: {
@@ -212,7 +212,7 @@ resource def_nodes_pidpressure 'Microsoft.CloudHealth/healthmodels/signaldefinit
 }
 
 #disable-next-line BCP081
-resource def_ksys_deploy 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_ksys_deploy 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-ksys-deploy')
   properties: {
@@ -236,7 +236,7 @@ resource def_ksys_deploy 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2
 }
 
 #disable-next-line BCP081
-resource def_ksys_daemon 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_ksys_daemon 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-ksys-daemon')
   properties: {
@@ -260,7 +260,7 @@ resource def_ksys_daemon 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2
 }
 
 #disable-next-line BCP081
-resource def_ksys_failed 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_ksys_failed 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-ksys-failed')
   properties: {
@@ -284,7 +284,7 @@ resource def_ksys_failed 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2
 }
 
 #disable-next-line BCP081
-resource def_ksys_pending 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_ksys_pending 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-ksys-pending')
   properties: {
@@ -308,7 +308,7 @@ resource def_ksys_pending 'Microsoft.CloudHealth/healthmodels/signaldefinitions@
 }
 
 #disable-next-line BCP081
-resource def_aks_failed_pods 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_aks_failed_pods 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-aks-failed-pods')
   properties: {
@@ -330,13 +330,12 @@ resource def_aks_failed_pods 'Microsoft.CloudHealth/healthmodels/signaldefinitio
     metricName: 'kube_pod_status_phase'
     timeGrain: 'PT5M'
     aggregationType: 'Average'
-    dimension: 'phase'
-    dimensionFilter: 'Failed'
+    dimensionFilter: 'phase eq \'Failed\''
   }
 }
 
 #disable-next-line BCP081
-resource def_node_cpu 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_node_cpu 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-node-cpu')
   properties: {
@@ -360,7 +359,7 @@ resource def_node_cpu 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026
 }
 
 #disable-next-line BCP081
-resource def_node_mem 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_node_mem 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-node-mem')
   properties: {
@@ -384,7 +383,7 @@ resource def_node_mem 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026
 }
 
 #disable-next-line BCP081
-resource def_node_diskio 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_node_diskio 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-node-diskio')
   properties: {
@@ -408,7 +407,7 @@ resource def_node_diskio 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2
 }
 
 #disable-next-line BCP081
-resource def_node_fs 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_node_fs 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-node-fs')
   properties: {
@@ -432,7 +431,7 @@ resource def_node_fs 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-
 }
 
 #disable-next-line BCP081
-resource def_node_netdrops 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_node_netdrops 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-node-netdrops')
   properties: {
@@ -456,7 +455,7 @@ resource def_node_netdrops 'Microsoft.CloudHealth/healthmodels/signaldefinitions
 }
 
 #disable-next-line BCP081
-resource def_node_load 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_node_load 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-node-load')
   properties: {
@@ -480,7 +479,7 @@ resource def_node_load 'Microsoft.CloudHealth/healthmodels/signaldefinitions@202
 }
 
 #disable-next-line BCP081
-resource def_cp_apierr 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_cp_apierr 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-cp-apierr')
   properties: {
@@ -504,7 +503,7 @@ resource def_cp_apierr 'Microsoft.CloudHealth/healthmodels/signaldefinitions@202
 }
 
 #disable-next-line BCP081
-resource def_cp_apiinflight 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_cp_apiinflight 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-cp-apiinflight')
   properties: {
@@ -528,7 +527,7 @@ resource def_cp_apiinflight 'Microsoft.CloudHealth/healthmodels/signaldefinition
 }
 
 #disable-next-line BCP081
-resource def_cp_etcdleader 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_cp_etcdleader 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-cp-etcdleader')
   properties: {
@@ -552,7 +551,7 @@ resource def_cp_etcdleader 'Microsoft.CloudHealth/healthmodels/signaldefinitions
 }
 
 #disable-next-line BCP081
-resource def_cp_etcdslow 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_cp_etcdslow 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-cp-etcdslow')
   properties: {
@@ -576,7 +575,7 @@ resource def_cp_etcdslow 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2
 }
 
 #disable-next-line BCP081
-resource def_cp_kubeleterr 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_cp_kubeleterr 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-cp-kubeleterr')
   properties: {
@@ -600,7 +599,7 @@ resource def_cp_kubeleterr 'Microsoft.CloudHealth/healthmodels/signaldefinitions
 }
 
 #disable-next-line BCP081
-resource def_cp_podstart 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_cp_podstart 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-cp-podstart')
   properties: {
@@ -624,7 +623,7 @@ resource def_cp_podstart 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2
 }
 
 #disable-next-line BCP081
-resource def_net_ciliumdns 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_net_ciliumdns 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-net-ciliumdns')
   properties: {
@@ -648,7 +647,7 @@ resource def_net_ciliumdns 'Microsoft.CloudHealth/healthmodels/signaldefinitions
 }
 
 #disable-next-line BCP081
-resource def_net_ciliumdrops 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_net_ciliumdrops 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-net-ciliumdrops')
   properties: {
@@ -672,7 +671,7 @@ resource def_net_ciliumdrops 'Microsoft.CloudHealth/healthmodels/signaldefinitio
 }
 
 #disable-next-line BCP081
-resource def_net_ciliumep 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_net_ciliumep 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-net-ciliumep')
   properties: {
@@ -696,7 +695,7 @@ resource def_net_ciliumep 'Microsoft.CloudHealth/healthmodels/signaldefinitions@
 }
 
 #disable-next-line BCP081
-resource def_net_hubbledrops 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_net_hubbledrops 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-net-hubbledrops')
   properties: {
@@ -720,7 +719,7 @@ resource def_net_hubbledrops 'Microsoft.CloudHealth/healthmodels/signaldefinitio
 }
 
 #disable-next-line BCP081
-resource def_net_hubbletcp 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_net_hubbletcp 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-net-hubbletcp')
   properties: {
@@ -744,7 +743,7 @@ resource def_net_hubbletcp 'Microsoft.CloudHealth/healthmodels/signaldefinitions
 }
 
 #disable-next-line BCP081
-resource def_life_churn 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_life_churn 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-life-churn')
   properties: {
@@ -768,7 +767,7 @@ resource def_life_churn 'Microsoft.CloudHealth/healthmodels/signaldefinitions@20
 }
 
 #disable-next-line BCP081
-resource def_life_disrupt 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_life_disrupt 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-life-disrupt')
   properties: {
@@ -792,7 +791,7 @@ resource def_life_disrupt 'Microsoft.CloudHealth/healthmodels/signaldefinitions@
 }
 
 #disable-next-line BCP081
-resource def_life_pending 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_life_pending 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-life-pending')
   properties: {
@@ -816,7 +815,7 @@ resource def_life_pending 'Microsoft.CloudHealth/healthmodels/signaldefinitions@
 }
 
 #disable-next-line BCP081
-resource def_life_spotint 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_life_spotint 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-life-spotint')
   properties: {
@@ -840,7 +839,7 @@ resource def_life_spotint 'Microsoft.CloudHealth/healthmodels/signaldefinitions@
 }
 
 #disable-next-line BCP081
-resource def_life_spotready 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_life_spotready 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-life-spotready')
   properties: {
@@ -864,7 +863,7 @@ resource def_life_spotready 'Microsoft.CloudHealth/healthmodels/signaldefinition
 }
 
 #disable-next-line BCP081
-resource def_certs_notready 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_certs_notready 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-certs-notready')
   properties: {
@@ -888,7 +887,7 @@ resource def_certs_notready 'Microsoft.CloudHealth/healthmodels/signaldefinition
 }
 
 #disable-next-line BCP081
-resource def_scosmos_avail 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_scosmos_avail 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-scosmos-avail')
   properties: {
@@ -914,7 +913,7 @@ resource def_scosmos_avail 'Microsoft.CloudHealth/healthmodels/signaldefinitions
 }
 
 #disable-next-line BCP081
-resource def_scosmos_clienterr 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_scosmos_clienterr 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-scosmos-clienterr')
   properties: {
@@ -936,13 +935,12 @@ resource def_scosmos_clienterr 'Microsoft.CloudHealth/healthmodels/signaldefinit
     metricName: 'TotalRequests'
     timeGrain: 'PT1M'
     aggregationType: 'Count'
-    dimension: 'Status'
-    dimensionFilter: 'ClientOtherError'
+    dimensionFilter: 'Status eq \'ClientOtherError\''
   }
 }
 
 #disable-next-line BCP081
-resource def_scosmos_throttled 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-01-01-preview' = {
+resource def_scosmos_throttled 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-scosmos-throttled')
   properties: {
@@ -964,22 +962,122 @@ resource def_scosmos_throttled 'Microsoft.CloudHealth/healthmodels/signaldefinit
     metricName: 'TotalRequests'
     timeGrain: 'PT5M'
     aggregationType: 'Count'
-    dimension: 'StatusCode'
-    dimensionFilter: '429'
+    dimensionFilter: 'StatusCode eq \'429\''
   }
 }
 
-// ─── Kubernetes Basic Health ─────────────────────────────────────────
+// ─── System Flows ────────────────────────────────────────────────────
 
 #disable-next-line BCP081
-resource eNodeCapacity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = {
+resource eFlowNetworking 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = {
+  parent: hm
+  name: guid(name, 'system-flow-networking')
+  properties: {
+    displayName: 'Networking'
+    canvasPosition: {
+      x: json('125')
+      y: json('193')
+    }
+    icon: {
+      iconName: 'UserFlow'
+    }
+    impact: 'Standard'
+    tags: {}
+    signalGroups: {
+      dependencies: {
+        aggregationType: 'WorstOf'
+      }
+    }
+  }
+}
+
+#disable-next-line BCP081
+resource rel_flow_networking 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = {
+  parent: hm
+  name: guid(name, root.name, eFlowNetworking.name)
+  properties: {
+    parentEntityName: root.name
+    childEntityName: eFlowNetworking.name
+  }
+}
+
+#disable-next-line BCP081
+resource eFlowCompute 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = {
+  parent: hm
+  name: guid(name, 'system-flow-compute')
+  properties: {
+    displayName: 'Compute'
+    canvasPosition: {
+      x: json('1250')
+      y: json('193')
+    }
+    icon: {
+      iconName: 'UserFlow'
+    }
+    impact: 'Standard'
+    tags: {}
+    signalGroups: {
+      dependencies: {
+        aggregationType: 'WorstOf'
+      }
+    }
+  }
+}
+
+#disable-next-line BCP081
+resource rel_flow_compute 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = {
+  parent: hm
+  name: guid(name, root.name, eFlowCompute.name)
+  properties: {
+    parentEntityName: root.name
+    childEntityName: eFlowCompute.name
+  }
+}
+
+#disable-next-line BCP081
+resource eFlowPersistancy 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = {
+  parent: hm
+  name: guid(name, 'system-flow-persistancy')
+  properties: {
+    displayName: 'Persistancy'
+    canvasPosition: {
+      x: json('2250')
+      y: json('193')
+    }
+    icon: {
+      iconName: 'UserFlow'
+    }
+    impact: 'Standard'
+    tags: {}
+    signalGroups: {
+      dependencies: {
+        aggregationType: 'WorstOf'
+      }
+    }
+  }
+}
+
+#disable-next-line BCP081
+resource rel_flow_persistancy 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = {
+  parent: hm
+  name: guid(name, root.name, eFlowPersistancy.name)
+  properties: {
+    parentEntityName: root.name
+    childEntityName: eFlowPersistancy.name
+  }
+}
+
+// ─── System Flow Leaves ──────────────────────────────────────────────
+
+#disable-next-line BCP081
+resource eNodeCapacity 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = {
   parent: hm
   name: guid(name, 'node-capacity')
   properties: {
     displayName: 'Node Capacity'
     canvasPosition: {
-      x: json('200')
-      y: json('300')
+      x: json('500')
+      y: json('386')
     }
     icon: {
       iconName: 'AzureVirtualMachine'
@@ -1010,24 +1108,24 @@ resource eNodeCapacity 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-p
 }
 
 #disable-next-line BCP081
-resource rel_eNodeCapacity 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = {
+resource rel_eNodeCapacity 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = {
   parent: hm
-  name: guid(name, root.name, eNodeCapacity.name)
+  name: guid(name, eFlowCompute.name, eNodeCapacity.name)
   properties: {
-    parentEntityName: root.name
+    parentEntityName: eFlowCompute.name
     childEntityName: eNodeCapacity.name
   }
 }
 
 #disable-next-line BCP081
-resource eNodePressure 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = {
+resource eNodePressure 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = {
   parent: hm
   name: guid(name, 'node-pressure')
   properties: {
     displayName: 'Node Pressure'
     canvasPosition: {
-      x: json('500')
-      y: json('300')
+      x: json('750')
+      y: json('386')
     }
     icon: {
       iconName: 'AzureVirtualMachine'
@@ -1064,24 +1162,24 @@ resource eNodePressure 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-p
 }
 
 #disable-next-line BCP081
-resource rel_eNodePressure 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = {
+resource rel_eNodePressure 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = {
   parent: hm
-  name: guid(name, root.name, eNodePressure.name)
+  name: guid(name, eFlowCompute.name, eNodePressure.name)
   properties: {
-    parentEntityName: root.name
+    parentEntityName: eFlowCompute.name
     childEntityName: eNodePressure.name
   }
 }
 
 #disable-next-line BCP081
-resource eKubeSystem 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = {
+resource eKubeSystem 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = {
   parent: hm
   name: guid(name, 'kube-system')
   properties: {
     displayName: 'kube-system'
     canvasPosition: {
-      x: json('800')
-      y: json('300')
+      x: json('1000')
+      y: json('386')
     }
     icon: {
       iconName: 'AzureKubernetesService'
@@ -1124,26 +1222,24 @@ resource eKubeSystem 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-pre
 }
 
 #disable-next-line BCP081
-resource rel_eKubeSystem 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = {
+resource rel_eKubeSystem 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = {
   parent: hm
-  name: guid(name, root.name, eKubeSystem.name)
+  name: guid(name, eFlowCompute.name, eKubeSystem.name)
   properties: {
-    parentEntityName: root.name
+    parentEntityName: eFlowCompute.name
     childEntityName: eKubeSystem.name
   }
 }
 
-// ─── Cluster Infra Entities ──────────────────────────────────────────
-
 #disable-next-line BCP081
-resource eAks 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = {
+resource eAks 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = {
   parent: hm
   name: guid(name, 'aks')
   properties: {
     displayName: 'AKS Cluster'
     canvasPosition: {
-      x: json('1100')
-      y: json('300')
+      x: json('1250')
+      y: json('386')
     }
     icon: {
       iconName: 'AzureKubernetesService'
@@ -1168,24 +1264,24 @@ resource eAks 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' =
 }
 
 #disable-next-line BCP081
-resource rel_eAks 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = {
+resource rel_eAks 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = {
   parent: hm
-  name: guid(name, root.name, eAks.name)
+  name: guid(name, eFlowCompute.name, eAks.name)
   properties: {
-    parentEntityName: root.name
+    parentEntityName: eFlowCompute.name
     childEntityName: eAks.name
   }
 }
 
 #disable-next-line BCP081
-resource eNodes 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = {
+resource eNodes 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = {
   parent: hm
   name: guid(name, 'nodes')
   properties: {
     displayName: 'Node Health'
     canvasPosition: {
-      x: json('1400')
-      y: json('300')
+      x: json('1500')
+      y: json('386')
     }
     icon: {
       iconName: 'AzureVirtualMachine'
@@ -1240,24 +1336,24 @@ resource eNodes 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview'
 }
 
 #disable-next-line BCP081
-resource rel_eNodes 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = {
+resource rel_eNodes 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = {
   parent: hm
-  name: guid(name, root.name, eNodes.name)
+  name: guid(name, eFlowCompute.name, eNodes.name)
   properties: {
-    parentEntityName: root.name
+    parentEntityName: eFlowCompute.name
     childEntityName: eNodes.name
   }
 }
 
 #disable-next-line BCP081
-resource eControlPlane 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = {
+resource eControlPlane 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = {
   parent: hm
   name: guid(name, 'control-plane')
   properties: {
     displayName: 'Control Plane'
     canvasPosition: {
-      x: json('1700')
-      y: json('300')
+      x: json('1750')
+      y: json('386')
     }
     icon: {
       iconName: 'AzureKubernetesService'
@@ -1312,90 +1408,24 @@ resource eControlPlane 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-p
 }
 
 #disable-next-line BCP081
-resource rel_eControlPlane 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = {
+resource rel_eControlPlane 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = {
   parent: hm
-  name: guid(name, root.name, eControlPlane.name)
+  name: guid(name, eFlowCompute.name, eControlPlane.name)
   properties: {
-    parentEntityName: root.name
+    parentEntityName: eFlowCompute.name
     childEntityName: eControlPlane.name
   }
 }
 
 #disable-next-line BCP081
-resource eNetworking 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = {
-  parent: hm
-  name: guid(name, 'networking')
-  properties: {
-    displayName: 'Networking'
-    canvasPosition: {
-      x: json('2000')
-      y: json('300')
-    }
-    icon: {
-      iconName: 'Resource'
-    }
-    impact: 'Standard'
-    tags: {}
-    signalGroups: {
-      azureMonitorWorkspace: {
-        authenticationSetting: auth.name
-        azureMonitorWorkspaceResourceId: amwResourceId
-        signals: [
-          {
-            signalKind: 'PrometheusMetricsQuery'
-            name: guid(name, 'net-ciliumdns')
-            signalDefinitionName: def_net_ciliumdns.name
-            refreshInterval: 'PT1M'
-          }
-          {
-            signalKind: 'PrometheusMetricsQuery'
-            name: guid(name, 'net-ciliumdrops')
-            signalDefinitionName: def_net_ciliumdrops.name
-            refreshInterval: 'PT1M'
-          }
-          {
-            signalKind: 'PrometheusMetricsQuery'
-            name: guid(name, 'net-ciliumep')
-            signalDefinitionName: def_net_ciliumep.name
-            refreshInterval: 'PT1M'
-          }
-          {
-            signalKind: 'PrometheusMetricsQuery'
-            name: guid(name, 'net-hubbledrops')
-            signalDefinitionName: def_net_hubbledrops.name
-            refreshInterval: 'PT1M'
-          }
-          {
-            signalKind: 'PrometheusMetricsQuery'
-            name: guid(name, 'net-hubbletcp')
-            signalDefinitionName: def_net_hubbletcp.name
-            refreshInterval: 'PT1M'
-          }
-        ]
-      }
-    }
-  }
-}
-
-#disable-next-line BCP081
-resource rel_eNetworking 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = {
-  parent: hm
-  name: guid(name, root.name, eNetworking.name)
-  properties: {
-    parentEntityName: root.name
-    childEntityName: eNetworking.name
-  }
-}
-
-#disable-next-line BCP081
-resource eLifecycle 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = {
+resource eLifecycle 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = {
   parent: hm
   name: guid(name, 'lifecycle')
   properties: {
     displayName: 'Node Lifecycle'
     canvasPosition: {
-      x: json('2300')
-      y: json('300')
+      x: json('2000')
+      y: json('386')
     }
     icon: {
       iconName: 'AzureVirtualMachine'
@@ -1444,24 +1474,90 @@ resource eLifecycle 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-prev
 }
 
 #disable-next-line BCP081
-resource rel_eLifecycle 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = {
+resource rel_eLifecycle 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = {
   parent: hm
-  name: guid(name, root.name, eLifecycle.name)
+  name: guid(name, eFlowCompute.name, eLifecycle.name)
   properties: {
-    parentEntityName: root.name
+    parentEntityName: eFlowCompute.name
     childEntityName: eLifecycle.name
   }
 }
 
 #disable-next-line BCP081
-resource eCerts 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = {
+resource eNetworking 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = {
+  parent: hm
+  name: guid(name, 'networking')
+  properties: {
+    displayName: 'Networking'
+    canvasPosition: {
+      x: json('0')
+      y: json('386')
+    }
+    icon: {
+      iconName: 'Resource'
+    }
+    impact: 'Standard'
+    tags: {}
+    signalGroups: {
+      azureMonitorWorkspace: {
+        authenticationSetting: auth.name
+        azureMonitorWorkspaceResourceId: amwResourceId
+        signals: [
+          {
+            signalKind: 'PrometheusMetricsQuery'
+            name: guid(name, 'net-ciliumdns')
+            signalDefinitionName: def_net_ciliumdns.name
+            refreshInterval: 'PT1M'
+          }
+          {
+            signalKind: 'PrometheusMetricsQuery'
+            name: guid(name, 'net-ciliumdrops')
+            signalDefinitionName: def_net_ciliumdrops.name
+            refreshInterval: 'PT1M'
+          }
+          {
+            signalKind: 'PrometheusMetricsQuery'
+            name: guid(name, 'net-ciliumep')
+            signalDefinitionName: def_net_ciliumep.name
+            refreshInterval: 'PT1M'
+          }
+          {
+            signalKind: 'PrometheusMetricsQuery'
+            name: guid(name, 'net-hubbledrops')
+            signalDefinitionName: def_net_hubbledrops.name
+            refreshInterval: 'PT1M'
+          }
+          {
+            signalKind: 'PrometheusMetricsQuery'
+            name: guid(name, 'net-hubbletcp')
+            signalDefinitionName: def_net_hubbletcp.name
+            refreshInterval: 'PT1M'
+          }
+        ]
+      }
+    }
+  }
+}
+
+#disable-next-line BCP081
+resource rel_eNetworking 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = {
+  parent: hm
+  name: guid(name, eFlowNetworking.name, eNetworking.name)
+  properties: {
+    parentEntityName: eFlowNetworking.name
+    childEntityName: eNetworking.name
+  }
+}
+
+#disable-next-line BCP081
+resource eCerts 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = {
   parent: hm
   name: guid(name, 'certificates')
   properties: {
     displayName: 'Certificates'
     canvasPosition: {
-      x: json('2600')
-      y: json('300')
+      x: json('250')
+      y: json('386')
     }
     icon: {
       iconName: 'Resource'
@@ -1486,24 +1582,24 @@ resource eCerts 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview'
 }
 
 #disable-next-line BCP081
-resource rel_eCerts 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = {
+resource rel_eCerts 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = {
   parent: hm
-  name: guid(name, root.name, eCerts.name)
+  name: guid(name, eFlowNetworking.name, eCerts.name)
   properties: {
-    parentEntityName: root.name
+    parentEntityName: eFlowNetworking.name
     childEntityName: eCerts.name
   }
 }
 
 #disable-next-line BCP081
-resource eStampCosmos 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-preview' = {
+resource eStampCosmos 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = {
   parent: hm
   name: guid(name, 'orleans-cosmos')
   properties: {
     displayName: 'Orleans Cosmos'
     canvasPosition: {
-      x: json('2900')
-      y: json('300')
+      x: json('2250')
+      y: json('386')
     }
     icon: {
       iconName: 'AzureCosmosDb'
@@ -1540,11 +1636,11 @@ resource eStampCosmos 'Microsoft.CloudHealth/healthmodels/entities@2026-01-01-pr
 }
 
 #disable-next-line BCP081
-resource rel_eStampCosmos 'Microsoft.CloudHealth/healthmodels/relationships@2026-01-01-preview' = {
+resource rel_eStampCosmos 'Microsoft.CloudHealth/healthmodels/relationships@2026-11-01' = {
   parent: hm
-  name: guid(name, root.name, eStampCosmos.name)
+  name: guid(name, eFlowPersistancy.name, eStampCosmos.name)
   properties: {
-    parentEntityName: root.name
+    parentEntityName: eFlowPersistancy.name
     childEntityName: eStampCosmos.name
   }
 }

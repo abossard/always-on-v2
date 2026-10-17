@@ -14,6 +14,34 @@ import type {
   UnifiedThreshold,
 } from './types';
 
+function escapeDimensionFilterValue(value: string): string {
+  return value.split("'").join("''");
+}
+
+function buildDimensionFilter(dimension: string, value: string): string {
+  if (dimension.length === 0) {
+    throw new Error('Dimension name cannot be empty');
+  }
+  if (value.length === 0) {
+    throw new Error('Dimension value cannot be empty');
+  }
+  const escapedValue = escapeDimensionFilterValue(value);
+  const filter = `${dimension} eq '${escapedValue}'`;
+  if (filter.length > 2048) {
+    throw new Error(`Dimension filter length ${filter.length} must be <= 2048`);
+  }
+  return filter;
+}
+
+function buildOriginDimensionFilter(originHostname: string): string {
+  const hasHttpsPort = originHostname.toLowerCase().endsWith(':443');
+  const normalizedHostname = hasHttpsPort ? originHostname.slice(0, -4) : originHostname;
+  if (normalizedHostname.length < 1 || normalizedHostname.length > 253) {
+    throw new Error(`Front Door origin hostname length must be between 1 and 253 characters, got ${normalizedHostname.length}`);
+  }
+  return buildDimensionFilter('Origin', `${normalizedHostname}:443`);
+}
+
 // ═══════════════════════════════════════════════════════════════════
 // Prometheus Signals — Pod-Level
 // ═══════════════════════════════════════════════════════════════════
@@ -273,8 +301,7 @@ export function aksFailedPods(): AzureResourceSignalDef {
     metricName: 'kube_pod_status_phase',
     timeGrain: 'PT5M',
     aggregationType: 'Average',
-    dimension: 'phase',
-    dimensionFilter: 'Failed',
+    dimensionFilter: buildDimensionFilter('phase', 'Failed'),
     displayName: 'Failed Pods',
     refreshInterval: 'PT1M',
     dataUnit: 'Count',
@@ -307,8 +334,7 @@ export function fdRequestCount4xx(): AzureResourceSignalDef {
     metricName: 'RequestCount',
     timeGrain: 'PT1M',
     aggregationType: 'Total',
-    dimension: 'HttpStatusGroup',
-    dimensionFilter: '4XX',
+    dimensionFilter: buildDimensionFilter('HttpStatusGroup', '4XX'),
     displayName: 'FD 4XX',
     refreshInterval: 'PT1M',
     dataUnit: 'Count',
@@ -323,8 +349,7 @@ export function fdOriginLatency(originHostname: string): AzureResourceSignalDef 
     metricName: 'OriginLatency',
     timeGrain: 'PT1M',
     aggregationType: 'Average',
-    dimension: 'Origin',
-    dimensionFilter: originHostname,
+    dimensionFilter: buildOriginDimensionFilter(originHostname),
     displayName: 'Origin Latency',
     refreshInterval: 'PT1M',
     dataUnit: 'MilliSeconds',
@@ -371,8 +396,7 @@ export function cosmosClientErrors(): AzureResourceSignalDef {
     metricName: 'TotalRequests',
     timeGrain: 'PT1M',
     aggregationType: 'Count',
-    dimension: 'Status',
-    dimensionFilter: 'ClientOtherError',
+    dimensionFilter: buildDimensionFilter('Status', 'ClientOtherError'),
     displayName: 'Cosmos Client Errors',
     refreshInterval: 'PT1M',
     dataUnit: 'Count',
@@ -401,8 +425,7 @@ export function cosmosThrottled(): AzureResourceSignalDef {
     metricName: 'TotalRequests',
     timeGrain: 'PT5M',
     aggregationType: 'Count',
-    dimension: 'StatusCode',
-    dimensionFilter: '429',
+    dimensionFilter: buildDimensionFilter('StatusCode', '429'),
     displayName: 'Cosmos Throttled (429)',
     refreshInterval: 'PT1M',
     dataUnit: 'Count',
@@ -509,8 +532,7 @@ export function queueTransactionErrors(): AzureResourceSignalDef {
     metricName: 'Transactions',
     timeGrain: 'PT5M',
     aggregationType: 'Total',
-    dimension: 'ResponseType',
-    dimensionFilter: 'ClientOtherError',
+    dimensionFilter: buildDimensionFilter('ResponseType', 'ClientOtherError'),
     displayName: 'Queue Errors',
     refreshInterval: 'PT5M',
     dataUnit: 'Count',
@@ -585,8 +607,7 @@ export function blobTransactionErrors(): AzureResourceSignalDef {
     metricName: 'Transactions',
     timeGrain: 'PT5M',
     aggregationType: 'Total',
-    dimension: 'ResponseType',
-    dimensionFilter: 'ClientOtherError',
+    dimensionFilter: buildDimensionFilter('ResponseType', 'ClientOtherError'),
     displayName: 'Blob Errors',
     refreshInterval: 'PT5M',
     dataUnit: 'Count',
@@ -966,8 +987,7 @@ export function cosmosServerErrors(): AzureResourceSignalDef {
     metricName: 'TotalRequests',
     timeGrain: 'PT5M',
     aggregationType: 'Count',
-    dimension: 'StatusCode',
-    dimensionFilter: '500',
+    dimensionFilter: buildDimensionFilter('StatusCode', '500'),
     displayName: 'Cosmos Server Errors',
     refreshInterval: 'PT1M',
     dataUnit: 'Count',

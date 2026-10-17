@@ -1,4 +1,4 @@
-# Copilot Instructions — AlwaysOn v2
+# Copilot Instructions - AlwaysOn v2
 
 ## Communication Rules
 
@@ -64,11 +64,11 @@ cd scripts/healthmodel && npx tsc --noEmit -p tsconfig.json
 
 [Run all four local Playwright projects](../README.md#local-verification).
 
-### az-healthmodel CLI extension (Python)
+### health-models-tui CLI extension (Python)
 
 ```bash
-cd src/az-healthmodel
-python3 -m pytest azext_healthmodel/tests/ --ignore=azext_healthmodel/tests/test_e2e.py
+cd src/health-models-tui
+python3 -m pytest azext_health_models_tui/tests/
 ```
 
 ## Conventions

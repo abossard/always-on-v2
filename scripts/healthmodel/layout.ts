@@ -190,3 +190,157 @@ export function renderLoopAxis(base: Linear, stampOffset: number): string {
 
 /** Backwards-compatible alias — older call sites used renderLoopX for x only. */
 export const renderLoopX = renderLoopAxis;
+
+export interface LayoutNode {
+  id: string;
+  parentId: string | null;
+  order?: number;
+}
+
+export interface Point {
+  x: number;
+  y: number;
+}
+
+export interface ArrangeResult {
+  positions: Record<string, Point>;
+  orderedIds: string[];
+}
+
+export const TREE_LEAF_PITCH = 250;
+export const TREE_RANK_PITCH = 193;
+
+type IndexedNode = {
+  id: string;
+  parentId: string | null;
+  order: number;
+};
+
+function normalizeNode(node: LayoutNode): IndexedNode {
+  const id = node.id.trim();
+  if (id.length === 0) {
+    throw new Error('Invalid node id: empty value');
+  }
+
+  const parentId = node.parentId === null ? null : node.parentId.trim();
+  if (parentId !== null && parentId.length === 0) {
+    throw new Error(`Invalid parent id for node '${id}': empty value`);
+  }
+
+  return {
+    id,
+    parentId,
+    order: node.order ?? Number.MAX_SAFE_INTEGER,
+  };
+}
+
+export function arrangeTree(
+  nodes: readonly LayoutNode[],
+): ArrangeResult {
+  if (nodes.length === 0) {
+    throw new Error('Invalid graph: no nodes provided');
+  }
+
+  const indexed = nodes.map(normalizeNode);
+  const byId = new Map<string, IndexedNode>();
+  for (const node of indexed) {
+    if (byId.has(node.id)) {
+      throw new Error(`Duplicate node id: '${node.id}'`);
+    }
+    byId.set(node.id, node);
+  }
+
+  const children = new Map<string, IndexedNode[]>();
+  const roots: IndexedNode[] = [];
+  for (const node of indexed) {
+    if (node.parentId === null) {
+      roots.push(node);
+      continue;
+    }
+    const parent = byId.get(node.parentId);
+    if (!parent) {
+      throw new Error(`Missing parent '${node.parentId}' for node '${node.id}'`);
+    }
+    const siblings = children.get(parent.id) ?? [];
+    siblings.push(node);
+    children.set(parent.id, siblings);
+  }
+
+  if (roots.length !== 1) {
+    throw new Error(`Invalid graph: expected exactly one root, found ${roots.length}`);
+  }
+  const root = roots[0];
+
+  const compareNodes = (a: IndexedNode, b: IndexedNode): number => {
+    if (a.order !== b.order) return a.order - b.order;
+    return a.id.localeCompare(b.id);
+  };
+  for (const siblings of children.values()) {
+    siblings.sort(compareNodes);
+  }
+
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+  const depthById = new Map<string, number>();
+  const preOrder: string[] = [];
+
+  const walk = (node: IndexedNode, depth: number): void => {
+    if (visiting.has(node.id)) {
+      throw new Error(`Cycle detected at node '${node.id}'`);
+    }
+    if (visited.has(node.id)) return;
+    visiting.add(node.id);
+    visited.add(node.id);
+    depthById.set(node.id, depth);
+    preOrder.push(node.id);
+    for (const child of children.get(node.id) ?? []) {
+      walk(child, depth + 1);
+    }
+    visiting.delete(node.id);
+  };
+
+  walk(root, 0);
+  if (visited.size !== indexed.length) {
+    const disconnected = indexed
+      .filter(n => !visited.has(n.id))
+      .map(n => n.id)
+      .sort((a, b) => a.localeCompare(b));
+    throw new Error(`Invalid graph: disconnected nodes (${disconnected.join(', ')})`);
+  }
+
+  const xById = new Map<string, number>();
+  let leafIndex = 0;
+  const assignX = (node: IndexedNode): number => {
+    const nodeChildren = children.get(node.id) ?? [];
+    if (nodeChildren.length === 0) {
+      const x = leafIndex * TREE_LEAF_PITCH;
+      leafIndex += 1;
+      xById.set(node.id, x);
+      return x;
+    }
+    const childXs = nodeChildren.map(assignX);
+    const middle = Math.floor(childXs.length / 2);
+    const x = childXs.length % 2 === 1
+      ? childXs[middle]
+      : (childXs[middle - 1] + childXs[middle]) / 2;
+    xById.set(node.id, x);
+    return x;
+  };
+
+  assignX(root);
+
+  const positions: Record<string, Point> = {};
+  for (const node of indexed) {
+    const x = xById.get(node.id);
+    const depth = depthById.get(node.id);
+    if (x === undefined || depth === undefined) {
+      throw new Error(`Layout failed for node '${node.id}'`);
+    }
+    positions[node.id] = { x, y: depth * TREE_RANK_PITCH };
+  }
+
+  return {
+    positions,
+    orderedIds: preOrder,
+  };
+}

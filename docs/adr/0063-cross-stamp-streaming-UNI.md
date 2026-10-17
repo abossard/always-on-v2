@@ -63,7 +63,7 @@ infrastructure (the global Premium Event Hub from ADR-0061, and global Cosmos DB
 
 ## Options Considered
 
-### Option A — Azure SignalR Service as a global backplane ✅ recommended
+### Option A - Azure SignalR Service as a global backplane ✅ recommended
 
 Clients connect to **Azure SignalR Service** (globally, via its own DNS / geo-replication),
 not to a stamp pod. Any stamp publishes to a group/user through the Management SDK or
@@ -86,7 +86,7 @@ they negotiated with. The per-stamp SSE endpoints are replaced (or fronted) by a
   [geo-replication](https://learn.microsoft.com/en-us/azure/azure-signalr/howto-enable-geo-replication),
   [performance](https://learn.microsoft.com/en-us/azure/azure-signalr/signalr-concept-performance).
 
-### Option B — Shared global Event Hub as the Orleans stream provider
+### Option B - Shared global Event Hub as the Orleans stream provider
 
 Replace `AddAzureQueueStreams` with `AddEventHubStreams` pointed at the **shared, global,
 geo-replicated** Event Hub (already provisioned, ADR-0061). Orleans then fans out events
@@ -123,7 +123,7 @@ across clusters natively. **Works only under all of these conditions:**
   [EH geo-replication](https://learn.microsoft.com/en-us/azure/event-hubs/geo-replication),
   [EH quotas](https://learn.microsoft.com/en-us/azure/event-hubs/event-hubs-quotas).
 
-### Option C — Cosmos DB change-feed fan-out (strong infra-reuse alternative)
+### Option C - Cosmos DB change-feed fan-out (strong infra-reuse alternative)
 
 Each stamp runs a **change-feed processor** on the global Cosmos container (its own lease
 container + `processorName`), receives the full feed from its **local region replica**, and
@@ -144,7 +144,7 @@ global source of truth — which is exactly why a refresh already shows the data
   [change-feed processor](https://learn.microsoft.com/en-us/azure/cosmos-db/change-feed-processor),
   [design patterns](https://learn.microsoft.com/en-us/azure/cosmos-db/change-feed-design-patterns).
 
-### Option D — Event Grid namespace (MQTT broker / pull delivery)
+### Option D - Event Grid namespace (MQTT broker / pull delivery)
 
 A global Event Grid namespace as the pub/sub bus; stamps publish app events, and clients (or
 stamp bridges) subscribe via MQTT or pull delivery for one-to-many broadcast.
@@ -158,7 +158,7 @@ stamp bridges) subscribe via MQTT or pull delivery for one-to-many broadcast.
   [MQTT broker](https://learn.microsoft.com/en-us/azure/event-grid/mqtt-overview),
   [pull delivery](https://learn.microsoft.com/en-us/azure/event-grid/pull-delivery-overview).
 
-### Option E — Status quo: Front Door session affinity (current partial mitigation)
+### Option E - Status quo: Front Door session affinity (current partial mitigation)
 
 Keep streams stamp-local; rely on session affinity (ADR-0002) to pin a user to one stamp.
 

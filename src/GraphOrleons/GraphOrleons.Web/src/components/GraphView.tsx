@@ -165,7 +165,7 @@ export function GraphView({ graph, selectedTenant, componentPayloads = {}, flash
       <div className="flex items-center justify-between rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
         <div>
           <h2 className="text-lg font-bold text-teal-800">
-            {selectedTenant ? `🩺 Instruments — ${selectedTenant}` : '🩺 Select a ward'}
+            {selectedTenant ? `🩺 Instruments - ${selectedTenant}` : '🩺 Select a ward'}
           </h2>
           {selectedTenant && (
             <p className="mt-0.5 text-sm text-gray-500" data-testid="current-model-id">

@@ -1,4 +1,4 @@
-# ADR-0059: Known Shortcomings — Orleans, Cosmos DB & Aspire Integration
+# ADR-0059: Known Shortcomings - Orleans, Cosmos DB & Aspire Integration
 
 **Status:** Decided (living document)
 

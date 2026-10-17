@@ -1,4 +1,4 @@
-# AlwaysOn.Orleans — Aspire/AKS/Orleans Glue
+# AlwaysOn.Orleans - Aspire/AKS/Orleans Glue
 
 **This library exists because of Aspire Orleans/Cosmos integration issues.**
 When [dotnet/orleans#9730](https://github.com/dotnet/orleans/issues/9730) is fixed,

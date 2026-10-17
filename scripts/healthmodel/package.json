@@ -5,6 +5,10 @@
   "scripts": {
     "generate": "ts-node generate.ts",
     "test": "ts-node generate.ts --test",
+    "test:contracts": "npm run test:pure-layout && ts-node generator-contract.test.ts && ts-node link-discovery-root.contract.test.ts",
+    "test:layout": "ts-node layout.test.ts",
+    "test:arrange": "ts-node arrange.adapter.test.ts",
+    "test:pure-layout": "npm run test:layout && npm run test:arrange",
     "build": "tsc -p tsconfig.json"
   },
   "devDependencies": {

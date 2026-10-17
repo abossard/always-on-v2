@@ -1,4 +1,4 @@
-# ADR-0041: Global Application — Front Door as Multi-Silo Ingress
+# ADR-0041: Global Application - Front Door as Multi-Silo Ingress
 
 **Status:** Decided
 

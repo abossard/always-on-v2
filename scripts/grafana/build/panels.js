@@ -144,7 +144,7 @@ function defaultTimeseries() {
 // ── Prometheus panel builders ───────────────────────────────────────
 function podRestartsStat(namespace) {
     return new stat_1.PanelBuilder()
-        .title('Pod Restarts — all stamps')
+        .title('Pod Restarts - all stamps')
         .datasource(MIXED_DS)
         .thresholds(failureThresholds())
         .colorMode(common.BigValueColorMode.Background)
@@ -160,7 +160,7 @@ function podRestartsStat(namespace) {
 }
 function oomKilledStat(namespace) {
     return new stat_1.PanelBuilder()
-        .title('OOMKills — all stamps')
+        .title('OOMKills - all stamps')
         .datasource(MIXED_DS)
         .thresholds(failureThresholds())
         .colorMode(common.BigValueColorMode.Background)
@@ -176,7 +176,7 @@ function oomKilledStat(namespace) {
 }
 function crashLoopStat(namespace) {
     return new stat_1.PanelBuilder()
-        .title('CrashLoop — all stamps')
+        .title('CrashLoop - all stamps')
         .datasource(MIXED_DS)
         .thresholds(failureThresholds())
         .colorMode(common.BigValueColorMode.Background)
@@ -192,7 +192,7 @@ function crashLoopStat(namespace) {
 }
 function cpuPressureGauge(namespace) {
     return new gauge_1.PanelBuilder()
-        .title('CPU Pressure — per cluster')
+        .title('CPU Pressure - per cluster')
         .datasource(MIXED_DS)
         .unit('percent')
         .thresholds(pressureThresholds())
@@ -207,7 +207,7 @@ function cpuPressureGauge(namespace) {
 }
 function memoryPressureGauge(namespace) {
     return new gauge_1.PanelBuilder()
-        .title('Memory Pressure — per cluster')
+        .title('Memory Pressure - per cluster')
         .datasource(MIXED_DS)
         .unit('percent')
         .thresholds(pressureThresholds())
@@ -423,7 +423,7 @@ function fdErrorsPanel4xx(subdomain, config) {
 }
 function fdLatencyPanel(subdomain, config) {
     return defaultTimeseries()
-        .title('FD Origin Latency — all origins')
+        .title('FD Origin Latency - all origins')
         .datasource(AZURE_DS)
         .unit('ms')
         .thresholds(defaultThresholds())
@@ -490,7 +490,7 @@ function cosmosThrottledPanel(config, dbName) {
 // ── Stamp Cosmos DB panels (Orleans clustering) ─────────────────────
 function cosmosOrleansAvailabilityStat(config, cosmosAccount, resourceGroup, region) {
     return new stat_1.PanelBuilder()
-        .title(`Orleans Cosmos Availability % — ${region}`)
+        .title(`Orleans Cosmos Availability % - ${region}`)
         .datasource(AZURE_DS)
         .unit('percent')
         .thresholds(availabilityThresholds())
@@ -503,7 +503,7 @@ function cosmosOrleansAvailabilityStat(config, cosmosAccount, resourceGroup, reg
 }
 function cosmosOrleansRUPanel(config, cosmosAccount, resourceGroup, region) {
     return defaultTimeseries()
-        .title(`Orleans Cosmos Normalized RU % — ${region}`)
+        .title(`Orleans Cosmos Normalized RU % - ${region}`)
         .datasource(AZURE_DS)
         .unit('percent')
         .thresholds(defaultThresholds())
@@ -513,7 +513,7 @@ function cosmosOrleansRUPanel(config, cosmosAccount, resourceGroup, region) {
 }
 function cosmosOrleansThrottledPanel(config, cosmosAccount, resourceGroup, region) {
     return defaultTimeseries()
-        .title(`Orleans Cosmos Throttled (429) — ${region}`)
+        .title(`Orleans Cosmos Throttled (429) - ${region}`)
         .datasource(AZURE_DS)
         .thresholds(defaultThresholds())
         .withTarget(azureStampMonitorTarget('A', config, 'microsoft.documentdb/databaseaccounts', 'TotalRequests', 'Count', cosmosAccount, resourceGroup, []))
@@ -626,7 +626,7 @@ function aiTokensPerSecondPanel(config) {
 // ── Blob Storage panels ─────────────────────────────────────────────
 function blobAvailabilityStat(config, storageAccount, resourceGroup, region) {
     return new stat_1.PanelBuilder()
-        .title(`Blob Availability % — ${region}`)
+        .title(`Blob Availability % - ${region}`)
         .datasource(AZURE_DS)
         .unit('percent')
         .thresholds(availabilityThresholds())
@@ -657,7 +657,7 @@ function blobAvailabilityStat(config, storageAccount, resourceGroup, region) {
 }
 function blobTransactionsTimeseries(config, storageAccount, resourceGroup, region) {
     return defaultTimeseries()
-        .title(`Blob TPS by API — ${region}`)
+        .title(`Blob TPS by API - ${region}`)
         .datasource(AZURE_DS)
         .thresholds(defaultThresholds())
         .withTarget(new azuremonitor_1.AzureMonitorQueryBuilder()
@@ -684,7 +684,7 @@ function blobTransactionsTimeseries(config, storageAccount, resourceGroup, regio
 }
 function blobE2ELatencyTimeseries(config, storageAccount, resourceGroup, region) {
     return defaultTimeseries()
-        .title(`Blob E2E Latency — ${region}`)
+        .title(`Blob E2E Latency - ${region}`)
         .datasource(AZURE_DS)
         .unit('ms')
         .thresholds(defaultThresholds())
@@ -712,7 +712,7 @@ function blobE2ELatencyTimeseries(config, storageAccount, resourceGroup, region)
 }
 function blobServerLatencyTimeseries(config, storageAccount, resourceGroup, region) {
     return defaultTimeseries()
-        .title(`Blob Server Latency — ${region}`)
+        .title(`Blob Server Latency - ${region}`)
         .datasource(AZURE_DS)
         .unit('ms')
         .thresholds(defaultThresholds())
@@ -740,7 +740,7 @@ function blobServerLatencyTimeseries(config, storageAccount, resourceGroup, regi
 }
 function blobErrorsTimeseries(config, storageAccount, resourceGroup, region) {
     return defaultTimeseries()
-        .title(`Blob Errors — ${region}`)
+        .title(`Blob Errors - ${region}`)
         .datasource(AZURE_DS)
         .thresholds(defaultThresholds())
         .withTarget(new azuremonitor_1.AzureMonitorQueryBuilder()
@@ -768,7 +768,7 @@ function blobErrorsTimeseries(config, storageAccount, resourceGroup, region) {
 // ── Event Hubs panels ───────────────────────────────────────────────
 function eventHubIncomingMessagesTimeseries(config) {
     return defaultTimeseries()
-        .title('Event Hub — Incoming Messages')
+        .title('Event Hub - Incoming Messages')
         .datasource(AZURE_DS)
         .thresholds(defaultThresholds())
         .withTarget(azureMonitorTarget('A', config, 'microsoft.eventhub/namespaces', 'IncomingMessages', 'Total', config.resources.eventHubsNamespace, []))
@@ -777,7 +777,7 @@ function eventHubIncomingMessagesTimeseries(config) {
 }
 function eventHubOutgoingMessagesTimeseries(config) {
     return defaultTimeseries()
-        .title('Event Hub — Outgoing Messages')
+        .title('Event Hub - Outgoing Messages')
         .datasource(AZURE_DS)
         .thresholds(defaultThresholds())
         .withTarget(azureMonitorTarget('A', config, 'microsoft.eventhub/namespaces', 'OutgoingMessages', 'Total', config.resources.eventHubsNamespace, []))
@@ -786,7 +786,7 @@ function eventHubOutgoingMessagesTimeseries(config) {
 }
 function eventHubThrottledTimeseries(config) {
     return defaultTimeseries()
-        .title('Event Hub — Throttled Requests')
+        .title('Event Hub - Throttled Requests')
         .datasource(AZURE_DS)
         .thresholds(failureThresholds())
         .withTarget(azureMonitorTarget('A', config, 'microsoft.eventhub/namespaces', 'ThrottledRequests', 'Total', config.resources.eventHubsNamespace, []))
@@ -795,7 +795,7 @@ function eventHubThrottledTimeseries(config) {
 }
 function eventHubServerErrorsTimeseries(config) {
     return defaultTimeseries()
-        .title('Event Hub — Server Errors')
+        .title('Event Hub - Server Errors')
         .datasource(AZURE_DS)
         .thresholds(failureThresholds())
         .withTarget(azureMonitorTarget('A', config, 'microsoft.eventhub/namespaces', 'ServerErrors', 'Total', config.resources.eventHubsNamespace, []))
@@ -804,7 +804,7 @@ function eventHubServerErrorsTimeseries(config) {
 }
 function eventHubCapturedMessagesTimeseries(config) {
     return defaultTimeseries()
-        .title('Event Hub — Captured Messages')
+        .title('Event Hub - Captured Messages')
         .datasource(AZURE_DS)
         .thresholds(defaultThresholds())
         .withTarget(azureMonitorTarget('A', config, 'microsoft.eventhub/namespaces', 'CapturedMessages', 'Total', config.resources.eventHubsNamespace, []))

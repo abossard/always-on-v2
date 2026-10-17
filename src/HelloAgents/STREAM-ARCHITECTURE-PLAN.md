@@ -266,7 +266,7 @@ Scenario: Silo crashes after LlmIntentGrain publishes but before AgentGrain proc
 
 Orleans persists stream subscriptions in PubSubStore (backed by Cosmos or memory). However, subscription **handles** (the in-memory callback wiring) are lost on grain deactivation. This must be handled explicitly.
 
-### On `OnActivateAsync` — all grains that subscribe to streams:
+### On `OnActivateAsync` - all grains that subscribe to streams:
 
 **ChatGroupGrain:**
 ```

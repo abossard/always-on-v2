@@ -1,4 +1,4 @@
-# AlwaysOn v2 — Project Walkthrough
+# AlwaysOn v2 - Project Walkthrough
 
 > Multi-region active-active Orleans reference architecture on AKS with Cosmos DB, Aspire local dev, and health model observability.
 
@@ -208,7 +208,12 @@ graph LR
 - Generated from [`scripts/grafana/`](../scripts/grafana/) — `npm run build && npm run generate`
 - Panels: Front Door metrics, Cosmos DB, pod restarts/OOM/CPU/memory, gateway latency
 
-### Health Model Signals (43 total) — [`scripts/healthmodel/signals.ts`](../scripts/healthmodel/signals.ts) → [`infra/healthmodel/healthmodel.bicep`](../infra/healthmodel/healthmodel.bicep)
+### Health Model Signals (43 total) - [`scripts/healthmodel/signals.ts`](../scripts/healthmodel/signals.ts) -> generated modules in [`infra/healthmodel/`](../infra/healthmodel/)
+
+- **Generated modules:** [`app.bicep`](../infra/healthmodel/app.bicep), [`platform.bicep`](../infra/healthmodel/platform.bicep), [`all-platforms.bicep`](../infra/healthmodel/all-platforms.bicep)
+- **CloudHealth API contract in use:** `2026-11-01` stable across deployed included health models and CLI serialization paths
+- **Layout ownership model:** `scripts/healthmodel/layout.ts` is the shared pure layout calculation; [`scripts/healthmodel/link-discovery-root.sh`](../scripts/healthmodel/link-discovery-root.sh) owns realized-graph post-provision responsibilities (discovery-root linking, scoped relationship cleanup, and full-model coordinate writes)
+- **Portal viewport:** If a graph looks empty after relayout, select **Fit to view** in the Graph view.
 
 | Category | Signals |
 |----------|---------|
@@ -225,11 +230,11 @@ graph LR
 
 | Model | CLI Watch Command |
 |-------|-------------------|
-| `hm-alwayson` | `az healthmodel watch --model-name hm-alwayson -g rg-alwayson-global` |
-| `hm-helloagents` | `az healthmodel watch --model-name hm-helloagents -g rg-alwayson-global` |
-| `hm-helloorleons` | `az healthmodel watch --model-name hm-helloorleons -g rg-alwayson-global` |
-| `hm-graphorleons` | `az healthmodel watch --model-name hm-graphorleons -g rg-alwayson-global` |
-| `hm-darkux` | `az healthmodel watch --model-name hm-darkux -g rg-alwayson-global` |
+| `hm-alwayson` | `az health-models-tui --model-name hm-alwayson -g rg-alwayson-global` |
+| `hm-helloagents` | `az health-models-tui --model-name hm-helloagents -g rg-alwayson-global` |
+| `hm-helloorleons` | `az health-models-tui --model-name hm-helloorleons -g rg-alwayson-global` |
+| `hm-graphorleons` | `az health-models-tui --model-name hm-graphorleons -g rg-alwayson-global` |
+| `hm-darkux` | `az health-models-tui --model-name hm-darkux -g rg-alwayson-global` |
 
 ---
 
@@ -241,7 +246,7 @@ graph LR
 | **E2E (Browser)** | Playwright | All 4 | `cd src/<App>/<App>.E2E && npm ci && npx playwright test` | e.g. [`HelloAgents.E2E/`](../src/HelloAgents/HelloAgents.E2E/) |
 | **Load** | Locust | All 4 | `cd src/<App>/<App>.LoadTest && locust -f locustfile.py` | e.g. [`HelloAgents.LoadTest/`](../src/HelloAgents/HelloAgents.LoadTest/) |
 | **Accessibility** | axe-core/playwright | DarkUxChallenge | Integrated in E2E suite | [`DarkUxChallenge.E2E/`](../src/DarkUxChallenge/DarkUxChallenge.E2E/) |
-| **Health Model (local)** | pytest | az-healthmodel | `cd src/az-healthmodel && python -m pytest azext_healthmodel/tests/ --ignore=azext_healthmodel/tests/test_e2e.py -v` | [`az-healthmodel/tests/`](../src/az-healthmodel/azext_healthmodel/tests/) |
+| **Health Models TUI (local)** | pytest | health-models-tui | `cd src/health-models-tui && python -m pytest azext_health_models_tui/tests/ -v` | [`health-models-tui/tests/`](../src/health-models-tui/azext_health_models_tui/tests/) |
 
 Use the SDK pinned in root `global.json`; no Aspire workload is required. `src/src.slnx` now covers all 18 current .NET projects. Run Docker-backed app stacks sequentially because local ports overlap.
 
@@ -255,7 +260,7 @@ Browser runs require the actual Aspire-injected endpoint variables and an explic
 
 ---
 
-## CI/CD — [GitHub Actions](../.github/workflows/)
+## CI/CD - [GitHub Actions](../.github/workflows/)
 
 | Workflow | Trigger | What it Does |
 |----------|---------|-------------|
@@ -358,7 +363,7 @@ kubectl -n helloorleons get pods -o wide
 # Check silo logs for errors
 kubectl -n helloagents logs deployment/helloagents --tail=50 | grep -iE "error|fail|warn"
 
-# Force-restart frozen pods (Flux-safe — no annotation changes)
+# Force-restart frozen pods (Flux-safe - no annotation changes)
 kubectl -n helloagents delete pods --all
 
 # Check Orleans membership table refresh
@@ -424,26 +429,20 @@ npx ts-node generate.ts
 
 ---
 
-## Health Model — Live Viewer
+## Health Model - Live Viewer
 
-> Requires: `az extension add --source src/az-healthmodel/dist/*.whl`
+> Requires: `az extension add --source src/health-models-tui/dist/*.whl`
 
 ```bash
-# Watch live health (TUI mode — interactive terminal dashboard)
-az healthmodel watch --model-name hm-alwayson -g rg-alwayson-global
+# Watch live health (TUI mode - interactive terminal dashboard)
+az health-models-tui --model-name hm-alwayson -g rg-alwayson-global
 
 # Watch specific app
-az healthmodel watch --model-name hm-helloagents -g rg-alwayson-global
-az healthmodel watch --model-name hm-graphorleons -g rg-alwayson-global
-
-# Export health model as SVG
-az healthmodel export --model-name hm-alwayson -g rg-alwayson-global -f hm-alwayson.svg
+az health-models-tui --model-name hm-helloagents -g rg-alwayson-global
+az health-models-tui --model-name hm-graphorleons -g rg-alwayson-global
 
 # Plain text mode (for CI/scripts)
-az healthmodel watch --model-name hm-alwayson -g rg-alwayson-global --plain
-
-# List all health models
-az healthmodel list -g rg-alwayson-global -o table
+az health-models-tui --model-name hm-alwayson -g rg-alwayson-global --plain
 ```
 
 ---

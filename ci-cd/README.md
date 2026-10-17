@@ -49,7 +49,7 @@ GitOps delivery.
 Infrastructure is deployed via the `azure-dev.yml` workflow using `azd` with OIDC
 federated credentials — no secrets stored in GitHub.
 
-### Option A — automated (recommended)
+### Option A - automated (recommended)
 
 ```bash
 azd auth login
@@ -59,7 +59,7 @@ azd pipeline config --provider github
 This creates the Entra app registration, federated credentials, and sets the required
 GitHub variables automatically.
 
-### Option B — manual
+### Option B - manual
 
 1. Create an Entra ID app registration with a federated credential for GitHub Actions:
    - Issuer: `https://token.actions.githubusercontent.com`

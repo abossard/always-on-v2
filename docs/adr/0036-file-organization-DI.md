@@ -1,4 +1,4 @@
-# ADR-0036: File Organization — Combine What Belongs Together
+# ADR-0036: File Organization - Combine What Belongs Together
 
 **Status:** Decided
 

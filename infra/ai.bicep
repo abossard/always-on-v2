@@ -197,7 +197,7 @@ resource aiHub 'Microsoft.MachineLearningServices/workspaces@2025-01-01-preview'
     tier: 'Basic'
   }
   properties: {
-    friendlyName: 'AI Foundry Hub — ${baseName}'
+    friendlyName: 'AI Foundry Hub - ${baseName}'
     description: 'AI Foundry hub for ${baseName} workloads'
     storageAccount: storageAccount.id
     keyVault: keyVault.id
@@ -240,7 +240,7 @@ resource aiProject 'Microsoft.MachineLearningServices/workspaces@2025-01-01-prev
     tier: 'Basic'
   }
   properties: {
-    friendlyName: 'AI Foundry Project — ${baseName}'
+    friendlyName: 'AI Foundry Project - ${baseName}'
     description: 'Default project for ${baseName}'
     hubResourceId: aiHub.id
     publicNetworkAccess: enablePrivateEndpoints ? 'Disabled' : 'Enabled'

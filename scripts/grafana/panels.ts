@@ -96,7 +96,7 @@ function defaultTimeseries(): TimeseriesPanelBuilder {
 
 export function podRestartsStat(namespace: string): StatPanelBuilder {
   return new StatPanelBuilder()
-    .title('Pod Restarts — all stamps')
+    .title('Pod Restarts - all stamps')
     .datasource(MIXED_DS)
     .thresholds(failureThresholds())
     .colorMode(common.BigValueColorMode.Background)
@@ -115,7 +115,7 @@ export function podRestartsStat(namespace: string): StatPanelBuilder {
 
 export function oomKilledStat(namespace: string): StatPanelBuilder {
   return new StatPanelBuilder()
-    .title('OOMKills — all stamps')
+    .title('OOMKills - all stamps')
     .datasource(MIXED_DS)
     .thresholds(failureThresholds())
     .colorMode(common.BigValueColorMode.Background)
@@ -134,7 +134,7 @@ export function oomKilledStat(namespace: string): StatPanelBuilder {
 
 export function crashLoopStat(namespace: string): StatPanelBuilder {
   return new StatPanelBuilder()
-    .title('CrashLoop — all stamps')
+    .title('CrashLoop - all stamps')
     .datasource(MIXED_DS)
     .thresholds(failureThresholds())
     .colorMode(common.BigValueColorMode.Background)
@@ -153,7 +153,7 @@ export function crashLoopStat(namespace: string): StatPanelBuilder {
 
 export function cpuPressureGauge(namespace: string): GaugePanelBuilder {
   return new GaugePanelBuilder()
-    .title('CPU Pressure — per cluster')
+    .title('CPU Pressure - per cluster')
     .datasource(MIXED_DS)
     .unit('percent')
     .thresholds(pressureThresholds())
@@ -173,7 +173,7 @@ export function cpuPressureGauge(namespace: string): GaugePanelBuilder {
 
 export function memoryPressureGauge(namespace: string): GaugePanelBuilder {
   return new GaugePanelBuilder()
-    .title('Memory Pressure — per cluster')
+    .title('Memory Pressure - per cluster')
     .datasource(MIXED_DS)
     .unit('percent')
     .thresholds(pressureThresholds())
@@ -478,7 +478,7 @@ export function fdErrorsPanel4xx(subdomain: string, config: PlatformConfig): Tim
 
 export function fdLatencyPanel(subdomain: string, config: PlatformConfig): TimeseriesPanelBuilder {
   return defaultTimeseries()
-    .title('FD Origin Latency — all origins')
+    .title('FD Origin Latency - all origins')
     .datasource(AZURE_DS)
     .unit('ms')
     .thresholds(defaultThresholds())
@@ -605,7 +605,7 @@ export function cosmosThrottledPanel(config: PlatformConfig, dbName: string): Ti
 
 export function cosmosOrleansAvailabilityStat(config: PlatformConfig, cosmosAccount: string, resourceGroup: string, region: string): StatPanelBuilder {
   return new StatPanelBuilder()
-    .title(`Orleans Cosmos Availability % — ${region}`)
+    .title(`Orleans Cosmos Availability % - ${region}`)
     .datasource(AZURE_DS)
     .unit('percent')
     .thresholds(availabilityThresholds())
@@ -626,7 +626,7 @@ export function cosmosOrleansAvailabilityStat(config: PlatformConfig, cosmosAcco
 
 export function cosmosOrleansRUPanel(config: PlatformConfig, cosmosAccount: string, resourceGroup: string, region: string): TimeseriesPanelBuilder {
   return defaultTimeseries()
-    .title(`Orleans Cosmos Normalized RU % — ${region}`)
+    .title(`Orleans Cosmos Normalized RU % - ${region}`)
     .datasource(AZURE_DS)
     .unit('percent')
     .thresholds(defaultThresholds())
@@ -644,7 +644,7 @@ export function cosmosOrleansRUPanel(config: PlatformConfig, cosmosAccount: stri
 
 export function cosmosOrleansThrottledPanel(config: PlatformConfig, cosmosAccount: string, resourceGroup: string, region: string): TimeseriesPanelBuilder {
   return defaultTimeseries()
-    .title(`Orleans Cosmos Throttled (429) — ${region}`)
+    .title(`Orleans Cosmos Throttled (429) - ${region}`)
     .datasource(AZURE_DS)
     .thresholds(defaultThresholds())
     .withTarget(
@@ -791,7 +791,7 @@ export function aiTokensPerSecondPanel(config: PlatformConfig): TimeseriesPanelB
 
 export function blobAvailabilityStat(config: PlatformConfig, storageAccount: string, resourceGroup: string, region: string): StatPanelBuilder {
   return new StatPanelBuilder()
-    .title(`Blob Availability % — ${region}`)
+    .title(`Blob Availability % - ${region}`)
     .datasource(AZURE_DS)
     .unit('percent')
     .thresholds(availabilityThresholds())
@@ -827,7 +827,7 @@ export function blobAvailabilityStat(config: PlatformConfig, storageAccount: str
 
 export function blobTransactionsTimeseries(config: PlatformConfig, storageAccount: string, resourceGroup: string, region: string): TimeseriesPanelBuilder {
   return defaultTimeseries()
-    .title(`Blob TPS by API — ${region}`)
+    .title(`Blob TPS by API - ${region}`)
     .datasource(AZURE_DS)
     .thresholds(defaultThresholds())
     .withTarget(
@@ -859,7 +859,7 @@ export function blobTransactionsTimeseries(config: PlatformConfig, storageAccoun
 
 export function blobE2ELatencyTimeseries(config: PlatformConfig, storageAccount: string, resourceGroup: string, region: string): TimeseriesPanelBuilder {
   return defaultTimeseries()
-    .title(`Blob E2E Latency — ${region}`)
+    .title(`Blob E2E Latency - ${region}`)
     .datasource(AZURE_DS)
     .unit('ms')
     .thresholds(defaultThresholds())
@@ -892,7 +892,7 @@ export function blobE2ELatencyTimeseries(config: PlatformConfig, storageAccount:
 
 export function blobServerLatencyTimeseries(config: PlatformConfig, storageAccount: string, resourceGroup: string, region: string): TimeseriesPanelBuilder {
   return defaultTimeseries()
-    .title(`Blob Server Latency — ${region}`)
+    .title(`Blob Server Latency - ${region}`)
     .datasource(AZURE_DS)
     .unit('ms')
     .thresholds(defaultThresholds())
@@ -925,7 +925,7 @@ export function blobServerLatencyTimeseries(config: PlatformConfig, storageAccou
 
 export function blobErrorsTimeseries(config: PlatformConfig, storageAccount: string, resourceGroup: string, region: string): TimeseriesPanelBuilder {
   return defaultTimeseries()
-    .title(`Blob Errors — ${region}`)
+    .title(`Blob Errors - ${region}`)
     .datasource(AZURE_DS)
     .thresholds(defaultThresholds())
     .withTarget(
@@ -959,7 +959,7 @@ export function blobErrorsTimeseries(config: PlatformConfig, storageAccount: str
 
 export function eventHubIncomingMessagesTimeseries(config: PlatformConfig): TimeseriesPanelBuilder {
   return defaultTimeseries()
-    .title('Event Hub — Incoming Messages')
+    .title('Event Hub - Incoming Messages')
     .datasource(AZURE_DS)
     .thresholds(defaultThresholds())
     .withTarget(
@@ -976,7 +976,7 @@ export function eventHubIncomingMessagesTimeseries(config: PlatformConfig): Time
 
 export function eventHubOutgoingMessagesTimeseries(config: PlatformConfig): TimeseriesPanelBuilder {
   return defaultTimeseries()
-    .title('Event Hub — Outgoing Messages')
+    .title('Event Hub - Outgoing Messages')
     .datasource(AZURE_DS)
     .thresholds(defaultThresholds())
     .withTarget(
@@ -993,7 +993,7 @@ export function eventHubOutgoingMessagesTimeseries(config: PlatformConfig): Time
 
 export function eventHubThrottledTimeseries(config: PlatformConfig): TimeseriesPanelBuilder {
   return defaultTimeseries()
-    .title('Event Hub — Throttled Requests')
+    .title('Event Hub - Throttled Requests')
     .datasource(AZURE_DS)
     .thresholds(failureThresholds())
     .withTarget(
@@ -1010,7 +1010,7 @@ export function eventHubThrottledTimeseries(config: PlatformConfig): TimeseriesP
 
 export function eventHubServerErrorsTimeseries(config: PlatformConfig): TimeseriesPanelBuilder {
   return defaultTimeseries()
-    .title('Event Hub — Server Errors')
+    .title('Event Hub - Server Errors')
     .datasource(AZURE_DS)
     .thresholds(failureThresholds())
     .withTarget(
@@ -1027,7 +1027,7 @@ export function eventHubServerErrorsTimeseries(config: PlatformConfig): Timeseri
 
 export function eventHubCapturedMessagesTimeseries(config: PlatformConfig): TimeseriesPanelBuilder {
   return defaultTimeseries()
-    .title('Event Hub — Captured Messages')
+    .title('Event Hub - Captured Messages')
     .datasource(AZURE_DS)
     .thresholds(defaultThresholds())
     .withTarget(
@@ -1046,7 +1046,7 @@ export function eventHubCapturedMessagesTimeseries(config: PlatformConfig): Time
 
 export function eventHubCaptureBacklogTimeseries(config: PlatformConfig): TimeseriesPanelBuilder {
   return defaultTimeseries()
-    .title('Event Hub — Capture Backlog')
+    .title('Event Hub - Capture Backlog')
     .datasource(AZURE_DS)
     .thresholds(failureThresholds())
     .withTarget(
@@ -1063,7 +1063,7 @@ export function eventHubCaptureBacklogTimeseries(config: PlatformConfig): Timese
 
 export function eventHubCapturedBytesTimeseries(config: PlatformConfig): TimeseriesPanelBuilder {
   return defaultTimeseries()
-    .title('Event Hub — Captured Bytes')
+    .title('Event Hub - Captured Bytes')
     .datasource(AZURE_DS)
     .unit('bytes')
     .thresholds(defaultThresholds())
@@ -1081,7 +1081,7 @@ export function eventHubCapturedBytesTimeseries(config: PlatformConfig): Timeser
 
 export function captureStorageIngressTimeseries(config: PlatformConfig): TimeseriesPanelBuilder {
   return defaultTimeseries()
-    .title('Capture Storage — Ingress')
+    .title('Capture Storage - Ingress')
     .datasource(AZURE_DS)
     .unit('bytes')
     .thresholds(defaultThresholds())
@@ -1110,7 +1110,7 @@ export function captureStorageIngressTimeseries(config: PlatformConfig): Timeser
 
 export function eventHubReplicationLagDurationTimeseries(config: PlatformConfig): TimeseriesPanelBuilder {
   return defaultTimeseries()
-    .title('Event Hub — Replication Lag Duration')
+    .title('Event Hub - Replication Lag Duration')
     .datasource(AZURE_DS)
     .unit('s')
     .thresholds(failureThresholds())
@@ -1128,7 +1128,7 @@ export function eventHubReplicationLagDurationTimeseries(config: PlatformConfig)
 
 export function eventHubReplicationLagCountTimeseries(config: PlatformConfig): TimeseriesPanelBuilder {
   return defaultTimeseries()
-    .title('Event Hub — Replication Lag Count')
+    .title('Event Hub - Replication Lag Count')
     .datasource(AZURE_DS)
     .thresholds(failureThresholds())
     .withTarget(

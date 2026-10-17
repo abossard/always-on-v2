@@ -151,7 +151,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
     parentKey: 'root',
     icon: 'Resource',
     scope: { kind: 'perStamp' },
-    perStampDisplayName: "'${stamp.key} — Orleans'",
+    perStampDisplayName: "'${stamp.key} - Orleans'",
     bindings: [
       {
         type: 'azureMonitorWorkspace',
@@ -176,7 +176,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
     parentKey: 'root',
     icon: 'Resource',
     scope: { kind: 'perStamp' },
-    perStampDisplayName: "'${stamp.key} — Certificates'",
+    perStampDisplayName: "'${stamp.key} - Certificates'",
     bindings: [
       {
         type: 'azureMonitorWorkspace',
@@ -199,7 +199,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
     parentKey: 'root',
     icon: 'Resource',
     scope: { kind: 'perStamp' },
-    perStampDisplayName: "'${stamp.key} — App Metrics'",
+    perStampDisplayName: "'${stamp.key} - App Metrics'",
     bindings: [
       {
         type: 'azureMonitorWorkspace',
@@ -223,7 +223,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
     parentKey: 'failures',
     icon: 'Resource',
     scope: { kind: 'perStamp' },
-    perStampDisplayName: "'${stamp.key} — Cilium Network'",
+    perStampDisplayName: "'${stamp.key} - Cilium Network'",
     bindings: [
       {
         type: 'azureMonitorWorkspace',
@@ -248,7 +248,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
     parentKey: 'failures',
     icon: 'AzureKubernetesService',
     scope: { kind: 'perStamp' },
-    perStampDisplayName: "'${stamp.key} — Karpenter'",
+    perStampDisplayName: "'${stamp.key} - Karpenter'",
     bindings: [
       {
         type: 'azureMonitorWorkspace',
@@ -273,7 +273,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
     parentKey: 'failures',
     icon: 'AzureVirtualMachine',
     scope: { kind: 'perStamp' },
-    perStampDisplayName: "'${stamp.key} — Spot Nodes'",
+    perStampDisplayName: "'${stamp.key} - Spot Nodes'",
     bindings: [
       {
         type: 'azureMonitorWorkspace',
@@ -298,7 +298,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
     parentKey: 'root',
     icon: 'Resource',
     scope: { kind: 'perStamp' },
-    perStampDisplayName: "'${stamp.key} — Spot Impact'",
+    perStampDisplayName: "'${stamp.key} - Spot Impact'",
     bindings: [
       {
         type: 'azureMonitorWorkspace',
@@ -323,7 +323,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
     parentKey: 'root',
     icon: 'AzureVirtualMachine',
     scope: { kind: 'perStamp' },
-    perStampDisplayName: "'${stamp.key} — Node USE'",
+    perStampDisplayName: "'${stamp.key} - Node USE'",
     bindings: [
       {
         type: 'azureMonitorWorkspace',
@@ -352,7 +352,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
     parentKey: 'root',
     icon: 'AzureKubernetesService',
     scope: { kind: 'perStamp' },
-    perStampDisplayName: "'${stamp.key} — Control Plane'",
+    perStampDisplayName: "'${stamp.key} - Control Plane'",
     bindings: [
       {
         type: 'azureMonitorWorkspace',
@@ -386,7 +386,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
     parentKey: 'root',
     icon: 'Resource',
     scope: { kind: 'perStamp' },
-    perStampDisplayName: "'${stamp.key} — Container RED'",
+    perStampDisplayName: "'${stamp.key} - Container RED'",
     bindings: [{ type: 'azureMonitorWorkspace', resourceIdExpr: 'stamp.amwResourceId', signals: [
       signals.containerMemoryWorkingSet('${namespace}'),
       signals.containerNetRxRate('${namespace}'),
@@ -406,7 +406,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
     parentKey: 'root',
     icon: 'Resource',
     scope: { kind: 'perStamp' },
-    perStampDisplayName: "'${stamp.key} — Hubble'",
+    perStampDisplayName: "'${stamp.key} - Hubble'",
     bindings: [{ type: 'azureMonitorWorkspace', resourceIdExpr: 'stamp.amwResourceId', signals: [
       signals.hubbleDnsQueryRate(),
       signals.hubblePacketDrops(),
@@ -428,7 +428,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
     parentKey: 'root',
     icon: 'Resource',
     scope: { kind: 'perStamp' },
-    perStampDisplayName: "'${stamp.key} — Workloads'",
+    perStampDisplayName: "'${stamp.key} - Workloads'",
     bindings: [{ type: 'azureMonitorWorkspace', resourceIdExpr: 'stamp.amwResourceId', signals: [
       signals.deploymentsNotReady2('${namespace}'),
       signals.daemonsetsNotReady('${namespace}'),

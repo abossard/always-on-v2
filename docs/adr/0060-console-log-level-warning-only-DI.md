@@ -1,4 +1,4 @@
-# ADR-0060: Console Log Level — Warning and Above Only
+# ADR-0060: Console Log Level - Warning and Above Only
 
 **Status:** Decided
 

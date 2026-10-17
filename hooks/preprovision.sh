@@ -89,11 +89,11 @@ echo "✅ Pre-provision: AZURE_PRINCIPAL_ID matches signed-in user object ID"
 # scripts/enable-public-access.sh remains available for manual public-mode use.
 
 # ── Regenerate health model Bicep ─────────────────────────────
-# stamp.bicep / platform.bicep / app.bicep are auto-generated from scripts/healthmodel/.
+# platform.bicep / all-platforms.bicep / app.bicep are auto-generated from scripts/healthmodel/.
 # Regenerate before provisioning to ensure signal definitions are current.
 HM_DIR="scripts/healthmodel"
 if [ -d "$HM_DIR" ] && command -v npx &>/dev/null; then
-  echo "🔧 Regenerating health model Bicep (stamp/platform/app)..."
+  echo "🔧 Regenerating health model Bicep (platform/all-platforms/app)..."
   (cd "$HM_DIR" && npm ci --silent 2>/dev/null && npx ts-node generate.ts 2>&1) || {
     echo "⚠️  Health model generation failed (non-fatal — using existing *.bicep)"
   }
