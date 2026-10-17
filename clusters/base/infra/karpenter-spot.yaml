@@ -38,7 +38,7 @@ spec:
           values: ["D", "E"]
         - key: karpenter.azure.com/sku-version
           operator: In
-          values: ["4", "5"]
+          values: ["4", "5", "6"]
         - key: karpenter.azure.com/sku-cpu
           operator: In
           values: ["2", "4", "8"]
@@ -52,7 +52,7 @@ spec:
     consolidationPolicy: WhenEmptyOrUnderutilized
     consolidateAfter: 60s
 ---
-apiVersion: karpenter.azure.com/v1alpha2
+apiVersion: karpenter.azure.com/v1beta1
 kind: AKSNodeClass
 metadata:
   name: app-nodeclass

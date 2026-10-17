@@ -3,7 +3,7 @@ FROM mcr.microsoft.com/dotnet/sdk:10.0.402-noble@sha256:0d99ebf1ccad15037b5c98c9
 WORKDIR /src
 
 # Copy central package management + project files for layer caching
-COPY global.json .editorconfig .
+COPY global.json .editorconfig ./
 COPY src/Directory.Build.props .
 COPY src/DarkUxChallenge/Directory.Packages.props DarkUxChallenge/
 COPY src/DarkUxChallenge/DarkUxChallenge.Api/DarkUxChallenge.Api.csproj DarkUxChallenge/DarkUxChallenge.Api/

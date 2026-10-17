@@ -2,7 +2,7 @@
 FROM mcr.microsoft.com/dotnet/sdk:10.0.402-noble@sha256:0d99ebf1ccad15037b5c98c9fe8979d6b8dbac23812feae2277a0b277b5c5ffa AS build
 WORKDIR /src
 
-COPY global.json .editorconfig .
+COPY global.json .editorconfig ./
 COPY src/Directory.Build.props .
 COPY src/HelloAgents/Directory.Packages.props HelloAgents/
 COPY src/AlwaysOn.ServiceDefaults/Directory.Packages.props AlwaysOn.ServiceDefaults/

@@ -28,14 +28,38 @@ fi
 ACR_NAME=$(echo "$ACR_LOGIN_SERVER" | cut -d. -f1)
 echo "📦 ACR: $ACR_LOGIN_SERVER ($ACR_NAME)"
 
-# ── Generate tag ──────────────────────────────────────────────
-GIT_SHA=$(git rev-parse --short=8 HEAD 2>/dev/null || echo "00000000")
-TAG="$(date +%s)-${GIT_SHA}"
+# ── Build snapshot + attribution ──────────────────────────────
+HEAD_SHA=$(git rev-parse --short=8 HEAD 2>/dev/null || echo "00000000")
+DIRTY_SUFFIX=""
+if [ -n "$(git status --porcelain 2>/dev/null || true)" ]; then
+  DIRTY_SUFFIX="-dirty"
+fi
+
+SNAPSHOT_DIR=$(mktemp -d)
+trap 'rm -rf "$SNAPSHOT_DIR"' EXIT
+
+git ls-files -z --cached --others --exclude-standard \
+  | rsync -a --from0 --files-from=- --ignore-missing-args ./ "$SNAPSHOT_DIR"/
+
+if [ -n "$(find "$SNAPSHOT_DIR" -type s -print -quit)" ]; then
+  echo "❌ Snapshot contains socket files; refusing to build."
+  exit 1
+fi
+
+SOURCE_HASH=$(cd "$SNAPSHOT_DIR" && find . -type f -print0 \
+  | LC_ALL=C sort -z \
+  | xargs -0 shasum -a 256 \
+  | shasum -a 256 \
+  | awk '{print $1}')
+
+TAG="$(date +%s)-${HEAD_SHA}${DIRTY_SUFFIX}-${SOURCE_HASH:0:12}"
 echo "🏷️  Tag: $TAG"
+echo "🧾 Source hash: $SOURCE_HASH"
 echo ""
 
-# Store tag for postdeploy hook
+# Store attribution for postdeploy/reporting.
 azd env set IMAGE_TAG "$TAG" 2>/dev/null || true
+azd env set IMAGE_SOURCE_HASH "$SOURCE_HASH" 2>/dev/null || true
 
 # ── Build images ──────────────────────────────────────────────
 # Each entry: IMAGE_NAME | DOCKERFILE | CONTEXT (relative to repo root)
@@ -54,14 +78,16 @@ SUCCEEDED=()
 
 for entry in "${IMAGES[@]}"; do
   IFS='|' read -r IMAGE_NAME DOCKERFILE CONTEXT <<< "$entry"
+  SNAP_DOCKERFILE="$SNAPSHOT_DIR/$DOCKERFILE"
+  SNAP_CONTEXT="$SNAPSHOT_DIR/$CONTEXT"
 
   # Skip if source directory doesn't exist
-  if [ ! -d "$CONTEXT" ]; then
-    echo "⚠️  Skipping $IMAGE_NAME — context '$CONTEXT' not found"
+  if [ ! -d "$SNAP_CONTEXT" ]; then
+    echo "⚠️  Skipping $IMAGE_NAME — context '$CONTEXT' not found in snapshot"
     continue
   fi
-  if [ ! -f "$DOCKERFILE" ]; then
-    echo "⚠️  Skipping $IMAGE_NAME — Dockerfile '$DOCKERFILE' not found"
+  if [ ! -f "$SNAP_DOCKERFILE" ]; then
+    echo "⚠️  Skipping $IMAGE_NAME — Dockerfile '$DOCKERFILE' not found in snapshot"
     continue
   fi
 
@@ -70,8 +96,8 @@ for entry in "${IMAGES[@]}"; do
   if az acr build \
     --registry "$ACR_NAME" \
     --image "${IMAGE_NAME}:${TAG}" \
-    --file "$DOCKERFILE" \
-    "$CONTEXT"; then
+    --file "$SNAP_DOCKERFILE" \
+    "$SNAP_CONTEXT"; then
     echo "   ✅ $IMAGE_NAME:$TAG pushed"
     SUCCEEDED+=("$IMAGE_NAME")
   else
