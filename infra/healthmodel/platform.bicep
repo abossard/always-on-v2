@@ -863,6 +863,30 @@ resource def_life_spotready 'Microsoft.CloudHealth/healthmodels/signaldefinition
 }
 
 #disable-next-line BCP081
+resource def_life_stale 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
+  parent: hm
+  name: guid(name, 'def-life-stale')
+  properties: {
+    signalKind: 'PrometheusMetricsQuery'
+    displayName: 'Stale Nodes'
+    refreshInterval: 'PT1M'
+    dataUnit: 'Count'
+    evaluationRules: {
+      degradedRule: {
+        operator: 'GreaterThan'
+        threshold: json('0')
+      }
+      unhealthyRule: {
+        operator: 'GreaterThan'
+        threshold: json('1')
+      }
+    }
+    queryText: 'sum(kube_node_status_condition{condition="Ready", status="unknown"})'
+    timeGrain: 'PT1M'
+  }
+}
+
+#disable-next-line BCP081
 resource def_certs_notready 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = {
   parent: hm
   name: guid(name, 'def-certs-notready')
@@ -1465,6 +1489,12 @@ resource eLifecycle 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = {
             signalKind: 'PrometheusMetricsQuery'
             name: guid(name, 'life-spotready')
             signalDefinitionName: def_life_spotready.name
+            refreshInterval: 'PT1M'
+          }
+          {
+            signalKind: 'PrometheusMetricsQuery'
+            name: guid(name, 'life-stale')
+            signalDefinitionName: def_life_stale.name
             refreshInterval: 'PT1M'
           }
         ]

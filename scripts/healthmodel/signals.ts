@@ -1428,6 +1428,18 @@ export function nodesNotReady(): PrometheusSignalDef {
   };
 }
 
+export function nodesStale(): PrometheusSignalDef {
+  return {
+    signalKind: 'PrometheusMetricsQuery',
+    queryText: `sum(kube_node_status_condition{condition="Ready", status="unknown"})`,
+    timeGrain: 'PT1M',
+    displayName: 'Stale Nodes',
+    refreshInterval: 'PT1M',
+    dataUnit: 'Count',
+    threshold: { direction: 'higher-is-worse', degraded: 0, unhealthy: 1 },
+  };
+}
+
 function nodesUnderPressure(condition: string, name: string): PrometheusSignalDef {
   return {
     signalKind: 'PrometheusMetricsQuery',
