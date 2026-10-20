@@ -1,0 +1,14 @@
+name: connectivity-demos
+metadata:
+  template: always-on-v2/connectivity-demos@0.0.1
+
+infra:
+  provider: bicep
+  path: infra
+  module: main
+
+hooks:
+  postprovision:
+    shell: sh
+    run: hooks/postprovision.sh
+    continueOnError: false

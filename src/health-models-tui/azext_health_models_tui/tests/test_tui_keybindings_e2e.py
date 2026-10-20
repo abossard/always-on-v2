@@ -7,7 +7,7 @@ Pure functions (e.g. ``build_context``) are out of scope.
 from __future__ import annotations
 
 import pytest
-from textual.widgets import Input, Static
+from textual.widgets import Input, Static, TextArea
 from textual.widgets._tree import TreeNode
 
 from azext_health_models_tui.watch.app import HealthWatchApp
@@ -16,6 +16,7 @@ from azext_health_models_tui.watch.health_tree import EntityData, HealthTree
 from azext_health_models_tui.watch.query_editor import QueryEditor
 from azext_health_models_tui.watch.search_modal import SearchModal
 from azext_health_models_tui.watch.signal_panel import SignalPanel
+from azext_health_models_tui.watch.shortcuts_dialog import ActionsDialog, HelpDialog
 from azext_health_models_tui.watch.status_bar import StatusBar
 
 
@@ -586,3 +587,127 @@ async def test_keybindings_inert_before_first_poll(make_app, healthy_client):
             assert not isinstance(app.screen, (QueryEditor, SearchModal))
     finally:
         release.set()
+
+
+@pytest.mark.anyio
+async def test_query_editor_text_keeps_literal_shortcut_characters(
+    make_app, healthy_client,
+):
+    app = make_app(healthy_client)
+    healthy_client.for_model.return_value = healthy_client
+    healthy_client.get_sub_resource = lambda rg, m, k, n: {
+        "name": n, "properties": {"displayName": n, "signalGroups": {}},
+    }
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        tree = app.query_one("#health-tree", HealthTree)
+        _focus_node(tree, _first_signal_node(tree))
+        tree.focus()
+        await pilot.pause()
+
+        await pilot.press("e")
+        await pilot.pause()
+        assert isinstance(app.screen, QueryEditor)
+        editor: QueryEditor = app.screen  # type: ignore[assignment]
+        ta = editor.query_one("#qe-query", TextArea)
+        ta.text = ""
+        ta.focus()
+        await pilot.pause()
+
+        for key in ("q", "/", "?", "1", "+", "-", "."):
+            await pilot.press(key)
+        await pilot.pause()
+
+        assert isinstance(app.screen, QueryEditor)
+        assert ta.text == "q/?1+-."
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("key", "dialog_type"),
+    [("f1", HelpDialog), ("f2", ActionsDialog)],
+)
+async def test_f1_f2_open_help_and_actions_dialogs(
+    make_app, healthy_client, key, dialog_type,
+):
+    app = make_app(healthy_client)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+
+        await pilot.press(key)
+        await pilot.pause()
+        assert isinstance(app.screen, dialog_type)
+
+        await pilot.press("escape")
+        await pilot.pause()
+        assert not isinstance(app.screen, dialog_type)
+
+
+@pytest.mark.anyio
+async def test_status_bar_shows_tab_enter_help_actions_hints(make_app, healthy_client):
+    app = make_app(healthy_client)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        status = app.query_one("#status-bar", StatusBar)
+        text = _static_text(status)
+        for token in ("Tab Focus", "Enter Activate", "F1 Help", "F2 Actions"):
+            assert token in text
+
+
+@pytest.mark.anyio
+async def test_actions_filter_arrow_keys_and_enter_dispatch_visible_actions(make_app, healthy_client):
+    app = make_app(healthy_client)
+    fired: list[str] = []
+    app._run_named_action = lambda action: fired.append(action or "")  # type: ignore[assignment]
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        await pilot.press("f2")
+        await pilot.pause()
+        assert isinstance(app.screen, ActionsDialog)
+
+        await pilot.click("#actions-filter")
+        await pilot.press("t", "i", "m", "e")
+        await pilot.pause()
+        await pilot.press("down")
+        await pilot.pause()
+        assert app.screen.focused is not None
+        assert app.screen.focused.id == "action-timeline"
+
+        await pilot.press("enter")
+        await pilot.pause()
+        assert fired == ["timeline"]
+
+        await pilot.press("f2")
+        await pilot.pause()
+        await pilot.click("#actions-filter")
+        await pilot.press("up")
+        await pilot.pause()
+        assert app.screen.focused is not None
+        assert app.screen.focused.id == "action-quit"
+
+
+@pytest.mark.anyio
+async def test_actions_filter_empty_match_ignores_enter_and_arrow_keys(make_app, healthy_client):
+    app = make_app(healthy_client)
+    fired: list[str] = []
+    app._run_named_action = lambda action: fired.append(action or "")  # type: ignore[assignment]
+
+    async with app.run_test(size=(120, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        await pilot.press("f2")
+        await pilot.pause()
+        await pilot.click("#actions-filter")
+        await pilot.press("z", "z", "z")
+        await pilot.pause()
+        await pilot.press("down")
+        await pilot.press("up")
+        await pilot.press("enter")
+        await pilot.pause()
+        assert fired == []

@@ -9,6 +9,26 @@
     "eventHubsNamespace": "evh-graphorleons-alwayson",
     "captureStorageAccount": "stadlsehalwayson"
   },
+  "aiObservability": {
+    "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
+    "resourceGroup": "rg-alwaysonn-global",
+    "accountName": "ai-svc-alwaysonn-fiqhqx",
+    "observedAtUtc": "2026-10-17T09:11:00Z",
+    "deploymentAllocations": [
+      { "deployment": "gpt-41", "allocatedTpm": 10000, "allocatedRpm": 10 },
+      { "deployment": "gpt-41-mini", "allocatedTpm": 100000, "allocatedRpm": 100 },
+      { "deployment": "gpt-41-nano", "allocatedTpm": 10000, "allocatedRpm": 10 },
+      { "deployment": "gpt-54", "allocatedTpm": 10000, "allocatedRpm": 100 },
+      { "deployment": "gpt-54-mini", "allocatedTpm": 10000, "allocatedRpm": 10 }
+    ],
+    "quotaSnapshots": [
+      { "model": "gpt-6-luna", "allocatedUnits": 0, "quotaUnits": 250 },
+      { "model": "gpt-5.4-nano", "allocatedUnits": 0, "quotaUnits": 5000 },
+      { "model": "gpt-5.4-mini", "allocatedUnits": 20, "quotaUnits": 1000 },
+      { "model": "gpt-6.1-sol", "allocatedUnits": 0, "quotaUnits": 250 },
+      { "model": "gpt4.1-mini", "allocatedUnits": 100, "quotaUnits": 5000 }
+    ]
+  },
   "stamps": [
     { "key": "swedencentral-001", "region": "swedencentral", "cluster": "aks-alwayson-swedencentral-001", "resourceGroup": "rg-alwayson-swedencentral-001", "storageAccount": "sthaalwaysonswe001", "cosmosOrleansAccount": "cosmos-orl-alwayson-swedencentral-001" },
     { "key": "swedencentral-002", "region": "swedencentral", "cluster": "aks-alwayson-swedencentral-002", "resourceGroup": "rg-alwayson-swedencentral-002", "storageAccount": "sthaalwaysonswe002", "cosmosOrleansAccount": "cosmos-orl-alwayson-swedencentral-002" }

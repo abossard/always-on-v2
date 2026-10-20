@@ -31,7 +31,7 @@ resource acr 'Microsoft.ContainerRegistry/registries@2025-11-01' existing = {
   name: acrName
 }
 
-resource aiServices 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' existing = if (!empty(aiServicesAccountName)) {
+resource aiServices 'Microsoft.CognitiveServices/accounts@2026-09-01' existing = if (!empty(aiServicesAccountName)) {
   name: aiServicesAccountName
 }
 

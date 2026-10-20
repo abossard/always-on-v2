@@ -25,7 +25,8 @@ from azext_health_models_tui.watch.status_bar import StatusBar
 from azext_health_models_tui.watch.entity_drawer import EntityDrawer
 from azext_health_models_tui.watch.query_editor import QueryEditor
 from azext_health_models_tui.watch.signal_panel import SignalPanel
-from textual.widgets import Input, Label, OptionList, Static
+from textual.app import App
+from textual.widgets import Input, Label, OptionList, Static, Tree
 from azext_health_models_tui.domain.model_reference import ModelKey
 from azext_health_models_tui.domain.occurrences import project
 from azext_health_models_tui.domain.graph_builder import build_forest
@@ -1153,3 +1154,199 @@ asyncio.run(main())
 """
     result = subprocess.run([sys.executable, "-c", script, str(depth)], capture_output=True, text=True, timeout=30)
     assert result.returncode == 0, result.stdout + result.stderr
+
+
+async def click_toggle(pilot, tree, node) -> None:
+    line = node.line - int(tree.scroll_y)
+    offset = 0
+    for segment in tree.render_line(line):
+        if segment.style and segment.style.meta.get("toggle"):
+            content = tree.content_region
+            assert await pilot.click(tree, offset=(
+                content.x - tree.region.x + offset,
+                content.y - tree.region.y + line,
+            ))
+            await pilot.pause()
+            return
+        offset += segment.cell_length
+    raise AssertionError("Tree toggle not rendered")
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("initially_expanded", [True, False], ids=["collapse", "expand"])
+@pytest.mark.parametrize("widget_type", [Tree, HealthTree], ids=["pinned-vendor", "monitor"])
+async def test_earlier_branch_toggle_rebases_selected_node_before_next_key(widget_type, initially_expanded):
+    class WidgetApp(App):
+        def compose(self):
+            tree = widget_type("Root", id="tree") if widget_type is Tree else widget_type(id="tree")
+            branch = tree.root.add("A", expand=initially_expanded)
+            branch.add_leaf("A1")
+            branch.add_leaf("A2")
+            tree.root.add_leaf("B")
+            tree.root.add_leaf("C")
+            tree.root.expand()
+            yield tree
+
+    app = WidgetApp()
+    async with app.run_test(size=(100, 30)) as pilot:
+        await pilot.pause()
+        tree = app.query_one("#tree", Tree)
+        branch, selected, following = tree.root.children
+        tree.move_cursor(selected)
+        tree.focus()
+        await pilot.pause()
+        await click_toggle(pilot, tree, branch)
+        assert branch.is_expanded is not initially_expanded
+        assert tree.cursor_node is selected
+        assert tree.cursor_line == selected.line
+        await pilot.press("down")
+        assert tree.cursor_node is following
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("initially_expanded", [True, False], ids=["collapse", "expand"])
+async def test_app_earlier_toggle_preserves_selected_entity_actions(service, initially_expanded):
+    transport, client = service
+    transport.put("R", *(entity("R", n) for n in ("A", "A1", "A2", "B", "C")))
+    transport.relationships["r"] = [
+        {"name": str(i), "properties": {"parentEntityName": parent, "childEntityName": child}}
+        for i, (parent, child) in enumerate((("R", "A"), ("A", "A1"), ("A", "A2"), ("R", "B"), ("R", "C")))
+    ]
+    app = HealthWatchApp(client, "rg", "R", poll_interval=9999)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await until(pilot, lambda: "A2" in labels(app))
+        await idle(pilot, app)
+        tree = app.query_one(HealthTree)
+        branch = next(n for n in nodes(app) if n.data and n.data.entity_name == "A")
+        selected = next(n for n in nodes(app) if n.data and n.data.entity_name == "B")
+        if not initially_expanded:
+            branch.collapse()
+            await pilot.pause()
+        tree.move_cursor(selected)
+        tree.focus()
+        await pilot.pause()
+        await click_toggle(pilot, tree, branch)
+        assert branch.is_expanded is not initially_expanded
+        assert tree.cursor_node is selected
+        assert tree.cursor_line == selected.line
+        await pilot.press("d")
+        assert app.query_one(EntityDrawer).current_entity_name == "B"
+        await pilot.press("down")
+        assert tree.cursor_node.data.entity_name == "C"
+        assert transport.counts() == {"r": 3}
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("origin,demand,extra_reads", [
+    ("cached", "none", 0),
+    ("failed", "none", 0),
+    ("stale", "none", 0),
+    ("cached", "alias", 1),
+    ("cached", "navigation", 3),
+    ("cached", "manual", 3),
+])
+async def test_matching_observation_withdraws_only_obsolete_queued_health(service, origin, demand, extra_reads):
+    transport, client = service
+    refs = [entity("R", f"ref-{n}", model_id(n)) for n in "CDB"]
+    if demand == "alias":
+        refs.append(entity("R", "alias", model_id("B")))
+    transport.put("R", *refs)
+    for name in "BCD":
+        transport.put(name)
+    c_release, d_release, old_check_release = threading.Event(), threading.Event(), threading.Event()
+    parent_release = threading.Event()
+    app = HealthWatchApp(client, "rg", "R", poll_interval=9999)
+    try:
+        async with app.run_test(size=(180, 55)) as pilot:
+            await until(pilot, lambda: "ref-B" in labels(app))
+            for name in "CDB":
+                next(n for n in nodes(app) if n.data and n.data.entity_name == f"ref-{name}").expand()
+            await until(pilot, lambda: all(transport.counts()[n] == 3 for n in "bcd"))
+            await idle(pilot, app)
+            await enter_root(pilot, app)
+            if origin == "failed":
+                transport.replies[("b", "signaldefinitions")] = [Reply({
+                    "error": {"code": "Denied", "message": "before queued invalidation"},
+                }, 403)]
+                await expand(pilot, app, "ref-B")
+                await expand(pilot, app, "ref-B")
+                await until(pilot, lambda: "before queued invalidation" in labels(app))
+                await idle(pilot, app)
+                await enter_root(pilot, app)
+            elif origin == "stale":
+                transport.replies[("b", "entities/b")] = [
+                    Reply(entity("B", "B", health="Degraded"), release=old_check_release),
+                ]
+                transport.models[(SUB, "rg", "r")][3]["properties"]["healthState"] = "Degraded"
+                await pilot.press("r")
+                await until(pilot, lambda: transport.counts()["b"] == 4)
+                transport.models[(SUB, "rg", "r")][3]["properties"]["healthState"] = "Healthy"
+                await pilot.press("r")
+                await until(pilot, lambda: transport.counts()["r"] == 9)
+                old_check_release.set()
+                await idle(pilot, app)
+
+            def b_label():
+                return next(n.label.plain for n in nodes(app) if n.data and n.data.entity_name == "ref-B")
+
+            capture = b_label().split("; captured ", 1)[1].split(";", 1)[0].split("]", 1)[0]
+            before_b, before_r = transport.counts()["b"], transport.counts()["r"]
+            assert f"[{origin}" in b_label()
+            for name, release in (("c", c_release), ("d", d_release)):
+                transport.replies[(name, f"entities/{name}")] = [
+                    Reply(entity(name.upper(), name.upper()), release=release),
+                ]
+            for record in transport.models[(SUB, "rg", "r")][1:]:
+                record["properties"]["healthState"] = "Degraded"
+            await pilot.press("r")
+            await until(pilot, lambda: transport.counts()["c"] == 4 and transport.counts()["d"] == 4)
+            assert "[queued" in b_label()
+            assert transport.counts()["b"] == before_b
+            transport.models[(SUB, "rg", "r")][3]["properties"]["healthState"] = "Healthy"
+            await pilot.press("r")
+            await until(pilot, lambda: "Root R: queued" in app.query_one(StatusBar).model_work)
+            ledger_start = len(transport.requests)
+            if demand in {"navigation", "manual"}:
+                transport.replies[("r", "entities")] = [Reply({
+                    "value": copy.deepcopy(transport.models[(SUB, "rg", "r")]),
+                }, release=parent_release)]
+                c_release.set()
+                await until(pilot, lambda: transport.counts()["r"] == before_r + 5)
+            if demand == "navigation":
+                reference = next(n for n in nodes(app) if n.data and n.data.entity_name == "ref-B")
+                reference.collapse()
+                await pilot.pause()
+                reference = next(n for n in nodes(app) if n.data and n.data.entity_name == "ref-B")
+                reference.expand()
+                await pilot.pause()
+            elif demand == "manual":
+                app.query_one(HealthTree).move_cursor(
+                    next(n for n in nodes(app) if n.data and n.data.entity_name == "B")
+                )
+                await pilot.pause()
+                await pilot.press("r")
+                await enter_root(pilot, app)
+            c_release.set()
+            parent_release.set()
+            await until(pilot, lambda: transport.counts()["r"] == before_r + 6
+                        and "Root R: cached" in app.query_one(StatusBar).model_work)
+            d_release.set()
+            await idle(pilot, app)
+            print("QUEUED_HEALTH", origin, demand, "counts", dict(transport.counts()),
+                  "tail", transport.requests[ledger_start:], "row", b_label())
+            assert transport.counts()["b"] == before_b + extra_reads
+            assert transport.maximum == 2
+            if demand in {"none", "alias"}:
+                assert f"; captured {capture}" in b_label()
+            if demand == "none":
+                assert f"[{origin}" in b_label()
+                if origin == "failed":
+                    assert "before queued invalidation" in b_label()
+            if demand in {"navigation", "manual"}:
+                assert all(suffix != "entities/b" for _, _, name, suffix in transport.requests[ledger_start:] if name == "b")
+                assert [name for _, _, name, _ in transport.requests[ledger_start:]] == ["r"] * 3 + ["b"] * 3
+    finally:
+        c_release.set()
+        d_release.set()
+        old_check_release.set()
+        parent_release.set()

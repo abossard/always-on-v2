@@ -130,8 +130,10 @@ export function buildAppDashboard(app: AppConfig, config: PlatformConfig): objec
       .withRow(
         new RowBuilder('🤖 AI Models')
           .collapsed(true)
+          .withPanel(panels.aiCapacitySnapshotPanel(config))
           .withPanel(panels.aiTokensPanel(config))
           .withPanel(panels.aiRequestsPanel(config))
+          .withPanel(panels.ai429RequestsPanel(config))
           .withPanel(panels.aiLatencyPanel(config))
           .withPanel(panels.aiTokensPerSecondPanel(config)),
       );

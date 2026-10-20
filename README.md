@@ -103,9 +103,8 @@ dotnet test --solution src/src.slnx --no-build \
 (
   set -e
   cd src/health-models-tui
-  python3 -m venv .venv
-  .venv/bin/python -m pip install -r requirements-dev.txt
-  .venv/bin/python -m pytest azext_health_models_tui/tests/
+  uv sync --locked --python 3.11
+  uv run --locked python -m pytest azext_health_models_tui/tests/
 )
 ```
 
@@ -151,6 +150,18 @@ azd up
     └── postdeploy     `kustomize build | envsubst | kubectl apply`, waits for rollout,
                        verifies health, prints Front Door endpoints
 ```
+
+For the existing `alwaysonn` environment, every rollout and recovery starts with
+`azd up --environment alwaysonn`. Do not resume with individual phases, services or
+standalone hooks. A failed phase leaves the run failed, even if some resources updated.
+Review the full subscription what-if and preservation baseline before retrying.
+
+Provisioning outputs come from that lifecycle's named environment, not the latest
+successful deployment. Health-model generation is required. All seven image contexts
+and builds must succeed before the new source hash/tag is saved; changed source or
+missing/mismatched image attribution stops rollout. Postdeploy requires exactly seven
+workload image substitutions per stamp and publishes only the HelloAgents dashboard
+to the explicit `aiObservability` target. Publication failure fails the full run.
 
 ### Stamps & regions
 

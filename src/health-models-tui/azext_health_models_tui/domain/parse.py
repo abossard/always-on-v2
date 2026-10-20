@@ -85,6 +85,8 @@ def _parse_impact(raw: str | None) -> Impact:
     """Parse an impact string into the enum, defaulting to Standard."""
     if raw is None:
         return Impact.STANDARD
+    if raw == "None":
+        return Impact.SUPPRESSED
     try:
         return Impact(raw)
     except ValueError:

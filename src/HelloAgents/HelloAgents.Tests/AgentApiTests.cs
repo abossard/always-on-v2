@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using HelloAgents.Api;
 
 namespace HelloAgents.Tests;
@@ -7,6 +8,13 @@ namespace HelloAgents.Tests;
 public abstract class AgentApiTests(HttpClient client)
 {
     private readonly HelloAgentsApi _api = new(client);
+    private const string HiddenDeployment = "gpt-6-luna";
+
+    public static IEnumerable<string> RejectedModelDeployments()
+    {
+        yield return HiddenDeployment;
+        yield return "unknown-model-deployment";
+    }
 
     [Test]
     public async Task HealthReturnsOk()
@@ -66,6 +74,72 @@ public abstract class AgentApiTests(HttpClient client)
     {
         var response = await _api.CreateAgentRaw("", "desc", "🤖");
         await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
+    }
+
+    [Test]
+    [MethodDataSource(nameof(RejectedModelDeployments))]
+    public async Task CreateAgentUnknownOrHiddenModelDeploymentReturnsBadRequest(string modelDeployment)
+    {
+        var models = await _api.GetModels();
+        var availableDeployments = string.Join(", ", models.Deployments.Select(d => d.Name));
+        await Assert.That(availableDeployments).IsNotEmpty();
+        if (modelDeployment == HiddenDeployment)
+            await Assert.That(models.Deployments.Any(d => d.Name == HiddenDeployment)).IsFalse();
+
+        var attemptedName = $"BadModel-{Guid.NewGuid():N}";
+
+        var response = await _api.CreateAgentRaw(
+            attemptedName,
+            "A test AI agent",
+            "🤖",
+            modelDeployment);
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.BadRequest);
+
+        var body = await response.Content.ReadFromJsonAsync<JsonElement>();
+        await Assert.That(body.ValueKind).IsEqualTo(JsonValueKind.String);
+        var message = body.GetString();
+        await Assert.That(message).IsNotNull();
+        await Assert.That(message!).Contains($"Unknown deployment '{modelDeployment}'");
+        await Assert.That(message).Contains($"Available: {availableDeployments}");
+
+        var afterResponse = await _api.ListAgentsRaw();
+        afterResponse.EnsureSuccessStatusCode();
+        var agentsAfter = (await afterResponse.Content.ReadFromJsonAsync<AgentInfo[]>()) ?? [];
+        await Assert.That(agentsAfter.Any(a => a.Name == attemptedName)).IsFalse();
+    }
+
+    [Test]
+    public async Task CreateAgentKnownDefaultModelDeploymentReturnsCreated()
+    {
+        var models = await _api.GetModels();
+        await Assert.That(models.DefaultDeployment).IsNotEmpty();
+        await Assert.That(models.Deployments.Any(d => d.Name == models.DefaultDeployment)).IsTrue();
+
+        var response = await _api.CreateAgentRaw(
+            $"DefaultModel-{Guid.NewGuid():N}",
+            "A test AI agent",
+            "🤖",
+            models.DefaultDeployment);
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.Created);
+
+        var agent = await response.Content.ReadFromJsonAsync<AgentInfo>();
+        await Assert.That(agent).IsNotNull();
+        await Assert.That(agent!.ModelDeployment).IsEqualTo(models.DefaultDeployment);
+    }
+
+    [Test]
+    public async Task CreateAgentExplicitNullModelDeploymentReturnsCreated()
+    {
+        var response = await _api.CreateAgentRaw(
+            $"NullModel-{Guid.NewGuid():N}",
+            "A test AI agent",
+            "🤖",
+            null);
+        await Assert.That(response.StatusCode).IsEqualTo(HttpStatusCode.Created);
+
+        var agent = await response.Content.ReadFromJsonAsync<AgentInfo>();
+        await Assert.That(agent).IsNotNull();
+        await Assert.That(agent!.ModelDeployment).IsNull();
     }
 
     [Test]

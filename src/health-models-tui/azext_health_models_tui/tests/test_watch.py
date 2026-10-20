@@ -251,6 +251,45 @@ class TestRunWatchDispatcher:
 
         mock_plain.assert_called_once()
 
+    def test_catalog_launch_reopens_monitor_when_back_result_is_returned(self, monkeypatch):
+        from azext_health_models_tui.domain.model_reference import ModelKey
+        from azext_health_models_tui.watch import run_watch
+        from azext_health_models_tui.watch.model_catalog import CatalogSelection
+
+        client = MagicMock()
+        selections = [
+            CatalogSelection(ModelKey("https://management.azure.com", "sub", "rg-a", "m-a")),
+            CatalogSelection(ModelKey("https://management.azure.com", "sub", "rg-b", "m-b")),
+            None,
+        ]
+        app_runs: list[tuple[str, str, bool]] = []
+        requested_groups: list[str | None] = []
+
+        class _FakeApp:
+            RESULT_BACK_TO_MODELS = "back-to-models"
+
+            def __init__(self, _client, rg, model, _interval, *, allow_back_to_models=False):
+                app_runs.append((rg, model, allow_back_to_models))
+                self._model = model
+
+            def run(self):
+                if self._model == "m-a":
+                    return self.RESULT_BACK_TO_MODELS
+                return None
+
+        def _choose(_client, group):
+            requested_groups.append(group)
+            return selections.pop(0)
+
+        monkeypatch.setattr("azext_health_models_tui.watch.model_catalog.choose_model_interactively", _choose)
+        monkeypatch.setattr("azext_health_models_tui.watch.app.HealthWatchApp", _FakeApp)
+        monkeypatch.setattr("sys.stdout.isatty", lambda: True)
+
+        run_watch(client, resource_group=None, model_name=None, poll_interval=30, force_plain=False)
+
+        assert app_runs == [("rg-a", "m-a", True), ("rg-b", "m-b", True)]
+        assert requested_groups == [None, None]
+
 
 # ─── run_plain_watch tests ───────────────────────────────────────────
 

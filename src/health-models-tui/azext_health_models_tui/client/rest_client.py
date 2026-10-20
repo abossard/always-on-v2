@@ -11,10 +11,12 @@ from __future__ import annotations
 
 import logging
 import re
+import json
 import urllib.parse
 import threading
+from datetime import datetime
 from contextlib import contextmanager
-from typing import Any, Callable, Final
+from typing import Any, Callable, Final, Mapping
 
 from azure.core.pipeline.transport import HttpRequest
 from azext_health_models_tui.domain.model_reference import ModelKey
@@ -83,6 +85,7 @@ class CloudHealthClient:
         )
         self._scopes = {subscription_id.casefold(): self}
         self._scope_lock = threading.Lock()
+        self._connection_scope_cache: dict[str, dict[str, str]] = {}
         self._read_context = threading.local()
         self.arm_endpoint = (
             cli_ctx.cloud.endpoints.resource_manager.rstrip("/")
@@ -124,6 +127,44 @@ class CloudHealthClient:
                 scoped._scope_lock = self._scope_lock
                 self._scopes[scope] = scoped
             return self._scopes[scope]
+
+    def get_connection_scope(self) -> dict[str, str]:
+        """Resolve and cache the active subscription/tenant scope from Azure CLI profile."""
+        scope = self._subscription_id.casefold()
+        with self._scope_lock:
+            cached = self._connection_scope_cache.get(scope)
+            if cached is not None:
+                return dict(cached)
+
+        from azure.cli.core._profile import Profile
+
+        profile = Profile(cli_ctx=self._cli_ctx)
+        subscription = profile.get_subscription(subscription=self._subscription_id)
+        if not isinstance(subscription, Mapping):
+            raise ValueError("Profile subscription payload must be an object")
+
+        resolved_subscription_id = str(subscription.get("id", "")).strip()
+        subscription_name = str(subscription.get("name", "")).strip()
+        tenant_id = str(subscription.get("tenantId", "")).strip()
+        tenant_name_raw = subscription.get("tenantDisplayName", subscription.get("tenantName"))
+        tenant_name = str(tenant_name_raw).strip() if tenant_name_raw is not None else ""
+        arm_endpoint = self.arm_endpoint.rstrip("/")
+
+        if not resolved_subscription_id or not subscription_name or not tenant_id or not arm_endpoint:
+            raise ValueError("Connected scope is incomplete in Azure CLI profile")
+        if resolved_subscription_id.casefold() != self._subscription_id.casefold():
+            raise ValueError("Azure CLI profile returned a different subscription than the scoped client")
+
+        value = {
+            "arm_endpoint": arm_endpoint,
+            "subscription_id": resolved_subscription_id,
+            "subscription_name": subscription_name,
+            "tenant_id": tenant_id,
+            "tenant_name": tenant_name,
+        }
+        with self._scope_lock:
+            self._connection_scope_cache[scope] = value
+        return dict(value)
 
     @contextmanager
     def monitor_reads(self, stopped: threading.Event):
@@ -274,25 +315,122 @@ class CloudHealthClient:
             )
         )
 
+    def get_relationship(
+        self,
+        resource_group: str,
+        model_name: str,
+        relationship_name: str,
+    ) -> dict[str, Any]:
+        return self._call(
+            lambda: self._sdk.relationships.get(
+                resource_group, model_name, relationship_name
+            )
+        )
+
     def list_entities(
-        self, resource_group: str, model_name: str
+        self,
+        resource_group: str,
+        model_name: str,
+        *,
+        timestamp: datetime | None = None,
     ) -> list[dict[str, Any]]:
+        if timestamp is None:
+            return self._call_list(
+                lambda: self._sdk.entities.list_by_health_model(resource_group, model_name)
+            )
         return self._call_list(
-            lambda: self._sdk.entities.list_by_health_model(resource_group, model_name)
+            lambda: self._sdk.entities.list_by_health_model(
+                resource_group, model_name, timestamp=timestamp
+            )
         )
 
     def list_relationships(
-        self, resource_group: str, model_name: str
+        self,
+        resource_group: str,
+        model_name: str,
+        *,
+        timestamp: datetime | None = None,
     ) -> list[dict[str, Any]]:
+        if timestamp is None:
+            return self._call_list(
+                lambda: self._sdk.relationships.list_by_health_model(resource_group, model_name)
+            )
         return self._call_list(
-            lambda: self._sdk.relationships.list_by_health_model(resource_group, model_name)
+            lambda: self._sdk.relationships.list_by_health_model(
+                resource_group, model_name, timestamp=timestamp
+            )
         )
 
     def list_signal_definitions(
-        self, resource_group: str, model_name: str
+        self,
+        resource_group: str,
+        model_name: str,
+        *,
+        timestamp: datetime | None = None,
     ) -> list[dict[str, Any]]:
+        if timestamp is None:
+            return self._call_list(
+                lambda: self._sdk.signal_definitions.list_by_health_model(resource_group, model_name)
+            )
         return self._call_list(
-            lambda: self._sdk.signal_definitions.list_by_health_model(resource_group, model_name)
+            lambda: self._sdk.signal_definitions.list_by_health_model(
+                resource_group, model_name, timestamp=timestamp
+            )
+        )
+
+    def list_health_models(
+        self,
+        resource_group: str | None = None,
+    ) -> list[dict[str, Any]]:
+        if resource_group:
+            return self._call_list(
+                lambda: self._sdk.health_models.list_by_resource_group(resource_group)
+            )
+        return self._call_list(lambda: self._sdk.health_models.list_by_subscription())
+
+    def update_entity(
+        self,
+        resource_group: str,
+        model_name: str,
+        entity_name: str,
+        payload: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        return self._put_named_resource(
+            resource_group=resource_group,
+            model_name=model_name,
+            collection="entities",
+            resource_name=entity_name,
+            payload=payload,
+        )
+
+    def update_signal_definition(
+        self,
+        resource_group: str,
+        model_name: str,
+        signal_definition_name: str,
+        payload: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        return self._put_named_resource(
+            resource_group=resource_group,
+            model_name=model_name,
+            collection="signaldefinitions",
+            resource_name=signal_definition_name,
+            payload=payload,
+        )
+
+    def update_relationship(
+        self,
+        resource_group: str,
+        model_name: str,
+        relationship_name: str,
+        payload: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        return self._put_named_resource(
+            resource_group=resource_group,
+            model_name=model_name,
+            collection="relationships",
+            resource_name=relationship_name,
+            payload=payload,
         )
 
     # ─── Entity signal operations (history) ───────────────────────────
@@ -312,6 +450,7 @@ class CloudHealthClient:
 
         while True:
             try:
+                self._check_read()
                 page = self._request_signal_history_page(
                     resource_group, model_name, entity_name, request_body
                 )
@@ -352,7 +491,7 @@ class CloudHealthClient:
         # Generated SDK operation exposes a version gate for stable history.
         # Use public send_request so stable API stays on the SDK auth/retry pipeline.
         url = (
-            "https://management.azure.com/subscriptions/"
+            f"{self.arm_endpoint.rstrip('/')}/subscriptions/"
             f"{urllib.parse.quote(self._subscription_id, safe='')}/resourceGroups/"
             f"{urllib.parse.quote(resource_group, safe='')}/providers/{PROVIDER}/healthmodels/"
             f"{urllib.parse.quote(model_name, safe='')}/entities/"
@@ -367,17 +506,158 @@ class CloudHealthClient:
         request.set_json_body(body)
 
         try:
+            self._check_read()
             response = self._sdk.send_request(request)
             response.raise_for_status()
         except Exception as exc:  # noqa: BLE001
             self._raise_translated(exc)
             raise
 
-        payload = response.json()
-        if not isinstance(payload, dict):
-            raise TypeError(
-                "Signal history response must be an object"
+        return self._response_json_dict(response, "Signal history response")
+
+    def get_entity_history(
+        self,
+        resource_group: str,
+        model_name: str,
+        entity_name: str,
+        body: dict[str, Any],
+    ) -> dict[str, Any]:
+        """Get full entity history, including continuation pages."""
+        request_body = dict(body)
+        merged_history: list[Any] = []
+        base_result: dict[str, Any] = {}
+        is_first_page = True
+
+        while True:
+            try:
+                self._check_read()
+                page = self._request_entity_history_page(
+                    resource_group, model_name, entity_name, request_body
+                )
+            except Exception as exc:  # noqa: BLE001
+                if is_first_page:
+                    raise
+                raise RuntimeError(
+                    f"Entity history is incomplete because continuation failed after {len(merged_history)} points: "
+                    f"{type(exc).__name__}: {exc}"
+                ) from exc
+
+            is_first_page = False
+            if not base_result:
+                base_result = {k: v for k, v in page.items() if k not in {"history", "nextMarker"}}
+            merged_history.extend(page.get("history") or [])
+            next_marker = page.get("nextMarker")
+            if not next_marker:
+                break
+            request_body = {"nextMarker": next_marker}
+            if "top" in body:
+                request_body["top"] = body["top"]
+
+        base_result["history"] = merged_history
+        return base_result
+
+    def _request_entity_history_page(
+        self,
+        resource_group: str,
+        model_name: str,
+        entity_name: str,
+        body: dict[str, Any],
+    ) -> dict[str, Any]:
+        url = (
+            f"{self.arm_endpoint.rstrip('/')}/subscriptions/"
+            f"{urllib.parse.quote(self._subscription_id, safe='')}/resourceGroups/"
+            f"{urllib.parse.quote(resource_group, safe='')}/providers/{PROVIDER}/healthmodels/"
+            f"{urllib.parse.quote(model_name, safe='')}/entities/"
+            f"{urllib.parse.quote(entity_name, safe='')}/getHistory"
+            f"?api-version={API_VERSION}"
+        )
+        request = HttpRequest(
+            "POST",
+            url,
+            headers={"Content-Type": "application/json"},
+        )
+        request.set_json_body(body)
+
+        try:
+            self._check_read()
+            response = self._sdk.send_request(request)
+            response.raise_for_status()
+        except Exception as exc:  # noqa: BLE001
+            self._raise_translated(exc)
+            raise
+
+        return self._response_json_dict(response, "Entity history response")
+
+    def _put_named_resource(
+        self,
+        *,
+        resource_group: str,
+        model_name: str,
+        collection: str,
+        resource_name: str,
+        payload: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        """Stable PUT for named CloudHealth resources using SDK send_request pipeline."""
+        url = (
+            f"{self.arm_endpoint.rstrip('/')}/subscriptions/"
+            f"{urllib.parse.quote(self._subscription_id, safe='')}/resourceGroups/"
+            f"{urllib.parse.quote(resource_group, safe='')}/providers/{PROVIDER}/healthmodels/"
+            f"{urllib.parse.quote(model_name, safe='')}/{collection}/"
+            f"{urllib.parse.quote(resource_name, safe='')}"
+            f"?api-version={API_VERSION}"
+        )
+        request = HttpRequest(
+            "PUT",
+            url,
+            headers={"Content-Type": "application/json"},
+        )
+        request.set_json_body(dict(payload))
+
+        try:
+            response = self._sdk.send_request(request)
+        except Exception as exc:  # noqa: BLE001
+            self._raise_translated(exc)
+            raise
+
+        if response.status_code in (200, 201):
+            response.raise_for_status()
+            return self._response_json_dict(response, "Named update response")
+
+        if response.status_code == 202:
+            raise RuntimeError(
+                "Named update is asynchronous (HTTP 202). "
+                "This client requires a completed 200/201 response before success."
             )
+
+        try:
+            response.raise_for_status()
+        except Exception as exc:  # noqa: BLE001
+            self._raise_translated(exc)
+            raise
+        raise RuntimeError(
+            f"Unexpected status code from named update: {response.status_code}"
+        )
+
+    @staticmethod
+    def _response_json_dict(response: Any, context: str) -> dict[str, Any]:
+        payload: Any
+        if hasattr(response, "json"):
+            payload = response.json()
+        else:
+            if hasattr(response, "text"):
+                raw_text = response.text()
+            else:
+                raw_body = response.body()
+                if isinstance(raw_body, bytes):
+                    raw_text = raw_body.decode("utf-8")
+                else:
+                    raw_text = str(raw_body)
+            if not raw_text:
+                payload = {}
+            else:
+                payload = json.loads(raw_text)
+        if not isinstance(payload, dict):
+            raise TypeError(f"{context} must be an object")
         return payload
 
     # ─── Cross-service queries (NOT CloudHealth SDK — different Azure services) ─

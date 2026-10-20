@@ -44,18 +44,32 @@ public class HelloAgentsApi(HttpClient http)
 
     // ─── Agents ──────────────────────────────────────────────
 
-    public async Task<AgentInfo> CreateAgent(string name, string persona, string? emoji = null)
+    public async Task<AgentInfo> CreateAgent(string name, string persona, string? emoji = null, string? modelDeployment = null)
     {
-        var response = await CreateAgentRaw(name, persona, emoji);
+        var response = await CreateAgentRaw(name, persona, emoji, modelDeployment);
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<AgentInfo>())!;
     }
 
-    public Task<HttpResponseMessage> CreateAgentRaw(string name, string persona, string? emoji = null)
-        => http.PostAsJsonAsync(Routes.Agents, new CreateAgentRequest(name, persona, emoji));
+    public Task<HttpResponseMessage> CreateAgentRaw(
+        string name,
+        string persona,
+        string? emoji = null,
+        string? modelDeployment = null)
+        => http.PostAsJsonAsync(Routes.Agents, new CreateAgentRequest(name, persona, emoji, modelDeployment));
 
     public Task<HttpResponseMessage> ListAgentsRaw()
         => http.GetAsync(new Uri(Routes.Agents, UriKind.Relative));
+
+    public Task<HttpResponseMessage> GetModelsRaw()
+        => http.GetAsync(new Uri(Routes.Models, UriKind.Relative));
+
+    public async Task<ModelsResponse> GetModels()
+    {
+        var response = await GetModelsRaw();
+        response.EnsureSuccessStatusCode();
+        return (await response.Content.ReadFromJsonAsync<ModelsResponse>())!;
+    }
 
     public async Task<AgentInfo> GetAgent(string id)
     {
@@ -183,5 +197,19 @@ public record ExecutionListResponse
 {
     public ExecutionSummaryResponse[] Active { get; init; } = [];
     public ExecutionSummaryResponse[] History { get; init; } = [];
+}
+#pragma warning restore CA1819
+
+#pragma warning disable CA1819 // JSON DTOs deserialized as arrays
+public record ModelsResponse
+{
+    public string DefaultDeployment { get; init; } = "";
+    public ModelDeploymentResponse[] Deployments { get; init; } = [];
+}
+
+public record ModelDeploymentResponse
+{
+    public string Name { get; init; } = "";
+    public string? Label { get; init; }
 }
 #pragma warning restore CA1819

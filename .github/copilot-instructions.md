@@ -68,7 +68,8 @@ cd scripts/healthmodel && npx tsc --noEmit -p tsconfig.json
 
 ```bash
 cd src/health-models-tui
-python3 -m pytest azext_health_models_tui/tests/
+uv sync --locked --python 3.11
+uv run --locked python -m pytest azext_health_models_tui/tests/
 ```
 
 ## Conventions

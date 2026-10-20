@@ -1,0 +1,576 @@
+from __future__ import annotations
+
+from datetime import datetime, timezone
+from typing import Any
+from unittest.mock import MagicMock
+
+import pytest
+
+from azext_health_models_tui.client.errors import AuthenticationError
+from azext_health_models_tui.domain.drafts import diff_documents, normalize_known_readonly_fields
+from azext_health_models_tui.domain.model_reference import ModelKey
+from azext_health_models_tui.watch.apply import (
+    ApplyResult,
+    ApplyCoordinator,
+    ConnectionScopeDescription,
+    ApplyOutcomeKind,
+)
+
+
+@pytest.fixture
+def client() -> MagicMock:
+    mocked = MagicMock()
+    mocked.arm_endpoint = "https://management.azure.com"
+    mocked.for_model.return_value = mocked
+    mocked.list_entities.return_value = []
+    mocked.get_connection_scope.return_value = {
+        "arm_endpoint": "https://management.azure.com",
+        "subscription_id": "00000000-0000-0000-0000-000000000000",
+        "subscription_name": "MCAP",
+        "tenant_id": "46693104-8c42-47b7-98e3-985ed39402f6",
+        "tenant_name": "anbo",
+    }
+    return mocked
+
+
+def _model() -> ModelKey:
+    return ModelKey(
+        endpoint="https://management.azure.com",
+        subscription="00000000-0000-0000-0000-000000000000",
+        group="rg",
+        name="model",
+    )
+
+
+def _target(kind: str):
+    from azext_health_models_tui.domain.drafts import ResourceTarget
+
+    return ResourceTarget(model=_model(), kind=kind, name="res-1")
+
+
+@pytest.mark.parametrize(
+    ("kind", "read_method", "write_method"),
+    [
+        ("entity", "get_entity", "update_entity"),
+        ("signal_definition", "get_signal_definition", "update_signal_definition"),
+        ("relationship", "get_relationship", "update_relationship"),
+    ],
+)
+def test_apply_routes_read_and_write_by_named_resource_kind(
+    client: MagicMock,
+    kind: str,
+    read_method: str,
+    write_method: str,
+) -> None:
+    properties_by_kind = {
+        "entity": {"displayName": "before", "healthState": "Healthy", "custom": {"k": 1}},
+        "signal_definition": {"displayName": "before", "signalKind": "AzureResourceMetric", "custom": {"k": 1}},
+        "relationship": {"parentEntityName": "parent", "childEntityName": "child", "custom": {"k": 1}},
+    }
+    edited_properties_by_kind = {
+        "entity": {"displayName": "after", "healthState": "Unknown", "custom": {"k": 1}},
+        "signal_definition": {"displayName": "after", "signalKind": "AzureResourceMetric", "custom": {"k": 1}},
+        "relationship": {"parentEntityName": "parent", "childEntityName": "child-2", "custom": {"k": 1}},
+    }
+    baseline = {
+        "id": "/ignored",
+        "type": "ignored",
+        "name": "res-1",
+        "properties": properties_by_kind[kind],
+    }
+    edited = {
+        "name": "res-1",
+        "properties": edited_properties_by_kind[kind],
+    }
+    getattr(client, read_method).side_effect = [baseline, baseline, edited]
+    getattr(client, write_method).return_value = edited
+    coordinator = ApplyCoordinator(client)
+    target = _target(kind)
+
+    plan = coordinator.prepare_plan(
+        target=target,
+        revision=7,
+        current_revision=7,
+        is_live_connected_scope=True,
+        edited_resource=edited,
+        draft_live_baseline=baseline,
+        generated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+    )
+    assert not isinstance(plan, ApplyResult)
+    result = coordinator.apply_confirmed(
+        plan,
+        current_revision=7,
+        confirmation_name=target.name,
+    )
+
+    assert result.outcome is ApplyOutcomeKind.APPLIED
+    assert result.attempted_write is True
+    getattr(client, read_method).assert_any_call("rg", "model", "res-1")
+    getattr(client, write_method).assert_called_once()
+    sent_payload = getattr(client, write_method).call_args.args[3]
+    assert "id" not in sent_payload
+    assert "type" not in sent_payload
+    if kind == "relationship":
+        assert sent_payload["properties"]["childEntityName"] == "child-2"
+    else:
+        assert sent_payload["properties"]["displayName"] == "after"
+    assert sent_payload["properties"]["custom"] == {"k": 1}
+
+
+@pytest.mark.parametrize(
+    ("is_live", "revision", "current_revision", "confirmation", "expected_message"),
+    [
+        (False, 1, 1, "res-1", "current live connected scope"),
+        (True, 1, 2, "res-1", "obsolete"),
+        (True, 1, 1, "wrong-name", "confirmation mismatch"),
+    ],
+)
+def test_no_writes_on_cancel_history_or_stale_plan(
+    client: MagicMock,
+    is_live: bool,
+    revision: int,
+    current_revision: int,
+    confirmation: str,
+    expected_message: str,
+) -> None:
+    baseline = {"name": "res-1", "properties": {"displayName": "before"}}
+    edited = {"name": "res-1", "properties": {"displayName": "after"}}
+    client.get_entity.return_value = baseline
+    coordinator = ApplyCoordinator(client)
+    target = _target("entity")
+
+    plan_or_rejected = coordinator.prepare_plan(
+        target=target,
+        revision=revision,
+        current_revision=current_revision,
+        is_live_connected_scope=is_live,
+        edited_resource=edited,
+        draft_live_baseline=baseline,
+    )
+
+    if isinstance(plan_or_rejected, ApplyResult):
+        result = plan_or_rejected
+    else:
+        result = coordinator.apply_confirmed(
+            plan_or_rejected,
+            current_revision=revision,
+            confirmation_name=confirmation,
+        )
+
+    assert result.outcome is ApplyOutcomeKind.REJECTED
+    assert result.attempted_write is False
+    assert expected_message in result.message
+    client.update_entity.assert_not_called()
+
+
+def test_no_write_when_live_baseline_changes_after_plan_prepare(client: MagicMock) -> None:
+    baseline = {"name": "res-1", "properties": {"displayName": "before"}}
+    edited = {"name": "res-1", "properties": {"displayName": "after"}}
+    changed_live = {"name": "res-1", "properties": {"displayName": "changed elsewhere"}}
+    client.get_entity.return_value = changed_live
+    coordinator = ApplyCoordinator(client)
+
+    plan_or_rejected = coordinator.prepare_plan(
+        target=_target("entity"),
+        revision=5,
+        current_revision=5,
+        is_live_connected_scope=True,
+        edited_resource=edited,
+        draft_live_baseline=baseline,
+    )
+    assert isinstance(plan_or_rejected, ApplyResult)
+    assert plan_or_rejected.outcome is ApplyOutcomeKind.REJECTED
+    client.update_entity.assert_not_called()
+
+
+def test_prepare_rejects_noop_plan(client: MagicMock) -> None:
+    baseline = {"name": "res-1", "properties": {"displayName": "same"}}
+    client.get_entity.return_value = baseline
+    coordinator = ApplyCoordinator(client)
+
+    plan_or_rejected = coordinator.prepare_plan(
+        target=_target("entity"),
+        revision=1,
+        current_revision=1,
+        is_live_connected_scope=True,
+        edited_resource=baseline,
+        draft_live_baseline=baseline,
+    )
+
+    assert isinstance(plan_or_rejected, ApplyResult)
+    assert plan_or_rejected.outcome is ApplyOutcomeKind.REJECTED
+    assert "No writable changes" in plan_or_rejected.message
+
+
+def test_prepare_rejects_target_endpoint_mismatch_before_write(client: MagicMock) -> None:
+    from azext_health_models_tui.domain.drafts import ResourceTarget
+    bad_target = ResourceTarget(
+        model=ModelKey(
+            endpoint="https://other.management.azure.com",
+            subscription="00000000-0000-0000-0000-000000000000",
+            group="rg",
+            name="model",
+        ),
+        kind="entity",
+        name="res-1",
+    )
+    coordinator = ApplyCoordinator(client)
+
+    result = coordinator.prepare_plan(
+        target=bad_target,
+        revision=1,
+        current_revision=1,
+        is_live_connected_scope=True,
+        edited_resource={"name": "res-1", "properties": {"displayName": "x"}},
+        draft_live_baseline={"name": "res-1", "properties": {"displayName": "x"}},
+    )
+
+    assert isinstance(result, ApplyResult)
+    assert result.outcome is ApplyOutcomeKind.REJECTED
+    assert "different ARM endpoint" in result.message
+    client.update_entity.assert_not_called()
+
+
+def test_prepare_rejects_when_for_model_fails(client: MagicMock) -> None:
+    baseline = {"name": "res-1", "properties": {"displayName": "before"}}
+    edited = {"name": "res-1", "properties": {"displayName": "after"}}
+    client.for_model.side_effect = RuntimeError("scope failure")
+    coordinator = ApplyCoordinator(client)
+
+    result = coordinator.prepare_plan(
+        target=_target("entity"),
+        revision=1,
+        current_revision=1,
+        is_live_connected_scope=True,
+        edited_resource=edited,
+        draft_live_baseline=baseline,
+    )
+
+    assert isinstance(result, ApplyResult)
+    assert result.outcome is ApplyOutcomeKind.REJECTED
+    assert "Unable to resolve scoped client for apply target" in result.message
+    client.update_entity.assert_not_called()
+
+
+def test_prepare_rejects_when_connection_scope_cannot_be_verified(client: MagicMock) -> None:
+    baseline = {"name": "res-1", "properties": {"displayName": "before"}}
+    edited = {"name": "res-1", "properties": {"displayName": "after"}}
+    client.get_connection_scope.side_effect = ValueError("tenant id unavailable")
+    coordinator = ApplyCoordinator(client)
+
+    result = coordinator.prepare_plan(
+        target=_target("entity"),
+        revision=1,
+        current_revision=1,
+        is_live_connected_scope=True,
+        edited_resource=edited,
+        draft_live_baseline=baseline,
+    )
+
+    assert isinstance(result, ApplyResult)
+    assert result.outcome is ApplyOutcomeKind.REJECTED
+    assert "Unable to verify connected tenant/subscription scope before apply" in result.message
+    client.update_entity.assert_not_called()
+
+
+def test_describe_connection_scope_returns_whitelisted_values(client: MagicMock) -> None:
+    coordinator = ApplyCoordinator(client)
+
+    scope = coordinator.describe_connection_scope(_target("entity"))
+
+    assert isinstance(scope, ConnectionScopeDescription)
+    assert scope.arm_endpoint == "https://management.azure.com"
+    assert scope.subscription_id == "00000000-0000-0000-0000-000000000000"
+    assert scope.subscription_name == "MCAP"
+    assert scope.tenant_id == "46693104-8c42-47b7-98e3-985ed39402f6"
+    assert scope.tenant_name == "anbo"
+
+
+def test_apply_surfaces_rejected_for_403_and_reads_back(client: MagicMock) -> None:
+    baseline = {"name": "res-1", "properties": {"displayName": "before"}}
+    edited = {"name": "res-1", "properties": {"displayName": "after"}}
+    client.get_entity.side_effect = [baseline, baseline, baseline]
+    client.update_entity.side_effect = AuthenticationError("forbidden", status_code=403)
+    coordinator = ApplyCoordinator(client)
+
+    plan = coordinator.prepare_plan(
+        target=_target("entity"),
+        revision=3,
+        current_revision=3,
+        is_live_connected_scope=True,
+        edited_resource=edited,
+        draft_live_baseline=baseline,
+    )
+    assert not isinstance(plan, ApplyResult)
+    result = coordinator.apply_confirmed(
+        plan,
+        current_revision=3,
+        confirmation_name="res-1",
+    )
+
+    assert result.outcome is ApplyOutcomeKind.REJECTED
+    assert result.attempted_write is True
+    assert result.write_error is not None
+    assert "HTTP 403" in result.write_error
+    assert result.read_back == baseline
+
+
+def test_apply_surfaces_unknown_for_timeout_with_mismatch(client: MagicMock) -> None:
+    baseline = {"name": "res-1", "properties": {"displayName": "before"}}
+    edited = {"name": "res-1", "properties": {"displayName": "after"}}
+    read_back = {"name": "res-1", "properties": {"displayName": "before"}}
+    client.get_entity.side_effect = [baseline, baseline, read_back]
+    client.update_entity.side_effect = TimeoutError("timed out")
+    coordinator = ApplyCoordinator(client)
+
+    plan = coordinator.prepare_plan(
+        target=_target("entity"),
+        revision=9,
+        current_revision=9,
+        is_live_connected_scope=True,
+        edited_resource=edited,
+        draft_live_baseline=baseline,
+    )
+    assert not isinstance(plan, ApplyResult)
+    result = coordinator.apply_confirmed(
+        plan,
+        current_revision=9,
+        confirmation_name="res-1",
+    )
+
+    assert result.outcome is ApplyOutcomeKind.UNKNOWN
+    assert result.attempted_write is True
+    assert result.changed_fields == ("properties.displayName",)
+    assert "timed out" in (result.write_error or "")
+
+
+def test_apply_returns_unknown_when_readback_fails_after_write(client: MagicMock) -> None:
+    baseline = {"name": "res-1", "properties": {"displayName": "before"}}
+    edited = {"name": "res-1", "properties": {"displayName": "after"}}
+    client.get_entity.side_effect = [baseline, baseline, RuntimeError("read-back unavailable")]
+    client.update_entity.return_value = {"ok": True}
+    coordinator = ApplyCoordinator(client)
+
+    plan = coordinator.prepare_plan(
+        target=_target("entity"),
+        revision=2,
+        current_revision=2,
+        is_live_connected_scope=True,
+        edited_resource=edited,
+        draft_live_baseline=baseline,
+    )
+    assert not isinstance(plan, ApplyResult)
+    result = coordinator.apply_confirmed(
+        plan,
+        current_revision=2,
+        confirmation_name="res-1",
+    )
+
+    assert result.outcome is ApplyOutcomeKind.UNKNOWN
+    assert result.attempted_write is True
+    assert result.read_back is None
+    assert "read-back failed" in (result.write_error or "")
+
+
+def test_apply_rejects_tampered_plan_payload(client: MagicMock) -> None:
+    baseline = {"name": "res-1", "properties": {"displayName": "before"}}
+    edited = {"name": "res-1", "properties": {"displayName": "after"}}
+    client.get_entity.return_value = baseline
+    coordinator = ApplyCoordinator(client)
+    plan = coordinator.prepare_plan(
+        target=_target("entity"),
+        revision=2,
+        current_revision=2,
+        is_live_connected_scope=True,
+        edited_resource=edited,
+        draft_live_baseline=baseline,
+    )
+    assert not isinstance(plan, ApplyResult)
+    # mutate after review
+    plan.edited_resource["properties"]["displayName"] = "EVIL"  # type: ignore[index]
+    result = coordinator.apply_confirmed(
+        plan,
+        current_revision=2,
+        confirmation_name="res-1",
+    )
+    assert result.outcome is ApplyOutcomeKind.REJECTED
+    assert "changed after review" in result.message
+    client.update_entity.assert_not_called()
+
+
+def test_apply_rechecks_revision_after_network_read_before_write(client: MagicMock) -> None:
+    baseline = {"name": "res-1", "properties": {"displayName": "before"}}
+    edited = {"name": "res-1", "properties": {"displayName": "after"}}
+    revisions = {"value": 1}
+
+    def revision_supplier(_target: Any) -> int:
+        return revisions["value"]
+
+    calls = {"count": 0}
+
+    def read_side_effect(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+        calls["count"] += 1
+        if calls["count"] == 2:
+            revisions["value"] = 2
+        return baseline
+
+    client.get_entity.side_effect = read_side_effect
+    coordinator = ApplyCoordinator(client, current_revision_supplier=revision_supplier)
+    plan = coordinator.prepare_plan(
+        target=_target("entity"),
+        revision=1,
+        current_revision=1,
+        is_live_connected_scope=True,
+        edited_resource=edited,
+        draft_live_baseline=baseline,
+    )
+    assert not isinstance(plan, ApplyResult)
+    result = coordinator.apply_confirmed(
+        plan,
+        current_revision=1,
+        confirmation_name="res-1",
+    )
+    assert result.outcome is ApplyOutcomeKind.REJECTED
+    assert "changed while preparing apply" in result.message
+    client.update_entity.assert_not_called()
+
+
+def test_prepare_signal_definition_refuses_unknown_consumer_scope(client: MagicMock) -> None:
+    baseline = {
+        "name": "res-1",
+        "properties": {"displayName": "before", "signalKind": "AzureResourceMetric"},
+    }
+    edited = {
+        "name": "res-1",
+        "properties": {"displayName": "after", "signalKind": "AzureResourceMetric"},
+    }
+    client.get_signal_definition.return_value = baseline
+    client.list_entities.side_effect = RuntimeError("entity list failed")
+    coordinator = ApplyCoordinator(client)
+
+    result = coordinator.prepare_plan(
+        target=_target("signal_definition"),
+        revision=1,
+        current_revision=1,
+        is_live_connected_scope=True,
+        edited_resource=edited,
+        draft_live_baseline=baseline,
+    )
+
+    assert isinstance(result, ApplyResult)
+    assert result.outcome is ApplyOutcomeKind.REJECTED
+    assert "Unable to resolve shared definition scope" in result.message
+
+
+def test_apply_signal_definition_refuses_consumer_scope_drift(client: MagicMock) -> None:
+    baseline = {
+        "name": "res-1",
+        "properties": {"displayName": "before", "signalKind": "AzureResourceMetric"},
+    }
+    edited = {
+        "name": "res-1",
+        "properties": {"displayName": "after", "signalKind": "AzureResourceMetric"},
+    }
+    entity_set_a = [{
+        "name": "a",
+        "properties": {
+            "signalGroups": {
+                "azureResource": {
+                    "signals": [{"signalDefinitionName": "res-1"}],
+                }
+            }
+        },
+    }]
+    entity_set_b = entity_set_a + [{
+        "name": "b",
+        "properties": {
+            "signalGroups": {
+                "azureResource": {
+                    "signals": [{"signalDefinitionName": "res-1"}],
+                }
+            }
+        },
+    }]
+    client.get_signal_definition.side_effect = [baseline, baseline]
+    client.list_entities.side_effect = [entity_set_a, entity_set_b]
+    coordinator = ApplyCoordinator(client)
+
+    plan = coordinator.prepare_plan(
+        target=_target("signal_definition"),
+        revision=1,
+        current_revision=1,
+        is_live_connected_scope=True,
+        edited_resource=edited,
+        draft_live_baseline=baseline,
+    )
+    assert not isinstance(plan, ApplyResult)
+    result = coordinator.apply_confirmed(
+        plan,
+        current_revision=1,
+        confirmation_name="res-1",
+    )
+
+    assert result.outcome is ApplyOutcomeKind.REJECTED
+    assert "consumer scope changed" in result.message
+    client.update_signal_definition.assert_not_called()
+
+
+def test_apply_surfaces_differs_on_readback_mismatch_without_error(client: MagicMock) -> None:
+    baseline = {"name": "res-1", "properties": {"displayName": "before", "x": {"y": 1}}}
+    edited = {"name": "res-1", "properties": {"displayName": "after", "x": {"y": 2}}}
+    read_back = {"name": "res-1", "properties": {"displayName": "after", "x": {"y": 1}}}
+    client.get_entity.side_effect = [baseline, baseline, read_back]
+    client.update_entity.return_value = {"ok": True}
+    coordinator = ApplyCoordinator(client)
+
+    plan = coordinator.prepare_plan(
+        target=_target("entity"),
+        revision=4,
+        current_revision=4,
+        is_live_connected_scope=True,
+        edited_resource=edited,
+        draft_live_baseline=baseline,
+    )
+    assert not isinstance(plan, ApplyResult)
+    result = coordinator.apply_confirmed(
+        plan,
+        current_revision=4,
+        confirmation_name="res-1",
+    )
+
+    assert result.outcome is ApplyOutcomeKind.DIFFERS
+    assert result.changed_fields == ("properties.x.y",)
+
+
+def test_normalize_known_readonly_fields_preserves_unknown_data() -> None:
+    raw = {
+        "id": "/sub/x",
+        "type": "Microsoft.CloudHealth/healthModels/entities",
+        "etag": "abc",
+        "systemData": {"createdBy": "service"},
+        "name": "res-1",
+        "properties": {
+            "displayName": "n",
+            "healthState": "Healthy",
+            "provisioningState": "Succeeded",
+            "customUnknown": {"nested": 1},
+        },
+        "customRootUnknown": {"keep": True},
+    }
+
+    sanitized = normalize_known_readonly_fields(raw)
+
+    assert "id" not in sanitized
+    assert "type" not in sanitized
+    assert "etag" not in sanitized
+    assert "systemData" not in sanitized
+    assert "provisioningState" not in sanitized["properties"]
+    assert sanitized["properties"]["customUnknown"] == {"nested": 1}
+    assert sanitized["customRootUnknown"] == {"keep": True}
+
+
+def test_diff_documents_changed_paths_reports_precise_nested_paths() -> None:
+    before = {"a": {"b": 1, "c": 2}}
+    after = {"a": {"b": 3, "d": 4}}
+    paths = tuple(".".join(change.path) for change in diff_documents(before, after))
+    assert paths == ("a.b", "a.c", "a.d")

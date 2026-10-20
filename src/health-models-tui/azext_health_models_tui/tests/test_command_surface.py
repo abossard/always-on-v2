@@ -7,6 +7,7 @@ import pytest
 
 from azext_health_models_tui.commands import load_command_table
 from azext_health_models_tui._params import load_arguments
+from azext_health_models_tui.actions.crud import health_models_tui
 
 
 @dataclass
@@ -65,6 +66,8 @@ def _stub_azure_parameter_module(monkeypatch: pytest.MonkeyPatch) -> None:
     core = types.ModuleType("azure.cli.core")
     commands = types.ModuleType("azure.cli.core.commands")
     parameters = types.ModuleType("azure.cli.core.commands.parameters")
+    azclierror = types.ModuleType("azure.cli.core.azclierror")
+    azclierror.RequiredArgumentMissingError = type("RequiredArgumentMissingError", (Exception,), {})
     commands.CliCommandType = lambda *args, **kwargs: ("CliCommandType", args, kwargs)
     core.get_default_cli = lambda: None
     parameters.get_resource_group_completion_list = lambda *_args, **_kwargs: []
@@ -72,6 +75,7 @@ def _stub_azure_parameter_module(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setitem(sys.modules, "azure.cli.core", core)
     monkeypatch.setitem(sys.modules, "azure.cli.core.commands", commands)
     monkeypatch.setitem(sys.modules, "azure.cli.core.commands.parameters", parameters)
+    monkeypatch.setitem(sys.modules, "azure.cli.core.azclierror", azclierror)
 
 
 def test_load_command_table_registers_only_tui_command() -> None:
@@ -95,3 +99,40 @@ def test_load_arguments_registers_only_tui_arguments(argument_name: str) -> None
     scopes = {scope for scope, _, _ in loader.arguments}
     assert scopes == {"health-models-tui"}
     assert any(name == argument_name for _, name, _ in loader.arguments)
+
+
+def test_load_arguments_makes_model_and_group_optional() -> None:
+    loader = _FakeLoader()
+
+    load_arguments(loader, None)
+
+    by_name = {name: kwargs for _, name, kwargs in loader.arguments}
+    assert by_name["resource_group"]["default"] is None
+    assert by_name["model_name"]["default"] is None
+
+
+def test_action_rejects_model_without_group() -> None:
+    from azure.cli.core.azclierror import RequiredArgumentMissingError
+
+    cmd = type("Cmd", (), {"cli_ctx": object()})()
+    with pytest.raises(RequiredArgumentMissingError, match="--resource-group/-g is required when --model is provided"):
+        health_models_tui(cmd, resource_group=None, model_name="m")
+
+
+def test_action_passes_optional_launch_args(monkeypatch: pytest.MonkeyPatch) -> None:
+    cmd = type("Cmd", (), {"cli_ctx": object()})()
+    captured: dict[str, Any] = {}
+
+    monkeypatch.setattr("azext_health_models_tui.actions.crud._get_client", lambda _cmd: "client")
+
+    def _capture(**kwargs: Any) -> None:
+        captured.update(kwargs)
+
+    monkeypatch.setattr("azext_health_models_tui.watch.run_watch", _capture)
+    health_models_tui(cmd, resource_group=None, model_name=None, plain=True, poll_interval=7)
+
+    assert captured["client"] == "client"
+    assert captured["resource_group"] is None
+    assert captured["model_name"] is None
+    assert captured["force_plain"] is True
+    assert captured["poll_interval"] == 7

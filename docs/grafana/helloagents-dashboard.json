@@ -168,7 +168,7 @@
         {
           "refId": "A",
           "queryType": "Azure Monitor",
-          "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+          "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
           "azureMonitor": {
             "metricNamespace": "microsoft.cdn/profiles",
             "metricName": "Percentage5XX",
@@ -176,9 +176,9 @@
             "timeGrain": "auto",
             "resources": [
               {
-                "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                "resourceGroup": "rg-alwayson-global",
-                "resourceName": "fd-alwayson",
+                "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
+                "resourceGroup": "rg-alwaysonn-global",
+                "resourceName": "fd-alwaysonn",
                 "metricNamespace": "microsoft.cdn/profiles"
               }
             ],
@@ -261,7 +261,7 @@
         {
           "refId": "A",
           "queryType": "Azure Monitor",
-          "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+          "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
           "azureMonitor": {
             "metricNamespace": "microsoft.cdn/profiles",
             "metricName": "Percentage4XX",
@@ -269,9 +269,9 @@
             "timeGrain": "auto",
             "resources": [
               {
-                "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                "resourceGroup": "rg-alwayson-global",
-                "resourceName": "fd-alwayson",
+                "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
+                "resourceGroup": "rg-alwaysonn-global",
+                "resourceName": "fd-alwaysonn",
                 "metricNamespace": "microsoft.cdn/profiles"
               }
             ],
@@ -354,7 +354,7 @@
         {
           "refId": "A",
           "queryType": "Azure Monitor",
-          "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+          "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
           "azureMonitor": {
             "metricNamespace": "microsoft.cdn/profiles",
             "metricName": "OriginLatency",
@@ -362,9 +362,9 @@
             "timeGrain": "auto",
             "resources": [
               {
-                "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                "resourceGroup": "rg-alwayson-global",
-                "resourceName": "fd-alwayson",
+                "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
+                "resourceGroup": "rg-alwaysonn-global",
+                "resourceName": "fd-alwaysonn",
                 "metricNamespace": "microsoft.cdn/profiles"
               }
             ],
@@ -442,7 +442,7 @@
         {
           "refId": "A",
           "queryType": "Azure Monitor",
-          "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+          "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
           "azureMonitor": {
             "metricNamespace": "microsoft.documentdb/databaseaccounts",
             "metricName": "ServiceAvailability",
@@ -450,9 +450,9 @@
             "timeGrain": "auto",
             "resources": [
               {
-                "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                "resourceGroup": "rg-alwayson-global",
-                "resourceName": "cosmos-alwayson-a2nyh4",
+                "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
+                "resourceGroup": "rg-alwaysonn-global",
+                "resourceName": "cosmos-alwaysonn-fiqhqx",
                 "metricNamespace": "microsoft.documentdb/databaseaccounts"
               }
             ],
@@ -529,7 +529,7 @@
         {
           "refId": "A",
           "queryType": "Azure Monitor",
-          "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+          "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
           "azureMonitor": {
             "metricNamespace": "microsoft.documentdb/databaseaccounts",
             "metricName": "TotalRequests",
@@ -537,9 +537,9 @@
             "timeGrain": "auto",
             "resources": [
               {
-                "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                "resourceGroup": "rg-alwayson-global",
-                "resourceName": "cosmos-alwayson-a2nyh4",
+                "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
+                "resourceGroup": "rg-alwaysonn-global",
+                "resourceName": "cosmos-alwaysonn-fiqhqx",
                 "metricNamespace": "microsoft.documentdb/databaseaccounts"
               }
             ],
@@ -622,7 +622,7 @@
         {
           "refId": "A",
           "queryType": "Azure Monitor",
-          "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+          "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
           "azureMonitor": {
             "metricNamespace": "microsoft.documentdb/databaseaccounts",
             "metricName": "NormalizedRUConsumption",
@@ -630,9 +630,9 @@
             "timeGrain": "auto",
             "resources": [
               {
-                "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                "resourceGroup": "rg-alwayson-global",
-                "resourceName": "cosmos-alwayson-a2nyh4",
+                "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
+                "resourceGroup": "rg-alwaysonn-global",
+                "resourceName": "cosmos-alwaysonn-fiqhqx",
                 "metricNamespace": "microsoft.documentdb/databaseaccounts"
               }
             ],
@@ -714,7 +714,7 @@
         {
           "refId": "A",
           "queryType": "Azure Monitor",
-          "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+          "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
           "azureMonitor": {
             "metricNamespace": "microsoft.documentdb/databaseaccounts",
             "metricName": "TotalRequests",
@@ -722,9 +722,9 @@
             "timeGrain": "auto",
             "resources": [
               {
-                "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                "resourceGroup": "rg-alwayson-global",
-                "resourceName": "cosmos-alwayson-a2nyh4",
+                "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
+                "resourceGroup": "rg-alwaysonn-global",
+                "resourceName": "cosmos-alwaysonn-fiqhqx",
                 "metricNamespace": "microsoft.documentdb/databaseaccounts"
               }
             ],
@@ -1588,136 +1588,21 @@
       "id": 0,
       "panels": [
         {
-          "type": "timeseries",
+          "type": "text",
           "transparent": false,
           "repeatDirection": "h",
-          "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "lineWidth": 1,
-                "fillOpacity": 10,
-                "showPoints": "never",
-                "drawStyle": "line",
-                "gradientMode": "opacity",
-                "spanNulls": false,
-                "axisBorderShow": false,
-                "lineInterpolation": "smooth",
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "legend": {
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true,
-              "calcs": []
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc"
-            }
-          },
-          "title": "Tokens by Model (Input + Output)",
+          "title": "Capacity Snapshot (Allocation vs Quota)",
           "datasource": {
             "uid": "azure-monitor",
             "type": "grafana-azure-monitor-datasource"
           },
-          "targets": [
-            {
-              "refId": "A",
-              "queryType": "Azure Monitor",
-              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-              "azureMonitor": {
-                "metricNamespace": "microsoft.cognitiveservices/accounts",
-                "metricName": "InputTokens",
-                "aggregation": "Total",
-                "timeGrain": "auto",
-                "resources": [
-                  {
-                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-global",
-                    "resourceName": "ai-svc-alwayson-a2nyh4",
-                    "metricNamespace": "microsoft.cognitiveservices/accounts"
-                  }
-                ],
-                "dimensionFilters": [
-                  {
-                    "dimension": "ModelDeploymentName",
-                    "operator": "eq",
-                    "filters": []
-                  }
-                ],
-                "customNamespace": "microsoft.cognitiveservices/accounts",
-                "allowedTimeGrainsMs": [
-                  60000,
-                  300000,
-                  900000,
-                  1800000,
-                  3600000,
-                  21600000,
-                  43200000,
-                  86400000
-                ]
-              }
-            },
-            {
-              "refId": "B",
-              "queryType": "Azure Monitor",
-              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-              "azureMonitor": {
-                "metricNamespace": "microsoft.cognitiveservices/accounts",
-                "metricName": "OutputTokens",
-                "aggregation": "Total",
-                "timeGrain": "auto",
-                "resources": [
-                  {
-                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-global",
-                    "resourceName": "ai-svc-alwayson-a2nyh4",
-                    "metricNamespace": "microsoft.cognitiveservices/accounts"
-                  }
-                ],
-                "dimensionFilters": [
-                  {
-                    "dimension": "ModelDeploymentName",
-                    "operator": "eq",
-                    "filters": []
-                  }
-                ],
-                "customNamespace": "microsoft.cognitiveservices/accounts",
-                "allowedTimeGrainsMs": [
-                  60000,
-                  300000,
-                  900000,
-                  1800000,
-                  3600000,
-                  21600000,
-                  43200000,
-                  86400000
-                ]
-              }
-            }
-          ],
+          "options": {
+            "mode": "markdown",
+            "content": "Static allocation/quota snapshot observed at `2026-10-17T09:11:00Z` for `ai-svc-alwaysonn-fiqhqx` in `rg-alwaysonn-global` (6fc552c5-06b6-43d7-ac70-2f1eda1be033).\n\nThis panel is non-live metadata from config generation inputs, not runtime freshness telemetry.\n\nDeployment allocation snapshot:\n| Deployment | Allocated TPM | Allocated RPM |\n|---|---:|---:|\n| gpt-41 | 10000 | 10 |\n| gpt-41-mini | 100000 | 100 |\n| gpt-41-nano | 10000 | 10 |\n| gpt-54 | 10000 | 100 |\n| gpt-54-mini | 10000 | 10 |\n\nSubscription quota snapshot:\n| Model | Allocated units | Quota units |\n|---|---:|---:|\n| gpt-6-luna | 0 | 250 |\n| gpt-5.4-nano | 0 | 5000 |\n| gpt-5.4-mini | 20 | 1000 |\n| gpt-6.1-sol | 0 | 250 |\n| gpt4.1-mini | 100 | 5000 |\n\nNo denominator-derived utilization ratio is shown from this static snapshot."
+          },
           "gridPos": {
             "h": 8,
-            "w": 12,
+            "w": 24,
             "x": 0,
             "y": 53
           }
@@ -1741,16 +1626,13 @@
                   "mode": "off"
                 }
               },
+              "unit": "short",
               "thresholds": {
                 "mode": "absolute",
                 "steps": [
                   {
                     "color": "green",
                     "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
                   }
                 ]
               }
@@ -1769,7 +1651,7 @@
               "sort": "desc"
             }
           },
-          "title": "Requests by Model",
+          "title": "Input/Output Tokens by Deployment (PT1M Total)",
           "datasource": {
             "uid": "azure-monitor",
             "type": "grafana-azure-monitor-datasource"
@@ -1778,25 +1660,170 @@
             {
               "refId": "A",
               "queryType": "Azure Monitor",
-              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+              "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
               "azureMonitor": {
                 "metricNamespace": "microsoft.cognitiveservices/accounts",
-                "metricName": "ModelRequests",
+                "metricName": "InputTokens",
                 "aggregation": "Total",
-                "timeGrain": "auto",
+                "timeGrain": "PT1M",
                 "resources": [
                   {
-                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-global",
-                    "resourceName": "ai-svc-alwayson-a2nyh4",
+                    "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
+                    "resourceGroup": "rg-alwaysonn-global",
+                    "resourceName": "ai-svc-alwaysonn-fiqhqx",
                     "metricNamespace": "microsoft.cognitiveservices/accounts"
                   }
                 ],
                 "dimensionFilters": [
                   {
+                    "dimension": "ModelDeploymentName",
+                    "operator": "eq",
+                    "filters": [
+                      "*"
+                    ]
+                  }
+                ],
+                "customNamespace": "microsoft.cognitiveservices/accounts",
+                "allowedTimeGrainsMs": [
+                  60000,
+                  300000,
+                  900000,
+                  1800000,
+                  3600000,
+                  21600000,
+                  43200000,
+                  86400000
+                ]
+              }
+            },
+            {
+              "refId": "B",
+              "queryType": "Azure Monitor",
+              "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
+              "azureMonitor": {
+                "metricNamespace": "microsoft.cognitiveservices/accounts",
+                "metricName": "OutputTokens",
+                "aggregation": "Total",
+                "timeGrain": "PT1M",
+                "resources": [
+                  {
+                    "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
+                    "resourceGroup": "rg-alwaysonn-global",
+                    "resourceName": "ai-svc-alwaysonn-fiqhqx",
+                    "metricNamespace": "microsoft.cognitiveservices/accounts"
+                  }
+                ],
+                "dimensionFilters": [
+                  {
+                    "dimension": "ModelDeploymentName",
+                    "operator": "eq",
+                    "filters": [
+                      "*"
+                    ]
+                  }
+                ],
+                "customNamespace": "microsoft.cognitiveservices/accounts",
+                "allowedTimeGrainsMs": [
+                  60000,
+                  300000,
+                  900000,
+                  1800000,
+                  3600000,
+                  21600000,
+                  43200000,
+                  86400000
+                ]
+              }
+            }
+          ],
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 61
+          }
+        },
+        {
+          "type": "timeseries",
+          "transparent": false,
+          "repeatDirection": "h",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "drawStyle": "line",
+                "gradientMode": "opacity",
+                "spanNulls": false,
+                "axisBorderShow": false,
+                "lineInterpolation": "smooth",
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true,
+              "calcs": []
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "title": "Requests by Deployment and Status (PT1M Total)",
+          "datasource": {
+            "uid": "azure-monitor",
+            "type": "grafana-azure-monitor-datasource"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "queryType": "Azure Monitor",
+              "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
+              "azureMonitor": {
+                "metricNamespace": "microsoft.cognitiveservices/accounts",
+                "metricName": "ModelRequests",
+                "aggregation": "Total",
+                "timeGrain": "PT1M",
+                "resources": [
+                  {
+                    "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
+                    "resourceGroup": "rg-alwaysonn-global",
+                    "resourceName": "ai-svc-alwaysonn-fiqhqx",
+                    "metricNamespace": "microsoft.cognitiveservices/accounts"
+                  }
+                ],
+                "dimensionFilters": [
+                  {
+                    "dimension": "ModelDeploymentName",
+                    "operator": "eq",
+                    "filters": [
+                      "*"
+                    ]
+                  },
+                  {
                     "dimension": "StatusCode",
                     "operator": "eq",
-                    "filters": []
+                    "filters": [
+                      "*"
+                    ]
                   }
                 ],
                 "customNamespace": "microsoft.cognitiveservices/accounts",
@@ -1817,7 +1844,119 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 53
+            "y": 61
+          }
+        },
+        {
+          "type": "timeseries",
+          "transparent": false,
+          "repeatDirection": "h",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "drawStyle": "line",
+                "gradientMode": "opacity",
+                "spanNulls": false,
+                "axisBorderShow": false,
+                "lineInterpolation": "smooth",
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "unit": "short",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "yellow",
+                    "value": 1
+                  },
+                  {
+                    "color": "red",
+                    "value": 11
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true,
+              "calcs": []
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "title": "429 Requests by Deployment (PT5M Total)",
+          "datasource": {
+            "uid": "azure-monitor",
+            "type": "grafana-azure-monitor-datasource"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "queryType": "Azure Monitor",
+              "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
+              "azureMonitor": {
+                "metricNamespace": "microsoft.cognitiveservices/accounts",
+                "metricName": "ModelRequests",
+                "aggregation": "Total",
+                "timeGrain": "PT5M",
+                "resources": [
+                  {
+                    "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
+                    "resourceGroup": "rg-alwaysonn-global",
+                    "resourceName": "ai-svc-alwaysonn-fiqhqx",
+                    "metricNamespace": "microsoft.cognitiveservices/accounts"
+                  }
+                ],
+                "dimensionFilters": [
+                  {
+                    "dimension": "ModelDeploymentName",
+                    "operator": "eq",
+                    "filters": [
+                      "*"
+                    ]
+                  },
+                  {
+                    "dimension": "StatusCode",
+                    "operator": "eq",
+                    "filters": [
+                      "429"
+                    ]
+                  }
+                ],
+                "customNamespace": "microsoft.cognitiveservices/accounts",
+                "allowedTimeGrainsMs": [
+                  60000,
+                  300000,
+                  900000,
+                  1800000,
+                  3600000,
+                  21600000,
+                  43200000,
+                  86400000
+                ]
+              }
+            }
+          ],
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 69
           }
         },
         {
@@ -1846,10 +1985,6 @@
                   {
                     "color": "green",
                     "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
                   }
                 ]
               }
@@ -1868,7 +2003,7 @@
               "sort": "desc"
             }
           },
-          "title": "Response Latency by Model (ms)",
+          "title": "First Response Latency by Deployment (ms)",
           "datasource": {
             "uid": "azure-monitor",
             "type": "grafana-azure-monitor-datasource"
@@ -1877,117 +2012,17 @@
             {
               "refId": "A",
               "queryType": "Azure Monitor",
-              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+              "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
               "azureMonitor": {
                 "metricNamespace": "microsoft.cognitiveservices/accounts",
                 "metricName": "AzureOpenAITimeToResponse",
                 "aggregation": "Average",
-                "timeGrain": "auto",
+                "timeGrain": "PT1M",
                 "resources": [
                   {
-                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-global",
-                    "resourceName": "ai-svc-alwayson-a2nyh4",
-                    "metricNamespace": "microsoft.cognitiveservices/accounts"
-                  }
-                ],
-                "dimensionFilters": [
-                  {
-                    "dimension": "ModelDeploymentName",
-                    "operator": "eq",
-                    "filters": [
-                      "*"
-                    ]
-                  }
-                ],
-                "customNamespace": "microsoft.cognitiveservices/accounts",
-                "allowedTimeGrainsMs": [
-                  60000,
-                  300000,
-                  900000,
-                  1800000,
-                  3600000,
-                  21600000,
-                  43200000,
-                  86400000
-                ]
-              }
-            }
-          ],
-          "gridPos": {
-            "h": 8,
-            "w": 12,
-            "x": 0,
-            "y": 61
-          }
-        },
-        {
-          "type": "timeseries",
-          "transparent": false,
-          "repeatDirection": "h",
-          "fieldConfig": {
-            "defaults": {
-              "custom": {
-                "lineWidth": 1,
-                "fillOpacity": 10,
-                "showPoints": "never",
-                "drawStyle": "line",
-                "gradientMode": "opacity",
-                "spanNulls": false,
-                "axisBorderShow": false,
-                "lineInterpolation": "smooth",
-                "thresholdsStyle": {
-                  "mode": "off"
-                }
-              },
-              "thresholds": {
-                "mode": "absolute",
-                "steps": [
-                  {
-                    "color": "green",
-                    "value": null
-                  },
-                  {
-                    "color": "red",
-                    "value": 80
-                  }
-                ]
-              }
-            },
-            "overrides": []
-          },
-          "options": {
-            "legend": {
-              "displayMode": "list",
-              "placement": "bottom",
-              "showLegend": true,
-              "calcs": []
-            },
-            "tooltip": {
-              "mode": "multi",
-              "sort": "desc"
-            }
-          },
-          "title": "Tokens per Second by Model",
-          "datasource": {
-            "uid": "azure-monitor",
-            "type": "grafana-azure-monitor-datasource"
-          },
-          "targets": [
-            {
-              "refId": "A",
-              "queryType": "Azure Monitor",
-              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-              "azureMonitor": {
-                "metricNamespace": "microsoft.cognitiveservices/accounts",
-                "metricName": "AzureOpenAITokenPerSecond",
-                "aggregation": "Average",
-                "timeGrain": "auto",
-                "resources": [
-                  {
-                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-global",
-                    "resourceName": "ai-svc-alwayson-a2nyh4",
+                    "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
+                    "resourceGroup": "rg-alwaysonn-global",
+                    "resourceName": "ai-svc-alwaysonn-fiqhqx",
                     "metricNamespace": "microsoft.cognitiveservices/accounts"
                   }
                 ],
@@ -2018,7 +2053,103 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 61
+            "y": 69
+          }
+        },
+        {
+          "type": "timeseries",
+          "transparent": false,
+          "repeatDirection": "h",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 10,
+                "showPoints": "never",
+                "drawStyle": "line",
+                "gradientMode": "opacity",
+                "spanNulls": false,
+                "axisBorderShow": false,
+                "lineInterpolation": "smooth",
+                "thresholdsStyle": {
+                  "mode": "off"
+                }
+              },
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom",
+              "showLegend": true,
+              "calcs": []
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          },
+          "title": "Output Token Rate by Deployment (tokens/s)",
+          "datasource": {
+            "uid": "azure-monitor",
+            "type": "grafana-azure-monitor-datasource"
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "queryType": "Azure Monitor",
+              "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
+              "azureMonitor": {
+                "metricNamespace": "microsoft.cognitiveservices/accounts",
+                "metricName": "AzureOpenAITokenPerSecond",
+                "aggregation": "Average",
+                "timeGrain": "PT1M",
+                "resources": [
+                  {
+                    "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
+                    "resourceGroup": "rg-alwaysonn-global",
+                    "resourceName": "ai-svc-alwaysonn-fiqhqx",
+                    "metricNamespace": "microsoft.cognitiveservices/accounts"
+                  }
+                ],
+                "dimensionFilters": [
+                  {
+                    "dimension": "ModelDeploymentName",
+                    "operator": "eq",
+                    "filters": [
+                      "*"
+                    ]
+                  }
+                ],
+                "customNamespace": "microsoft.cognitiveservices/accounts",
+                "allowedTimeGrainsMs": [
+                  60000,
+                  300000,
+                  900000,
+                  1800000,
+                  3600000,
+                  21600000,
+                  43200000,
+                  86400000
+                ]
+              }
+            }
+          ],
+          "gridPos": {
+            "h": 8,
+            "w": 12,
+            "x": 0,
+            "y": 77
           }
         }
       ],
@@ -2087,7 +2218,7 @@
             {
               "refId": "A",
               "queryType": "Azure Monitor",
-              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+              "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
               "azureMonitor": {
                 "metricNamespace": "microsoft.documentdb/databaseaccounts",
                 "metricName": "ServiceAvailability",
@@ -2095,9 +2226,9 @@
                 "timeGrain": "auto",
                 "resources": [
                   {
-                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-swedencentral-001",
-                    "resourceName": "cosmos-orl-alwayson-swedencentral-001",
+                    "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
+                    "resourceGroup": "rg-alwaysonn-swedencentral-001",
+                    "resourceName": "cosmos-orl-alwaysonn-swedencentral-001",
                     "metricNamespace": "microsoft.documentdb/databaseaccounts"
                   }
                 ],
@@ -2120,7 +2251,7 @@
             "h": 4,
             "w": 8,
             "x": 0,
-            "y": 70
+            "y": 86
           }
         },
         {
@@ -2180,7 +2311,7 @@
             {
               "refId": "A",
               "queryType": "Azure Monitor",
-              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+              "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
               "azureMonitor": {
                 "metricNamespace": "microsoft.documentdb/databaseaccounts",
                 "metricName": "NormalizedRUConsumption",
@@ -2188,9 +2319,9 @@
                 "timeGrain": "auto",
                 "resources": [
                   {
-                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-swedencentral-001",
-                    "resourceName": "cosmos-orl-alwayson-swedencentral-001",
+                    "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
+                    "resourceGroup": "rg-alwaysonn-swedencentral-001",
+                    "resourceName": "cosmos-orl-alwaysonn-swedencentral-001",
                     "metricNamespace": "microsoft.documentdb/databaseaccounts"
                   }
                 ],
@@ -2213,7 +2344,7 @@
             "h": 8,
             "w": 8,
             "x": 8,
-            "y": 70
+            "y": 86
           }
         },
         {
@@ -2272,7 +2403,7 @@
             {
               "refId": "A",
               "queryType": "Azure Monitor",
-              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+              "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
               "azureMonitor": {
                 "metricNamespace": "microsoft.documentdb/databaseaccounts",
                 "metricName": "TotalRequests",
@@ -2280,9 +2411,9 @@
                 "timeGrain": "auto",
                 "resources": [
                   {
-                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-swedencentral-001",
-                    "resourceName": "cosmos-orl-alwayson-swedencentral-001",
+                    "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
+                    "resourceGroup": "rg-alwaysonn-swedencentral-001",
+                    "resourceName": "cosmos-orl-alwaysonn-swedencentral-001",
                     "metricNamespace": "microsoft.documentdb/databaseaccounts"
                   }
                 ],
@@ -2305,14 +2436,14 @@
             "h": 8,
             "w": 8,
             "x": 16,
-            "y": 70
+            "y": 86
           }
         },
         {
           "type": "stat",
           "transparent": false,
           "repeatDirection": "h",
-          "title": "Orleans Cosmos Availability % - swedencentral",
+          "title": "Orleans Cosmos Availability % - eastus2",
           "datasource": {
             "uid": "azure-monitor",
             "type": "grafana-azure-monitor-datasource"
@@ -2360,7 +2491,7 @@
             {
               "refId": "A",
               "queryType": "Azure Monitor",
-              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+              "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
               "azureMonitor": {
                 "metricNamespace": "microsoft.documentdb/databaseaccounts",
                 "metricName": "ServiceAvailability",
@@ -2368,9 +2499,9 @@
                 "timeGrain": "auto",
                 "resources": [
                   {
-                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-swedencentral-002",
-                    "resourceName": "cosmos-orl-alwayson-swedencentral-002",
+                    "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
+                    "resourceGroup": "rg-alwaysonn-eastus2-001",
+                    "resourceName": "cosmos-orl-alwaysonn-eastus2-001",
                     "metricNamespace": "microsoft.documentdb/databaseaccounts"
                   }
                 ],
@@ -2393,7 +2524,7 @@
             "h": 4,
             "w": 8,
             "x": 0,
-            "y": 78
+            "y": 94
           }
         },
         {
@@ -2444,7 +2575,7 @@
               "sort": "desc"
             }
           },
-          "title": "Orleans Cosmos Normalized RU % - swedencentral",
+          "title": "Orleans Cosmos Normalized RU % - eastus2",
           "datasource": {
             "uid": "azure-monitor",
             "type": "grafana-azure-monitor-datasource"
@@ -2453,7 +2584,7 @@
             {
               "refId": "A",
               "queryType": "Azure Monitor",
-              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+              "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
               "azureMonitor": {
                 "metricNamespace": "microsoft.documentdb/databaseaccounts",
                 "metricName": "NormalizedRUConsumption",
@@ -2461,9 +2592,9 @@
                 "timeGrain": "auto",
                 "resources": [
                   {
-                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-swedencentral-002",
-                    "resourceName": "cosmos-orl-alwayson-swedencentral-002",
+                    "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
+                    "resourceGroup": "rg-alwaysonn-eastus2-001",
+                    "resourceName": "cosmos-orl-alwaysonn-eastus2-001",
                     "metricNamespace": "microsoft.documentdb/databaseaccounts"
                   }
                 ],
@@ -2486,7 +2617,7 @@
             "h": 8,
             "w": 8,
             "x": 8,
-            "y": 78
+            "y": 94
           }
         },
         {
@@ -2536,7 +2667,7 @@
               "sort": "desc"
             }
           },
-          "title": "Orleans Cosmos Throttled (429) - swedencentral",
+          "title": "Orleans Cosmos Throttled (429) - eastus2",
           "datasource": {
             "uid": "azure-monitor",
             "type": "grafana-azure-monitor-datasource"
@@ -2545,7 +2676,7 @@
             {
               "refId": "A",
               "queryType": "Azure Monitor",
-              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+              "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
               "azureMonitor": {
                 "metricNamespace": "microsoft.documentdb/databaseaccounts",
                 "metricName": "TotalRequests",
@@ -2553,9 +2684,9 @@
                 "timeGrain": "auto",
                 "resources": [
                   {
-                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-swedencentral-002",
-                    "resourceName": "cosmos-orl-alwayson-swedencentral-002",
+                    "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
+                    "resourceGroup": "rg-alwaysonn-eastus2-001",
+                    "resourceName": "cosmos-orl-alwaysonn-eastus2-001",
                     "metricNamespace": "microsoft.documentdb/databaseaccounts"
                   }
                 ],
@@ -2578,14 +2709,14 @@
             "h": 8,
             "w": 8,
             "x": 16,
-            "y": 78
+            "y": 94
           }
         }
       ],
       "title": "🗄️ Orleans Cosmos (Clustering)",
       "gridPos": {
         "x": 0,
-        "y": 69,
+        "y": 85,
         "h": 1,
         "w": 24
       }
@@ -2651,7 +2782,7 @@
             {
               "refId": "A",
               "queryType": "Azure Monitor",
-              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+              "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
               "azureMonitor": {
                 "metricNamespace": "microsoft.storage/storageaccounts/queueservices",
                 "metricName": "QueueMessageCount",
@@ -2659,9 +2790,9 @@
                 "timeGrain": "auto",
                 "resources": [
                   {
-                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-swedencentral-001",
-                    "resourceName": "sthaalwaysonswe001/default",
+                    "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
+                    "resourceGroup": "rg-alwaysonn-swedencentral-001",
+                    "resourceName": "sthaalwaysonnswe001/default",
                     "metricNamespace": "microsoft.storage/storageaccounts/queueservices"
                   }
                 ],
@@ -2684,7 +2815,7 @@
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 87
+            "y": 103
           }
         },
         {
@@ -2744,7 +2875,7 @@
             {
               "refId": "A",
               "queryType": "Azure Monitor",
-              "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
+              "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
               "azureMonitor": {
                 "metricNamespace": "microsoft.storage/storageaccounts/queueservices",
                 "metricName": "QueueCount",
@@ -2752,9 +2883,9 @@
                 "timeGrain": "auto",
                 "resources": [
                   {
-                    "subscription": "b2af20ad-98fa-4aa7-94c3-059663641d9f",
-                    "resourceGroup": "rg-alwayson-swedencentral-001",
-                    "resourceName": "sthaalwaysonswe001/default",
+                    "subscription": "6fc552c5-06b6-43d7-ac70-2f1eda1be033",
+                    "resourceGroup": "rg-alwaysonn-swedencentral-001",
+                    "resourceName": "sthaalwaysonnswe001/default",
                     "metricNamespace": "microsoft.storage/storageaccounts/queueservices"
                   }
                 ],
@@ -2777,14 +2908,14 @@
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 87
+            "y": 103
           }
         }
       ],
       "title": "📬 Azure Queue Storage",
       "gridPos": {
         "x": 0,
-        "y": 86,
+        "y": 102,
         "h": 1,
         "w": 24
       }

@@ -18,7 +18,8 @@ def _impact_label(impact: Impact) -> str:
     _map: dict[Impact, str] = {
         Impact.STANDARD: "Standard",
         Impact.LIMITED: "Limited",
-        Impact.NONE: "None",
+        Impact.NONE: "Suppressed",
+        Impact.SUPPRESSED: "Suppressed",
     }
     return _map.get(impact, impact.value)
 

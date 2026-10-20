@@ -72,6 +72,8 @@ class HealthTree(Tree[EntityData]):
             for line in lines
         ), default=self.size.width)
         self.virtual_size = Size(width, len(lines))
+        if self.cursor_line != -1 and self.cursor_node is not None:
+            self.cursor_line = self.cursor_node.line
         if self.cursor_line >= len(lines):
             self.cursor_line = -1
 

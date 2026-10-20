@@ -14,10 +14,11 @@ from __future__ import annotations
 import json
 import subprocess
 import sys
+import threading
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, create_autospec
 
 import pytest
 from azure.core.credentials import AccessToken
@@ -129,6 +130,40 @@ def test_client_uses_stable_cloudhealth_api_version() -> None:
     assert API_VERSION == "2026-11-01"
 
 
+def test_get_connection_scope_uses_profile_subscription_signature(monkeypatch) -> None:
+    from azure.cli.core._profile import Profile
+
+    from azext_health_models_tui.client.rest_client import CloudHealthClient
+
+    get_subscription = create_autospec(
+        Profile.get_subscription,
+        return_value={
+            "id": "00000000-0000-0000-0000-000000000000",
+            "name": "MCAP",
+            "tenantId": "46693104-8c42-47b7-98e3-985ed39402f6",
+            "tenantDisplayName": "anbo",
+        },
+    )
+    monkeypatch.setattr(Profile, "get_subscription", get_subscription)
+
+    client = object.__new__(CloudHealthClient)
+    client._cli_ctx = MagicMock()
+    client._subscription_id = "00000000-0000-0000-0000-000000000000"
+    client._scope_lock = threading.Lock()
+    client._connection_scope_cache = {}
+    client.arm_endpoint = "https://management.azure.com"
+
+    scope = client.get_connection_scope()
+
+    assert scope["subscription_id"] == "00000000-0000-0000-0000-000000000000"
+    assert scope["subscription_name"] == "MCAP"
+    assert scope["tenant_id"] == "46693104-8c42-47b7-98e3-985ed39402f6"
+    assert scope["tenant_name"] == "anbo"
+    assert scope["arm_endpoint"] == "https://management.azure.com"
+    assert get_subscription.call_count == 1
+    assert get_subscription.call_args.kwargs == {"subscription": "00000000-0000-0000-0000-000000000000"}
+
+
 def test_sdk_request_builder_emits_stable_api_version_and_dimension_filter() -> None:
     script = """
 import json
@@ -231,6 +266,7 @@ def mock_sdk_client():
     client._cli_ctx = MagicMock()
     client._subscription_id = "test-sub"
     client._sdk = sdk
+    client.arm_endpoint = "https://management.azure.com"
     return client, sdk
 
 
@@ -238,6 +274,7 @@ def _real_sdk_client_with_transport(
     transport: _RecordingTransport,
     *,
     api_version: str = "2026-11-01",
+    arm_endpoint: str = "https://management.azure.com",
 ):
     from azext_health_models_tui.client.rest_client import CloudHealthClient
     from azure.mgmt.cloudhealth import CloudHealthMgmtClient
@@ -253,6 +290,7 @@ def _real_sdk_client_with_transport(
     client._cli_ctx = MagicMock()
     client._subscription_id = "sub"
     client._sdk = sdk
+    client.arm_endpoint = arm_endpoint
     return client
 
 
@@ -283,6 +321,36 @@ def test_get_entity_and_signal_definition_use_named_sdk_reads(
     assert sig_def["name"] == "sig-def-1"
     sdk.entities.get.assert_called_once_with("rg", "m", "entity-1")
     sdk.signal_definitions.get.assert_called_once_with("rg", "m", "sig-def-1")
+
+
+def test_list_health_models_subscription_scope_uses_sdk_list_by_subscription(
+    mock_sdk_client,
+) -> None:
+    client, sdk = mock_sdk_client
+    sdk.health_models.list_by_subscription.return_value = [
+        {"id": "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.CloudHealth/healthmodels/a", "name": "a"},
+    ]
+
+    rows = client.list_health_models()
+
+    assert rows[0]["name"] == "a"
+    sdk.health_models.list_by_subscription.assert_called_once_with()
+    sdk.health_models.list_by_resource_group.assert_not_called()
+
+
+def test_list_health_models_group_scope_uses_sdk_list_by_resource_group(
+    mock_sdk_client,
+) -> None:
+    client, sdk = mock_sdk_client
+    sdk.health_models.list_by_resource_group.return_value = [
+        {"id": "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.CloudHealth/healthmodels/a", "name": "a"},
+    ]
+
+    rows = client.list_health_models(resource_group="rg")
+
+    assert rows[0]["name"] == "a"
+    sdk.health_models.list_by_resource_group.assert_called_once_with("rg")
+    sdk.health_models.list_by_subscription.assert_not_called()
 
 
 def test_get_signal_history_paginates_next_marker(
@@ -555,6 +623,37 @@ def test_parse_signal_definition_dynamic_rules_are_not_coerced(
     parsed = parse_signal_definition(raw)
     assert parsed.degraded_rule is None
     assert parsed.unhealthy_rule is None
+
+
+@pytest.mark.parametrize(
+    "wire_impact,expected",
+    [
+        ("Suppressed", "Suppressed"),
+        ("None", "Suppressed"),
+        ("Limited", "Limited"),
+    ],
+)
+def test_parse_entity_impact_stable_wire_semantics(
+    wire_impact: str,
+    expected: str,
+) -> None:
+    from azext_health_models_tui.domain.parse import parse_entity
+    from azext_health_models_tui.models.enums import Impact
+
+    entity = parse_entity(
+        {
+            "id": "/subscriptions/x/resourceGroups/rg/providers/Microsoft.CloudHealth/healthmodels/m/entities/e1",
+            "name": "e1",
+            "properties": {
+                "displayName": "E1",
+                "healthState": "Healthy",
+                "impact": wire_impact,
+                "signalGroups": {},
+            },
+        },
+        sig_defs={},
+    )
+    assert entity.impact == Impact(expected)
 
 
 # ─── D. Transport type tests ──────────────────────────────────────────

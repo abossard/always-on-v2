@@ -31,7 +31,7 @@ param defaultModelName string = 'gpt-41-mini'
 @minValue(1)
 param gpt41MiniCapacity int = 10
 
-@description('Model deployments to create. Each entry: { name, modelName, modelVersion, skuName, skuCapacity }.')
+@description('Model deployments to create. Each entry includes name, modelName, modelVersion, modelFormat, skuName, skuCapacity, deploymentState, raiPolicyName and versionUpgradeOption.')
 param models array = [
   {
     name: 'gpt-41'
@@ -40,6 +40,9 @@ param models array = [
     modelFormat: 'OpenAI'
     skuName: 'GlobalStandard'
     skuCapacity: 10
+    deploymentState: 'Running'
+    raiPolicyName: 'Microsoft.DefaultV2'
+    versionUpgradeOption: 'OnceNewDefaultVersionAvailable'
   }
   {
     name: 'gpt-41-mini'
@@ -48,6 +51,9 @@ param models array = [
     modelFormat: 'OpenAI'
     skuName: 'GlobalStandard'
     skuCapacity: gpt41MiniCapacity
+    deploymentState: 'Running'
+    raiPolicyName: 'Microsoft.DefaultV2'
+    versionUpgradeOption: 'OnceNewDefaultVersionAvailable'
   }
   {
     name: 'gpt-41-nano'
@@ -56,6 +62,9 @@ param models array = [
     modelFormat: 'OpenAI'
     skuName: 'GlobalStandard'
     skuCapacity: 10
+    deploymentState: 'Running'
+    raiPolicyName: 'Microsoft.DefaultV2'
+    versionUpgradeOption: 'OnceNewDefaultVersionAvailable'
   }
   {
     name: 'gpt-54'
@@ -64,6 +73,9 @@ param models array = [
     modelFormat: 'OpenAI'
     skuName: 'GlobalStandard'
     skuCapacity: 10
+    deploymentState: 'Running'
+    raiPolicyName: 'Microsoft.DefaultV2'
+    versionUpgradeOption: 'OnceNewDefaultVersionAvailable'
   }
   {
     name: 'gpt-54-mini'
@@ -72,8 +84,24 @@ param models array = [
     modelFormat: 'OpenAI'
     skuName: 'GlobalStandard'
     skuCapacity: 10
+    deploymentState: 'Running'
+    raiPolicyName: 'Microsoft.DefaultV2'
+    versionUpgradeOption: 'OnceNewDefaultVersionAvailable'
   }
 ]
+
+@description('Staged candidate deployment for evaluation. This deployment is intentionally excluded from advertised model outputs until validated.')
+param stagedCandidate object = {
+  name: 'gpt-6-luna'
+  modelName: 'gpt-6-luna'
+  modelVersion: '2026-09-22'
+  modelFormat: 'OpenAI'
+  skuName: 'GlobalStandard'
+  skuCapacity: 100
+  deploymentState: 'Running'
+  raiPolicyName: 'Microsoft.DefaultV2'
+  versionUpgradeOption: 'OnceNewDefaultVersionAvailable'
+}
 
 // ============================================================================
 // Naming
@@ -140,7 +168,7 @@ resource keyVault 'Microsoft.KeyVault/vaults@2023-07-01' = {
 
 var aiServicesName = 'ai-svc-${baseName}-${salt}'
 
-resource aiServices 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' = {
+resource aiServices 'Microsoft.CognitiveServices/accounts@2026-09-01' = {
   name: aiServicesName
   location: location
   kind: 'AIServices'
@@ -155,6 +183,7 @@ resource aiServices 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' = 
     publicNetworkAccess: enablePrivateEndpoints ? 'Disabled' : 'Enabled'
     disableLocalAuth: true
     customSubDomainName: aiServicesName
+    allowProjectManagement: false
   }
 }
 
@@ -163,7 +192,7 @@ resource aiServices 'Microsoft.CognitiveServices/accounts@2025-04-01-preview' = 
 // ============================================================================
 
 @batchSize(1)
-resource modelDeployments 'Microsoft.CognitiveServices/accounts/deployments@2025-04-01-preview' = [
+resource modelDeployments 'Microsoft.CognitiveServices/accounts/deployments@2026-09-01' = [
   for model in models: {
     parent: aiServices
     name: model.name
@@ -177,15 +206,57 @@ resource modelDeployments 'Microsoft.CognitiveServices/accounts/deployments@2025
         name: model.modelName
         version: model.modelVersion
       }
+      deploymentState: model.deploymentState
+      raiPolicyName: model.raiPolicyName
+      versionUpgradeOption: model.versionUpgradeOption
     }
   }
 ]
+
+resource stagedCandidateDeployment 'Microsoft.CognitiveServices/accounts/deployments@2026-09-01' = if (!empty(stagedCandidate.name)) {
+  parent: aiServices
+  dependsOn: [
+    modelDeployments
+  ]
+  name: stagedCandidate.name
+  sku: {
+    name: stagedCandidate.skuName
+    capacity: stagedCandidate.skuCapacity
+  }
+  properties: {
+    model: {
+      format: stagedCandidate.modelFormat
+      name: stagedCandidate.modelName
+      version: stagedCandidate.modelVersion
+    }
+    versionUpgradeOption: stagedCandidate.versionUpgradeOption
+    deploymentState: stagedCandidate.deploymentState
+    raiPolicyName: stagedCandidate.raiPolicyName
+  }
+}
 
 // ============================================================================
 // Foundry Hub (Microsoft.MachineLearningServices/workspaces, kind: hub)
 // ============================================================================
 
-resource aiHub 'Microsoft.MachineLearningServices/workspaces@2025-01-01-preview' = {
+var workspaceManagedNetwork = enablePrivateEndpoints ? {
+  isolationMode: 'AllowOnlyApprovedOutbound'
+  managedNetworkKind: 'V1'
+  enableNetworkMonitor: false
+  outboundRules: {
+    'Connection_aiservices-connection_account': {
+      category: 'UserDefined'
+      type: 'PrivateEndpoint'
+      destination: {
+        serviceResourceId: aiServices.id
+        subresourceTarget: 'account'
+        sparkEnabled: false
+      }
+    }
+  }
+} : null
+
+resource aiHub 'Microsoft.MachineLearningServices/workspaces@2026-09-01' = {
   name: 'aihub-${baseName}'
   location: location
   kind: 'Hub'
@@ -202,21 +273,33 @@ resource aiHub 'Microsoft.MachineLearningServices/workspaces@2025-01-01-preview'
     storageAccount: storageAccount.id
     keyVault: keyVault.id
     applicationInsights: appInsightsId
+    enableDataIsolation: true
+    enableServiceSideCMKEncryption: false
+    // Stable request enum spelling; the service GET returns "accesskey".
+    systemDatastoresAuthMode: 'AccessKey'
+    hbiWorkspace: false
+    v1LegacyMode: false
+    workspaceHubConfig: {
+      defaultWorkspaceResourceGroup: resourceGroup().id
+    }
     publicNetworkAccess: enablePrivateEndpoints ? 'Disabled' : 'Enabled'
     // Managed VNet: hub auto-creates managed outbound private endpoints to its
     // Storage/Key Vault dependencies even when their public access is disabled.
-    managedNetwork: enablePrivateEndpoints ? { isolationMode: 'AllowOnlyApprovedOutbound' } : null
+    managedNetwork: workspaceManagedNetwork
   }
 }
 
 // Connect AI Services to the hub
-resource aiHubConnection 'Microsoft.MachineLearningServices/workspaces/connections@2025-01-01-preview' = {
+resource aiHubConnection 'Microsoft.MachineLearningServices/workspaces/connections@2026-09-01' = {
   parent: aiHub
   name: 'aiservices-connection'
   properties: {
     category: 'AIServices'
     target: aiServices.properties.endpoint
     authType: 'AAD'
+    isSharedToAll: true
+    useWorkspaceManagedIdentity: false
+    peRequirement: 'Required'
     metadata: {
       ApiType: 'Azure'
       ResourceId: aiServices.id
@@ -228,7 +311,7 @@ resource aiHubConnection 'Microsoft.MachineLearningServices/workspaces/connectio
 // Foundry Project (Microsoft.MachineLearningServices/workspaces, kind: project)
 // ============================================================================
 
-resource aiProject 'Microsoft.MachineLearningServices/workspaces@2025-01-01-preview' = {
+resource aiProject 'Microsoft.MachineLearningServices/workspaces@2026-09-01' = {
   name: 'aiproj-${baseName}'
   location: location
   kind: 'Project'

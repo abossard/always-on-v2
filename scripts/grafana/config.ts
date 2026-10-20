@@ -27,11 +27,34 @@ export interface ResourceConfig {
   captureStorageAccount?: string;
 }
 
+export interface AiDeploymentSnapshot {
+  deployment: string;
+  allocatedTpm: number | null;
+  allocatedRpm: number | null;
+}
+
+export interface AiQuotaSnapshot {
+  model: string;
+  allocatedUnits: number | null;
+  quotaUnits: number | null;
+}
+
+export interface AiObservabilityConfig {
+  subscription: string;
+  resourceGroup: string;
+  accountName: string;
+  observedAtUtc: string;
+  deploymentAllocations: AiDeploymentSnapshot[];
+  quotaSnapshots: AiQuotaSnapshot[];
+}
+
 export interface PlatformConfig {
+  tenantId?: string;
   subscription: string;
   globalResourceGroup: string;
   domainName: string;
   resources: ResourceConfig;
+  aiObservability?: AiObservabilityConfig;
   stamps: StampConfig[];
   apps: AppConfig[];
 }

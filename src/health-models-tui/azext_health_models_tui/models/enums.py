@@ -158,8 +158,10 @@ class Impact(Enum):
 
     STANDARD = "Standard"
     LIMITED = "Limited"
-    NONE = "None"
     SUPPRESSED = "Suppressed"
+
+    # Backward-compatible alias for legacy internal references.
+    NONE = "Suppressed"
 
 
 class ChangeKind(Enum):

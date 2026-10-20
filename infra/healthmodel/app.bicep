@@ -482,12 +482,12 @@ resource def_ai_ai_availability 'Microsoft.CloudHealth/healthmodels/signaldefini
 }
 
 #disable-next-line BCP081
-resource def_ai_ai_response_latency 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesAI) {
+resource def_ai_ai_service_first_response_latency 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesAI) {
   parent: hm
-  name: guid(name, 'def-ai-ai-response-latency')
+  name: guid(name, 'def-ai-ai-service-first-response-latency')
   properties: {
     signalKind: 'AzureResourceMetric'
-    displayName: 'AI Response Latency'
+    displayName: 'AI Service First Response Latency'
     refreshInterval: 'PT5M'
     dataUnit: 'MilliSeconds'
     evaluationRules: {
@@ -508,18 +508,18 @@ resource def_ai_ai_response_latency 'Microsoft.CloudHealth/healthmodels/signalde
 }
 
 #disable-next-line BCP081
-resource def_ai_ai_server_errors 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesAI) {
+resource def_ai_ai_capacity_pressure__429_requests_ 'Microsoft.CloudHealth/healthmodels/signaldefinitions@2026-11-01' = if (usesAI) {
   parent: hm
-  name: guid(name, 'def-ai-ai-server-errors')
+  name: guid(name, 'def-ai-ai-capacity-pressure--429-requests-')
   properties: {
     signalKind: 'AzureResourceMetric'
-    displayName: 'AI Server Errors'
+    displayName: 'AI Capacity Pressure (429 Requests)'
     refreshInterval: 'PT5M'
     dataUnit: 'Count'
     evaluationRules: {
       degradedRule: {
         operator: 'GreaterThan'
-        threshold: json('1')
+        threshold: json('0')
       }
       unhealthyRule: {
         operator: 'GreaterThan'
@@ -527,9 +527,10 @@ resource def_ai_ai_server_errors 'Microsoft.CloudHealth/healthmodels/signaldefin
       }
     }
     metricNamespace: 'microsoft.cognitiveservices/accounts'
-    metricName: 'ServerErrors'
+    metricName: 'ModelRequests'
     timeGrain: 'PT5M'
     aggregationType: 'Total'
+    dimensionFilter: 'StatusCode eq \'429\''
   }
 }
 
@@ -1485,14 +1486,14 @@ resource aiEntity 'Microsoft.CloudHealth/healthmodels/entities@2026-11-01' = if 
           }
           {
             signalKind: 'AzureResourceMetric'
-            name: guid(name, 'ai-ai-response-latency')
-            signalDefinitionName: def_ai_ai_response_latency.name
+            name: guid(name, 'ai-ai-service-first-response-latency')
+            signalDefinitionName: def_ai_ai_service_first_response_latency.name
             refreshInterval: 'PT5M'
           }
           {
             signalKind: 'AzureResourceMetric'
-            name: guid(name, 'ai-ai-server-errors')
-            signalDefinitionName: def_ai_ai_server_errors.name
+            name: guid(name, 'ai-ai-capacity-pressure--429-requests-')
+            signalDefinitionName: def_ai_ai_capacity_pressure__429_requests_.name
             refreshInterval: 'PT5M'
           }
           {

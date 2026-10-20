@@ -1,6 +1,7 @@
 import { PanelBuilder as TimeseriesPanelBuilder } from '@grafana/grafana-foundation-sdk/timeseries';
 import { PanelBuilder as StatPanelBuilder } from '@grafana/grafana-foundation-sdk/stat';
 import { PanelBuilder as GaugePanelBuilder } from '@grafana/grafana-foundation-sdk/gauge';
+import { PanelBuilder as TextPanelBuilder } from '@grafana/grafana-foundation-sdk/text';
 import type { PlatformConfig } from './config';
 export declare function podRestartsStat(namespace: string): StatPanelBuilder;
 export declare function oomKilledStat(namespace: string): StatPanelBuilder;
@@ -29,6 +30,9 @@ export declare function aiTokensPanel(config: PlatformConfig): TimeseriesPanelBu
 export declare function aiRequestsPanel(config: PlatformConfig): TimeseriesPanelBuilder;
 export declare function aiLatencyPanel(config: PlatformConfig): TimeseriesPanelBuilder;
 export declare function aiTokensPerSecondPanel(config: PlatformConfig): TimeseriesPanelBuilder;
+export declare function ai429RequestsPanel(config: PlatformConfig): TimeseriesPanelBuilder;
+export declare function aiCapacitySnapshotPanel(config: PlatformConfig): TextPanelBuilder;
+export declare function buildAiCapacitySnapshotMarkdown(config: PlatformConfig): string;
 export declare function blobAvailabilityStat(config: PlatformConfig, storageAccount: string, resourceGroup: string, region: string): StatPanelBuilder;
 export declare function blobTransactionsTimeseries(config: PlatformConfig, storageAccount: string, resourceGroup: string, region: string): TimeseriesPanelBuilder;
 export declare function blobE2ELatencyTimeseries(config: PlatformConfig, storageAccount: string, resourceGroup: string, region: string): TimeseriesPanelBuilder;
@@ -39,3 +43,8 @@ export declare function eventHubOutgoingMessagesTimeseries(config: PlatformConfi
 export declare function eventHubThrottledTimeseries(config: PlatformConfig): TimeseriesPanelBuilder;
 export declare function eventHubServerErrorsTimeseries(config: PlatformConfig): TimeseriesPanelBuilder;
 export declare function eventHubCapturedMessagesTimeseries(config: PlatformConfig): TimeseriesPanelBuilder;
+export declare function eventHubCaptureBacklogTimeseries(config: PlatformConfig): TimeseriesPanelBuilder;
+export declare function eventHubCapturedBytesTimeseries(config: PlatformConfig): TimeseriesPanelBuilder;
+export declare function captureStorageIngressTimeseries(config: PlatformConfig): TimeseriesPanelBuilder;
+export declare function eventHubReplicationLagDurationTimeseries(config: PlatformConfig): TimeseriesPanelBuilder;
+export declare function eventHubReplicationLagCountTimeseries(config: PlatformConfig): TimeseriesPanelBuilder;

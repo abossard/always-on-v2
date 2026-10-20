@@ -9,12 +9,14 @@ def load_arguments(self, _):  # noqa: ANN001
         context.argument(
             "resource_group",
             options_list=["--resource-group", "-g"],
+            default=None,
             help="Name of the resource group.",
             completer=get_resource_group_completion_list,
         )
         context.argument(
             "model_name",
             options_list=["--model-name", "--model"],
+            default=None,
             help="Name of the health model to monitor.",
         )
         context.argument(

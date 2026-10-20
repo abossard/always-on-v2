@@ -16,30 +16,64 @@ for cmd in kustomize envsubst kubectl jq; do
 done
 
 # ── Resolve deployment vars ───────────────────────────────────
-IMAGE_TAG="${IMAGE_TAG:-$(azd env get-value IMAGE_TAG 2>/dev/null || echo "")}"
-ACR_LOGIN_SERVER="${ACR_LOGIN_SERVER:-$(azd env get-value ACR_LOGIN_SERVER 2>/dev/null || echo "")}"
-STAMP_DEPLOY_VARS="${STAMP_DEPLOY_VARS:-$(azd env get-value STAMP_DEPLOY_VARS 2>/dev/null || echo "[]")}"
-
-if [ -z "$IMAGE_TAG" ]; then
-  echo "⚠️  IMAGE_TAG not set. Run 'azd deploy' (predeploy hook) first to build images."
-  echo "   Continuing with existing images in manifests..."
-fi
-
-if [ "$STAMP_DEPLOY_VARS" = "[]" ] || [ -z "$STAMP_DEPLOY_VARS" ]; then
-  echo "⚠️  STAMP_DEPLOY_VARS not available. Attempting to read from deployment..."
-  DEPLOYMENT_NAME=$(az deployment sub list \
-    --query "[?starts_with(name, '${AZURE_ENV_NAME:-}') && properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
-    -o tsv 2>/dev/null || echo "")
-  if [ -n "$DEPLOYMENT_NAME" ]; then
-    STAMP_DEPLOY_VARS=$(az deployment sub show --name "$DEPLOYMENT_NAME" \
-      --query "properties.outputs.stampDeployVars.value" -o json 2>/dev/null || echo "[]")
-  fi
-fi
-
-if [ "$STAMP_DEPLOY_VARS" = "[]" ] || [ "$STAMP_DEPLOY_VARS" = "null" ] || [ -z "$STAMP_DEPLOY_VARS" ]; then
-  echo "❌ No stamp deploy vars found. Run 'azd provision' first."
+: "${AZURE_ENV_NAME:?AZURE_ENV_NAME is required}"
+: "${AZURE_SUBSCRIPTION_ID:?AZURE_SUBSCRIPTION_ID is required}"
+: "${AZURE_TENANT_ID:?AZURE_TENANT_ID is required}"
+: "${globalResourceGroupName:?Current provisioning output globalResourceGroupName is required}"
+: "${AZURE_LOCATION:?AZURE_LOCATION is required}"
+: "${acrLoginServer:?Current provisioning output acrLoginServer is required}"
+: "${stampDeployVars:?Current provisioning output stampDeployVars is required}"
+: "${appEndpoints:?Current provisioning output appEndpoints is required}"
+: "${frontDoorEndpointHostName:?Current provisioning output frontDoorEndpointHostName is required}"
+if [ "$(az account show --query id -o tsv)" != "$AZURE_SUBSCRIPTION_ID" ]; then
+  echo "ERROR: Azure CLI subscription does not match the named azd environment"
   exit 1
 fi
+if [ "$(az account show --subscription "$AZURE_SUBSCRIPTION_ID" --query tenantId -o tsv)" != "$AZURE_TENANT_ID" ]; then
+  echo "ERROR: Azure CLI tenant does not match the named azd environment"
+  exit 1
+fi
+ACR_LOGIN_SERVER="$acrLoginServer"
+STAMP_DEPLOY_VARS="$stampDeployVars"
+ENDPOINTS="$appEndpoints"
+jq -e --arg env "$AZURE_ENV_NAME" --arg acr "$ACR_LOGIN_SERVER" '
+  type == "array" and length > 0 and
+  (map(.stampName) | length == (unique | length)) and
+  all(.[];
+    .stampName == (.regionKey + "-" + (.stampName | split("-") | last)) and
+    .clusterName == ("aks-" + $env + "-" + .stampName) and
+    .clusterResourceGroup == ("rg-" + $env + "-" + .stampName) and
+    .fluxVars.ACR_LOGIN_SERVER == $acr)
+' <<< "$STAMP_DEPLOY_VARS" >/dev/null
+jq -e 'type == "array" and length > 0 and all(.[]; (.name | type == "string" and length > 0) and (.frontDoorUrl | startswith("https://")))' <<< "$ENDPOINTS" >/dev/null
+
+# The hook environment may still contain the tag from before predeploy.
+IMAGE_TAG="$(azd env get-value IMAGE_TAG --environment "$AZURE_ENV_NAME")"
+IMAGE_SOURCE_HASH="$(azd env get-value IMAGE_SOURCE_HASH --environment "$AZURE_ENV_NAME")"
+if [[ ! "$IMAGE_SOURCE_HASH" =~ ^[a-f0-9]{64}$ ]] \
+  || [[ ! "$IMAGE_TAG" =~ ^[0-9]+-[a-f0-9]{8}(-dirty)?-[a-f0-9]{12}$ ]] \
+  || [[ "$IMAGE_TAG" != *-"${IMAGE_SOURCE_HASH:0:12}" ]] \
+  || [[ "$IMAGE_TAG" != *-"$(git rev-parse --short=8 HEAD)"-* ]]; then
+  echo "ERROR: Missing or stale image tag/source attribution. Repeat the full azd up."
+  exit 1
+fi
+SOURCE_SNAPSHOT="$(mktemp -d)"
+trap 'rm -rf "$SOURCE_SNAPSHOT"' EXIT
+git ls-files -z --cached --others --exclude-standard \
+  | rsync -a --from0 --files-from=- ./ "$SOURCE_SNAPSHOT"/
+CURRENT_SOURCE_HASH=$(cd "$SOURCE_SNAPSHOT" && find . -type f \( \
+    -path './global.json' -o -path './.editorconfig' -o -path './.dockerignore' -o -path './src/Directory.Build.props' \
+    -o -path './src/AlwaysOn.ServiceDefaults/*' -o -path './src/AlwaysOn.Orleans/*' \
+    -o -path './src/HelloOrleons/*' -o -path './src/HelloAgents/*' \
+    -o -path './src/DarkUxChallenge/*' -o -path './src/GraphOrleons/*' \) -print0 \
+  | LC_ALL=C sort -z | xargs -0 shasum -a 256 | shasum -a 256 | awk '{print $1}')
+if [ "$CURRENT_SOURCE_HASH" != "$IMAGE_SOURCE_HASH" ]; then
+  echo "ERROR: Source changed after the image builds. Repeat the full azd up."
+  exit 1
+fi
+GRAFANA_DIR="$(cd "$(dirname "$0")/.." && pwd)/scripts/grafana"
+AI_RG="$globalResourceGroupName"
+AI_SUB="$AZURE_SUBSCRIPTION_ID"
 
 STAMP_COUNT=$(echo "$STAMP_DEPLOY_VARS" | jq length)
 echo "📦 Deploying to $STAMP_COUNT stamp(s)"
@@ -108,6 +142,7 @@ for i in $(seq 0 $((STAMP_COUNT - 1))); do
   # Get AKS credentials
   echo "   🔑 Getting credentials..."
   if ! az aks get-credentials \
+    --subscription "$AZURE_SUBSCRIPTION_ID" \
     --resource-group "$CLUSTER_RG" \
     --name "$CLUSTER_NAME" \
     --overwrite-existing \
@@ -443,6 +478,13 @@ EOF
     RENDERED=$(echo "$RENDERED" | sed -E \
       "s|($ACR_LOGIN_SERVER/[a-z-]+):[0-9]+-[a-f0-9]{8}|\1:${IMAGE_TAG}|g")
   fi
+  EXPECTED_IMAGES=$(printf '%s\n' helloorleons helloagents helloagents-web darkux darkux-web graphorleons graphorleons-web \
+    | awk -v prefix="$ACR_LOGIN_SERVER/" -v tag="$IMAGE_TAG" '{print prefix $0 ":" tag}' | LC_ALL=C sort)
+  ACTUAL_IMAGES=$(echo "$RENDERED" | awk -v prefix="$ACR_LOGIN_SERVER/" '$1 == "image:" && index($2, prefix) == 1 {print $2}' | LC_ALL=C sort)
+  if [ "$ACTUAL_IMAGES" != "$EXPECTED_IMAGES" ]; then
+    echo "ERROR: Expected exactly seven workload images with this build's tag for $STAMP_NAME"
+    exit 1
+  fi
 
   APP_STATUS=0
   APP_OUTPUT=$({ echo "$RENDERED" | kubectl apply --server-side --force-conflicts -f -; } 2>&1) || APP_STATUS=$?
@@ -571,26 +613,8 @@ echo "╔═══════════════════════�
 echo "║  🌐 Application Endpoints                              ║"
 echo "╚══════════════════════════════════════════════════════════╝"
 
-DEPLOYMENT_NAME=$(az deployment sub list \
-  --query "[?starts_with(name, '${AZURE_ENV_NAME:-}') && properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
-  -o tsv 2>/dev/null || echo "")
-
-if [ -n "$DEPLOYMENT_NAME" ]; then
-  ENDPOINTS=$(az deployment sub show --name "$DEPLOYMENT_NAME" \
-    --query "properties.outputs.appEndpoints.value" -o json 2>/dev/null || echo "[]")
-
-  FD_ENDPOINT=$(az deployment sub show --name "$DEPLOYMENT_NAME" \
-    --query "properties.outputs.frontDoorEndpointHostName.value" -o tsv 2>/dev/null || echo "")
-
-  if [ -n "$FD_ENDPOINT" ]; then
-    echo "Front Door: https://$FD_ENDPOINT"
-    echo ""
-  fi
-
-  if [ "$ENDPOINTS" != "[]" ] && [ "$ENDPOINTS" != "null" ]; then
-    echo "$ENDPOINTS" | jq -r '.[] | "  \(.name): \(.frontDoorUrl)"'
-  fi
-fi
+echo "Front Door: https://$frontDoorEndpointHostName"
+echo "$ENDPOINTS" | jq -r '.[] | "  \(.name): \(.frontDoorUrl)"'
 
 # ── Health check ──────────────────────────────────────────────
 echo ""
@@ -654,25 +678,9 @@ echo "╔═══════════════════════�
 echo "║  📊 Grafana Dashboard Deployment                        ║"
 echo "╚══════════════════════════════════════════════════════════╝"
 
-GRAFANA_SCRIPT="$(cd "$(dirname "$0")/.." && pwd)/scripts/grafana/deploy.sh"
-if [ -f "$GRAFANA_SCRIPT" ]; then
-  GLOBAL_RG=""
-  if [ -n "$DEPLOYMENT_NAME" ]; then
-    GLOBAL_RG=$(az deployment sub show --name "$DEPLOYMENT_NAME" \
-      --query "properties.outputs.globalResourceGroupName.value" -o tsv 2>/dev/null || echo "")
-  fi
-  GLOBAL_RG="${GLOBAL_RG:-rg-${AZURE_ENV_NAME:-aon2}-global}"
-  LOCATION="${AZURE_LOCATION:-swedencentral}"
-
-  echo "   RG: $GLOBAL_RG | Location: $LOCATION"
-  if bash "$GRAFANA_SCRIPT" "$GLOBAL_RG" "$LOCATION"; then
-    echo "   ✅ Grafana dashboards deployed"
-  else
-    echo "   ⚠️  Grafana dashboard deployment failed (non-fatal)"
-  fi
-else
-  echo "   ⏭️  scripts/grafana/deploy.sh not found — skipping"
-fi
+echo "   RG: $AI_RG | Location: $AZURE_LOCATION | Subscription: $AI_SUB"
+bash "$GRAFANA_DIR/deploy.sh" "$AI_RG" "$AZURE_LOCATION" "$AI_SUB" "$AZURE_ENV_NAME" helloagents
+echo "   ✅ HelloAgents Grafana dashboard deployed"
 
 echo ""
 echo "✅ Deployment complete"

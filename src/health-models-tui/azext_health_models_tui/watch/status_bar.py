@@ -70,7 +70,11 @@ class StatusBar(Static):
         parts.append(" │ ", style="dim")
 
         # Key hints — always-available shortcuts
-        parts.append("↑↓ Nav  ⏎ Toggle  ", style="dim")
+        parts.append("↑↓ Nav  ⏎ Toggle  Tab Focus  Enter Activate  ", style="dim")
+        parts.append("F1", style="bold")
+        parts.append(" Help  ", style="dim")
+        parts.append("F2", style="bold")
+        parts.append(" Actions  ", style="dim")
         parts.append("/", style="bold")
         parts.append(" Search  ", style="dim")
         parts.append("e", style="bold")

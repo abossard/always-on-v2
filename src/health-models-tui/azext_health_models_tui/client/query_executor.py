@@ -29,6 +29,8 @@ _log = logging.getLogger(__name__)
 @dataclass(frozen=True)
 class SignalExecutionConfig:
     entity: dict[str, Any]
+    signal_instance: dict[str, Any]
+    signal_definition: dict[str, Any] | None
     entity_display: str
     signal_definition_name: str
     signal_name: str
@@ -58,6 +60,7 @@ def resolve_signal_config(
     sig_instance, group_key, group_data = _find_signal_on_entity(entity_props, signal_name)
 
     sig_def_name = sig_instance.get("signalDefinitionName", "")
+    sig_def: dict[str, Any] | None = None
     sig_def_props: dict[str, Any] = {}
     if sig_def_name:
         sig_def = client.get_signal_definition(resource_group, model_name, sig_def_name)
@@ -74,6 +77,8 @@ def resolve_signal_config(
 
     return SignalExecutionConfig(
         entity=entity,
+        signal_instance=dict(sig_instance),
+        signal_definition=dict(sig_def) if isinstance(sig_def, dict) else None,
         entity_display=entity_display,
         signal_definition_name=sig_def_name,
         signal_name=signal_name,

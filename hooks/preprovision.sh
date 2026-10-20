@@ -11,8 +11,14 @@ PROTECTED_NAMES="alwayson"
 
 ENV_NAME="${AZURE_ENV_NAME:-}"
 if [ -z "$ENV_NAME" ]; then
-  echo "⚠️  AZURE_ENV_NAME not set — skipping collision check"
-  exit 0
+  echo "ERROR: AZURE_ENV_NAME is required"
+  exit 1
+fi
+: "${AZURE_SUBSCRIPTION_ID:?AZURE_SUBSCRIPTION_ID is required}"
+CLI_SUBSCRIPTION_ID="$(az account show --query id -o tsv)"
+if [ "$CLI_SUBSCRIPTION_ID" != "$AZURE_SUBSCRIPTION_ID" ]; then
+  echo "ERROR: Azure CLI subscription does not match the named azd environment"
+  exit 1
 fi
 
 for protected in $PROTECTED_NAMES; do
@@ -92,11 +98,15 @@ echo "✅ Pre-provision: AZURE_PRINCIPAL_ID matches signed-in user object ID"
 # platform.bicep / all-platforms.bicep / app.bicep are auto-generated from scripts/healthmodel/.
 # Regenerate before provisioning to ensure signal definitions are current.
 HM_DIR="scripts/healthmodel"
-if [ -d "$HM_DIR" ] && command -v npx &>/dev/null; then
-  echo "🔧 Regenerating health model Bicep (platform/all-platforms/app)..."
-  (cd "$HM_DIR" && npm ci --silent 2>/dev/null && npx ts-node generate.ts 2>&1) || {
-    echo "⚠️  Health model generation failed (non-fatal — using existing *.bicep)"
-  }
-else
-  echo "ℹ️  Skipping health model generation (Node.js/npx not available or scripts/healthmodel/ missing)"
+if [ ! -d "$HM_DIR" ] || ! command -v npx >/dev/null; then
+  echo "ERROR: Health model sources and Node.js/npx are required"
+  exit 1
 fi
+echo "🔧 Regenerating health model Bicep (platform/all-platforms/app)..."
+(
+  cd "$HM_DIR"
+  if [ ! -x node_modules/.bin/ts-node ]; then
+    npm ci --silent
+  fi
+  npx --no-install ts-node generate.ts
+)

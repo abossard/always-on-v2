@@ -8,30 +8,31 @@ echo "║  Pre-Deploy: Build & Push Docker Images                 ║"
 echo "╚══════════════════════════════════════════════════════════╝"
 
 # ── Resolve ACR ───────────────────────────────────────────────
-ACR_LOGIN_SERVER="${ACR_LOGIN_SERVER:-$(azd env get-value ACR_LOGIN_SERVER 2>/dev/null || echo "")}"
-
-if [ -z "$ACR_LOGIN_SERVER" ]; then
-  DEPLOYMENT_NAME=$(az deployment sub list \
-    --query "[?starts_with(name, '${AZURE_ENV_NAME:-}') && properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
-    -o tsv 2>/dev/null || echo "")
-  if [ -n "$DEPLOYMENT_NAME" ]; then
-    ACR_LOGIN_SERVER=$(az deployment sub show --name "$DEPLOYMENT_NAME" \
-      --query "properties.outputs.acrLoginServer.value" -o tsv 2>/dev/null || echo "")
-  fi
-fi
-
-if [ -z "$ACR_LOGIN_SERVER" ]; then
-  echo "❌ Cannot resolve ACR login server. Run 'azd provision' first."
+: "${AZURE_ENV_NAME:?AZURE_ENV_NAME is required}"
+: "${AZURE_SUBSCRIPTION_ID:?AZURE_SUBSCRIPTION_ID is required}"
+: "${acrLoginServer:?Current provisioning output acrLoginServer is required}"
+: "${stampDeployVars:?Current provisioning output stampDeployVars is required}"
+if [ "$(az account show --query id -o tsv)" != "$AZURE_SUBSCRIPTION_ID" ]; then
+  echo "ERROR: Azure CLI subscription does not match the named azd environment"
   exit 1
 fi
+ACR_LOGIN_SERVER="$acrLoginServer"
+jq -e --arg env "$AZURE_ENV_NAME" --arg acr "$ACR_LOGIN_SERVER" '
+  type == "array" and length > 0 and
+  all(.[]; .clusterName == ("aks-" + $env + "-" + .stampName) and
+    .clusterResourceGroup == ("rg-" + $env + "-" + .stampName) and
+    .fluxVars.ACR_LOGIN_SERVER == $acr)
+' <<< "$stampDeployVars" >/dev/null
+azd env set IMAGE_TAG "" --environment "$AZURE_ENV_NAME"
+azd env set IMAGE_SOURCE_HASH "" --environment "$AZURE_ENV_NAME"
 
 ACR_NAME=$(echo "$ACR_LOGIN_SERVER" | cut -d. -f1)
 echo "📦 ACR: $ACR_LOGIN_SERVER ($ACR_NAME)"
 
 # ── Build snapshot + attribution ──────────────────────────────
-HEAD_SHA=$(git rev-parse --short=8 HEAD 2>/dev/null || echo "00000000")
+HEAD_SHA=$(git rev-parse --short=8 HEAD)
 DIRTY_SUFFIX=""
-if [ -n "$(git status --porcelain 2>/dev/null || true)" ]; then
+if [ -n "$(git status --porcelain)" ]; then
   DIRTY_SUFFIX="-dirty"
 fi
 
@@ -39,14 +40,19 @@ SNAPSHOT_DIR=$(mktemp -d)
 trap 'rm -rf "$SNAPSHOT_DIR"' EXIT
 
 git ls-files -z --cached --others --exclude-standard \
-  | rsync -a --from0 --files-from=- --ignore-missing-args ./ "$SNAPSHOT_DIR"/
+  | rsync -a --from0 --files-from=- ./ "$SNAPSHOT_DIR"/
 
 if [ -n "$(find "$SNAPSHOT_DIR" -type s -print -quit)" ]; then
   echo "❌ Snapshot contains socket files; refusing to build."
   exit 1
 fi
 
-SOURCE_HASH=$(cd "$SNAPSHOT_DIR" && find . -type f -print0 \
+# Attribute Dockerfile COPY inputs, not unrelated shared-checkout changes.
+SOURCE_HASH=$(cd "$SNAPSHOT_DIR" && find . -type f \( \
+    -path './global.json' -o -path './.editorconfig' -o -path './.dockerignore' -o -path './src/Directory.Build.props' \
+    -o -path './src/AlwaysOn.ServiceDefaults/*' -o -path './src/AlwaysOn.Orleans/*' \
+    -o -path './src/HelloOrleons/*' -o -path './src/HelloAgents/*' \
+    -o -path './src/DarkUxChallenge/*' -o -path './src/GraphOrleons/*' \) -print0 \
   | LC_ALL=C sort -z \
   | xargs -0 shasum -a 256 \
   | shasum -a 256 \
@@ -56,10 +62,6 @@ TAG="$(date +%s)-${HEAD_SHA}${DIRTY_SUFFIX}-${SOURCE_HASH:0:12}"
 echo "🏷️  Tag: $TAG"
 echo "🧾 Source hash: $SOURCE_HASH"
 echo ""
-
-# Store attribution for postdeploy/reporting.
-azd env set IMAGE_TAG "$TAG" 2>/dev/null || true
-azd env set IMAGE_SOURCE_HASH "$SOURCE_HASH" 2>/dev/null || true
 
 # ── Build images ──────────────────────────────────────────────
 # Each entry: IMAGE_NAME | DOCKERFILE | CONTEXT (relative to repo root)
@@ -76,24 +78,41 @@ IMAGES=(
 FAILED=()
 SUCCEEDED=()
 
+# Validate every required context before starting any remote build.
 for entry in "${IMAGES[@]}"; do
   IFS='|' read -r IMAGE_NAME DOCKERFILE CONTEXT <<< "$entry"
   SNAP_DOCKERFILE="$SNAPSHOT_DIR/$DOCKERFILE"
   SNAP_CONTEXT="$SNAPSHOT_DIR/$CONTEXT"
 
-  # Skip if source directory doesn't exist
   if [ ! -d "$SNAP_CONTEXT" ]; then
-    echo "⚠️  Skipping $IMAGE_NAME — context '$CONTEXT' not found in snapshot"
-    continue
+    echo "ERROR: Required $IMAGE_NAME context '$CONTEXT' not found in snapshot"
+    exit 1
   fi
   if [ ! -f "$SNAP_DOCKERFILE" ]; then
-    echo "⚠️  Skipping $IMAGE_NAME — Dockerfile '$DOCKERFILE' not found in snapshot"
-    continue
+    echo "ERROR: Required $IMAGE_NAME Dockerfile '$DOCKERFILE' not found in snapshot"
+    exit 1
   fi
+done
+
+python3 - "$SNAPSHOT_DIR" <<'PY'
+import pathlib
+import sys
+
+root = pathlib.Path(sys.argv[1]).resolve()
+for path in (root / "src").rglob("*"):
+    if path.is_symlink() and (not path.exists() or not path.resolve().is_relative_to(root)):
+        sys.exit(f"ERROR: Unsafe build-source symlink: {path.relative_to(root)}")
+PY
+
+for entry in "${IMAGES[@]}"; do
+  IFS='|' read -r IMAGE_NAME DOCKERFILE CONTEXT <<< "$entry"
+  SNAP_DOCKERFILE="$SNAPSHOT_DIR/$DOCKERFILE"
+  SNAP_CONTEXT="$SNAPSHOT_DIR/$CONTEXT"
 
   echo "🔨 Building $IMAGE_NAME..."
   # Stream ACR logs so long remote builds stay visible in azd output.
   if az acr build \
+    --subscription "$AZURE_SUBSCRIPTION_ID" \
     --registry "$ACR_NAME" \
     --image "${IMAGE_NAME}:${TAG}" \
     --file "$SNAP_DOCKERFILE" \
@@ -115,9 +134,11 @@ echo "   ❌ Failed:    ${#FAILED[@]} (${FAILED[*]:-none})"
 echo "   🏷️  Tag:      $TAG"
 echo "════════════════════════════════════════════════════════════"
 
-if [ ${#FAILED[@]} -gt 0 ]; then
+if [ ${#FAILED[@]} -gt 0 ] || [ ${#SUCCEEDED[@]} -ne 7 ]; then
   echo "⚠️  Some images failed to build. Deployment may be incomplete."
   exit 1
 fi
 
+azd env set IMAGE_SOURCE_HASH "$SOURCE_HASH" --environment "$AZURE_ENV_NAME"
+azd env set IMAGE_TAG "$TAG" --environment "$AZURE_ENV_NAME"
 echo "✅ All images built and pushed"

@@ -8,7 +8,8 @@
 
 ## Decision
 - **Console/stdout:** `Warning` minimum level via `appsettings.json` `Logging.Console.LogLevel.Default`
-- **App Insights:** continues receiving `Information` and above via OTEL
+- **App Insights:** continues receiving application `Information` and above via OTEL. When Azure Monitor is enabled, routine `Azure.Core` and `Azure.Messaging.EventHubs` logs require `Warning` or above to avoid request/response noise from queue polling.
+- **Shared trace sampling:** defaults to 1%; `OTEL_TRACES_SAMPLER_ARG` can override it. Metrics remain unchanged.
 - Startup `Console.WriteLine` calls bypass `ILogger` — unaffected
 - Override for debugging: `Logging__Console__LogLevel__Default=Information` env var or `appsettings.Development.json`
 

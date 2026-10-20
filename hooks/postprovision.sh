@@ -8,32 +8,38 @@ echo "║  Post-Provision: Gateway API + AKS Credentials          ║"
 echo "╚══════════════════════════════════════════════════════════╝"
 
 # ── Resolve deployment outputs ────────────────────────────────
-ENV_NAME="${AZURE_ENV_NAME:-alwayson}"
-
-DEPLOYMENT_NAME=$(az deployment sub list \
-  --query "[?starts_with(name, '${ENV_NAME}') && properties.provisioningState=='Succeeded'] | sort_by(@, &properties.timestamp) | [-1].name" \
-  -o tsv 2>/dev/null || echo "")
-
-if [ -z "$DEPLOYMENT_NAME" ]; then
-  echo "⚠️  No successful deployment found — skipping post-provision"
-  exit 0
+: "${AZURE_ENV_NAME:?AZURE_ENV_NAME is required}"
+: "${AZURE_SUBSCRIPTION_ID:?AZURE_SUBSCRIPTION_ID is required}"
+: "${acrLoginServer:?Current provisioning output acrLoginServer is required}"
+: "${stampDeployVars:?Current provisioning output stampDeployVars is required}"
+: "${appEndpoints:?Current provisioning output appEndpoints is required}"
+: "${frontDoorEndpointHostName:?Current provisioning output frontDoorEndpointHostName is required}"
+if [ "$(az account show --query id -o tsv)" != "$AZURE_SUBSCRIPTION_ID" ]; then
+  echo "ERROR: Azure CLI subscription does not match the named azd environment"
+  exit 1
 fi
-
-echo "📦 Using deployment: $DEPLOYMENT_NAME"
+STAMP_VARS="$stampDeployVars"
+APP_ENDPOINTS="$appEndpoints"
+jq -e --arg env "$AZURE_ENV_NAME" --arg acr "$acrLoginServer" '
+  type == "array" and length > 0 and
+  (map(.stampName) | length == (unique | length)) and
+  all(.[];
+    .stampName == (.regionKey + "-" + (.stampName | split("-") | last)) and
+    .clusterName == ("aks-" + $env + "-" + .stampName) and
+    .clusterResourceGroup == ("rg-" + $env + "-" + .stampName) and
+    .fluxVars.ACR_LOGIN_SERVER == $acr)
+' <<< "$STAMP_VARS" >/dev/null
+jq -e 'type == "array" and length > 0 and all(.[]; (.name | type == "string" and length > 0) and (.frontDoorUrl | startswith("https://")))' <<< "$APP_ENDPOINTS" >/dev/null
 
 # ── Enable Managed Gateway API on AKS clusters ───────────────
-az extension add --name aks-preview --upgrade --allow-preview true 2>/dev/null || true
-
-CLUSTER_NAMES=$(az deployment sub show \
-  --name "$DEPLOYMENT_NAME" \
-  --query "properties.outputs.aksClusterNames.value" \
-  -o json 2>/dev/null || echo "[]")
+az extension add --name aks-preview --upgrade --allow-preview true
+CLUSTER_NAMES=$(jq -c 'map(.clusterName)' <<< "$STAMP_VARS")
 
 echo "$CLUSTER_NAMES" | jq -r '.[]' | while read -r CLUSTER; do
   RG="rg-${CLUSTER#aks-}"
 
-  GW_STATUS=$(az aks show --resource-group "$RG" --name "$CLUSTER" \
-    --query "ingressProfile.gatewayApi.installation" -o tsv 2>/dev/null || echo "")
+  GW_STATUS=$(az aks show --subscription "$AZURE_SUBSCRIPTION_ID" --resource-group "$RG" --name "$CLUSTER" \
+    --query "ingressProfile.gatewayApi.installation" -o tsv)
 
   if [ "$GW_STATUS" = "Standard" ]; then
     echo "✅ Gateway API already enabled on $CLUSTER"
@@ -41,9 +47,8 @@ echo "$CLUSTER_NAMES" | jq -r '.[]' | while read -r CLUSTER; do
   fi
 
   echo "🔧 Enabling Gateway API on $CLUSTER in $RG..."
-  az aks update --resource-group "$RG" --name "$CLUSTER" \
-    --enable-gateway-api --only-show-errors 2>&1 || \
-    echo "⚠️  Gateway API enablement failed for $CLUSTER (non-fatal)"
+  az aks update --subscription "$AZURE_SUBSCRIPTION_ID" --resource-group "$RG" --name "$CLUSTER" \
+    --enable-gateway-api --only-show-errors
 done
 
 # ── Get AKS credentials ──────────────────────────────────────
@@ -54,51 +59,20 @@ echo "$CLUSTER_NAMES" | jq -r '.[]' | while read -r CLUSTER; do
   RG="rg-${CLUSTER#aks-}"
   echo "   → $CLUSTER ($RG)"
   az aks get-credentials \
+    --subscription "$AZURE_SUBSCRIPTION_ID" \
     --resource-group "$RG" \
     --name "$CLUSTER" \
     --overwrite-existing \
-    --only-show-errors 2>&1 || echo "⚠️  Failed to get credentials for $CLUSTER"
+    --only-show-errors
 done
 
 # ── Store deployment vars for hooks ───────────────────────────
 echo ""
 echo "📋 Extracting deployment variables..."
 
-ACR_LOGIN_SERVER=$(az deployment sub show --name "$DEPLOYMENT_NAME" \
-  --query "properties.outputs.acrLoginServer.value" -o tsv 2>/dev/null || echo "")
-
-if [ -n "$ACR_LOGIN_SERVER" ]; then
-  azd env set ACR_LOGIN_SERVER "$ACR_LOGIN_SERVER" 2>/dev/null || true
-  echo "   ACR_LOGIN_SERVER=$ACR_LOGIN_SERVER"
-fi
-
-# Store stamp deploy vars as JSON for the deploy hooks
-STAMP_VARS=$(az deployment sub show --name "$DEPLOYMENT_NAME" \
-  --query "properties.outputs.stampDeployVars.value" -o json 2>/dev/null || echo "[]")
-
-if [ "$STAMP_VARS" != "[]" ] && [ "$STAMP_VARS" != "null" ]; then
-  azd env set STAMP_DEPLOY_VARS "$STAMP_VARS" 2>/dev/null || true
-  STAMP_COUNT=$(echo "$STAMP_VARS" | jq length)
-  echo "   STAMP_DEPLOY_VARS stored ($STAMP_COUNT stamps)"
-else
-  echo "ERROR: stampDeployVars missing from deployment outputs"
-  exit 1
-fi
-
-APP_ENDPOINTS=$(az deployment sub show --name "$DEPLOYMENT_NAME" \
-  --query "properties.outputs.appEndpoints.value" -o json 2>/dev/null || echo "[]")
-if [ "$APP_ENDPOINTS" = "[]" ] || [ "$APP_ENDPOINTS" = "null" ]; then
-  echo "ERROR: appEndpoints missing from deployment outputs"
-  exit 1
-fi
-
-# Store Front Door endpoint
-FD_ENDPOINT=$(az deployment sub show --name "$DEPLOYMENT_NAME" \
-  --query "properties.outputs.frontDoorEndpointHostName.value" -o tsv 2>/dev/null || echo "")
-if [ -n "$FD_ENDPOINT" ]; then
-  azd env set FRONTDOOR_ENDPOINT "$FD_ENDPOINT" 2>/dev/null || true
-  echo "   FRONTDOOR_ENDPOINT=$FD_ENDPOINT"
-fi
+azd env set ACR_LOGIN_SERVER "$acrLoginServer" --environment "$AZURE_ENV_NAME"
+azd env set STAMP_DEPLOY_VARS "$STAMP_VARS" --environment "$AZURE_ENV_NAME"
+azd env set FRONTDOOR_ENDPOINT "$frontDoorEndpointHostName" --environment "$AZURE_ENV_NAME"
 
 echo ""
 # ── Root the All-Platforms discovery-rule entity (async, post-deploy) ──

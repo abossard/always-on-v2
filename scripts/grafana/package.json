@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "generate": "ts-node generate.ts",
-    "build": "tsc -p tsconfig.json"
+    "build": "tsc -p tsconfig.json",
+    "test:contracts": "ts-node generator-contract.test.ts"
   },
   "dependencies": {
     "@grafana/grafana-foundation-sdk": "11.6.0-cogv0.0.x.1769699379"

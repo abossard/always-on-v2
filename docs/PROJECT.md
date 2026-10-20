@@ -205,8 +205,12 @@ graph LR
 ### Dashboards
 
 - Per-app dashboards: `helloorleons`, `helloagents`, `graphorleons`, `darkux`
-- Generated from [`scripts/grafana/`](../scripts/grafana/) — `npm run build && npm run generate`
+- Generated from [`scripts/grafana/`](../scripts/grafana/) with deployment-resolved inputs. Checked-in resource IDs are not generation defaults.
 - Panels: Front Door metrics, Cosmos DB, pod restarts/OOM/CPU/memory, gateway latency
+- HelloAgents AI row separates observed usage (`InputTokens`, `OutputTokens`, `ModelRequests`) from static allocation snapshots (`deploymentAllocations`, `quotaSnapshots`) with explicit `observedAtUtc` timestamp metadata from [`scripts/grafana/config.json`](../scripts/grafana/config.json)
+- The full `azd up` lifecycle publishes only HelloAgents using the named deployment's tenant, subscription and `globalResourceGroupName`. The publisher validates the Azure account, successful `deploy-global`/`deploy-stamp-*` outputs and live resource IDs before generation. It does not switch the Azure account or azd environment. A publication failure fails the run. Application rollout and recovery both require the complete lifecycle, with all seven image builds and unchanged source attribution, not standalone hooks or partial application deployment.
+- AI snapshot ownership remains independent: a snapshot must match the deployed AI account, subscription and resource group, or generation fails. Its allocation, quota and observation metadata are never relabeled onto a different account.
+- Foundry retains `gpt-41-mini` as default and keeps the existing Luna deployment hidden. The failed latency gate is not waived by an infrastructure rollout.
 
 ### Health Model Signals (43 total) - [`scripts/healthmodel/signals.ts`](../scripts/healthmodel/signals.ts) -> generated modules in [`infra/healthmodel/`](../infra/healthmodel/)
 
@@ -221,7 +225,7 @@ graph LR
 | **AKS** | Failed pods per cluster |
 | **Front Door** | 5XX %, 4XX count, origin latency, total latency |
 | **Cosmos DB** | Availability %, client errors, normalized RU %, throttled (429) |
-| **AI Services** | Availability, latency, server errors, content blocked |
+| **AI Services** | Availability, first-response latency, 429 capacity pressure, content blocked |
 | **Storage Queues** | Availability, E2E latency, transaction errors |
 | **Blob Storage** | Availability, E2E latency, transaction errors |
 | **Event Hubs** | Throttled, server errors, capture backlog, replication lag |
@@ -246,7 +250,7 @@ graph LR
 | **E2E (Browser)** | Playwright | All 4 | `cd src/<App>/<App>.E2E && npm ci && npx playwright test` | e.g. [`HelloAgents.E2E/`](../src/HelloAgents/HelloAgents.E2E/) |
 | **Load** | Locust | All 4 | `cd src/<App>/<App>.LoadTest && locust -f locustfile.py` | e.g. [`HelloAgents.LoadTest/`](../src/HelloAgents/HelloAgents.LoadTest/) |
 | **Accessibility** | axe-core/playwright | DarkUxChallenge | Integrated in E2E suite | [`DarkUxChallenge.E2E/`](../src/DarkUxChallenge/DarkUxChallenge.E2E/) |
-| **Health Models TUI (local)** | pytest | health-models-tui | `cd src/health-models-tui && python -m pytest azext_health_models_tui/tests/ -v` | [`health-models-tui/tests/`](../src/health-models-tui/azext_health_models_tui/tests/) |
+| **Health Models TUI (local)** | pytest | health-models-tui | `cd src/health-models-tui && uv sync --locked --python 3.11 && uv run --locked python -m pytest azext_health_models_tui/tests/ -v` | [`health-models-tui/tests/`](../src/health-models-tui/azext_health_models_tui/tests/) |
 
 Use the SDK pinned in root `global.json`; no Aspire workload is required. `src/src.slnx` now covers all 18 current .NET projects. Run Docker-backed app stacks sequentially because local ports overlap.
 
@@ -396,9 +400,16 @@ az monitor metrics list \
 
 ```bash
 cd scripts/grafana
-npm install && npm run build && npm run generate
+npm run build
+npx ts-node deployment.ts "$AZURE_ENV_NAME" "$AZURE_SUBSCRIPTION_ID" \
+  "$globalResourceGroupName" ../../.artifacts/grafana-deploy/targets.json
+npm run generate -- ../../.artifacts/grafana-deploy/targets.json helloagents
 # Output: docs/grafana/*.json
 ```
+
+Create `.artifacts/grafana-deploy` first. `deployment.ts` reads the explicitly named azd environment and checks its tenant/subscription against Azure. Every global and stamp resource comes from deployment outputs and is checked with an exact resource GET, including Front Door profiles that generic resource inventory can omit. Missing, failed or mismatched outputs stop generation. `generate.ts` requires the resolved config file; it has no historical-target fallback. The optional selector defaults to `all`; a single app regenerates only that app.
+
+Dashboard-only publication uses `scripts/grafana/deploy.sh` with the deployment resource group, location, subscription, environment and optional app selector. Single AI app publication also checks its reviewed AI destination. Mixed-target bulk publication requires explicit destination arguments. Publication updates resources in place, without deleting dashboards first. Other app definitions are not touched by a single-app publication.
 
 ### Health Model Generator
 
@@ -431,18 +442,27 @@ npx ts-node generate.ts
 
 ## Health Model - Live Viewer
 
-> Requires: `az extension add --source src/health-models-tui/dist/*.whl`
+> Requires a local wheel install in an isolated extension directory (see `src/health-models-tui/README.md` install steps).
 
 ```bash
-# Watch live health (TUI mode - interactive terminal dashboard)
-az health-models-tui --model-name hm-alwayson -g rg-alwayson-global
+# Default: read-only model browser in the active subscription
+az health-models-tui
+
+# Optional resource-group filtered browser
+az health-models-tui -g rg-alwayson-global
+
+# Watch live health directly (interactive terminal dashboard)
+az health-models-tui --model hm-alwayson -g rg-alwayson-global
 
 # Watch specific app
-az health-models-tui --model-name hm-helloagents -g rg-alwayson-global
-az health-models-tui --model-name hm-graphorleons -g rg-alwayson-global
+az health-models-tui --model hm-helloagents -g rg-alwayson-global
+az health-models-tui --model hm-graphorleons -g rg-alwayson-global
 
-# Plain text mode (for CI/scripts)
-az health-models-tui --model-name hm-alwayson -g rg-alwayson-global --plain
+# Plain text mode (for CI/scripts) with explicit model
+az health-models-tui --model hm-alwayson -g rg-alwayson-global --plain
+
+# Non-TTY/no-model plain mode prints a finite model list
+az health-models-tui --plain
 ```
 
 ---

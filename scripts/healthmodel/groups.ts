@@ -62,7 +62,7 @@ export const optionalGroups: readonly OptionalEntityGroup[] = [
         signals: [
           signals.aiAvailability(),
           signals.aiLatency(),
-          signals.aiServerErrors(),
+          signals.aiCapacityPressure(),
           signals.aiContentBlocked(),
         ],
       },

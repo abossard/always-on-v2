@@ -42,6 +42,28 @@ const testCases: TestCase[] = [
     },
   },
   {
+    name: 'defines AI capacity pressure from 429 ModelRequests with strict thresholds',
+    run: () => {
+      const signal = signals.aiCapacityPressure();
+      assert.equal(signal.metricNamespace, 'microsoft.cognitiveservices/accounts');
+      assert.equal(signal.metricName, 'ModelRequests');
+      assert.equal(signal.timeGrain, 'PT5M');
+      assert.equal(signal.aggregationType, 'Total');
+      assert.equal(signal.dimensionFilter, "StatusCode eq '429'");
+      assert.equal(signal.threshold.direction, 'higher-is-worse');
+      assert.equal(signal.threshold.degraded, 0);
+      assert.equal(signal.threshold.unhealthy, 10);
+    },
+  },
+  {
+    name: 'labels AI latency as service first response, not end-to-end client latency',
+    run: () => {
+      const signal = signals.aiLatency();
+      assert.equal(signal.metricName, 'AzureOpenAITimeToResponse');
+      assert.equal(signal.displayName, 'AI Service First Response Latency');
+    },
+  },
+  {
     name: 'builds and validates Front Door origin filter with normalized port and escaping',
     run: () => {
       assert.equal(signals.fdOriginLatency('darkux-eastus2-001.eastus2.alwayson.actor').dimensionFilter, "Origin eq 'darkux-eastus2-001.eastus2.alwayson.actor:443'");

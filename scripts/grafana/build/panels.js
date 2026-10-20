@@ -60,6 +60,9 @@ exports.aiTokensPanel = aiTokensPanel;
 exports.aiRequestsPanel = aiRequestsPanel;
 exports.aiLatencyPanel = aiLatencyPanel;
 exports.aiTokensPerSecondPanel = aiTokensPerSecondPanel;
+exports.ai429RequestsPanel = ai429RequestsPanel;
+exports.aiCapacitySnapshotPanel = aiCapacitySnapshotPanel;
+exports.buildAiCapacitySnapshotMarkdown = buildAiCapacitySnapshotMarkdown;
 exports.blobAvailabilityStat = blobAvailabilityStat;
 exports.blobTransactionsTimeseries = blobTransactionsTimeseries;
 exports.blobE2ELatencyTimeseries = blobE2ELatencyTimeseries;
@@ -70,13 +73,20 @@ exports.eventHubOutgoingMessagesTimeseries = eventHubOutgoingMessagesTimeseries;
 exports.eventHubThrottledTimeseries = eventHubThrottledTimeseries;
 exports.eventHubServerErrorsTimeseries = eventHubServerErrorsTimeseries;
 exports.eventHubCapturedMessagesTimeseries = eventHubCapturedMessagesTimeseries;
+exports.eventHubCaptureBacklogTimeseries = eventHubCaptureBacklogTimeseries;
+exports.eventHubCapturedBytesTimeseries = eventHubCapturedBytesTimeseries;
+exports.captureStorageIngressTimeseries = captureStorageIngressTimeseries;
+exports.eventHubReplicationLagDurationTimeseries = eventHubReplicationLagDurationTimeseries;
+exports.eventHubReplicationLagCountTimeseries = eventHubReplicationLagCountTimeseries;
 const timeseries_1 = require("@grafana/grafana-foundation-sdk/timeseries");
 const stat_1 = require("@grafana/grafana-foundation-sdk/stat");
 const gauge_1 = require("@grafana/grafana-foundation-sdk/gauge");
+const text_1 = require("@grafana/grafana-foundation-sdk/text");
 const dashboard_1 = require("@grafana/grafana-foundation-sdk/dashboard");
 const prometheus_1 = require("@grafana/grafana-foundation-sdk/prometheus");
 const azuremonitor_1 = require("@grafana/grafana-foundation-sdk/azuremonitor");
 const common = __importStar(require("@grafana/grafana-foundation-sdk/common"));
+const text_2 = require("@grafana/grafana-foundation-sdk/text");
 // ── Datasource references ──────────────────────────────────────────
 // Azure Monitor dashboards with Grafana pattern:
 // Panel-level: "-- Mixed --" (allows multiple datasource types per panel)
@@ -109,6 +119,22 @@ function defaultThresholds() {
         .steps([
         { color: 'green', value: null },
         { color: 'red', value: 80 },
+    ]);
+}
+function usageOnlyThresholds() {
+    return new dashboard_1.ThresholdsConfigBuilder()
+        .mode(dashboard_1.ThresholdsMode.Absolute)
+        .steps([
+        { color: 'green', value: null },
+    ]);
+}
+function aiCapacityPressureThresholds() {
+    return new dashboard_1.ThresholdsConfigBuilder()
+        .mode(dashboard_1.ThresholdsMode.Absolute)
+        .steps([
+        { color: 'green', value: null },
+        { color: 'yellow', value: 1 },
+        { color: 'red', value: 11 },
     ]);
 }
 function availabilityThresholds() {
@@ -522,78 +548,83 @@ function cosmosOrleansThrottledPanel(config, cosmosAccount, resourceGroup, regio
 }
 // ── AI Services panels ──────────────────────────────────────────────
 function aiTokensPanel(config) {
-    const resource = azureResource(config, config.resources.aiServicesAccount, 'microsoft.cognitiveservices/accounts');
+    const resource = aiResource(config);
     return defaultTimeseries()
-        .title('Tokens by Model (Input + Output)')
+        .title('Input/Output Tokens by Deployment (PT1M Total)')
         .datasource(AZURE_DS)
-        .thresholds(defaultThresholds())
+        .unit('short')
+        .thresholds(usageOnlyThresholds())
         .withTarget(new azuremonitor_1.AzureMonitorQueryBuilder()
         .queryType(azuremonitor_1.AzureQueryType.AzureMonitor)
         .refId('A')
-        .subscription(config.subscription)
+        .subscription(aiSubscription(config))
         .azureMonitor(new azuremonitor_1.AzureMetricQueryBuilder()
         .metricNamespace('microsoft.cognitiveservices/accounts')
         .metricName('InputTokens')
         .aggregation('Total')
-        .timeGrain('auto')
+        .timeGrain('PT1M')
         .resources([resource])
-        .dimensionFilters([new azuremonitor_1.AzureMetricDimensionBuilder().dimension('ModelDeploymentName').operator('eq').filters([])])
+        .dimensionFilters([new azuremonitor_1.AzureMetricDimensionBuilder().dimension('ModelDeploymentName').operator('eq').filters(['*'])])
         .customNamespace('microsoft.cognitiveservices/accounts')
         .allowedTimeGrainsMs(AZURE_TIME_GRAINS)))
         .withTarget(new azuremonitor_1.AzureMonitorQueryBuilder()
         .queryType(azuremonitor_1.AzureQueryType.AzureMonitor)
         .refId('B')
-        .subscription(config.subscription)
+        .subscription(aiSubscription(config))
         .azureMonitor(new azuremonitor_1.AzureMetricQueryBuilder()
         .metricNamespace('microsoft.cognitiveservices/accounts')
         .metricName('OutputTokens')
         .aggregation('Total')
-        .timeGrain('auto')
+        .timeGrain('PT1M')
         .resources([resource])
-        .dimensionFilters([new azuremonitor_1.AzureMetricDimensionBuilder().dimension('ModelDeploymentName').operator('eq').filters([])])
+        .dimensionFilters([new azuremonitor_1.AzureMetricDimensionBuilder().dimension('ModelDeploymentName').operator('eq').filters(['*'])])
         .customNamespace('microsoft.cognitiveservices/accounts')
         .allowedTimeGrainsMs(AZURE_TIME_GRAINS)))
         .span(12)
         .height(8);
 }
 function aiRequestsPanel(config) {
-    const resource = azureResource(config, config.resources.aiServicesAccount, 'microsoft.cognitiveservices/accounts');
+    const resource = aiResource(config);
     return defaultTimeseries()
-        .title('Requests by Model')
+        .title('Requests by Deployment and Status (PT1M Total)')
         .datasource(AZURE_DS)
-        .thresholds(defaultThresholds())
+        .unit('short')
+        .thresholds(usageOnlyThresholds())
         .withTarget(new azuremonitor_1.AzureMonitorQueryBuilder()
         .queryType(azuremonitor_1.AzureQueryType.AzureMonitor)
         .refId('A')
-        .subscription(config.subscription)
+        .subscription(aiSubscription(config))
         .azureMonitor(new azuremonitor_1.AzureMetricQueryBuilder()
         .metricNamespace('microsoft.cognitiveservices/accounts')
         .metricName('ModelRequests')
         .aggregation('Total')
-        .timeGrain('auto')
+        .timeGrain('PT1M')
         .resources([resource])
-        .dimensionFilters([new azuremonitor_1.AzureMetricDimensionBuilder().dimension('StatusCode').operator('eq').filters([])])
+        .dimensionFilters([
+        new azuremonitor_1.AzureMetricDimensionBuilder().dimension('ModelDeploymentName').operator('eq').filters(['*']),
+        new azuremonitor_1.AzureMetricDimensionBuilder().dimension('StatusCode').operator('eq').filters(['*']),
+    ])
         .customNamespace('microsoft.cognitiveservices/accounts')
         .allowedTimeGrainsMs(AZURE_TIME_GRAINS)))
         .span(12)
         .height(8);
 }
 function aiLatencyPanel(config) {
-    const resource = azureResource(config, config.resources.aiServicesAccount, 'microsoft.cognitiveservices/accounts');
+    const resource = aiResource(config);
     return defaultTimeseries()
-        .title('Response Latency by Model (ms)')
+        .title('First Response Latency by Deployment (ms)')
         .datasource(AZURE_DS)
         .unit('ms')
-        .thresholds(defaultThresholds())
+        .thresholds(usageOnlyThresholds())
         .withTarget(new azuremonitor_1.AzureMonitorQueryBuilder()
         .queryType(azuremonitor_1.AzureQueryType.AzureMonitor)
         .refId('A')
-        .subscription(config.subscription)
+        .subscription(aiSubscription(config))
         .azureMonitor(new azuremonitor_1.AzureMetricQueryBuilder()
         .metricNamespace('microsoft.cognitiveservices/accounts')
         .metricName('AzureOpenAITimeToResponse')
         .aggregation('Average')
-        .timeGrain('auto')
+        .timeGrain('PT1M')
         .resources([resource])
         .dimensionFilters([new azuremonitor_1.AzureMetricDimensionBuilder().dimension('ModelDeploymentName').operator('eq').filters(['*'])])
         .customNamespace('microsoft.cognitiveservices/accounts')
@@ -602,26 +633,171 @@ function aiLatencyPanel(config) {
         .height(8);
 }
 function aiTokensPerSecondPanel(config) {
-    const resource = azureResource(config, config.resources.aiServicesAccount, 'microsoft.cognitiveservices/accounts');
+    const resource = aiResource(config);
     return defaultTimeseries()
-        .title('Tokens per Second by Model')
+        .title('Output Token Rate by Deployment (tokens/s)')
         .datasource(AZURE_DS)
-        .thresholds(defaultThresholds())
+        .thresholds(usageOnlyThresholds())
         .withTarget(new azuremonitor_1.AzureMonitorQueryBuilder()
         .queryType(azuremonitor_1.AzureQueryType.AzureMonitor)
         .refId('A')
-        .subscription(config.subscription)
+        .subscription(aiSubscription(config))
         .azureMonitor(new azuremonitor_1.AzureMetricQueryBuilder()
         .metricNamespace('microsoft.cognitiveservices/accounts')
         .metricName('AzureOpenAITokenPerSecond')
         .aggregation('Average')
-        .timeGrain('auto')
+        .timeGrain('PT1M')
         .resources([resource])
         .dimensionFilters([new azuremonitor_1.AzureMetricDimensionBuilder().dimension('ModelDeploymentName').operator('eq').filters(['*'])])
         .customNamespace('microsoft.cognitiveservices/accounts')
         .allowedTimeGrainsMs(AZURE_TIME_GRAINS)))
         .span(12)
         .height(8);
+}
+function ai429RequestsPanel(config) {
+    const resource = aiResource(config);
+    return defaultTimeseries()
+        .title('429 Requests by Deployment (PT5M Total)')
+        .datasource(AZURE_DS)
+        .unit('short')
+        .thresholds(aiCapacityPressureThresholds())
+        .withTarget(new azuremonitor_1.AzureMonitorQueryBuilder()
+        .queryType(azuremonitor_1.AzureQueryType.AzureMonitor)
+        .refId('A')
+        .subscription(aiSubscription(config))
+        .azureMonitor(new azuremonitor_1.AzureMetricQueryBuilder()
+        .metricNamespace('microsoft.cognitiveservices/accounts')
+        .metricName('ModelRequests')
+        .aggregation('Total')
+        .timeGrain('PT5M')
+        .resources([resource])
+        .dimensionFilters([
+        new azuremonitor_1.AzureMetricDimensionBuilder().dimension('ModelDeploymentName').operator('eq').filters(['*']),
+        new azuremonitor_1.AzureMetricDimensionBuilder().dimension('StatusCode').operator('eq').filters(['429']),
+    ])
+        .customNamespace('microsoft.cognitiveservices/accounts')
+        .allowedTimeGrainsMs(AZURE_TIME_GRAINS)))
+        .span(12)
+        .height(8);
+}
+function aiCapacitySnapshotPanel(config) {
+    return new text_1.PanelBuilder()
+        .title('Capacity Snapshot (Allocation vs Quota)')
+        .datasource(AZURE_DS)
+        .mode(text_2.TextMode.Markdown)
+        .content(buildAiCapacitySnapshotMarkdown(config))
+        .span(24)
+        .height(8);
+}
+function buildAiCapacitySnapshotMarkdown(config) {
+    const snapshot = config.aiObservability;
+    if (!snapshot) {
+        return 'Snapshot unavailable. Missing `aiObservability` in scripts/grafana/config.json.';
+    }
+    const observedAtUtc = formatObservedAtUtc(snapshot.observedAtUtc);
+    const deploymentRows = snapshot.deploymentAllocations
+        .map((deployment) => `| ${deployment.deployment} | ${formatMaybeNumber(deployment.allocatedTpm)} | ${formatMaybeNumber(deployment.allocatedRpm)} |`)
+        .join('\n');
+    const quotaRows = snapshot.quotaSnapshots
+        .map((quota) => `| ${quota.model} | ${formatMaybeNumber(quota.allocatedUnits)} | ${formatMaybeNumber(quota.quotaUnits)} |`)
+        .join('\n');
+    return [
+        `Static allocation/quota snapshot observed at \`${observedAtUtc}\` for \`${snapshot.accountName}\` in \`${snapshot.resourceGroup}\` (${snapshot.subscription}).`,
+        ``,
+        `This panel is non-live metadata from config generation inputs, not runtime freshness telemetry.`,
+        ``,
+        `Deployment allocation snapshot:`,
+        `| Deployment | Allocated TPM | Allocated RPM |`,
+        `|---|---:|---:|`,
+        deploymentRows,
+        ``,
+        `Subscription quota snapshot:`,
+        `| Model | Allocated units | Quota units |`,
+        `|---|---:|---:|`,
+        quotaRows,
+        ``,
+        `No denominator-derived utilization ratio is shown from this static snapshot.`,
+    ].join('\n');
+}
+const OBSERVED_AT_UTC_PATTERN = /^(\d{4})-(\d{2})-(\d{2})T([01]\d|2[0-3]):([0-5]\d):([0-5]\d)(?:\.(\d{1,3}))?(Z|([+-])([01]\d|2[0-3]):([0-5]\d))$/;
+function formatObservedAtUtc(value) {
+    if (typeof value !== 'string') {
+        return 'Unavailable';
+    }
+    const candidate = value.trim();
+    if (candidate.length === 0) {
+        return 'Unavailable';
+    }
+    const matched = OBSERVED_AT_UTC_PATTERN.exec(candidate);
+    if (!matched) {
+        return 'Unavailable';
+    }
+    const year = Number(matched[1]);
+    const month = Number(matched[2]);
+    const day = Number(matched[3]);
+    const hour = Number(matched[4]);
+    const minute = Number(matched[5]);
+    const second = Number(matched[6]);
+    const millisecond = matched[7] ? Number(matched[7].padEnd(3, '0')) : 0;
+    const zone = matched[8];
+    const offsetSign = matched[9];
+    const offsetHours = matched[10] ? Number(matched[10]) : 0;
+    const offsetMinutes = matched[11] ? Number(matched[11]) : 0;
+    const parsed = Date.parse(candidate);
+    if (Number.isNaN(parsed)) {
+        return 'Unavailable';
+    }
+    const absoluteOffsetMinutes = offsetHours * 60 + offsetMinutes;
+    const signedOffsetMinutes = zone === 'Z'
+        ? 0
+        : (offsetSign === '+' ? absoluteOffsetMinutes : -absoluteOffsetMinutes);
+    const reconstructedLocal = new Date(parsed + signedOffsetMinutes * 60000);
+    if (reconstructedLocal.getUTCFullYear() !== year
+        || reconstructedLocal.getUTCMonth() + 1 !== month
+        || reconstructedLocal.getUTCDate() !== day
+        || reconstructedLocal.getUTCHours() !== hour
+        || reconstructedLocal.getUTCMinutes() !== minute
+        || reconstructedLocal.getUTCSeconds() !== second
+        || reconstructedLocal.getUTCMilliseconds() !== millisecond) {
+        return 'Unavailable';
+    }
+    if (zone === 'Z') {
+        return candidate;
+    }
+    return formatUtcTimestamp(new Date(parsed), matched[7] !== undefined) ?? 'Unavailable';
+}
+function formatUtcTimestamp(value, includeMilliseconds) {
+    const year = value.getUTCFullYear();
+    if (year < 0 || year > 9999) {
+        return null;
+    }
+    const yearText = `${year}`.padStart(4, '0');
+    const month = `${value.getUTCMonth() + 1}`.padStart(2, '0');
+    const day = `${value.getUTCDate()}`.padStart(2, '0');
+    const hour = `${value.getUTCHours()}`.padStart(2, '0');
+    const minute = `${value.getUTCMinutes()}`.padStart(2, '0');
+    const second = `${value.getUTCSeconds()}`.padStart(2, '0');
+    if (!includeMilliseconds) {
+        return `${yearText}-${month}-${day}T${hour}:${minute}:${second}Z`;
+    }
+    const millisecond = `${value.getUTCMilliseconds()}`.padStart(3, '0');
+    return `${yearText}-${month}-${day}T${hour}:${minute}:${second}.${millisecond}Z`;
+}
+function formatMaybeNumber(value) {
+    if (value === null || value === undefined || !Number.isFinite(value)) {
+        return 'Unavailable';
+    }
+    return `${value}`;
+}
+function aiSubscription(config) {
+    return config.aiObservability?.subscription ?? config.subscription;
+}
+function aiResource(config) {
+    return new azuremonitor_1.AzureMonitorResourceBuilder()
+        .subscription(aiSubscription(config))
+        .resourceGroup(config.aiObservability?.resourceGroup ?? config.globalResourceGroup)
+        .resourceName(config.aiObservability?.accountName ?? config.resources.aiServicesAccount)
+        .metricNamespace('microsoft.cognitiveservices/accounts');
 }
 // ── Blob Storage panels ─────────────────────────────────────────────
 function blobAvailabilityStat(config, storageAccount, resourceGroup, region) {
@@ -809,5 +985,62 @@ function eventHubCapturedMessagesTimeseries(config) {
         .thresholds(defaultThresholds())
         .withTarget(azureMonitorTarget('A', config, 'microsoft.eventhub/namespaces', 'CapturedMessages', 'Total', config.resources.eventHubsNamespace, []))
         .span(8)
+        .height(8);
+}
+// ── Event Hub Capture panels ────────────────────────────────────────
+function eventHubCaptureBacklogTimeseries(config) {
+    return defaultTimeseries()
+        .title('Event Hub - Capture Backlog')
+        .datasource(AZURE_DS)
+        .thresholds(failureThresholds())
+        .withTarget(azureMonitorTarget('A', config, 'microsoft.eventhub/namespaces', 'CaptureBacklog', 'Average', config.resources.eventHubsNamespace, []))
+        .span(8)
+        .height(8);
+}
+function eventHubCapturedBytesTimeseries(config) {
+    return defaultTimeseries()
+        .title('Event Hub - Captured Bytes')
+        .datasource(AZURE_DS)
+        .unit('bytes')
+        .thresholds(defaultThresholds())
+        .withTarget(azureMonitorTarget('A', config, 'microsoft.eventhub/namespaces', 'CapturedBytes', 'Total', config.resources.eventHubsNamespace, []))
+        .span(8)
+        .height(8);
+}
+function captureStorageIngressTimeseries(config) {
+    return defaultTimeseries()
+        .title('Capture Storage - Ingress')
+        .datasource(AZURE_DS)
+        .unit('bytes')
+        .thresholds(defaultThresholds())
+        .withTarget(new azuremonitor_1.AzureMonitorQueryBuilder()
+        .queryType(azuremonitor_1.AzureQueryType.AzureMonitor)
+        .refId('A')
+        .subscription(config.subscription)
+        .azureMonitor(azureMetricQuery('microsoft.storage/storageaccounts/blobservices', 'Ingress', 'Total', [], new azuremonitor_1.AzureMonitorResourceBuilder()
+        .subscription(config.subscription)
+        .resourceGroup(config.globalResourceGroup)
+        .resourceName(`${config.resources.captureStorageAccount}/default`)
+        .metricNamespace('microsoft.storage/storageaccounts/blobservices'))))
+        .span(8)
+        .height(8);
+}
+function eventHubReplicationLagDurationTimeseries(config) {
+    return defaultTimeseries()
+        .title('Event Hub - Replication Lag Duration')
+        .datasource(AZURE_DS)
+        .unit('s')
+        .thresholds(failureThresholds())
+        .withTarget(azureMonitorTarget('A', config, 'microsoft.eventhub/namespaces', 'ReplicationLagDuration', 'Maximum', config.resources.eventHubsNamespace, []))
+        .span(12)
+        .height(8);
+}
+function eventHubReplicationLagCountTimeseries(config) {
+    return defaultTimeseries()
+        .title('Event Hub - Replication Lag Count')
+        .datasource(AZURE_DS)
+        .thresholds(failureThresholds())
+        .withTarget(azureMonitorTarget('A', config, 'microsoft.eventhub/namespaces', 'ReplicationLagCount', 'Maximum', config.resources.eventHubsNamespace, []))
+        .span(12)
         .height(8);
 }

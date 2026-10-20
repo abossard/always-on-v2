@@ -1,7 +1,10 @@
-// TestMatrix.cs — Wires every test suite to the Aspire backend.
+// TestMatrix.cs: Wires every test suite to its execution backend.
 // Adding a new test suite? Add one class here. Tests never change.
 
 namespace HelloAgents.Tests;
+
+[InheritsTests]
+public class ChatClientSuite : ChatClientTests;
 
 // ──────────────────────────────────────────────
 // Aspire (Cosmos emulator, needs Docker)

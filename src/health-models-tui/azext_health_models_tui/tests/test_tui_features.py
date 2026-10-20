@@ -545,6 +545,14 @@ def test_render_entity_details_handles_missing_child() -> None:
     assert "(missing)" in plain
 
 
+def test_render_entity_details_shows_suppressed_for_none_impact_alias() -> None:
+    entity = _make_entity("entity-a", "Entity A", impact=Impact.NONE)
+    forest = _make_forest(entity, roots=("entity-a",))
+    plain = render_entity_details(forest, entity).plain
+    assert "Impact:" in plain
+    assert "Suppressed" in plain
+
+
 # ── 3c. EntityDrawer widget ─────────────────────────────────────────
 
 

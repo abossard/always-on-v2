@@ -12,14 +12,21 @@ def _get_client(cmd: object) -> CloudHealthClient:
 
 def health_models_tui(
     cmd: object,
-    resource_group: str,
-    model_name: str,
+    resource_group: str | None = None,
+    model_name: str | None = None,
     poll_interval: int = 30,
     plain: bool = False,
     debug_poll: bool = False,
 ) -> None:
     if debug_poll:
         _enable_verbose_logging()
+
+    if model_name and not resource_group:
+        from azure.cli.core.azclierror import RequiredArgumentMissingError
+
+        raise RequiredArgumentMissingError(
+            "--resource-group/-g is required when --model is provided."
+        )
 
     from azext_health_models_tui.watch import run_watch
 

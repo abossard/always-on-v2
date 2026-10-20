@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import logging
 import threading
+import json
+import copy
 from collections import Counter
 from collections.abc import Callable, Mapping
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -10,10 +12,11 @@ from contextlib import nullcontext
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from types import MappingProxyType
-from typing import Literal
+from typing import Any, Literal
 
 from azext_health_models_tui.client.rest_client import CloudHealthClient
 from azext_health_models_tui.domain.graph_builder import build_forest
+from azext_health_models_tui.domain.history import RangeKey, SnapshotKey
 from azext_health_models_tui.domain.model_reference import ModelKey
 from azext_health_models_tui.domain.parse import parse_entities, parse_relationships, parse_signal_definitions
 from azext_health_models_tui.domain.snapshot import build_snapshot, diff_snapshots
@@ -32,9 +35,12 @@ class ModelSnapshot:
     root_health: HealthState | None
     changes: tuple[StateChange, ...]
     definitions: Mapping[str, SignalDefinition]
+    captured_at: str = field(default="", kw_only=True)
+    resource_json: Mapping[tuple[str, str], str] = field(default_factory=dict, kw_only=True)
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "definitions", MappingProxyType(dict(self.definitions)))
+        object.__setattr__(self, "resource_json", MappingProxyType(dict(self.resource_json)))
 
 
 @dataclass(frozen=True)
@@ -142,6 +148,28 @@ class PollResult:
     elapsed_ms: float = 0.0
 
 
+@dataclass(frozen=True)
+class RangeView:
+    status: str
+    result: Mapping[str, Any] | None = None
+    error: str = ""
+
+    def __post_init__(self) -> None:
+        payload = copy.deepcopy(dict(self.result)) if isinstance(self.result, Mapping) else self.result
+        object.__setattr__(self, "result", MappingProxyType(payload) if isinstance(payload, dict) else payload)
+
+
+@dataclass(frozen=True)
+class _RangeEntry:
+    status: Literal["unloaded", "queued", "loading", "ready", "failed", "stopped"] = "unloaded"
+    sequence: int = 0
+    result: Mapping[str, Any] | None = None
+    error: str = ""
+
+    def as_view(self) -> RangeView:
+        return RangeView(status=self.status, result=self.result, error=self.error)
+
+
 class Poller:
     """One session owner. UI/plain adapters submit demand, never perform loads.
 
@@ -161,7 +189,7 @@ class Poller:
         self._candidates: dict[tuple[ModelKey, str], tuple[ModelKey, HealthState]] = {}
         self._condition = threading.Condition(threading.RLock())
         self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="health-model")
-        self._running: dict[ModelKey, Future[ModelSnapshot | None]] = {}
+        self._running: dict[object, Future[Any] | object] = {}
         self._stop = threading.Event()
         self._sequence = 0
         self._token = 0
@@ -169,6 +197,11 @@ class Poller:
         self._active: ModelKey | None = None
         self._visible: dict[ModelKey, int] = {}
         self._listener: Callable[[], None] | None = None
+        self._snapshots: dict[SnapshotKey, State] = {}
+        self._ranges: dict[RangeKey, _RangeEntry] = {}
+        self._advance_requested = False
+        self._snapshot_demands: dict[SnapshotKey, set[str]] = {}
+        self._range_demands: dict[RangeKey, set[str]] = {}
 
     @property
     def view(self) -> MonitorView:
@@ -189,7 +222,7 @@ class Poller:
         with self._condition:
             self._visible = dict(distances)
             if active != self._active:
-                self._withdraw_navigation(self._active)
+                self._withdraw(self._active, {"navigation", "active"})
                 self._active = active
                 if active is not None and active != self.root:
                     self._request(active, "navigation")
@@ -200,7 +233,7 @@ class Poller:
             self._visible = dict(distances)
             activation = target != self._active
             if activation:
-                self._withdraw_navigation(self._active)
+                self._withdraw(self._active, {"navigation", "active"})
                 self._active = target
             state = self._entries.get(target, Unloaded())
             if activation or isinstance(state, (Queued, Failed)) or type(state) is Unloaded:
@@ -210,7 +243,10 @@ class Poller:
     def wait(self) -> None:
         with self._condition:
             self._condition.wait_for(lambda: self._stop.is_set() or (
-                not self._running and not any(type(s) is Queued for s in self._entries.values())
+                not self._running
+                and not any(type(s) is Queued for s in self._entries.values())
+                and not any(type(s) is Queued for s in self._snapshots.values())
+                and not any(v.status == "queued" for v in self._ranges.values())
             ))
 
     def poll_once(self) -> PollResult:
@@ -233,8 +269,141 @@ class Poller:
                 k: Stopped(s.previous, s.generation, s.error, last_check=s.last_check)
                 for k, s in self._entries.items()
             }
+            self._snapshots = {
+                k: Stopped(s.previous, s.generation, s.error, last_check=s.last_check)
+                for k, s in self._snapshots.items()
+            }
+            self._ranges = {
+                k: _RangeEntry(status="stopped", sequence=v.sequence, result=v.result, error=v.error)
+                for k, v in self._ranges.items()
+            }
+            self._snapshot_demands.clear()
+            self._range_demands.clear()
             self._condition.notify_all()
         self._executor.shutdown(wait=False, cancel_futures=True)
+
+    def _snapshot_key(self, at: datetime, target: ModelKey | None) -> SnapshotKey:
+        scoped = target or self.root
+        return SnapshotKey(scoped, at.astimezone(timezone.utc))
+
+    @staticmethod
+    def _invoke_with_timestamp(
+        fn: Callable[..., list[dict[str, Any]]], group: str, model: str, at: datetime,
+    ) -> list[dict[str, Any]]:
+        return fn(group, model, timestamp=at)
+
+    @staticmethod
+    def _resource_json(
+        entities: list[dict[str, Any]],
+        relationships: list[dict[str, Any]],
+        definitions: list[dict[str, Any]],
+    ) -> Mapping[tuple[str, str], str]:
+        payload: dict[tuple[str, str], str] = {}
+        for entity in entities:
+            name = str(entity.get("name", "")).casefold()
+            if name:
+                payload[("entity", name)] = json.dumps(entity, sort_keys=True, separators=(",", ":"))
+        for relationship in relationships:
+            name = str(relationship.get("name", "")).casefold()
+            if name:
+                payload[("relationship", name)] = json.dumps(relationship, sort_keys=True, separators=(",", ":"))
+        for definition in definitions:
+            name = str(definition.get("name", "")).casefold()
+            if name:
+                payload[("signaldefinition", name)] = json.dumps(definition, sort_keys=True, separators=(",", ":"))
+        return payload
+
+    @staticmethod
+    def _require_aware_utc(value: datetime, label: str) -> datetime:
+        if value.tzinfo is None or value.utcoffset() is None:
+            raise ValueError(f"{label} must be timezone-aware UTC datetime")
+        if value.utcoffset() != timezone.utc.utcoffset(None):
+            raise ValueError(f"{label} must use UTC timezone")
+        return value.astimezone(timezone.utc)
+
+    def open_at(self, at: datetime, target: ModelKey | None = None, *, purpose: str = "default") -> None:
+        with self._condition:
+            if self._stop.is_set():
+                return
+            self._require_aware_utc(at, "open_at(at)")
+            key = self._snapshot_key(at, target)
+            if not purpose:
+                raise ValueError("open_at purpose must be non-empty")
+            self._snapshot_demands.setdefault(key, set()).add(purpose)
+            self._sequence += 1
+            self._snapshots[key] = _demand(self._snapshots.get(key, Unloaded()), "navigation", self._sequence)
+            self._prune_snapshots()
+            self._advance()
+
+    def release_at(self, at: datetime, target: ModelKey | None = None, *, purpose: str = "default") -> None:
+        with self._condition:
+            self._require_aware_utc(at, "release_at(at)")
+            key = self._snapshot_key(at, target)
+            owners = self._snapshot_demands.get(key)
+            if owners is not None:
+                owners.discard(purpose)
+                if not owners:
+                    self._snapshot_demands.pop(key, None)
+            state = self._snapshots.get(key)
+            if type(state) is Queued:
+                cls = (
+                    Stale if state.resume == "stale"
+                    else Failed if state.error
+                    else Ready if state.previous
+                    else Unloaded
+                )
+                self._snapshots[key] = cls(state.previous, state.generation, state.error, last_check=state.last_check)
+                self._prune_snapshots()
+            self._advance()
+
+    def view_at(self, at: datetime) -> MonitorView:
+        with self._condition:
+            stamp = self._require_aware_utc(at, "view_at(at)")
+            entries = {
+                key.model: state
+                for key, state in self._snapshots.items()
+                if key.at_utc == stamp
+            }
+            if self.root not in entries:
+                entries[self.root] = Unloaded()
+            return MonitorView(self.root, entries)
+
+    def request_range(self, key: RangeKey, *, purpose: str = "default") -> None:
+        with self._condition:
+            if self._stop.is_set():
+                return
+            if not purpose:
+                raise ValueError("request_range purpose must be non-empty")
+            self._range_demands.setdefault(key, set()).add(purpose)
+            self._sequence += 1
+            entry = self._ranges.get(key, _RangeEntry())
+            if entry.status in {"queued", "loading", "ready"}:
+                return
+            self._ranges[key] = _RangeEntry(
+                status="queued",
+                sequence=self._sequence,
+                result=entry.result,
+                error=entry.error,
+            )
+            self._prune_ranges()
+            self._advance()
+
+    def release_range(self, key: RangeKey, *, purpose: str = "default") -> None:
+        with self._condition:
+            owners = self._range_demands.get(key)
+            if owners is not None:
+                owners.discard(purpose)
+                if not owners:
+                    self._range_demands.pop(key, None)
+            entry = self._ranges.get(key)
+            if entry and entry.status == "queued":
+                self._ranges[key] = _RangeEntry(status="unloaded", sequence=entry.sequence, result=entry.result, error=entry.error)
+                self._prune_ranges()
+            self._advance()
+
+    def range_view(self, key: RangeKey) -> RangeView:
+        with self._condition:
+            return self._ranges.get(key, _RangeEntry()).as_view()
 
     def _request(self, key: ModelKey, reason: Reason) -> None:
         if self._stop.is_set():
@@ -242,12 +411,12 @@ class Poller:
         self._sequence += 1
         self._entries[key] = _demand(self._entries.get(key, Unloaded()), reason, self._sequence)
 
-    def _withdraw_navigation(self, key: ModelKey | None) -> None:
+    def _withdraw(self, key: ModelKey | None, reasons: set[Reason]) -> None:
         if key is None:
             return
         state = self._entries.get(key)
         if isinstance(state, Queued):
-            remaining = state.reasons - {"navigation", "active"}
+            remaining = state.reasons - reasons
             if remaining or isinstance(state, Checking):
                 self._entries[key] = replace(state, reasons=remaining)
             else:
@@ -262,26 +431,68 @@ class Poller:
         return rank, self._visible.get(key, float("inf")), state.sequence, key.canonical
 
     def _advance(self) -> None:
-        if self._stop.is_set() or self._advancing:
+        if self._stop.is_set():
+            return
+        if self._advancing:
+            self._advance_requested = True
             return
         self._advancing = True
         try:
-            while len(self._running) < 2:
-                queue = [(k, s) for k, s in self._entries.items() if type(s) is Queued and k not in self._running]
-                if not queue:
+            while True:
+                self._advance_requested = False
+                while len(self._running) < 2:
+                    live_queue = [
+                        (k, s) for k, s in self._entries.items()
+                        if type(s) is Queued and ("live", k) not in self._running
+                    ]
+                    snapshot_queue = [
+                        (k, s) for k, s in self._snapshots.items()
+                        if type(s) is Queued and ("snapshot", k) not in self._running
+                    ]
+                    range_queue = [
+                        (k, v) for k, v in self._ranges.items()
+                        if v.status == "queued" and ("range", k) not in self._running
+                    ]
+                    if not live_queue and not snapshot_queue and not range_queue:
+                        break
+                    candidate: tuple[Any, Any, str] | None = None
+                    if live_queue:
+                        k, s = min(live_queue, key=self._priority)
+                        candidate = (k, s, "live")
+                    if snapshot_queue:
+                        k, s = min(snapshot_queue, key=lambda item: (0, item[1].sequence, item[0].at_utc, item[0].model.canonical))
+                        probe = (k, s, "snapshot")
+                        if candidate is None or (0, s.sequence) < (
+                            1 if candidate[2] == "live" and not candidate[1].reasons & {"navigation", "manual"} else 0,
+                            candidate[1].sequence,
+                        ):
+                            candidate = probe
+                    if range_queue:
+                        k, v = min(range_queue, key=lambda item: (item[1].sequence, repr(item[0])))
+                        probe = (k, v, "range")
+                        if candidate is None:
+                            candidate = probe
+                    assert candidate is not None
+                    if candidate[2] == "range":
+                        self._start_range(candidate[0], candidate[1])
+                        continue
+                    key, state = candidate[0], candidate[1]
+                    self._token += 1
+                    cls = Checking if candidate[2] == "live" and state.reasons == {"health"} and state.previous else Loading
+                    running = cls(
+                        state.previous, state.generation, state.error, state.reasons,
+                        state.sequence, self._token, state.generation,
+                        last_check=state.last_check,
+                    )
+                    if candidate[2] == "live":
+                        self._start(key, running)
+                    else:
+                        self._start_snapshot(key, running)
+                if self._listener:
+                    self._listener()
+                self._condition.notify_all()
+                if not self._advance_requested:
                     break
-                key, state = min(queue, key=self._priority)
-                self._token += 1
-                cls = Checking if state.reasons == {"health"} and state.previous else Loading
-                running = cls(
-                    state.previous, state.generation, state.error, state.reasons,
-                    state.sequence, self._token, state.generation,
-                    last_check=state.last_check,
-                )
-                self._start(key, running)
-            if self._listener:
-                self._listener()
-            self._condition.notify_all()
         finally:
             self._advancing = False
 
@@ -290,8 +501,27 @@ class Poller:
         if self._listener:
             self._listener()
         future = self._executor.submit(self._run, key, command)
-        self._running[key] = future
-        future.add_done_callback(lambda f: self._complete(key, command.token, f))
+        run_key = ("live", key)
+        self._running[run_key] = future
+        future.add_done_callback(lambda f: self._complete(key, command.token, f, run_key))
+
+    def _start_snapshot(self, key: SnapshotKey, command: Checking) -> None:
+        self._snapshots[key] = command
+        if self._listener:
+            self._listener()
+        future = self._executor.submit(self._run_snapshot, key, command)
+        run_key = ("snapshot", key)
+        self._running[run_key] = future
+        future.add_done_callback(lambda f: self._complete_snapshot(key, command.token, f, run_key))
+
+    def _start_range(self, key: RangeKey, command: _RangeEntry) -> None:
+        self._ranges[key] = _RangeEntry(status="loading", sequence=command.sequence, result=command.result, error=command.error)
+        if self._listener:
+            self._listener()
+        future = self._executor.submit(self._run_range, key)
+        run_key = ("range", key)
+        self._running[run_key] = future
+        future.add_done_callback(lambda f: self._complete_range(key, f, run_key))
 
     def _run(self, key: ModelKey, command: Checking) -> ModelSnapshot | None:
         client = self._client if key == self.root else self._client.for_model(key)
@@ -320,30 +550,86 @@ class Poller:
                     if self._listener:
                         self._listener()
             self._check_live()
-            definitions = parse_signal_definitions(client.list_signal_definitions(key.group, key.name))
+            raw_definitions = client.list_signal_definitions(key.group, key.name)
+            definitions = parse_signal_definitions(raw_definitions)
             self._check_live()
-            entities = parse_entities(client.list_entities(key.group, key.name), definitions, key.endpoint)
+            raw_entities = client.list_entities(key.group, key.name)
+            entities = parse_entities(raw_entities, definitions, key.endpoint)
             self._check_live()
-            relationships = parse_relationships(client.list_relationships(key.group, key.name))
+            raw_relationships = client.list_relationships(key.group, key.name)
+            relationships = parse_relationships(raw_relationships)
             self._check_live()
             forest = build_forest(entities, relationships)
             root = next((e for e in entities.values() if e.name.casefold() == key.name.casefold()), None)
             if key != self.root and root is None:
                 raise ValueError(f"Missing expected nested root entity {key.name!r} in {key.label}")
             snapshot = build_snapshot(forest, datetime.now(timezone.utc).isoformat())
+            captured_at = datetime.now(timezone.utc).isoformat()
             return ModelSnapshot(
                 forest, snapshot, root.health_state if root else None,
                 tuple(diff_snapshots(command.previous.snapshot if command.previous else None, snapshot)),
                 definitions,
+                captured_at=captured_at,
+                resource_json=self._resource_json(raw_entities, raw_relationships, raw_definitions),
             )
+
+    def _run_snapshot(self, key: SnapshotKey, command: Checking) -> ModelSnapshot | None:
+        model = key.model
+        at = key.at_utc
+        client = self._client if model == self.root else self._client.for_model(model)
+        context = client.monitor_reads(self._stop) if hasattr(client, "monitor_reads") else nullcontext()
+        with context:
+            self._check_live()
+            raw_definitions = self._invoke_with_timestamp(client.list_signal_definitions, model.group, model.name, at)
+            definitions = parse_signal_definitions(raw_definitions)
+            self._check_live()
+            raw_entities = self._invoke_with_timestamp(client.list_entities, model.group, model.name, at)
+            entities = parse_entities(raw_entities, definitions, model.endpoint)
+            self._check_live()
+            raw_relationships = self._invoke_with_timestamp(client.list_relationships, model.group, model.name, at)
+            relationships = parse_relationships(raw_relationships)
+            self._check_live()
+            forest = build_forest(entities, relationships)
+            root = next((e for e in entities.values() if e.name.casefold() == model.name.casefold()), None)
+            captured_at = datetime.now(timezone.utc).isoformat()
+            snapshot_time = at.isoformat().replace("+00:00", "Z")
+            snapshot = build_snapshot(forest, snapshot_time)
+            return ModelSnapshot(
+                forest, snapshot, root.health_state if root else None,
+                tuple(diff_snapshots(command.previous.snapshot if command.previous else None, snapshot)),
+                definitions,
+                captured_at=captured_at,
+                resource_json=self._resource_json(raw_entities, raw_relationships, raw_definitions),
+            )
+
+    def _run_range(self, key: RangeKey) -> Mapping[str, Any]:
+        model = key.model
+        client = self._client if model == self.root else self._client.for_model(model)
+        context = client.monitor_reads(self._stop) if hasattr(client, "monitor_reads") else nullcontext()
+        body = {
+            "startAt": key.start_utc.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "endAt": key.end_utc.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
+        }
+        if key.signal_name is not None:
+            body["signalName"] = key.signal_name
+        with context:
+            self._check_live()
+            if key.signal_name is None:
+                result = client.get_entity_history(model.group, model.name, key.entity_name, body)
+            else:
+                result = client.get_signal_history(model.group, model.name, key.entity_name, body)
+            self._check_live()
+            if not isinstance(result, Mapping):
+                raise TypeError("Range response must be a mapping")
+            return result
 
     def _check_live(self) -> None:
         if self._stop.is_set():
             raise InterruptedError("Monitor stopped")
 
-    def _complete(self, key: ModelKey, token: int, future: Future[ModelSnapshot | None]) -> None:
+    def _complete(self, key: ModelKey, token: int, future: Future[ModelSnapshot | None], run_key: object) -> None:
         with self._condition:
-            self._running.pop(key, None)
+            self._running.pop(run_key, None)
             if self._stop.is_set():
                 self._condition.notify_all()
                 return
@@ -388,6 +674,88 @@ class Poller:
                     self._observe(key, snapshot)
             self._advance()
 
+    def _complete_snapshot(
+        self, key: SnapshotKey, token: int, future: Future[ModelSnapshot | None], run_key: object,
+    ) -> None:
+        with self._condition:
+            self._running.pop(run_key, None)
+            if self._stop.is_set():
+                self._condition.notify_all()
+                return
+            state = self._snapshots.get(key, Unloaded())
+            if not isinstance(state, Checking) or state.token != token:
+                self._advance()
+                return
+            try:
+                snapshot = future.result()
+            except Exception as exc:
+                _log.exception("Historical model read failed: %s at %s", key.model.label, key.at_utc.isoformat())
+                diagnostic = exc.diagnostic_text() if hasattr(exc, "diagnostic_text") else f"{type(exc).__name__}: {exc}"
+                self._snapshots[key] = Failed(state.previous, state.generation, diagnostic, last_check=state.last_check)
+            else:
+                snapshot = snapshot or state.previous
+                assert snapshot is not None
+                self._snapshots[key] = Ready(snapshot, state.generation, last_check=state.last_check)
+            self._prune_snapshots()
+            self._advance()
+
+    def _complete_range(self, key: RangeKey, future: Future[Mapping[str, Any]], run_key: object) -> None:
+        with self._condition:
+            self._running.pop(run_key, None)
+            if self._stop.is_set():
+                self._condition.notify_all()
+                return
+            current = self._ranges.get(key, _RangeEntry())
+            if current.status != "loading":
+                self._advance()
+                return
+            try:
+                result = future.result()
+            except Exception as exc:
+                diagnostic = exc.diagnostic_text() if hasattr(exc, "diagnostic_text") else f"{type(exc).__name__}: {exc}"
+                self._ranges[key] = _RangeEntry(status="failed", sequence=current.sequence, result=current.result, error=diagnostic)
+            else:
+                self._ranges[key] = _RangeEntry(status="ready", sequence=current.sequence, result=result, error="")
+            self._prune_ranges()
+            self._advance()
+
+    def _prune_snapshots(self) -> None:
+        if len(self._snapshots) <= self._MAX_HISTORY_CACHE:
+            return
+        running = {
+            job_key[1] for job_key in self._running
+            if isinstance(job_key, tuple) and len(job_key) == 2 and job_key[0] == "snapshot"
+        }
+        ordered = sorted(self._snapshots.items(), key=lambda item: item[1].generation)
+        for key, state in ordered:
+            if len(self._snapshots) <= self._MAX_HISTORY_CACHE:
+                break
+            pinned_instants = {
+                demand_key.at_utc for demand_key, owners in self._snapshot_demands.items() if owners
+            }
+            if key in running or type(state) is Queued:
+                continue
+            if key.at_utc in pinned_instants:
+                continue
+            self._snapshots.pop(key, None)
+
+    def _prune_ranges(self) -> None:
+        if len(self._ranges) <= self._MAX_HISTORY_CACHE:
+            return
+        running = {
+            job_key[1] for job_key in self._running
+            if isinstance(job_key, tuple) and len(job_key) == 2 and job_key[0] == "range"
+        }
+        ordered = sorted(self._ranges.items(), key=lambda item: item[1].sequence)
+        for key, state in ordered:
+            if len(self._ranges) <= self._MAX_HISTORY_CACHE:
+                break
+            if key in running or state.status == "queued":
+                continue
+            if key in self._range_demands and self._range_demands[key]:
+                continue
+            self._ranges.pop(key, None)
+
     def _needed(self, target: ModelKey) -> bool:
         return target == self.root or target == self._active or any(
             key == target for key, _ in self._bindings.values()
@@ -422,7 +790,7 @@ class Poller:
         self._bindings = {k: v for k, v in self._bindings.items() if k[0] in live}
         self._candidates = {k: v for k, v in self._candidates.items() if k in self._bindings}
         if self._active is not None and self._active not in live:
-            self._withdraw_navigation(self._active)
+            self._withdraw(self._active, {"navigation", "active"})
             self._active = None
         for binding, (target, health) in current.items():
             state = self._entries.setdefault(target, Unloaded())
@@ -439,14 +807,14 @@ class Poller:
                 self._entries[target] = state
             if health != cached_health:
                 self._candidates[binding] = (target, health)
-                if not isinstance(state, Queued):
-                    self._entries[target] = Stale(
-                        state.previous, state.generation, state.error, last_check=state.last_check,
-                    )
                 self._request(target, "health")
         for target, state in list(self._entries.items()):
+            if type(state) is Queued and "health" in state.reasons and not self._conflicts(target):
+                self._withdraw(target, {"health"})
+                state = self._entries[target]
             if target != self.root and not self._needed(target):
                 if isinstance(state, Checking):
                     self._entries[target] = replace(state, generation=state.generation + 1)
                 elif type(state) is Queued:
                     self._entries[target] = Stale(state.previous, state.generation) if state.previous else Unloaded()
+    _MAX_HISTORY_CACHE = 128

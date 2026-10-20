@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import UTC, datetime
 from typing import Any
 
 from rich.text import Text
@@ -10,6 +11,7 @@ from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.events import Key
 from textual.screen import ModalScreen
 from textual.widgets import Button, Label, Static, TextArea
 
@@ -18,6 +20,8 @@ from azext_health_models_tui.client.query_executor import (
     resolve_signal_config,
 )
 from azext_health_models_tui.client.rest_client import CloudHealthClient
+from azext_health_models_tui.domain.drafts import ResourceTarget, get_in, parse_field_path
+from azext_health_models_tui.watch.draft_store import DraftStore, DraftTestResult
 
 
 _KIND_LABEL = {
@@ -46,6 +50,8 @@ class QueryEditor(ModalScreen[None]):
     BINDINGS = [
         Binding("escape", "dismiss_editor", "Close", priority=True),
         Binding("ctrl+r", "test_query", "Test", priority=True),
+        Binding("ctrl+q", "request_quit", "Quit", priority=True),
+        Binding("f2", "open_actions", "Actions", priority=True),
     ]
 
     def __init__(
@@ -55,6 +61,8 @@ class QueryEditor(ModalScreen[None]):
         model_name: str,
         entity_name: str,
         signal_name: str,
+        draft_store: DraftStore | None = None,
+        draft_target: ResourceTarget | None = None,
     ) -> None:
         super().__init__()
         self._client = client
@@ -64,6 +72,8 @@ class QueryEditor(ModalScreen[None]):
         self._signal_name = signal_name
         self._config: dict[str, Any] = {}
         self._loaded: bool = False
+        self._draft_store = draft_store
+        self._draft_target = draft_target
 
     # ── layout ────────────────────────────────────────────────────────
 
@@ -121,11 +131,16 @@ class QueryEditor(ModalScreen[None]):
             self._signal_name,
         )
         return {
+            "entity_raw": config.entity,
+            "signal_instance_raw": config.signal_instance,
+            "signal_definition_raw": config.signal_definition,
             "entity_display": config.entity_display,
             "signal_display": config.signal_display_name,
             "signal_kind": config.signal_kind,
             "signal_def_name": config.signal_definition_name,
             "group_key": config.signal_group,
+            "query_path": self._signal_query_path(config.entity, config.signal_group, self._signal_name),
+            "query_owned_by_definition": self._query_owned_by_definition(config.signal_instance, config.signal_definition),
             "data_source": config.data_source,
             "query_text": config.query_text,
             "time_grain": config.time_grain,
@@ -136,6 +151,33 @@ class QueryEditor(ModalScreen[None]):
             "degraded_rule": (config.evaluation_rules or {}).get("degradedRule"),
             "unhealthy_rule": (config.evaluation_rules or {}).get("unhealthyRule"),
         }
+
+    @staticmethod
+    def _query_owned_by_definition(
+        signal_instance: dict[str, Any],
+        signal_definition: dict[str, Any] | None,
+    ) -> bool:
+        has_instance_query = bool(str(signal_instance.get("queryText", "")).strip())
+        if has_instance_query:
+            return False
+        if not isinstance(signal_definition, dict):
+            return False
+        properties = signal_definition.get("properties")
+        return isinstance(properties, dict) and bool(str(properties.get("queryText", "")).strip())
+
+    @staticmethod
+    def _signal_query_path(entity: dict[str, Any], group_key: str, signal_name: str) -> str:
+        groups = entity.get("properties", {}).get("signalGroups", {})
+        group = groups.get(group_key)
+        if not isinstance(group, dict):
+            return "properties.queryText"
+        signals = group.get("signals", [])
+        if not isinstance(signals, list):
+            return "properties.queryText"
+        for index, signal in enumerate(signals):
+            if isinstance(signal, dict) and signal.get("name") == signal_name:
+                return f"properties.signalGroups.{group_key}.signals[{index}].queryText"
+        return "properties.queryText"
 
     def _render_config(self) -> None:
         c = self._config
@@ -153,6 +195,8 @@ class QueryEditor(ModalScreen[None]):
         _add_row(meta, "Entity", c.get("entity_display", ""))
         _add_row(meta, "Signal kind", kind or "—")
         _add_row(meta, "Signal group", c.get("group_key", "") or "—")
+        if c.get("query_owned_by_definition"):
+            _add_row(meta, "Draft scope", "Shared signal definition")
         _add_row(meta, "Data source", c.get("data_source", "") or "—")
         _add_row(meta, "Time grain", c.get("time_grain", "") or "—")
         _add_row(meta, "Data unit", c.get("data_unit", "") or "—")
@@ -168,24 +212,109 @@ class QueryEditor(ModalScreen[None]):
         self.query_one("#qe-meta", Static).update(meta)
 
         ta = self.query_one("#qe-query", TextArea)
-        ta.text = c.get("query_text", "") or ""
+        ta.text = self._resolve_initial_query(c.get("query_text", "") or "")
+
+    def _resolve_initial_query(self, fallback_query: str) -> str:
+        if self._draft_store is None:
+            return fallback_query
+        active_target, query_path = self._active_draft_target_and_path()
+        if active_target is None:
+            return fallback_query
+        existing = self._draft_store.get(active_target)
+        if existing is not None:
+            query = get_in(existing.edited, parse_field_path(query_path))
+            return str(query) if isinstance(query, str) else fallback_query
+        baseline = self._draft_baseline_for_editor(fallback_query)
+        if baseline is None:
+            return fallback_query
+        draft = self._draft_store.get_or_create(active_target, baseline)
+        query = get_in(draft.edited, parse_field_path(query_path))
+        return str(query) if isinstance(query, str) else fallback_query
+
+    def _draft_baseline_for_editor(self, fallback_query: str) -> dict[str, Any] | None:
+        active_target, _ = self._active_draft_target_and_path()
+        if active_target is None:
+            return None
+        if active_target.kind == "entity":
+            raw = self._config.get("entity_raw")
+            if isinstance(raw, dict):
+                baseline = dict(raw)
+                baseline["name"] = active_target.name
+                return baseline
+            return {"name": active_target.name, "properties": {}}
+        if active_target.kind == "signal_definition":
+            raw = self._config.get("signal_definition_raw")
+            if isinstance(raw, dict):
+                baseline = dict(raw)
+                baseline["name"] = active_target.name
+                return baseline
+        signal_kind = str(self._config.get("signal_kind", "") or "")
+        if not signal_kind:
+            return None
+        return {
+            "name": active_target.name,
+            "properties": {
+                "queryText": fallback_query,
+                "signalKind": signal_kind,
+            },
+        }
+
+    def _active_draft_target_and_path(self) -> tuple[ResourceTarget | None, str]:
+        if self._draft_target is None:
+            return None, "properties.queryText"
+        if bool(self._config.get("query_owned_by_definition")) and self._draft_target.kind == "entity":
+            signal_def_name = str(self._config.get("signal_def_name", "") or "")
+            if signal_def_name:
+                return (
+                    ResourceTarget(self._draft_target.model, "signal_definition", signal_def_name),
+                    "properties.queryText",
+                )
+        if self._draft_target.kind != "entity":
+            return self._draft_target, "properties.queryText"
+        return self._draft_target, str(self._config.get("query_path", "properties.queryText"))
 
     # ── actions ───────────────────────────────────────────────────────
 
     @on(Button.Pressed, "#qe-close")
     def _on_close(self, event: Button.Pressed) -> None:
+        self._persist_draft_query()
         self.dismiss(None)
 
     @on(Button.Pressed, "#qe-test")
     def _on_test(self, event: Button.Pressed) -> None:
         self.run_worker(self._test_query(), exclusive=True)
 
+    @on(TextArea.Changed, "#qe-query")
+    def _on_query_changed(self, event: TextArea.Changed) -> None:
+        if self._loaded:
+            self._persist_draft_query()
+
     def action_dismiss_editor(self) -> None:
+        self._persist_draft_query()
         self.dismiss(None)
 
     def action_test_query(self) -> None:
         if self._loaded:
             self.run_worker(self._test_query(), exclusive=True)
+
+    def action_request_quit(self) -> None:
+        self._persist_draft_query()
+        if hasattr(self.app, "action_quit"):
+            self.app.action_quit()
+
+    def action_open_actions(self) -> None:
+        self._persist_draft_query()
+        self.app.action_open_actions()
+
+    def on_key(self, event: Key) -> None:
+        if event.key == "ctrl+q":
+            event.stop()
+            self.action_request_quit()
+            return
+        if event.key == "f2":
+            event.stop()
+            self.action_open_actions()
+            return
 
     async def _test_query(self) -> None:
         if not self._loaded:
@@ -195,6 +324,14 @@ class QueryEditor(ModalScreen[None]):
 
         edited_query = self.query_one("#qe-query", TextArea).text
         original = self._config.get("query_text", "")
+        active_target, query_path = self._active_draft_target_and_path()
+        revision_for_result: int | None = None
+        if self._draft_store is not None and active_target is not None:
+            baseline = self._draft_baseline_for_editor(original)
+            if baseline is not None:
+                self._draft_store.get_or_create(active_target, baseline)
+            updated = self._draft_store.update_field(active_target, query_path, edited_query)
+            revision_for_result = updated.revision
 
         try:
             result = await asyncio.to_thread(
@@ -211,6 +348,20 @@ class QueryEditor(ModalScreen[None]):
 
         if self.is_mounted:
             results.update(_format_result(result))
+            if (
+                revision_for_result is not None
+                and self._draft_store is not None
+                and active_target is not None
+            ):
+                summary = "error" if result.get("error") else "ok"
+                self._draft_store.record_test_result(
+                    active_target,
+                    DraftTestResult(
+                        revision=revision_for_result,
+                        summary=summary,
+                        recorded_at_utc=datetime.now(UTC),
+                    ),
+                )
 
     def _run_with_override(self, edited_query: str, original: str) -> dict[str, Any]:
         """Call execute_signal for an edited or unedited query."""
@@ -225,6 +376,23 @@ class QueryEditor(ModalScreen[None]):
             self._entity_name, self._signal_name,
             query_override=edited_query,
         )
+
+    def _persist_draft_query(self) -> None:
+        if self._draft_store is None or not self._loaded:
+            return
+        active_target, query_path = self._active_draft_target_and_path()
+        if active_target is None:
+            return
+        query = self.query_one("#qe-query", TextArea).text
+        draft = self._draft_store.get(active_target)
+        if draft is None:
+            baseline = self._draft_baseline_for_editor(str(self._config.get("query_text", "") or ""))
+            if baseline is None:
+                return
+            draft = self._draft_store.get_or_create(active_target, baseline)
+        current = get_in(draft.edited, parse_field_path(query_path))
+        if current != query:
+            self._draft_store.update_field(active_target, query_path, query)
 
 
 def _add_row(text: Text, key: str, value: str) -> None:

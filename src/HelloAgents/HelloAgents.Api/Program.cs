@@ -69,14 +69,16 @@ builder.Services.AddSingleton<DeploymentRegistry>();
 
 if (!string.IsNullOrWhiteSpace(azureEndpoint))
 {
-    builder.Services.TryAddSingleton<IChatClient>(sp =>
+    builder.Services.TryAddSingleton(sp =>
     {
-        var registry = sp.GetRequiredService<DeploymentRegistry>();
         var options = new AzureOpenAIClientOptions();
         options.RetryPolicy = new ClientRetryPolicy(maxRetries: 3);
-        var openAiClient = new AzureOpenAIClient(new Uri(azureEndpoint), new DefaultAzureCredential(), options);
-        return openAiClient.GetChatClient(registry.DefaultDeployment).AsIChatClient();
+        return new AzureOpenAIClient(new Uri(azureEndpoint), new DefaultAzureCredential(), options);
     });
+    builder.Services.TryAddSingleton<IChatClient>(sp =>
+        ChatClientFactory.CreateChatClient(
+            sp.GetRequiredService<AzureOpenAIClient>(),
+            sp.GetRequiredService<DeploymentRegistry>().DefaultDeployment));
 }
 else if (!string.IsNullOrWhiteSpace(openAiEndpoint))
 {

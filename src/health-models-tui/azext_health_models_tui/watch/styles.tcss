@@ -7,6 +7,32 @@ Screen {
     color: $text;
 }
 
+#workspace-tabs {
+    dock: top;
+    height: 2;
+    padding: 0 1;
+    background: $panel;
+    border-bottom: solid $primary-darken-2;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+#workspace-tabs Button {
+    margin-right: 1;
+    min-width: 8;
+    width: auto;
+    height: 1;
+    border: none;
+    padding: 0 1;
+    background: $surface;
+}
+
+#workspace-tabs Button:focus,
+#workspace-tabs Button:hover {
+    background: $primary-darken-2;
+    text-style: bold;
+}
+
 /* ─── Health Tree ───────────────────────────────────────────────── */
 HealthTree {
     width: 1fr;
@@ -14,6 +40,136 @@ HealthTree {
     border: round $primary;
     padding: 1 2;
     scrollbar-size-vertical: 1;
+}
+
+TimelinePane, ChangesPane {
+    dock: right;
+    width: 1fr;
+    max-width: 65%;
+    min-width: 42;
+    height: 1fr;
+    background: $panel;
+    border-left: solid $primary;
+    padding: 0 1;
+    display: none;
+}
+
+TimelinePane > Static,
+ChangesPane > Static {
+    height: auto;
+}
+
+#timeline-scroll,
+#changes-form-scroll {
+    height: 1fr;
+    border: round $primary-darken-2;
+    background: $surface;
+    padding: 0 1;
+    scrollbar-size-vertical: 1;
+}
+
+#changes-result {
+    color: $accent;
+    background: $surface-lighten-1;
+    border: round $primary-darken-2;
+    padding: 0 1;
+    margin: 0 0 1 0;
+    min-height: 1;
+}
+
+#timeline-ranges,
+#timeline-preview-row,
+#timeline-open-row,
+#timeline-compare-row,
+#changes-edit-row-a,
+#changes-edit-row-impact,
+#changes-edit-row-b,
+#changes-edit-row-icon,
+#changes-edit-row-c,
+#changes-review-row,
+#changes-relationship-row,
+#changes-relationship-row-child,
+#changes-save-row,
+#changes-restore-path-row,
+#changes-restore-row,
+#changes-restore-confirm-row,
+#changes-apply-row,
+#changes-apply-confirm-row {
+    height: auto;
+    width: 100%;
+}
+
+.changes-section-label {
+    color: $accent;
+    text-style: bold;
+    padding-top: 0;
+}
+
+.changes-field-label {
+    color: $text-muted;
+    padding-top: 0;
+}
+
+#timeline-preview-row Input,
+#timeline-compare-row Input,
+#changes-edit-row-a Input,
+#changes-edit-row-impact Input,
+#changes-edit-row-b Input,
+#changes-edit-row-icon Input,
+#changes-edit-row-c Input,
+#changes-relationship-row Input,
+#changes-relationship-row-child Input,
+#changes-save-row Input,
+#changes-restore-path-row Input,
+#changes-restore-row Input,
+#changes-restore-confirm-row Input,
+#changes-apply-row Input,
+#changes-apply-confirm-row Input {
+    width: 1fr;
+    min-width: 10;
+}
+
+#timeline-ranges Button,
+#timeline-preview-row Button,
+#timeline-open-row Button,
+#timeline-compare-row Button,
+#changes-edit-row-c Button,
+#changes-review-row Button,
+#changes-save-row Button,
+#changes-restore-row Button,
+#changes-apply-row Button {
+    width: auto;
+    min-width: 0;
+}
+
+#changes-review-row,
+#changes-save-row,
+#changes-restore-row,
+#changes-apply-row {
+    align: left middle;
+}
+
+#changes-apply-controls {
+    dock: bottom;
+    height: auto;
+    border: round $primary-darken-2;
+    background: $surface;
+    padding: 0 1;
+    margin-top: 1;
+}
+
+#changes-review-scroll {
+    height: 4;
+    min-height: 3;
+    border: round $primary-darken-2;
+    background: $surface;
+    padding: 0 1;
+    margin-bottom: 1;
+    scrollbar-size-vertical: 1;
+}
+
+#quit-dialog-actions Button {
+    width: 1fr;
 }
 
 HealthTree:focus {
@@ -281,4 +437,57 @@ SignalPanel .sp-sparkline {
 SignalPanel Button {
     margin: 1 0;
     width: 100%;
+}
+
+#shortcut-dialog {
+    width: 72;
+    max-width: 90%;
+    height: auto;
+    max-height: 80%;
+    background: $surface;
+    border: round $accent;
+    padding: 1 2;
+}
+
+.shortcut-title {
+    text-style: bold;
+    margin-bottom: 1;
+}
+
+ActionsDialog {
+    align: center middle;
+    background: $background 60%;
+}
+
+#actions-dialog {
+    width: 56;
+    max-width: 90%;
+    height: auto;
+    max-height: 70%;
+    background: $surface;
+    border: round $accent;
+    padding: 1;
+}
+
+#actions-scroll {
+    height: auto;
+    max-height: 8;
+    border: round $primary-darken-2;
+    background: $surface;
+    padding: 0;
+    margin: 0;
+    scrollbar-size-vertical: 1;
+}
+
+#actions-scroll Button {
+    border: none;
+    min-width: 0;
+    width: 1fr;
+    height: 1;
+    padding: 0 1;
+    margin: 0;
+}
+
+#actions-empty {
+    color: $text-muted;
 }

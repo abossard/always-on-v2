@@ -99,6 +99,14 @@ function buildAppDashboard(app, config) {
             .withPanel(panels.eventHubThrottledTimeseries(config))
             .withPanel(panels.eventHubServerErrorsTimeseries(config))
             .withPanel(panels.eventHubCapturedMessagesTimeseries(config));
+        // ── Event Hub Capture row (collapsed) ─────────────────────────
+        builder = builder
+            .withRow(new dashboard_1.RowBuilder('📬 Event Hub Capture').collapsed(true)
+            .withPanel(panels.eventHubCaptureBacklogTimeseries(config))
+            .withPanel(panels.eventHubCapturedBytesTimeseries(config))
+            .withPanel(panels.captureStorageIngressTimeseries(config))
+            .withPanel(panels.eventHubReplicationLagDurationTimeseries(config))
+            .withPanel(panels.eventHubReplicationLagCountTimeseries(config)));
     }
     // ── Row 2: Failures Overview (Prometheus) ──────────────────────
     builder = builder
@@ -126,8 +134,10 @@ function buildAppDashboard(app, config) {
         builder = builder
             .withRow(new dashboard_1.RowBuilder('🤖 AI Models')
             .collapsed(true)
+            .withPanel(panels.aiCapacitySnapshotPanel(config))
             .withPanel(panels.aiTokensPanel(config))
             .withPanel(panels.aiRequestsPanel(config))
+            .withPanel(panels.ai429RequestsPanel(config))
             .withPanel(panels.aiLatencyPanel(config))
             .withPanel(panels.aiTokensPerSecondPanel(config)));
     }

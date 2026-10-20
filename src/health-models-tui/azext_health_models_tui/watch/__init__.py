@@ -11,8 +11,8 @@ if TYPE_CHECKING:
 
 def run_watch(
     client: CloudHealthClient,
-    resource_group: str,
-    model_name: str,
+    resource_group: str | None = None,
+    model_name: str | None = None,
     poll_interval: int = 30,
     force_plain: bool = False,
 ) -> None:
@@ -24,18 +24,62 @@ def run_watch(
     """
     import sys
 
+    launched_from_catalog = model_name is None
+    catalog_resource_group = resource_group
+    monitor_resource_group = resource_group
+    active_model_name = model_name
+
+    if active_model_name is None:
+        from azext_health_models_tui.watch.model_catalog import (
+            choose_model_interactively,
+            print_plain_model_catalog,
+        )
+
+        if force_plain or not sys.stdout.isatty():
+            print_plain_model_catalog(client, catalog_resource_group)
+            return
+        try:
+            selection = choose_model_interactively(client, catalog_resource_group)
+        except ImportError:
+            print_plain_model_catalog(client, catalog_resource_group)
+            return
+        if selection is None:
+            return
+        monitor_resource_group = selection.model_key.group
+        active_model_name = selection.model_key.name
+
     if force_plain or not sys.stdout.isatty():
         from azext_health_models_tui.watch.plain import run_plain_watch
 
-        run_plain_watch(client, resource_group, model_name, poll_interval)
+        run_plain_watch(client, monitor_resource_group, active_model_name, poll_interval)
     else:
         try:
             from azext_health_models_tui.watch.app import HealthWatchApp
         except ImportError:
             from azext_health_models_tui.watch.plain import run_plain_watch
 
-            run_plain_watch(client, resource_group, model_name, poll_interval)
+            run_plain_watch(client, monitor_resource_group, active_model_name, poll_interval)
             return
 
-        app = HealthWatchApp(client, resource_group, model_name, poll_interval)
-        app.run()
+        while True:
+            app = HealthWatchApp(
+                client,
+                monitor_resource_group,
+                active_model_name,
+                poll_interval,
+                allow_back_to_models=launched_from_catalog,
+            )
+            result = app.run()
+            if (
+                launched_from_catalog
+                and result == HealthWatchApp.RESULT_BACK_TO_MODELS
+            ):
+                from azext_health_models_tui.watch.model_catalog import choose_model_interactively
+
+                selection = choose_model_interactively(client, catalog_resource_group)
+                if selection is None:
+                    return
+                monitor_resource_group = selection.model_key.group
+                active_model_name = selection.model_key.name
+                continue
+            return

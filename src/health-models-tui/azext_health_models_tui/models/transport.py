@@ -105,7 +105,7 @@ class TransportEntityIcon(TypedDict, total=False):
 class TransportEntityProperties(TypedDict, total=False):
     displayName: str
     icon: TransportEntityIcon
-    impact: str  # "Standard" | "Limited" | "None"
+    impact: str  # "Standard" | "Limited" | "Suppressed"
     healthObjective: str
     healthState: str  # Runtime health state
     signalGroups: TransportSignalGroups

@@ -1,7 +1,5 @@
-using System.ClientModel.Primitives;
 using System.Collections.Concurrent;
 using Azure.AI.OpenAI;
-using Azure.Identity;
 using Microsoft.Extensions.AI;
 
 namespace HelloAgents.Api;
@@ -21,32 +19,36 @@ public sealed class ChatClientFactory
 
     public ChatClientFactory(
         IChatClient defaultClient,
-        IConfiguration configuration,
         DeploymentRegistry registry,
-        ILogger<ChatClientFactory> logger)
+        ILogger<ChatClientFactory> logger,
+        AzureOpenAIClient? azureClient = null)
     {
         ArgumentNullException.ThrowIfNull(defaultClient);
-        ArgumentNullException.ThrowIfNull(configuration);
         ArgumentNullException.ThrowIfNull(registry);
         ArgumentNullException.ThrowIfNull(logger);
 
         _default = defaultClient;
         _registry = registry;
         _logger = logger;
-        var endpoint = configuration[ConfigKeys.AzureOpenAiEndpoint];
+        _factory = deployment => azureClient is null
+            ? _default
+            : CreateChatClient(azureClient, deployment);
+    }
 
-        _factory = deployment =>
-        {
-            if (string.IsNullOrWhiteSpace(endpoint))
-                return _default;
+    public static IChatClient CreateChatClient(AzureOpenAIClient client, string deployment)
+    {
+        var chatClient = client.GetChatClient(deployment).AsIChatClient();
+        if (!string.Equals(deployment, "gpt-6-luna", StringComparison.Ordinal))
+            return chatClient;
 
-            var options = new AzureOpenAIClientOptions
+        return new ChatClientBuilder(chatClient)
+            .ConfigureOptions(options =>
             {
-                RetryPolicy = new ClientRetryPolicy(maxRetries: 3),
-            };
-            var azClient = new AzureOpenAIClient(new Uri(endpoint), new DefaultAzureCredential(), options);
-            return azClient.GetChatClient(deployment).AsIChatClient();
-        };
+                // Luna Chat Completions accepts function tools only without reasoning.
+                if (options.Tools is { Count: > 0 })
+                    options.Reasoning = new ReasoningOptions { Effort = ReasoningEffort.None };
+            })
+            .Build();
     }
 
     public IChatClient GetClient(string? deployment)
@@ -63,4 +65,3 @@ public sealed class ChatClientFactory
         return _clients.GetOrAdd(deployment, _factory);
     }
 }
-

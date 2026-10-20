@@ -69,11 +69,14 @@ public static class ServiceDefaultsExtensions
 
         if (!string.IsNullOrEmpty(connStr))
         {
+            builder.Logging.AddFilter("Azure.Core", LogLevel.Warning);
+            builder.Logging.AddFilter("Azure.Messaging.EventHubs", LogLevel.Warning);
+
             otel.UseAzureMonitor(options =>
             {
                 options.ConnectionString = connStr;
                 options.Credential = new DefaultAzureCredential();
-                options.SamplingRatio = (float)builder.Configuration.GetValue("OTEL_TRACES_SAMPLER_ARG", 1.0);
+                options.SamplingRatio = (float)builder.Configuration.GetValue("OTEL_TRACES_SAMPLER_ARG", 0.01);
             });
         }
 

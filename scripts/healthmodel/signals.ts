@@ -458,24 +458,25 @@ export function aiLatency(): AzureResourceSignalDef {
     metricName: 'AzureOpenAITimeToResponse',
     timeGrain: 'PT5M',
     aggregationType: 'Average',
-    displayName: 'AI Response Latency',
+    displayName: 'AI Service First Response Latency',
     refreshInterval: 'PT5M',
     dataUnit: 'MilliSeconds',
     threshold: { direction: 'higher-is-worse', degraded: 5000, unhealthy: 15000 },
   };
 }
 
-export function aiServerErrors(): AzureResourceSignalDef {
+export function aiCapacityPressure(): AzureResourceSignalDef {
   return {
     signalKind: 'AzureResourceMetric',
     metricNamespace: 'microsoft.cognitiveservices/accounts',
-    metricName: 'ServerErrors',
+    metricName: 'ModelRequests',
     timeGrain: 'PT5M',
     aggregationType: 'Total',
-    displayName: 'AI Server Errors',
+    dimensionFilter: buildDimensionFilter('StatusCode', '429'),
+    displayName: 'AI Capacity Pressure (429 Requests)',
     refreshInterval: 'PT5M',
     dataUnit: 'Count',
-    threshold: { direction: 'higher-is-worse', degraded: 1, unhealthy: 10 },
+    threshold: { direction: 'higher-is-worse', degraded: 0, unhealthy: 10 },
   };
 }
 
