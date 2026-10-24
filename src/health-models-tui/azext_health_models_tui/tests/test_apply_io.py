@@ -42,6 +42,14 @@ def _model() -> ModelKey:
     )
 
 
+def _coordinator(client: MagicMock, *, revision: int = 1, live: bool = True) -> ApplyCoordinator:
+    return ApplyCoordinator(
+        client,
+        current_revision_supplier=lambda _target: revision,
+        live_scope_supplier=lambda _target: live,
+    )
+
+
 def _target(kind: str):
     from azext_health_models_tui.domain.drafts import ResourceTarget
 
@@ -84,14 +92,12 @@ def test_apply_routes_read_and_write_by_named_resource_kind(
     }
     getattr(client, read_method).side_effect = [baseline, baseline, edited]
     getattr(client, write_method).return_value = edited
-    coordinator = ApplyCoordinator(client)
+    coordinator = _coordinator(client, revision=7)
     target = _target(kind)
 
     plan = coordinator.prepare_plan(
         target=target,
         revision=7,
-        current_revision=7,
-        is_live_connected_scope=True,
         edited_resource=edited,
         draft_live_baseline=baseline,
         generated_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
@@ -136,14 +142,12 @@ def test_no_writes_on_cancel_history_or_stale_plan(
     baseline = {"name": "res-1", "properties": {"displayName": "before"}}
     edited = {"name": "res-1", "properties": {"displayName": "after"}}
     client.get_entity.return_value = baseline
-    coordinator = ApplyCoordinator(client)
+    coordinator = _coordinator(client, revision=current_revision, live=is_live)
     target = _target("entity")
 
     plan_or_rejected = coordinator.prepare_plan(
         target=target,
         revision=revision,
-        current_revision=current_revision,
-        is_live_connected_scope=is_live,
         edited_resource=edited,
         draft_live_baseline=baseline,
     )
@@ -168,13 +172,11 @@ def test_no_write_when_live_baseline_changes_after_plan_prepare(client: MagicMoc
     edited = {"name": "res-1", "properties": {"displayName": "after"}}
     changed_live = {"name": "res-1", "properties": {"displayName": "changed elsewhere"}}
     client.get_entity.return_value = changed_live
-    coordinator = ApplyCoordinator(client)
+    coordinator = _coordinator(client, revision=5)
 
     plan_or_rejected = coordinator.prepare_plan(
         target=_target("entity"),
         revision=5,
-        current_revision=5,
-        is_live_connected_scope=True,
         edited_resource=edited,
         draft_live_baseline=baseline,
     )
@@ -186,13 +188,11 @@ def test_no_write_when_live_baseline_changes_after_plan_prepare(client: MagicMoc
 def test_prepare_rejects_noop_plan(client: MagicMock) -> None:
     baseline = {"name": "res-1", "properties": {"displayName": "same"}}
     client.get_entity.return_value = baseline
-    coordinator = ApplyCoordinator(client)
+    coordinator = _coordinator(client, revision=1)
 
     plan_or_rejected = coordinator.prepare_plan(
         target=_target("entity"),
         revision=1,
-        current_revision=1,
-        is_live_connected_scope=True,
         edited_resource=baseline,
         draft_live_baseline=baseline,
     )
@@ -214,13 +214,11 @@ def test_prepare_rejects_target_endpoint_mismatch_before_write(client: MagicMock
         kind="entity",
         name="res-1",
     )
-    coordinator = ApplyCoordinator(client)
+    coordinator = _coordinator(client, revision=1)
 
     result = coordinator.prepare_plan(
         target=bad_target,
         revision=1,
-        current_revision=1,
-        is_live_connected_scope=True,
         edited_resource={"name": "res-1", "properties": {"displayName": "x"}},
         draft_live_baseline={"name": "res-1", "properties": {"displayName": "x"}},
     )
@@ -235,13 +233,11 @@ def test_prepare_rejects_when_for_model_fails(client: MagicMock) -> None:
     baseline = {"name": "res-1", "properties": {"displayName": "before"}}
     edited = {"name": "res-1", "properties": {"displayName": "after"}}
     client.for_model.side_effect = RuntimeError("scope failure")
-    coordinator = ApplyCoordinator(client)
+    coordinator = _coordinator(client, revision=1)
 
     result = coordinator.prepare_plan(
         target=_target("entity"),
         revision=1,
-        current_revision=1,
-        is_live_connected_scope=True,
         edited_resource=edited,
         draft_live_baseline=baseline,
     )
@@ -256,13 +252,11 @@ def test_prepare_rejects_when_connection_scope_cannot_be_verified(client: MagicM
     baseline = {"name": "res-1", "properties": {"displayName": "before"}}
     edited = {"name": "res-1", "properties": {"displayName": "after"}}
     client.get_connection_scope.side_effect = ValueError("tenant id unavailable")
-    coordinator = ApplyCoordinator(client)
+    coordinator = _coordinator(client, revision=1)
 
     result = coordinator.prepare_plan(
         target=_target("entity"),
         revision=1,
-        current_revision=1,
-        is_live_connected_scope=True,
         edited_resource=edited,
         draft_live_baseline=baseline,
     )
@@ -274,7 +268,7 @@ def test_prepare_rejects_when_connection_scope_cannot_be_verified(client: MagicM
 
 
 def test_describe_connection_scope_returns_whitelisted_values(client: MagicMock) -> None:
-    coordinator = ApplyCoordinator(client)
+    coordinator = _coordinator(client)
 
     scope = coordinator.describe_connection_scope(_target("entity"))
 
@@ -291,13 +285,11 @@ def test_apply_surfaces_rejected_for_403_and_reads_back(client: MagicMock) -> No
     edited = {"name": "res-1", "properties": {"displayName": "after"}}
     client.get_entity.side_effect = [baseline, baseline, baseline]
     client.update_entity.side_effect = AuthenticationError("forbidden", status_code=403)
-    coordinator = ApplyCoordinator(client)
+    coordinator = _coordinator(client, revision=3)
 
     plan = coordinator.prepare_plan(
         target=_target("entity"),
         revision=3,
-        current_revision=3,
-        is_live_connected_scope=True,
         edited_resource=edited,
         draft_live_baseline=baseline,
     )
@@ -321,13 +313,11 @@ def test_apply_surfaces_unknown_for_timeout_with_mismatch(client: MagicMock) -> 
     read_back = {"name": "res-1", "properties": {"displayName": "before"}}
     client.get_entity.side_effect = [baseline, baseline, read_back]
     client.update_entity.side_effect = TimeoutError("timed out")
-    coordinator = ApplyCoordinator(client)
+    coordinator = _coordinator(client, revision=9)
 
     plan = coordinator.prepare_plan(
         target=_target("entity"),
         revision=9,
-        current_revision=9,
-        is_live_connected_scope=True,
         edited_resource=edited,
         draft_live_baseline=baseline,
     )
@@ -349,13 +339,11 @@ def test_apply_returns_unknown_when_readback_fails_after_write(client: MagicMock
     edited = {"name": "res-1", "properties": {"displayName": "after"}}
     client.get_entity.side_effect = [baseline, baseline, RuntimeError("read-back unavailable")]
     client.update_entity.return_value = {"ok": True}
-    coordinator = ApplyCoordinator(client)
+    coordinator = _coordinator(client, revision=2)
 
     plan = coordinator.prepare_plan(
         target=_target("entity"),
         revision=2,
-        current_revision=2,
-        is_live_connected_scope=True,
         edited_resource=edited,
         draft_live_baseline=baseline,
     )
@@ -376,12 +364,10 @@ def test_apply_rejects_tampered_plan_payload(client: MagicMock) -> None:
     baseline = {"name": "res-1", "properties": {"displayName": "before"}}
     edited = {"name": "res-1", "properties": {"displayName": "after"}}
     client.get_entity.return_value = baseline
-    coordinator = ApplyCoordinator(client)
+    coordinator = _coordinator(client, revision=2)
     plan = coordinator.prepare_plan(
         target=_target("entity"),
         revision=2,
-        current_revision=2,
-        is_live_connected_scope=True,
         edited_resource=edited,
         draft_live_baseline=baseline,
     )
@@ -415,12 +401,14 @@ def test_apply_rechecks_revision_after_network_read_before_write(client: MagicMo
         return baseline
 
     client.get_entity.side_effect = read_side_effect
-    coordinator = ApplyCoordinator(client, current_revision_supplier=revision_supplier)
+    coordinator = ApplyCoordinator(
+        client,
+        current_revision_supplier=revision_supplier,
+        live_scope_supplier=lambda _target: True,
+    )
     plan = coordinator.prepare_plan(
         target=_target("entity"),
         revision=1,
-        current_revision=1,
-        is_live_connected_scope=True,
         edited_resource=edited,
         draft_live_baseline=baseline,
     )
@@ -446,13 +434,11 @@ def test_prepare_signal_definition_refuses_unknown_consumer_scope(client: MagicM
     }
     client.get_signal_definition.return_value = baseline
     client.list_entities.side_effect = RuntimeError("entity list failed")
-    coordinator = ApplyCoordinator(client)
+    coordinator = _coordinator(client, revision=1)
 
     result = coordinator.prepare_plan(
         target=_target("signal_definition"),
         revision=1,
-        current_revision=1,
-        is_live_connected_scope=True,
         edited_resource=edited,
         draft_live_baseline=baseline,
     )
@@ -493,13 +479,11 @@ def test_apply_signal_definition_refuses_consumer_scope_drift(client: MagicMock)
     }]
     client.get_signal_definition.side_effect = [baseline, baseline]
     client.list_entities.side_effect = [entity_set_a, entity_set_b]
-    coordinator = ApplyCoordinator(client)
+    coordinator = _coordinator(client, revision=1)
 
     plan = coordinator.prepare_plan(
         target=_target("signal_definition"),
         revision=1,
-        current_revision=1,
-        is_live_connected_scope=True,
         edited_resource=edited,
         draft_live_baseline=baseline,
     )
@@ -521,13 +505,11 @@ def test_apply_surfaces_differs_on_readback_mismatch_without_error(client: Magic
     read_back = {"name": "res-1", "properties": {"displayName": "after", "x": {"y": 1}}}
     client.get_entity.side_effect = [baseline, baseline, read_back]
     client.update_entity.return_value = {"ok": True}
-    coordinator = ApplyCoordinator(client)
+    coordinator = _coordinator(client, revision=4)
 
     plan = coordinator.prepare_plan(
         target=_target("entity"),
         revision=4,
-        current_revision=4,
-        is_live_connected_scope=True,
         edited_resource=edited,
         draft_live_baseline=baseline,
     )

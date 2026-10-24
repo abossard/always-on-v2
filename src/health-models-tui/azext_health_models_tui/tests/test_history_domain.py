@@ -86,6 +86,61 @@ def test_bucket_history_gaps_and_null_values() -> None:
     assert buckets[2].health == HistoryBucketHealth.HEALTHY
 
 
+@pytest.mark.parametrize(
+    ("minutes", "end_minute", "bucket_minutes", "expected"),
+    [
+        # 2-minute cadence in 1-minute buckets: each report holds until the next one.
+        ((0, 2, 4, 6, 8), 10, 1, "HHHHHHHHHH"),
+        # Same cadence with a hole longer than 1.5x the cadence: the hole stays visible.
+        ((0, 2, 4, 10), 12, 1, "HHHHHHHNNNHH"),
+        # A hold must cover the whole bucket, so a wide empty bucket after the last report is a gap.
+        ((0, 2, 4, 6, 29), 60, 30, "HN"),
+    ],
+)
+def test_bucket_history_holds_reports_within_sampling_cadence(minutes, end_minute, bucket_minutes, expected) -> None:
+    start = parse_utc_timestamp("2026-01-01T00:00:00Z")
+    range_key = RangeKey(
+        model=_model_key(), entity_name="e1", signal_name="s1",
+        start_utc=start, end_utc=start + timedelta(minutes=end_minute),
+    )
+    events = parse_history_events([
+        {"occurredAt": f"2026-01-01T00:{m:02d}:00Z", "value": float(m), "healthState": "Healthy"} for m in minutes
+    ])
+
+    buckets = bucket_history(events, range_key, timedelta(minutes=bucket_minutes))
+
+    assert "".join("N" if b.health is HistoryBucketHealth.NO_COVERAGE else b.health.value[0] for b in buckets) == expected
+    held = [i for i, b in enumerate(buckets) if b.sample_count == 0 and b.health is not HistoryBucketHealth.NO_COVERAGE]
+    assert all(buckets[i].value == buckets[i - 1].value for i in held)
+
+
+@pytest.mark.parametrize(
+    "samples,expected",
+    [
+        ([1.0, 3.0], 2.0),
+        ([None, 4.0], 4.0),
+        ([None, None], None),
+    ],
+)
+def test_signal_bucket_value_is_mean_of_non_null_samples(samples: list[float | None], expected: float | None) -> None:
+    range_key = RangeKey(
+        model=_model_key(),
+        entity_name="e1",
+        signal_name="s1",
+        start_utc=parse_utc_timestamp("2026-01-01T00:00:00Z"),
+        end_utc=parse_utc_timestamp("2026-01-01T00:05:00Z"),
+    )
+    events = parse_history_events([
+        {"occurredAt": f"2026-01-01T00:0{index + 1}:00Z", "value": value, "healthState": "Healthy"}
+        for index, value in enumerate(samples)
+    ])
+
+    (bucket,) = bucket_history(events, range_key, timedelta(minutes=5))
+
+    assert bucket.value == expected
+    assert bucket.null_value_count == samples.count(None)
+
+
 def test_entity_transition_buckets_preserve_short_outage_across_intervals() -> None:
     range_key = RangeKey(
         model=_model_key(),

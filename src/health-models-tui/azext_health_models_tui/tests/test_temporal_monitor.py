@@ -200,9 +200,40 @@ def test_request_range_and_range_view_preserve_missing_values_and_reasons() -> N
     entity_calls = [c for c in client.calls if c[0] == "get_entity_history"]
     assert entity_calls
     assert "signalName" not in entity_calls[0][2]
-    assert view.result["history"][0]["value"] is None
-    assert view.result["history"][0]["healthState"] == "Unknown"
-    assert view.result["history"][0]["reason"] == "no sample"
+    first = view.events[0]
+    assert first.value is None
+    assert first.health.value == "Unknown"
+    assert first.reason == "no sample"
+
+
+@pytest.mark.parametrize(
+    ("history", "error"),
+    [
+        (
+            [{"occurredAt": "2026-01-01T00:00:00Z", "healthState": "Healthy"},
+             {"occurredAt": "2026-01-01T00:00:00Z", "healthState": "Degraded"}],
+            "Duplicate timestamp",
+        ),
+        ([{"occurredAt": "2026-01-01T00:00:00Z", "healthState": "Bogus"}], "Unsupported health value"),
+        ([{"occurredAt": "2026-01-01T00:00:00Z", "healthState": "Healthy", "value": "NaN"}], "Invalid numeric value"),
+        (None, "TypeError"),
+    ],
+)
+def test_malformed_range_history_fails_the_range(history: Any, error: str) -> None:
+    client = _TemporalClient()
+    client.get_entity_history = lambda *_args: {"history": history}  # type: ignore[method-assign]
+    poller = Poller(client, "rg", "root")
+    key = RangeKey(
+        model=poller.root,
+        entity_name="shared",
+        start_utc=datetime(2026, 1, 1, 0, 0, tzinfo=timezone.utc),
+        end_utc=datetime(2026, 1, 1, 1, 0, tzinfo=timezone.utc),
+    )
+    poller.request_range(key)
+    poller.wait()
+    view = poller.range_view(key)
+    assert view.status == "failed"
+    assert error in view.error
 
 
 def test_signal_range_routes_to_signal_history_with_signal_name() -> None:
@@ -320,7 +351,7 @@ def test_release_range_withdraws_queued_only() -> None:
     assert poller.range_view(key).status == "unloaded"
 
 
-def test_range_view_result_is_not_aliased() -> None:
+def test_range_view_events_are_immutable() -> None:
     client = _TemporalClient()
     poller = Poller(client, "rg", "root")
     key = RangeKey(
@@ -331,10 +362,10 @@ def test_range_view_result_is_not_aliased() -> None:
     )
     poller.request_range(key)
     poller.wait()
-    first = poller.range_view(key)
-    first.result["history"][0]["value"] = 999  # type: ignore[index]
-    second = poller.range_view(key)
-    assert second.result["history"][0]["value"] is None  # type: ignore[index]
+    events = poller.range_view(key).events
+    assert isinstance(events, tuple)
+    with pytest.raises(AttributeError):
+        events[0].value = 999  # type: ignore[misc]
 
 
 def test_view_at_aggregates_all_models_for_same_time_and_preserves_occurrence_projection() -> None:

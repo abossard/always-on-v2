@@ -9,8 +9,16 @@ from azext_health_models_tui.watch.sparkline import (
     extract_history_values,
     render_sparkline,
     render_summary,
+    scale_blocks,
     summarize,
 )
+
+
+@pytest.mark.parametrize("bad", [float("nan"), float("inf"), float("-inf")])
+def test_scale_blocks_leaves_non_finite_values_blank(bad: float) -> None:
+    blocks = scale_blocks([1.0, bad, 3.0])
+    assert blocks[1] == "" and blocks[0] and blocks[2]
+    assert render_sparkline([1.0, bad, 3.0]).plain
 
 
 # ─── render_sparkline ─────────────────────────────────────────────────

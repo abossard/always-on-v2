@@ -7,12 +7,12 @@ Screen {
     color: $text;
 }
 
+/* split, not dock: side panes start below the tabs, so Tree stays clickable when a pane is full width */
 #workspace-tabs {
-    dock: top;
-    height: 2;
+    split: top;
+    height: 1;
     padding: 0 1;
     background: $panel;
-    border-bottom: solid $primary-darken-2;
     overflow-x: auto;
     overflow-y: hidden;
 }
@@ -33,6 +33,11 @@ Screen {
     text-style: bold;
 }
 
+#workspace-tabs Button.-selected {
+    background: $primary;
+    text-style: bold;
+}
+
 /* ─── Health Tree ───────────────────────────────────────────────── */
 HealthTree {
     width: 1fr;
@@ -42,10 +47,11 @@ HealthTree {
     scrollbar-size-vertical: 1;
 }
 
+/* Room for a 20-col label and a 48-bucket band; the tree keeps the rest. */
 TimelinePane, ChangesPane {
     dock: right;
-    width: 1fr;
-    max-width: 65%;
+    width: 92;
+    max-width: 70%;
     min-width: 42;
     height: 1fr;
     background: $panel;
@@ -54,9 +60,42 @@ TimelinePane, ChangesPane {
     display: none;
 }
 
+/* App.HORIZONTAL_BREAKPOINTS: below 100 columns a side pane gets the whole width instead of a sliver of tree. */
+Screen.-narrow TimelinePane,
+Screen.-narrow ChangesPane {
+    width: 100%;
+    max-width: 100%;
+}
+
 TimelinePane > Static,
 ChangesPane > Static {
     height: auto;
+}
+
+/* One row per control so the data, not the controls, fills the side pane. */
+TimelinePane Button,
+TimelinePane Input,
+ChangesPane Button,
+ChangesPane Input {
+    height: 1;
+    border: none;
+    padding: 0 1;
+    margin-right: 1;
+}
+
+TimelinePane Button,
+ChangesPane Button {
+    background: $primary-muted;
+}
+
+TimelinePane Input,
+ChangesPane Input {
+    background: $boost;
+}
+
+TimelinePane Input:focus,
+ChangesPane Input:focus {
+    background: $primary-darken-2;
 }
 
 #timeline-scroll,
@@ -161,7 +200,6 @@ ChangesPane > Static {
 #changes-review-scroll {
     height: 4;
     min-height: 3;
-    border: round $primary-darken-2;
     background: $surface;
     padding: 0 1;
     margin-bottom: 1;
@@ -192,81 +230,15 @@ HealthTree > .tree--highlight {
     background: $surface-lighten-1;
 }
 
-/* ─── Health-state entity backgrounds (applied via add_class) ──── */
-.health-healthy {
-    color: $success;
-}
-
-.health-degraded {
-    color: $warning;
-}
-
-.health-unhealthy {
-    color: $error;
-    text-style: bold;
-}
-
-.health-unknown {
-    color: $text-disabled;
-    text-style: italic;
-}
-
-/* ─── Change flash animation ──────────────────────────────────── */
-.state-changed {
-    background: $warning 30%;
-    text-style: bold reverse;
-}
-
-/* Fade out after timer removes .state-changed and adds -fade */
-.state-changed-fade {
-    background: $warning 10%;
-    text-style: bold;
-}
-
-/* ─── Signal rows (leaf nodes) ────────────────────────────────── */
-.signal-node {
-    color: $text-muted;
-    padding-left: 2;
-}
-
-.signal-node.health-degraded {
-    color: $warning;
-}
-
-.signal-node.health-unhealthy {
-    color: $error;
-    text-style: bold;
-}
-
-/* ─── Header ──────────────────────────────────────────────────── */
-Header {
-    dock: top;
-    height: 3;
-    background: $panel;
-    border-bottom: solid $primary;
-}
-
 /* ─── Status Bar (footer) ────────────────────────────────────── */
+/* split, not dock: side panes end above the bar instead of hiding their last rows under it */
 StatusBar {
-    dock: bottom;
-    height: 3;
+    split: bottom;
+    height: 2;
     background: $panel;
-    border-top: solid $primary;
-    padding: 0 2;
-    content-align: center middle;
-}
-
-.poll-indicator {
-    color: $success;
-}
-
-.poll-indicator.polling {
-    color: $warning;
-    text-style: bold;
-}
-
-.change-counter {
-    color: $accent;
+    padding: 0 1;
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
 }
 
 /* ─── Search Modal ───────────────────────────────────────────── */
@@ -454,7 +426,7 @@ SignalPanel Button {
     margin-bottom: 1;
 }
 
-ActionsDialog {
+ActionsDialog, HelpDialog, QuitDraftsDialog {
     align: center middle;
     background: $background 60%;
 }

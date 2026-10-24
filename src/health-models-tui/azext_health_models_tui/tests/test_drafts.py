@@ -15,7 +15,6 @@ from azext_health_models_tui.domain.drafts import (
     normalize_known_readonly_fields,
     parse_field_path,
     validate_target_payload,
-    verify_apply_plan_consistency,
 )
 from azext_health_models_tui.domain.model_reference import ModelKey
 from azext_health_models_tui.watch.draft_store import DraftStore, DraftTestResult
@@ -80,6 +79,8 @@ def test_apply_field_edit_supports_signal_list_path() -> None:
         "properties.discoveredBy",
         "properties.signalGroups.default.signals[0].status",
         "properties.signalGroups.default.signals[0].status.healthState",
+        "properties.signalGroups.default.resourceHealth.status",
+        "properties.SignalGroups.default.ResourceHealth.status.healthState",
     ],
 )
 def test_apply_field_edit_rejects_known_readonly_paths(path: str) -> None:
@@ -532,6 +533,21 @@ def test_normalize_known_readonly_fields_is_path_scoped() -> None:
     assert "status" not in normalized["properties"]["signalGroups"]["default"]["signals"][0]  # type: ignore[index]
 
 
+def test_normalize_ignores_resource_health_status_differences_between_list_and_get() -> None:
+    # Live list omits null keys that GET returns, and the status itself is runtime state.
+    def entity(status: dict) -> dict:
+        return {"name": "e", "properties": {"signalGroups": {"azureResource": {
+            "azureResourceId": "/subscriptions/s/rg/x",
+            "resourceHealth": {"enabled": "Enabled", "signalName": "rh", "status": status},
+        }}}}
+
+    listed = entity({"healthState": "Unknown", "reportedAt": "2026-10-23T15:50:43Z"})
+    fetched = entity({"healthState": "Healthy", "reportedAt": "2026-10-24T09:00:00Z", "category": None})
+    assert normalize_known_readonly_fields(listed) == normalize_known_readonly_fields(fetched)
+    resource_health = normalize_known_readonly_fields(listed)["properties"]["signalGroups"]["azureResource"]["resourceHealth"]
+    assert resource_health == {"enabled": "Enabled", "signalName": "rh"}
+
+
 def test_collect_signal_definition_consumers_from_real_shape() -> None:
     entities = [
         {"name": "a", "properties": {"signalGroups": {"g": {"signals": [{"signalDefinitionName": "def-1"}]}}}},
@@ -539,30 +555,3 @@ def test_collect_signal_definition_consumers_from_real_shape() -> None:
         {"name": "c", "properties": {"signalGroups": {"g": {"signals": [{"signalDefinitionName": "def-1"}]}}}},
     ]
     assert collect_signal_definition_consumers(entities, "def-1") == ("a", "c")
-
-
-def test_verify_apply_plan_consistency_detects_forged_or_mutated_changes() -> None:
-    baseline = _baseline()
-    edited = apply_field_edit(baseline, ("properties", "queryText"), "rate(edited[5m])")
-    plan = build_apply_plan(
-        target=_target(),
-        revision=1,
-        edited_resource=edited,
-        expected_baseline=baseline,
-        live_baseline=baseline,
-        generated_at=datetime.now(UTC),
-    )
-    verify_apply_plan_consistency(plan)
-
-    forged = plan.__class__(
-        target=plan.target,
-        revision=plan.revision,
-        changes=(),
-        edited_resource=plan.edited_resource,
-        expected_baseline=plan.expected_baseline,
-        normalized_live_baseline=plan.normalized_live_baseline,
-        generated_at=plan.generated_at,
-        shared_consumer_entity_names=plan.shared_consumer_entity_names,
-    )
-    with pytest.raises(ValueError, match="do not match"):
-        verify_apply_plan_consistency(forged)

@@ -391,6 +391,18 @@ def test_get_signal_history_paginates_next_marker(
     assert "nextMarker" not in result
 
 
+def test_get_signal_history_continuation_without_signal_name_raises(mock_sdk_client) -> None:
+    client, sdk = mock_sdk_client
+    sdk.send_request.side_effect = [
+        MagicMock(raise_for_status=MagicMock(), json=MagicMock(return_value={"history": [], "nextMarker": "m1"})),
+    ]
+
+    with pytest.raises(ValueError, match="requires signalName"):
+        client.get_signal_history("rg", "m", "e1", {"startAt": "2025-01-01T00:00:00Z"})
+
+    assert sdk.send_request.call_count == 1
+
+
 def test_get_signal_history_raises_when_later_page_fails(
     mock_sdk_client,
 ) -> None:
@@ -518,92 +530,6 @@ def test_get_signal_history_full_sdk_pipeline_raises_on_continuation_failure() -
 # ─── B. Domain model tests ────────────────────────────────────────────
 
 
-@pytest.mark.parametrize(
-    "value,health,context",
-    [
-        (75.5, "Degraded", "Approaching threshold"),
-        (95.2, "Unhealthy", None),
-        (None, "Unknown", None),
-    ],
-)
-def test_signal_history_point(
-    value: float | None, health: str, context: str | None
-) -> None:
-    from azext_health_models_tui.models.domain import SignalHistoryPoint
-    from azext_health_models_tui.models.enums import HealthState
-
-    p = SignalHistoryPoint(
-        occurred_at="2026-01-01T10:00:00Z",
-        value=value,
-        health_state=HealthState(health),
-        additional_context=context,
-    )
-    assert p.value == value
-    assert p.health_state == HealthState(health)
-    assert p.additional_context == context
-
-
-def test_signal_history() -> None:
-    from azext_health_models_tui.models.domain import SignalHistory, SignalHistoryPoint
-    from azext_health_models_tui.models.enums import HealthState
-
-    points = (
-        SignalHistoryPoint("2026-01-01T10:00:00Z", 75.5, HealthState.DEGRADED, None),
-    )
-    h = SignalHistory(entity_name="e1", signal_name="sig-cpu", points=points)
-    assert h.signal_name == "sig-cpu"
-    assert h.entity_name == "e1"
-    assert len(h.points) == 1
-
-
-# ─── C. Parse layer tests ─────────────────────────────────────────────
-def test_parse_signal_history(fixtures_dir: Path) -> None:
-    with open(fixtures_dir / "hm-signal-history.json") as f:
-        raw = json.load(f)
-    from azext_health_models_tui.domain.parse import parse_signal_history
-    from azext_health_models_tui.models.enums import HealthState
-
-    history = parse_signal_history(raw)
-    assert history.entity_name == "entity-1"
-    assert history.signal_name == "sig-cpu"
-    assert len(history.points) == 3
-    assert history.points[0].value == 75.5
-    assert history.points[0].health_state == HealthState.DEGRADED
-    assert history.points[0].additional_context == "Approaching threshold"
-    assert history.points[1].additional_context is None
-    assert history.points[2].health_state == HealthState.HEALTHY
-
-
-@pytest.mark.parametrize(
-    "history_field,expected_count",
-    [
-        ([], 0),
-        (
-            [
-                {
-                    "occurredAt": "2026-01-01T10:00:00Z",
-                    "value": 1.0,
-                    "healthState": "Healthy",
-                }
-            ],
-            1,
-        ),
-    ],
-)
-def test_parse_signal_history_variants(
-    history_field: list, expected_count: int
-) -> None:
-    from azext_health_models_tui.domain.parse import parse_signal_history
-
-    raw = {
-        "entityName": "e1",
-        "signalName": "sig-cpu",
-        "history": history_field,
-    }
-    history = parse_signal_history(raw)
-    assert len(history.points) == expected_count
-
-
 def test_parse_signal_definition_dynamic_rules_are_not_coerced(
     fixtures_dir: Path,
 ) -> None:
@@ -654,6 +580,43 @@ def test_parse_entity_impact_stable_wire_semantics(
         sig_defs={},
     )
     assert entity.impact == Impact(expected)
+
+
+_CPU_RULES = {"unhealthyRule": {"operator": "GreaterThan", "threshold": 95.0}}
+
+
+@pytest.mark.parametrize(
+    ("signal", "definitions"),
+    [
+        # Live shape: inline signal without signalDefinitionName carries its own fields.
+        (
+            {"name": "s1", "displayName": "CPU percentage", "signalKind": "AzureResourceMetric",
+             "dataUnit": "Percent", "evaluationRules": _CPU_RULES},
+            [],
+        ),
+        (
+            {"name": "s1", "signalDefinitionName": "cpu-def", "signalKind": "AzureResourceMetric"},
+            [{"name": "cpu-def", "properties": {"displayName": "CPU percentage", "signalKind": "AzureResourceMetric",
+                                                "dataUnit": "Percent", "evaluationRules": _CPU_RULES}}],
+        ),
+    ],
+)
+def test_parse_entity_signal_metadata_from_inline_or_definition(signal: dict, definitions: list) -> None:
+    from azext_health_models_tui.domain.parse import parse_entity, parse_signal_definitions
+    from azext_health_models_tui.models.enums import DataUnit
+
+    entity = parse_entity(
+        {
+            "id": "/subscriptions/x/resourceGroups/rg/providers/Microsoft.CloudHealth/healthmodels/m/entities/e1",
+            "name": "e1",
+            "properties": {"signalGroups": {"azureResource": {"signals": [signal]}}},
+        },
+        sig_defs=parse_signal_definitions(definitions),
+    )
+    parsed = entity.signals[0]
+    assert parsed.display_name == "CPU percentage"
+    assert parsed.data_unit is DataUnit.PERCENT
+    assert parsed.unhealthy_rule is not None and parsed.unhealthy_rule.threshold == 95.0
 
 
 # ─── D. Transport type tests ──────────────────────────────────────────
@@ -1099,7 +1062,8 @@ def test_execute_signal_azure_metric_error_path():
     assert result["errorCode"] == "AuthorizationFailed"
 
 
-def test_query_prometheus_uses_approved_workspace_stable_api_version(monkeypatch) -> None:
+@pytest.mark.parametrize("arm_endpoint", ["https://management.azure.com", "https://management.chinacloudapi.cn"])
+def test_query_prometheus_uses_approved_workspace_stable_api_version(monkeypatch, arm_endpoint) -> None:
     import sys
     from types import SimpleNamespace
 
@@ -1137,6 +1101,7 @@ def test_query_prometheus_uses_approved_workspace_stable_api_version(monkeypatch
     client = object.__new__(CloudHealthClient)
     client._cli_ctx = MagicMock()
     client._subscription_id = "sub"
+    client.arm_endpoint = arm_endpoint
 
     client.query_prometheus(
         "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg/providers/Microsoft.Monitor/accounts/ws",
@@ -1144,10 +1109,41 @@ def test_query_prometheus_uses_approved_workspace_stable_api_version(monkeypatch
     )
 
     assert calls[0]["method"] == "GET"
+    assert calls[0]["url"].startswith(f"{arm_endpoint}/subscriptions/")
     assert "api-version=2025-10-03" in calls[0]["url"]
     assert calls[1]["method"] == "GET"
     assert "query=sum%28rate%28x%7Ba%3D%27b%20c%27%7D%5B5m%5D%29%29" in calls[1]["url"]
     assert calls[1]["kwargs"]["resource"] == "https://prometheus.monitor.azure.com"
+
+
+@pytest.mark.parametrize(
+    ("status", "expected"),
+    [(403, "AuthenticationError"), (404, "HealthModelNotFoundError"), (500, "ArmError")],
+)
+def test_metric_query_http_failures_become_typed_errors(monkeypatch, status: int, expected: str) -> None:
+    import sys
+    from types import SimpleNamespace
+
+    from azure.cli.core.azclierror import HTTPError
+
+    from azext_health_models_tui.client.rest_client import CloudHealthClient
+
+    response = SimpleNamespace(status_code=status, text="denied", json=lambda: {"error": {"code": "X", "message": "denied"}})
+
+    def _send_raw_request(*_args, **_kwargs):  # noqa: ANN002, ANN003
+        raise HTTPError("denied", response)
+
+    monkeypatch.setitem(sys.modules, "azure.cli.core.util", SimpleNamespace(send_raw_request=_send_raw_request))
+    client = object.__new__(CloudHealthClient)
+    client._cli_ctx = MagicMock()
+    client.arm_endpoint = "https://management.azure.com"
+
+    with pytest.raises(Exception) as raised:
+        client.query_azure_metric(
+            "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg/providers/Microsoft.Web/sites/a",
+            "CpuTime", "Microsoft.Web/sites", "Average", "PT5M",
+        )
+    assert type(raised.value).__name__ == expected
 
 
 def test_execute_signal_query_override_is_per_invocation_without_mutation():

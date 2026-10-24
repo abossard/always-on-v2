@@ -15,6 +15,7 @@ from textual.app import ComposeResult
 from textual.containers import VerticalScroll
 from textual.widgets import Button, Static
 
+from azext_health_models_tui.domain.formatters import format_utc
 from azext_health_models_tui.models.domain import EntityNode, SignalValue
 from azext_health_models_tui.domain.model_reference import ModelKey
 from azext_health_models_tui.models.enums import HealthState, SignalKind
@@ -55,12 +56,10 @@ class SignalPanel(VerticalScroll):
        raw value, computed health, duration, and raw output.
     """
 
-    DEFAULT_CSS = ""  # styles live in styles.tcss
 
     def __init__(self, **kwargs: Any) -> None:
         super().__init__(**kwargs)
         self._ctx: SignalPanelContext | None = None
-        self._last_result: dict[str, Any] | None = None
         self._busy: bool = False
 
     # ── layout ────────────────────────────────────────────────────────
@@ -79,7 +78,6 @@ class SignalPanel(VerticalScroll):
     def set_signal(self, ctx: SignalPanelContext) -> None:
         """Pin *ctx* as the active signal and render static metadata."""
         self._ctx = ctx
-        self._last_result = None
         self._busy = False
         self._render_header()
         self._render_meta()
@@ -88,7 +86,6 @@ class SignalPanel(VerticalScroll):
     def clear_signal(self) -> None:
         """Reset the panel to an empty state."""
         self._ctx = None
-        self._last_result = None
         self._busy = False
         self.query_one("#signal-panel-header", Static).update("")
         self.query_one("#signal-panel-meta", Static).update(
@@ -124,11 +121,12 @@ class SignalPanel(VerticalScroll):
     def show_result(self, result: dict[str, Any]) -> None:
         """Render the output of :func:`execute_signal`."""
         self._busy = False
-        self._last_result = result
 
         err = result.get("error")
         status = self.query_one("#signal-panel-status", Static)
-        if err:
+        if result.get("errorType") == "Unsupported":
+            status.update(Text(f"ℹ {err}", style="italic"))
+        elif err:
             status.update(Text(f"✖ Error: {err}", style="bold red"))
         else:
             duration = result.get("durationMs", 0)
@@ -136,7 +134,7 @@ class SignalPanel(VerticalScroll):
             status.update(
                 Text.assemble(
                     ("✔ Verified", "bold green"),
-                    (f"  ({duration} ms at {ts})", "dim"),
+                    (f"  ({duration} ms at {format_utc(ts)})", "dim"),
                 )
             )
 
@@ -197,7 +195,7 @@ class SignalPanel(VerticalScroll):
         t.append("◈ ", style="cyan bold")
         t.append(display_name, style="bold")
         t.append("  ")
-        t.append(f"[{kind_label}]", style="magenta")
+        t.append(f"[{kind_label}]", style="dim")
         t.append("\n")
         t.append("on ", style="dim")
         t.append(self._ctx.entity_display, style="italic")
@@ -225,10 +223,14 @@ class SignalPanel(VerticalScroll):
         t.append(f"  ({sig.data_unit.value})", style="dim")
         t.append("\n")
         t.append("Updated: ", style="dim")
-        t.append(sig.reported_at or "—", style="italic")
+        t.append(format_utc(sig.reported_at or "—"), style="italic")
         t.append("\n")
         t.append("Instance: ", style="dim")
         t.append(sig.name, style="cyan")
+        if sig.error:
+            t.append("\n")
+            t.append("Error:   ", style="dim")
+            t.append(sig.error, style="red")
 
         self.query_one("#signal-panel-meta", Static).update(t)
 
@@ -265,7 +267,7 @@ def _kind_label(kind: SignalKind | None) -> str:
 
 def _format_rule(label: str, rule: dict[str, Any] | None) -> Text:
     t = Text()
-    t.append(f"{label}: ", style="dim")
+    t.append(f"{label + ':':<11}", style="dim")
     if not rule:
         t.append("—", style="dim")
         return t
@@ -309,7 +311,7 @@ def _format_result_block(result: dict[str, Any]) -> Text:
 
     # Thresholds
     rules = result.get("evaluationRules") or {}
-    t.append(_format_rule("Degraded ", rules.get("degradedRule")))
+    t.append(_format_rule("Degraded", rules.get("degradedRule")))
     t.append("\n")
     t.append(_format_rule("Unhealthy", rules.get("unhealthyRule")))
     t.append("\n\n")

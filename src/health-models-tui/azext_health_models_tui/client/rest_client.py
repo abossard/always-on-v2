@@ -24,7 +24,6 @@ from azext_health_models_tui.domain.model_reference import ModelKey
 from azext_health_models_tui.client.errors import (
     AuthenticationError,
     HealthModelError,
-    HealthModelNotFoundError,
     ThrottledError,
     parse_arm_error,
 )
@@ -225,11 +224,7 @@ class CloudHealthClient:
     @staticmethod
     def _raise_translated(e: Exception) -> None:
         """Translate an SDK exception into a typed ``HealthModelError`` and raise."""
-        from azure.core.exceptions import (
-            ClientAuthenticationError,
-            HttpResponseError,
-            ResourceNotFoundError,
-        )
+        from azure.core.exceptions import ClientAuthenticationError, HttpResponseError
 
         if isinstance(e, (HealthModelError,)):
             raise e
@@ -250,12 +245,6 @@ class CloudHealthClient:
                     except (TypeError, AttributeError):
                         pass
             return code, details
-
-        if isinstance(e, ResourceNotFoundError):
-            code, details = _extract_arm_diag(e)
-            raise HealthModelNotFoundError(
-                str(e), status_code=404, code=code, details=details
-            ) from e
 
         if isinstance(e, ClientAuthenticationError):
             code, details = _extract_arm_diag(e)
@@ -327,6 +316,11 @@ class CloudHealthClient:
             )
         )
 
+    @staticmethod
+    def _at(timestamp: datetime | None) -> dict[str, datetime]:
+        # Live reads must not send a timestamp kwarg at all.
+        return {} if timestamp is None else {"timestamp": timestamp}
+
     def list_entities(
         self,
         resource_group: str,
@@ -334,14 +328,8 @@ class CloudHealthClient:
         *,
         timestamp: datetime | None = None,
     ) -> list[dict[str, Any]]:
-        if timestamp is None:
-            return self._call_list(
-                lambda: self._sdk.entities.list_by_health_model(resource_group, model_name)
-            )
         return self._call_list(
-            lambda: self._sdk.entities.list_by_health_model(
-                resource_group, model_name, timestamp=timestamp
-            )
+            lambda: self._sdk.entities.list_by_health_model(resource_group, model_name, **self._at(timestamp))
         )
 
     def list_relationships(
@@ -351,14 +339,8 @@ class CloudHealthClient:
         *,
         timestamp: datetime | None = None,
     ) -> list[dict[str, Any]]:
-        if timestamp is None:
-            return self._call_list(
-                lambda: self._sdk.relationships.list_by_health_model(resource_group, model_name)
-            )
         return self._call_list(
-            lambda: self._sdk.relationships.list_by_health_model(
-                resource_group, model_name, timestamp=timestamp
-            )
+            lambda: self._sdk.relationships.list_by_health_model(resource_group, model_name, **self._at(timestamp))
         )
 
     def list_signal_definitions(
@@ -368,13 +350,9 @@ class CloudHealthClient:
         *,
         timestamp: datetime | None = None,
     ) -> list[dict[str, Any]]:
-        if timestamp is None:
-            return self._call_list(
-                lambda: self._sdk.signal_definitions.list_by_health_model(resource_group, model_name)
-            )
         return self._call_list(
             lambda: self._sdk.signal_definitions.list_by_health_model(
-                resource_group, model_name, timestamp=timestamp
+                resource_group, model_name, **self._at(timestamp)
             )
         )
 
@@ -443,77 +421,15 @@ class CloudHealthClient:
         body: dict[str, Any],
     ) -> dict[str, Any]:
         """Get full signal history for an entity, including continuation pages."""
-        request_body = dict(body)
-        merged_history: list[Any] = []
-        base_result: dict[str, Any] = {}
-        is_first_page = True
+        def next_body(previous: dict[str, Any], page: dict[str, Any], marker: str) -> dict[str, Any]:
+            signal_name = previous.get("signalName") or page.get("signalName")
+            if not signal_name:
+                raise ValueError("signal history continuation requires signalName")
+            return {"signalName": str(signal_name), "nextMarker": marker}
 
-        while True:
-            try:
-                self._check_read()
-                page = self._request_signal_history_page(
-                    resource_group, model_name, entity_name, request_body
-                )
-            except Exception as exc:  # noqa: BLE001
-                if is_first_page:
-                    raise
-                raise RuntimeError(
-                    f"Signal history is incomplete because continuation failed after {len(merged_history)} points: "
-                    f"{type(exc).__name__}: {exc}"
-                ) from exc
-
-            is_first_page = False
-            if not base_result:
-                base_result = {k: v for k, v in page.items() if k not in {"history", "nextMarker"}}
-            merged_history.extend(page.get("history") or [])
-            next_marker = page.get("nextMarker")
-            if not next_marker:
-                break
-            request_body = {
-                "signalName": (request_body.get("signalName") or page.get("signalName")),
-                "nextMarker": next_marker,
-            }
-            try:
-                request_body["signalName"] = str(request_body["signalName"])
-            except KeyError as exc:
-                raise ValueError("signal history continuation requires signalName") from exc
-
-        base_result["history"] = merged_history
-        return base_result
-
-    def _request_signal_history_page(
-        self,
-        resource_group: str,
-        model_name: str,
-        entity_name: str,
-        body: dict[str, Any],
-    ) -> dict[str, Any]:
-        # Generated SDK operation exposes a version gate for stable history.
-        # Use public send_request so stable API stays on the SDK auth/retry pipeline.
-        url = (
-            f"{self.arm_endpoint.rstrip('/')}/subscriptions/"
-            f"{urllib.parse.quote(self._subscription_id, safe='')}/resourceGroups/"
-            f"{urllib.parse.quote(resource_group, safe='')}/providers/{PROVIDER}/healthmodels/"
-            f"{urllib.parse.quote(model_name, safe='')}/entities/"
-            f"{urllib.parse.quote(entity_name, safe='')}/getSignalHistory"
-            f"?api-version={API_VERSION}"
+        return self._paged_history(
+            "Signal", "getSignalHistory", resource_group, model_name, entity_name, body, next_body,
         )
-        request = HttpRequest(
-            "POST",
-            url,
-            headers={"Content-Type": "application/json"},
-        )
-        request.set_json_body(body)
-
-        try:
-            self._check_read()
-            response = self._sdk.send_request(request)
-            response.raise_for_status()
-        except Exception as exc:  # noqa: BLE001
-            self._raise_translated(exc)
-            raise
-
-        return self._response_json_dict(response, "Signal history response")
 
     def get_entity_history(
         self,
@@ -523,70 +439,52 @@ class CloudHealthClient:
         body: dict[str, Any],
     ) -> dict[str, Any]:
         """Get full entity history, including continuation pages."""
-        request_body = dict(body)
-        merged_history: list[Any] = []
-        base_result: dict[str, Any] = {}
-        is_first_page = True
+        def next_body(_previous: dict[str, Any], _page: dict[str, Any], marker: str) -> dict[str, Any]:
+            return {"nextMarker": marker, **({"top": body["top"]} if "top" in body else {})}
 
-        while True:
-            try:
-                self._check_read()
-                page = self._request_entity_history_page(
-                    resource_group, model_name, entity_name, request_body
-                )
-            except Exception as exc:  # noqa: BLE001
-                if is_first_page:
-                    raise
-                raise RuntimeError(
-                    f"Entity history is incomplete because continuation failed after {len(merged_history)} points: "
-                    f"{type(exc).__name__}: {exc}"
-                ) from exc
+        return self._paged_history(
+            "Entity", "getHistory", resource_group, model_name, entity_name, body, next_body,
+        )
 
-            is_first_page = False
-            if not base_result:
-                base_result = {k: v for k, v in page.items() if k not in {"history", "nextMarker"}}
-            merged_history.extend(page.get("history") or [])
-            next_marker = page.get("nextMarker")
-            if not next_marker:
-                break
-            request_body = {"nextMarker": next_marker}
-            if "top" in body:
-                request_body["top"] = body["top"]
-
-        base_result["history"] = merged_history
-        return base_result
-
-    def _request_entity_history_page(
+    def _paged_history(
         self,
+        label: str,
+        action: str,
         resource_group: str,
         model_name: str,
         entity_name: str,
         body: dict[str, Any],
+        next_body: Callable[[dict[str, Any], dict[str, Any], str], dict[str, Any]],
     ) -> dict[str, Any]:
-        url = (
-            f"{self.arm_endpoint.rstrip('/')}/subscriptions/"
-            f"{urllib.parse.quote(self._subscription_id, safe='')}/resourceGroups/"
-            f"{urllib.parse.quote(resource_group, safe='')}/providers/{PROVIDER}/healthmodels/"
-            f"{urllib.parse.quote(model_name, safe='')}/entities/"
-            f"{urllib.parse.quote(entity_name, safe='')}/getHistory"
-            f"?api-version={API_VERSION}"
-        )
-        request = HttpRequest(
-            "POST",
-            url,
-            headers={"Content-Type": "application/json"},
-        )
-        request.set_json_body(body)
-
-        try:
-            self._check_read()
-            response = self._sdk.send_request(request)
-            response.raise_for_status()
-        except Exception as exc:  # noqa: BLE001
-            self._raise_translated(exc)
-            raise
-
-        return self._response_json_dict(response, "Entity history response")
+        # The generated SDK operation gates stable history behind a version check, so
+        # POST through send_request to stay on the SDK auth/retry pipeline.
+        url = self._model_url(resource_group, model_name, "entities", entity_name, action)
+        request_body = dict(body)
+        merged_history: list[Any] = []
+        base_result: dict[str, Any] = {}
+        pages = 0
+        while True:
+            try:
+                self._check_read()
+                response = self._send("POST", url, request_body)
+                self._raise_for_status(response)
+                page = self._response_json_dict(response, f"{label} history response")
+            except Exception as exc:  # noqa: BLE001
+                if not pages:
+                    raise
+                raise RuntimeError(
+                    f"{label} history is incomplete because continuation failed after {len(merged_history)} points: "
+                    f"{type(exc).__name__}: {exc}"
+                ) from exc
+            pages += 1
+            if not base_result:
+                base_result = {k: v for k, v in page.items() if k not in {"history", "nextMarker"}}
+            merged_history.extend(page.get("history") or [])
+            marker = page.get("nextMarker")
+            if not marker:
+                base_result["history"] = merged_history
+                return base_result
+            request_body = next_body(request_body, page, marker)
 
     def _put_named_resource(
         self,
@@ -598,45 +496,47 @@ class CloudHealthClient:
         payload: Mapping[str, Any],
     ) -> dict[str, Any]:
         """Stable PUT for named CloudHealth resources using SDK send_request pipeline."""
-        url = (
-            f"{self.arm_endpoint.rstrip('/')}/subscriptions/"
-            f"{urllib.parse.quote(self._subscription_id, safe='')}/resourceGroups/"
-            f"{urllib.parse.quote(resource_group, safe='')}/providers/{PROVIDER}/healthmodels/"
-            f"{urllib.parse.quote(model_name, safe='')}/{collection}/"
-            f"{urllib.parse.quote(resource_name, safe='')}"
-            f"?api-version={API_VERSION}"
-        )
-        request = HttpRequest(
-            "PUT",
-            url,
-            headers={"Content-Type": "application/json"},
-        )
-        request.set_json_body(dict(payload))
-
-        try:
-            response = self._sdk.send_request(request)
-        except Exception as exc:  # noqa: BLE001
-            self._raise_translated(exc)
-            raise
-
-        if response.status_code in (200, 201):
-            response.raise_for_status()
-            return self._response_json_dict(response, "Named update response")
-
+        response = self._send("PUT", self._model_url(resource_group, model_name, collection, resource_name), payload)
         if response.status_code == 202:
             raise RuntimeError(
                 "Named update is asynchronous (HTTP 202). "
                 "This client requires a completed 200/201 response before success."
             )
+        self._raise_for_status(response)
+        if response.status_code not in (200, 201):
+            raise RuntimeError(
+                f"Unexpected status code from named update: {response.status_code}"
+            )
+        return self._response_json_dict(response, "Named update response")
 
+    def _model_url(
+        self, resource_group: str, model_name: str, collection: str, name: str, action: str = "",
+    ) -> str:
+        def quote(value: str) -> str:
+            return urllib.parse.quote(value, safe="")
+
+        suffix = f"/{action}" if action else ""
+        return (
+            f"{self.arm_endpoint.rstrip('/')}/subscriptions/{quote(self._subscription_id)}"
+            f"/resourceGroups/{quote(resource_group)}/providers/{PROVIDER}/healthmodels/{quote(model_name)}"
+            f"/{collection}/{quote(name)}{suffix}?api-version={API_VERSION}"
+        )
+
+    def _send(self, method: str, url: str, body: Mapping[str, Any]) -> Any:
+        request = HttpRequest(method, url, headers={"Content-Type": "application/json"})
+        request.set_json_body(dict(body))
+        try:
+            return self._sdk.send_request(request)
+        except Exception as exc:  # noqa: BLE001
+            self._raise_translated(exc)
+            raise
+
+    def _raise_for_status(self, response: Any) -> None:
         try:
             response.raise_for_status()
         except Exception as exc:  # noqa: BLE001
             self._raise_translated(exc)
             raise
-        raise RuntimeError(
-            f"Unexpected status code from named update: {response.status_code}"
-        )
 
     @staticmethod
     def _response_json_dict(response: Any, context: str) -> dict[str, Any]:
@@ -668,16 +568,13 @@ class CloudHealthClient:
         query: str,
     ) -> dict[str, Any]:
         """Resolve a Monitor workspace's Prometheus endpoint and execute an instant PromQL query."""
-        from azure.cli.core.util import send_raw_request
-
         _validate_arm_resource_id(workspace_resource_id)
 
         ws_url = (
-            f"https://management.azure.com{workspace_resource_id}"
+            f"{self.arm_endpoint.rstrip('/')}{workspace_resource_id}"
             f"?api-version=2025-10-03"
         )
-        ws_response = send_raw_request(self._cli_ctx, "GET", ws_url)
-        ws_data = ws_response.json()
+        ws_data = self._raw_get(ws_url)
         endpoint = (
             ws_data.get("properties", {})
             .get("metrics", {})
@@ -690,13 +587,7 @@ class CloudHealthClient:
 
         encoded_query = urllib.parse.quote(query, safe="")
         prom_url = f"{endpoint}/api/v1/query?query={encoded_query}"
-        prom_response = send_raw_request(
-            self._cli_ctx,
-            "GET",
-            prom_url,
-            resource="https://prometheus.monitor.azure.com",
-        )
-        return prom_response.json()
+        return self._raw_get(prom_url, resource="https://prometheus.monitor.azure.com")
 
     def query_azure_metric(
         self,
@@ -707,12 +598,10 @@ class CloudHealthClient:
         time_grain: str,
     ) -> dict[str, Any]:
         """Execute an Azure Resource Metrics query via ARM."""
-        from azure.cli.core.util import send_raw_request
-
         _validate_arm_resource_id(resource_id)
 
         url = (
-            f"https://management.azure.com{resource_id}"
+            f"{self.arm_endpoint.rstrip('/')}{resource_id}"
             f"/providers/Microsoft.Insights/metrics"
             f"?api-version=2024-02-01"
             f"&metricnames={urllib.parse.quote(metric_name)}"
@@ -720,5 +609,18 @@ class CloudHealthClient:
             f"&aggregation={urllib.parse.quote(aggregation)}"
             f"&interval={urllib.parse.quote(time_grain)}"
         )
-        response = send_raw_request(self._cli_ctx, "GET", url)
-        return response.json()
+        return self._raw_get(url)
+
+    def _raw_get(self, url: str, **kwargs: Any) -> Any:
+        """GET through the CLI's raw request; HTTP failures become the extension's typed errors."""
+        from azure.cli.core.azclierror import HTTPError
+        from azure.cli.core.util import send_raw_request
+
+        try:
+            return send_raw_request(self._cli_ctx, "GET", url, **kwargs).json()
+        except HTTPError as exc:
+            try:
+                body = exc.response.json()
+            except ValueError:
+                body = {"error": {"message": exc.response.text}}
+            raise parse_arm_error(body, exc.response.status_code) from exc

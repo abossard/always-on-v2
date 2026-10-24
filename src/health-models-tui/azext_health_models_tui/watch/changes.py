@@ -1,16 +1,32 @@
 """Changes side pane for retained drafts, guided edits, and guarded apply."""
 from __future__ import annotations
 
+from rich.text import Text
 from textual.app import ComposeResult
 from textual.containers import Horizontal, Vertical, VerticalScroll
 from textual.widgets import Button, Input, Static
+
+
+# The guided fields: key -> (path in the resource, draft kind). Input ids are field_input_id(key).
+FIELDS: dict[str, tuple[str, str]] = {
+    "display_name": ("properties.displayName", "entity"),
+    "impact": ("properties.impact", "entity"),
+    "objective": ("properties.healthObjective", "entity"),
+    "icon": ("properties.icon.iconName", "entity"),
+    "query_text": ("properties.queryText", "signal_definition"),
+    "parent": ("properties.parentEntityName", "relationship"),
+    "child": ("properties.childEntityName", "relationship"),
+}
+
+
+def field_input_id(key: str) -> str:
+    return "changes-" + key.replace("_", "-")
 
 
 class ChangesPane(Vertical):
     def compose(self) -> ComposeResult:
         yield Static("Changes", id="changes-title")
         yield Static("Drafts: none", id="changes-drafts")
-        yield Static("", id="changes-active-target")
         yield Static("", id="changes-result")
         with VerticalScroll(id="changes-form-scroll"):
             yield Static("Entity fields", classes="changes-section-label", id="changes-entity-label")
@@ -31,7 +47,7 @@ class ChangesPane(Vertical):
             with Horizontal(id="changes-edit-row-c"):
                 yield Input(placeholder="Query text", id="changes-query-text")
             with Horizontal(id="changes-review-row"):
-                yield Button("Review edit", id="changes-review")
+                yield Button("Update draft", id="changes-review")
             yield Static("Relationship fields", classes="changes-section-label", id="changes-relationship-label")
             yield Static("Parent entity", classes="changes-field-label", id="changes-label-parent")
             with Horizontal(id="changes-relationship-row"):
@@ -42,7 +58,7 @@ class ChangesPane(Vertical):
             with Horizontal(id="changes-save-row"):
                 yield Input(placeholder="Save/export path", id="changes-save-path")
                 yield Button("Save", id="changes-save")
-                yield Button("Export", id="changes-export")
+                yield Button("Overwrite", id="changes-export")
             with Horizontal(id="changes-restore-path-row"):
                 yield Input(placeholder="Restore path", id="changes-restore-path")
             with Horizontal(id="changes-restore-row"):
@@ -74,42 +90,28 @@ class ChangesPane(Vertical):
         return self.query_one("#changes-apply-confirm", Input).value.strip()
 
     def set_drafts(self, text: str) -> None:
-        self.query_one("#changes-drafts", Static).update(text)
-
-    def set_active_target(self, text: str) -> None:
-        self.query_one("#changes-active-target", Static).update(text)
+        self.query_one("#changes-drafts", Static).update(Text(text))
 
     def set_summary(self, text: str) -> None:
-        self.query_one("#changes-summary", Static).update(text)
+        self.query_one("#changes-summary", Static).update(Text(text))
 
     def set_result(self, text: str) -> None:
-        self.query_one("#changes-result", Static).update(text)
+        result = self.query_one("#changes-result", Static)
+        result.update(Text(text))
+        result.display = bool(text)  # an empty bordered box is noise
 
     def set_plan(self, text: str) -> None:
-        self.query_one("#changes-plan", Static).update(text)
+        self.query_one("#changes-plan", Static).update(Text(text))
 
     def set_details(self, text: str) -> None:
-        self.query_one("#changes-details", Static).update(text)
+        self.query_one("#changes-details", Static).update(Text(text))
 
     def form_values(self) -> dict[str, str]:
-        return {
-            "display_name": self.query_one("#changes-display-name", Input).value.strip(),
-            "impact": self.query_one("#changes-impact", Input).value.strip(),
-            "objective": self.query_one("#changes-objective", Input).value.strip(),
-            "icon": self.query_one("#changes-icon", Input).value.strip(),
-            "query_text": self.query_one("#changes-query-text", Input).value.strip(),
-            "parent": self.query_one("#changes-parent", Input).value.strip(),
-            "child": self.query_one("#changes-child", Input).value.strip(),
-        }
+        return {key: self.query_one(f"#{field_input_id(key)}", Input).value.strip() for key in FIELDS}
 
     def set_form_values(self, values: dict[str, str]) -> None:
-        self.query_one("#changes-display-name", Input).value = values.get("display_name", "")
-        self.query_one("#changes-impact", Input).value = values.get("impact", "")
-        self.query_one("#changes-objective", Input).value = values.get("objective", "")
-        self.query_one("#changes-icon", Input).value = values.get("icon", "")
-        self.query_one("#changes-query-text", Input).value = values.get("query_text", "")
-        self.query_one("#changes-parent", Input).value = values.get("parent", "")
-        self.query_one("#changes-child", Input).value = values.get("child", "")
+        for key in FIELDS:
+            self.query_one(f"#{field_input_id(key)}", Input).value = values.get(key, "")
 
     def set_kind(self, kind: str) -> None:
         entity_visible = kind == "entity"

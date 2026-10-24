@@ -25,6 +25,8 @@ from azext_health_models_tui.models.enums import ComparisonOperator, HealthState
 
 _log = logging.getLogger(__name__)
 
+# A known local limitation rather than a query failure; the TUI shows it as info.
+
 
 @dataclass(frozen=True)
 class SignalExecutionConfig:
@@ -154,7 +156,7 @@ def execute_signal(
             workspace_id = config.data_source
             if not workspace_id:
                 raise ValueError(f"Signal group '{config.signal_group}' has no logAnalyticsWorkspaceResourceId")
-            error = "LogAnalyticsQuery execution not yet supported"
+            error, error_type = "LogAnalyticsQuery execution not yet supported", "Unsupported"
 
         else:
             error = f"Unsupported signal kind: {config.signal_kind}"
@@ -163,15 +165,8 @@ def execute_signal(
         # Operational failures (auth/throttling) must surface to the caller
         # rather than be hidden inside a structured "error" field.
         raise
-    except HealthModelError as exc:
-        # Other typed errors (ArmError, NotFound, etc.) are query-related
-        # and should appear on the result so the UI can display them per-signal.
-        error = f"{type(exc).__name__}: {exc}"
-        error_type = type(exc).__name__
-        error_status_code = getattr(exc, "status_code", None)
-        error_code = getattr(exc, "code", "")
-    except (ValueError, KeyError, TypeError) as exc:
-        # Query-shape failures (bad PromQL, missing fields, malformed data).
+    except (HealthModelError, ValueError, KeyError, TypeError) as exc:
+        # Query-side failures (other typed errors, bad PromQL, malformed data) stay on the result, per signal.
         error = f"{type(exc).__name__}: {exc}"
         error_type = type(exc).__name__
         error_status_code = getattr(exc, "status_code", None)
@@ -179,7 +174,9 @@ def execute_signal(
 
     # 4. Evaluate health (delegate to domain rule objects)
     health_state = HealthState.UNKNOWN
-    if error:
+    if error_type == "Unsupported":
+        health_state_str = health_state.value  # nothing was evaluated
+    elif error:
         # Preserve the existing "Error" label for query failures.
         health_state_str = "Error"
     elif raw_value is not None:

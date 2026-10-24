@@ -4,15 +4,15 @@ Pure, reusable rendering for a list of floats using Unicode block
 characters (▁▂▃▄▅▆▇█).  The top-level public helpers are:
 
 * :func:`render_sparkline`  —  values → :class:`rich.text.Text`
+* :func:`scale_blocks`      —  values → one block glyph per value
 * :func:`summarize`         —  values → ``(min, max, avg)``
 * :func:`extract_history_values` — parse a ``getSignalHistory`` response
 
-The module performs **no I/O** and has no Textual dependencies apart
-from the optional :class:`Sparkline` widget at the bottom; callers that
-only need the Rich renderable can import :func:`render_sparkline` alone.
+The module performs no I/O and has no Textual dependencies.
 """
 from __future__ import annotations
 
+import math
 from typing import Any, Iterable
 
 from rich.text import Text
@@ -33,6 +33,21 @@ def summarize(values: Iterable[float]) -> tuple[float, float, float] | None:
     if not vs:
         return None
     return (min(vs), max(vs), sum(vs) / len(vs))
+
+
+def scale_blocks(values: Iterable[float | None]) -> list[str]:
+    """One block per value scaled to the series min..max, "" for None; a flat series sits mid-height."""
+    series = [v if v is not None and math.isfinite(v) else None for v in values]
+    present = [v for v in series if v is not None]
+    lo, hi = (min(present), max(present)) if present else (0.0, 0.0)
+    last_idx = len(_BLOCKS) - 1
+
+    def block(v: float) -> str:
+        if hi == lo:
+            return _BLOCKS[last_idx // 2]
+        return _BLOCKS[min(last_idx, max(0, int(round((v - lo) / (hi - lo) * last_idx))))]
+
+    return ["" if v is None else block(v) for v in series]
 
 
 def _downsample(values: list[float], width: int) -> list[float]:
@@ -76,22 +91,7 @@ def render_sparkline(
     if not cleaned:
         return Text(_EMPTY_PLACEHOLDER, style="dim italic")
 
-    series = _downsample(cleaned, max(1, width))
-    lo = min(series)
-    hi = max(series)
-    span = hi - lo
-
-    last_idx = len(_BLOCKS) - 1
-    if span == 0:
-        # Flat line — use the middle block for visibility.
-        glyphs = _BLOCKS[last_idx // 2] * len(series)
-    else:
-        chars: list[str] = []
-        for v in series:
-            norm = (v - lo) / span
-            idx = min(last_idx, max(0, int(round(norm * last_idx))))
-            chars.append(_BLOCKS[idx])
-        glyphs = "".join(chars)
+    glyphs = "".join(scale_blocks(_downsample(cleaned, max(1, width))))
 
     style = state.color if state is not None else "cyan"
     return Text(glyphs, style=style)

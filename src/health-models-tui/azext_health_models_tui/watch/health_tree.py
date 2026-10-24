@@ -29,11 +29,6 @@ class EntityData:
 
 
 class HealthTree(Tree[EntityData]):
-    COMPONENT_CLASSES = {"state-changed"}
-    DEFAULT_CSS = """
-    HealthTree .state-changed { background: $warning 30%; }
-    """
-
     class Navigation(Message):
         def __init__(self, data: EntityData, *, expand: bool = False) -> None:
             super().__init__()
@@ -77,10 +72,6 @@ class HealthTree(Tree[EntityData]):
         if self.cursor_line >= len(lines):
             self.cursor_line = -1
 
-    @property
-    def expanded_paths(self) -> set[Path]:
-        return set(self._expanded)
-
     def apply_view(self, view: MonitorView) -> None:
         forests = {k: s.previous.forest for k, s in view.entries.items() if s.previous}
         rows = project(view.root, forests, self._expanded)
@@ -121,7 +112,7 @@ class HealthTree(Tree[EntityData]):
             reference = entity.reference
             if reference:
                 if reference.target:
-                    label.append(f" -> {reference.target.label}", style="dim")
+                    label.append(f" -> {reference.target.name}", style="dim")  # full id is in the drawer
                 state = reference.diagnostic or (view.status(reference.target) if view and reference.target else "unloaded")
                 label.append(f" [{state}]", style="dim")
             if row.cycle:
@@ -130,7 +121,8 @@ class HealthTree(Tree[EntityData]):
                               target=reference.target if reference else None, cycle=row.cycle)
             node = self._occurrence_nodes.get(path)
             if node is None:
-                node = parent.add(label, data=data, allow_expand=not row.cycle)
+                expandable = bool(entity.children or entity.signals or (reference and reference.target))
+                node = parent.add(label, data=data, allow_expand=expandable and not row.cycle)
             else:
                 node.set_label(label)
                 node.data = data

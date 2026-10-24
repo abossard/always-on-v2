@@ -4,7 +4,6 @@ from __future__ import annotations
 import logging
 import threading
 import json
-import copy
 from collections import Counter
 from collections.abc import Callable, Mapping
 from concurrent.futures import Future, ThreadPoolExecutor
@@ -14,9 +13,11 @@ from datetime import datetime, timezone
 from types import MappingProxyType
 from typing import Any, Literal
 
+from azext_health_models_tui.client.errors import describe_error
 from azext_health_models_tui.client.rest_client import CloudHealthClient
+from azext_health_models_tui.domain.formatters import format_utc
 from azext_health_models_tui.domain.graph_builder import build_forest
-from azext_health_models_tui.domain.history import RangeKey, SnapshotKey
+from azext_health_models_tui.domain.history import HistoryEvent, RangeKey, SnapshotKey, parse_history_events
 from azext_health_models_tui.domain.model_reference import ModelKey
 from azext_health_models_tui.domain.parse import parse_entities, parse_relationships, parse_signal_definitions
 from azext_health_models_tui.domain.snapshot import build_snapshot, diff_snapshots
@@ -102,6 +103,13 @@ def _demand(state: State, reason: Reason, sequence: int) -> State:
                   resume=type(state).__name__.lower(), last_check=state.last_check)
 
 
+def _settled(state: Queued) -> State:
+    """The resting state a queued entry returns to once its demand is withdrawn."""
+    cls = (Stale if state.resume == "stale" else Failed if state.error
+           else Ready if state.previous else Unloaded)
+    return cls(state.previous, state.generation, state.error, last_check=state.last_check)
+
+
 def _label(state: State) -> str:
     name = type(state).__name__.lower()
     if isinstance(state, Ready):
@@ -133,8 +141,8 @@ class MonitorView:
 
     def status(self, key: ModelKey) -> str:
         state = self.entries.get(key, Unloaded())
-        captured = f"; captured {state.previous.snapshot.timestamp}" if state.previous else ""
-        checked = f"; root checked {state.last_check}" if state.last_check else ""
+        captured = f"; captured {format_utc(state.previous.snapshot.timestamp)}" if state.previous else ""
+        checked = f"; root checked {format_utc(state.last_check)}" if state.last_check else ""
         error = f"; {state.error}" if state.error else ""
         return _label(state) + captured + checked + error
 
@@ -145,29 +153,24 @@ class PollResult:
     snapshot: Snapshot
     changes: list[StateChange] = field(default_factory=list)
     error: str | None = None
-    elapsed_ms: float = 0.0
 
 
 @dataclass(frozen=True)
 class RangeView:
     status: str
-    result: Mapping[str, Any] | None = None
+    events: tuple[HistoryEvent, ...] | None = None  # parsed once in the worker; immutable, so shared freely
     error: str = ""
-
-    def __post_init__(self) -> None:
-        payload = copy.deepcopy(dict(self.result)) if isinstance(self.result, Mapping) else self.result
-        object.__setattr__(self, "result", MappingProxyType(payload) if isinstance(payload, dict) else payload)
 
 
 @dataclass(frozen=True)
 class _RangeEntry:
     status: Literal["unloaded", "queued", "loading", "ready", "failed", "stopped"] = "unloaded"
     sequence: int = 0
-    result: Mapping[str, Any] | None = None
+    events: tuple[HistoryEvent, ...] | None = None
     error: str = ""
 
     def as_view(self) -> RangeView:
-        return RangeView(status=self.status, result=self.result, error=self.error)
+        return RangeView(status=self.status, events=self.events, error=self.error)
 
 
 class Poller:
@@ -179,11 +182,8 @@ class Poller:
 
     def __init__(self, client: CloudHealthClient, rg: str, model: str) -> None:
         self._client = client
-        self.root = (
-            client.model_key(rg, model) if isinstance(client, CloudHealthClient)
-            and isinstance(client.model_key(rg, model), ModelKey)
-            else ModelKey("https://management.azure.com", "", rg, model)
-        )
+        key = client.model_key(rg, model) if isinstance(client, CloudHealthClient) else None
+        self.root = key if isinstance(key, ModelKey) else ModelKey("https://management.azure.com", "", rg, model)
         self._entries: dict[ModelKey, State] = {self.root: Unloaded()}
         self._bindings: dict[tuple[ModelKey, str], tuple[ModelKey, HealthState]] = {}
         self._candidates: dict[tuple[ModelKey, str], tuple[ModelKey, HealthState]] = {}
@@ -274,7 +274,7 @@ class Poller:
                 for k, s in self._snapshots.items()
             }
             self._ranges = {
-                k: _RangeEntry(status="stopped", sequence=v.sequence, result=v.result, error=v.error)
+                k: _RangeEntry(status="stopped", sequence=v.sequence, events=v.events, error=v.error)
                 for k, v in self._ranges.items()
             }
             self._snapshot_demands.clear()
@@ -287,31 +287,19 @@ class Poller:
         return SnapshotKey(scoped, at.astimezone(timezone.utc))
 
     @staticmethod
-    def _invoke_with_timestamp(
-        fn: Callable[..., list[dict[str, Any]]], group: str, model: str, at: datetime,
-    ) -> list[dict[str, Any]]:
-        return fn(group, model, timestamp=at)
-
-    @staticmethod
     def _resource_json(
         entities: list[dict[str, Any]],
         relationships: list[dict[str, Any]],
         definitions: list[dict[str, Any]],
     ) -> Mapping[tuple[str, str], str]:
-        payload: dict[tuple[str, str], str] = {}
-        for entity in entities:
-            name = str(entity.get("name", "")).casefold()
-            if name:
-                payload[("entity", name)] = json.dumps(entity, sort_keys=True, separators=(",", ":"))
-        for relationship in relationships:
-            name = str(relationship.get("name", "")).casefold()
-            if name:
-                payload[("relationship", name)] = json.dumps(relationship, sort_keys=True, separators=(",", ":"))
-        for definition in definitions:
-            name = str(definition.get("name", "")).casefold()
-            if name:
-                payload[("signaldefinition", name)] = json.dumps(definition, sort_keys=True, separators=(",", ":"))
-        return payload
+        return {
+            (kind, name): json.dumps(resource, sort_keys=True, separators=(",", ":"))
+            for kind, resources in (
+                ("entity", entities), ("relationship", relationships), ("signaldefinition", definitions),
+            )
+            for resource in resources
+            if (name := str(resource.get("name", "")).casefold())
+        }
 
     @staticmethod
     def _require_aware_utc(value: datetime, label: str) -> datetime:
@@ -346,13 +334,7 @@ class Poller:
                     self._snapshot_demands.pop(key, None)
             state = self._snapshots.get(key)
             if type(state) is Queued:
-                cls = (
-                    Stale if state.resume == "stale"
-                    else Failed if state.error
-                    else Ready if state.previous
-                    else Unloaded
-                )
-                self._snapshots[key] = cls(state.previous, state.generation, state.error, last_check=state.last_check)
+                self._snapshots[key] = _settled(state)
                 self._prune_snapshots()
             self._advance()
 
@@ -382,7 +364,7 @@ class Poller:
             self._ranges[key] = _RangeEntry(
                 status="queued",
                 sequence=self._sequence,
-                result=entry.result,
+                events=entry.events,
                 error=entry.error,
             )
             self._prune_ranges()
@@ -397,7 +379,7 @@ class Poller:
                     self._range_demands.pop(key, None)
             entry = self._ranges.get(key)
             if entry and entry.status == "queued":
-                self._ranges[key] = _RangeEntry(status="unloaded", sequence=entry.sequence, result=entry.result, error=entry.error)
+                self._ranges[key] = _RangeEntry(status="unloaded", sequence=entry.sequence, events=entry.events, error=entry.error)
                 self._prune_ranges()
             self._advance()
 
@@ -420,9 +402,7 @@ class Poller:
             if remaining or isinstance(state, Checking):
                 self._entries[key] = replace(state, reasons=remaining)
             else:
-                cls = (Stale if state.resume == "stale" else Failed if state.error
-                       else Ready if state.previous else Unloaded)
-                self._entries[key] = cls(state.previous, state.generation, state.error, last_check=state.last_check)
+                self._entries[key] = _settled(state)
 
     def _priority(self, item: tuple[ModelKey, State]) -> tuple:
         key, state = item
@@ -515,7 +495,7 @@ class Poller:
         future.add_done_callback(lambda f: self._complete_snapshot(key, command.token, f, run_key))
 
     def _start_range(self, key: RangeKey, command: _RangeEntry) -> None:
-        self._ranges[key] = _RangeEntry(status="loading", sequence=command.sequence, result=command.result, error=command.error)
+        self._ranges[key] = _RangeEntry(status="loading", sequence=command.sequence, events=command.events, error=command.error)
         if self._listener:
             self._listener()
         future = self._executor.submit(self._run_range, key)
@@ -523,10 +503,42 @@ class Poller:
         self._running[run_key] = future
         future.add_done_callback(lambda f: self._complete_range(key, f, run_key))
 
+    def _client_for(self, model: ModelKey) -> Any:
+        return self._client if model == self.root else self._client.for_model(model)
+
+    def _reads(self, client: Any) -> Any:
+        return client.monitor_reads(self._stop) if hasattr(client, "monitor_reads") else nullcontext()
+
+    def _load(self, client: Any, model: ModelKey, at: datetime | None, previous: ModelSnapshot | None) -> ModelSnapshot:
+        """Read definitions, entities and relationships live (``at=None``) or at a UTC instant."""
+        timestamp = {} if at is None else {"timestamp": at}
+        self._check_live()
+        raw_definitions = client.list_signal_definitions(model.group, model.name, **timestamp)
+        definitions = parse_signal_definitions(raw_definitions)
+        self._check_live()
+        raw_entities = client.list_entities(model.group, model.name, **timestamp)
+        entities = parse_entities(raw_entities, definitions, model.endpoint)
+        self._check_live()
+        raw_relationships = client.list_relationships(model.group, model.name, **timestamp)
+        relationships = parse_relationships(raw_relationships)
+        self._check_live()
+        forest = build_forest(entities, relationships)
+        root = next((e for e in entities.values() if e.name.casefold() == model.name.casefold()), None)
+        if at is None and model != self.root and root is None:
+            raise ValueError(f"Missing expected nested root entity {model.name!r} in {model.label}")
+        captured_at = datetime.now(timezone.utc).isoformat()
+        snapshot = build_snapshot(forest, captured_at if at is None else at.isoformat().replace("+00:00", "Z"))
+        return ModelSnapshot(
+            forest, snapshot, root.health_state if root else None,
+            tuple(diff_snapshots(previous.snapshot if previous else None, snapshot)),
+            definitions,
+            captured_at=captured_at,
+            resource_json=self._resource_json(raw_entities, raw_relationships, raw_definitions),
+        )
+
     def _run(self, key: ModelKey, command: Checking) -> ModelSnapshot | None:
-        client = self._client if key == self.root else self._client.for_model(key)
-        context = client.monitor_reads(self._stop) if isinstance(client, CloudHealthClient) else nullcontext()
-        with context:
+        client = self._client_for(key)
+        with self._reads(client):
             self._check_live()
             if type(command) is Checking:
                 raw = client.get_entity(key.group, key.name, key.name)
@@ -549,70 +561,23 @@ class Poller:
                     )
                     if self._listener:
                         self._listener()
-            self._check_live()
-            raw_definitions = client.list_signal_definitions(key.group, key.name)
-            definitions = parse_signal_definitions(raw_definitions)
-            self._check_live()
-            raw_entities = client.list_entities(key.group, key.name)
-            entities = parse_entities(raw_entities, definitions, key.endpoint)
-            self._check_live()
-            raw_relationships = client.list_relationships(key.group, key.name)
-            relationships = parse_relationships(raw_relationships)
-            self._check_live()
-            forest = build_forest(entities, relationships)
-            root = next((e for e in entities.values() if e.name.casefold() == key.name.casefold()), None)
-            if key != self.root and root is None:
-                raise ValueError(f"Missing expected nested root entity {key.name!r} in {key.label}")
-            snapshot = build_snapshot(forest, datetime.now(timezone.utc).isoformat())
-            captured_at = datetime.now(timezone.utc).isoformat()
-            return ModelSnapshot(
-                forest, snapshot, root.health_state if root else None,
-                tuple(diff_snapshots(command.previous.snapshot if command.previous else None, snapshot)),
-                definitions,
-                captured_at=captured_at,
-                resource_json=self._resource_json(raw_entities, raw_relationships, raw_definitions),
-            )
+            return self._load(client, key, None, command.previous)
 
     def _run_snapshot(self, key: SnapshotKey, command: Checking) -> ModelSnapshot | None:
-        model = key.model
-        at = key.at_utc
-        client = self._client if model == self.root else self._client.for_model(model)
-        context = client.monitor_reads(self._stop) if hasattr(client, "monitor_reads") else nullcontext()
-        with context:
-            self._check_live()
-            raw_definitions = self._invoke_with_timestamp(client.list_signal_definitions, model.group, model.name, at)
-            definitions = parse_signal_definitions(raw_definitions)
-            self._check_live()
-            raw_entities = self._invoke_with_timestamp(client.list_entities, model.group, model.name, at)
-            entities = parse_entities(raw_entities, definitions, model.endpoint)
-            self._check_live()
-            raw_relationships = self._invoke_with_timestamp(client.list_relationships, model.group, model.name, at)
-            relationships = parse_relationships(raw_relationships)
-            self._check_live()
-            forest = build_forest(entities, relationships)
-            root = next((e for e in entities.values() if e.name.casefold() == model.name.casefold()), None)
-            captured_at = datetime.now(timezone.utc).isoformat()
-            snapshot_time = at.isoformat().replace("+00:00", "Z")
-            snapshot = build_snapshot(forest, snapshot_time)
-            return ModelSnapshot(
-                forest, snapshot, root.health_state if root else None,
-                tuple(diff_snapshots(command.previous.snapshot if command.previous else None, snapshot)),
-                definitions,
-                captured_at=captured_at,
-                resource_json=self._resource_json(raw_entities, raw_relationships, raw_definitions),
-            )
+        client = self._client_for(key.model)
+        with self._reads(client):
+            return self._load(client, key.model, key.at_utc, command.previous)
 
-    def _run_range(self, key: RangeKey) -> Mapping[str, Any]:
+    def _run_range(self, key: RangeKey) -> tuple[HistoryEvent, ...]:
         model = key.model
-        client = self._client if model == self.root else self._client.for_model(model)
-        context = client.monitor_reads(self._stop) if hasattr(client, "monitor_reads") else nullcontext()
+        client = self._client_for(model)
         body = {
             "startAt": key.start_utc.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
             "endAt": key.end_utc.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
         }
         if key.signal_name is not None:
             body["signalName"] = key.signal_name
-        with context:
+        with self._reads(client):
             self._check_live()
             if key.signal_name is None:
                 result = client.get_entity_history(model.group, model.name, key.entity_name, body)
@@ -621,7 +586,8 @@ class Poller:
             self._check_live()
             if not isinstance(result, Mapping):
                 raise TypeError("Range response must be a mapping")
-            return result
+            # Parsing here means malformed history fails this range instead of raising in the UI.
+            return parse_history_events(result.get("history", []))
 
     def _check_live(self) -> None:
         if self._stop.is_set():
@@ -655,8 +621,7 @@ class Poller:
                 snapshot = future.result()
             except Exception as exc:
                 _log.exception("Model read failed: %s", key.label)
-                diagnostic = exc.diagnostic_text() if hasattr(exc, "diagnostic_text") else f"{type(exc).__name__}: {exc}"
-                self._entries[key] = Failed(state.previous, state.generation, diagnostic, last_check=state.last_check)
+                self._entries[key] = Failed(state.previous, state.generation, describe_error(exc), last_check=state.last_check)
             else:
                 if snapshot is None and state.reasons - {"health"}:
                     # Demand can join after the worker's check decision but before publication.
@@ -670,7 +635,7 @@ class Poller:
                 assert snapshot is not None
                 self._entries[key] = Ready(snapshot, state.generation, last_check=state.last_check)
                 self._candidates = {k: v for k, v in self._candidates.items() if v[0] != key}
-                if snapshot is not state.previous and snapshot is not None:
+                if snapshot is not state.previous:
                     self._observe(key, snapshot)
             self._advance()
 
@@ -690,16 +655,13 @@ class Poller:
                 snapshot = future.result()
             except Exception as exc:
                 _log.exception("Historical model read failed: %s at %s", key.model.label, key.at_utc.isoformat())
-                diagnostic = exc.diagnostic_text() if hasattr(exc, "diagnostic_text") else f"{type(exc).__name__}: {exc}"
-                self._snapshots[key] = Failed(state.previous, state.generation, diagnostic, last_check=state.last_check)
+                self._snapshots[key] = Failed(state.previous, state.generation, describe_error(exc), last_check=state.last_check)
             else:
-                snapshot = snapshot or state.previous
-                assert snapshot is not None
                 self._snapshots[key] = Ready(snapshot, state.generation, last_check=state.last_check)
             self._prune_snapshots()
             self._advance()
 
-    def _complete_range(self, key: RangeKey, future: Future[Mapping[str, Any]], run_key: object) -> None:
+    def _complete_range(self, key: RangeKey, future: Future[tuple[HistoryEvent, ...]], run_key: object) -> None:
         with self._condition:
             self._running.pop(run_key, None)
             if self._stop.is_set():
@@ -712,10 +674,9 @@ class Poller:
             try:
                 result = future.result()
             except Exception as exc:
-                diagnostic = exc.diagnostic_text() if hasattr(exc, "diagnostic_text") else f"{type(exc).__name__}: {exc}"
-                self._ranges[key] = _RangeEntry(status="failed", sequence=current.sequence, result=current.result, error=diagnostic)
+                self._ranges[key] = _RangeEntry(status="failed", sequence=current.sequence, events=current.events, error=describe_error(exc))
             else:
-                self._ranges[key] = _RangeEntry(status="ready", sequence=current.sequence, result=result, error="")
+                self._ranges[key] = _RangeEntry(status="ready", sequence=current.sequence, events=result, error="")
             self._prune_ranges()
             self._advance()
 
@@ -726,13 +687,13 @@ class Poller:
             job_key[1] for job_key in self._running
             if isinstance(job_key, tuple) and len(job_key) == 2 and job_key[0] == "snapshot"
         }
+        pinned_instants = {
+            demand_key.at_utc for demand_key, owners in self._snapshot_demands.items() if owners
+        }
         ordered = sorted(self._snapshots.items(), key=lambda item: item[1].generation)
         for key, state in ordered:
             if len(self._snapshots) <= self._MAX_HISTORY_CACHE:
                 break
-            pinned_instants = {
-                demand_key.at_utc for demand_key, owners in self._snapshot_demands.items() if owners
-            }
             if key in running or type(state) is Queued:
                 continue
             if key.at_utc in pinned_instants:

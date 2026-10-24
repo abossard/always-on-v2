@@ -5,7 +5,7 @@ strict frozen domain types. All functions here are calculations.
 """
 from __future__ import annotations
 
-from typing import Any, Mapping, Sequence
+from typing import Mapping, Sequence
 
 from azext_health_models_tui.models.domain import (
     EntityNode,
@@ -14,8 +14,6 @@ from azext_health_models_tui.models.domain import (
     Forest,
     Relationship,
     SignalDefinition,
-    SignalHistory,
-    SignalHistoryPoint,
     SignalValue,
     Snapshot,
 )
@@ -160,6 +158,12 @@ def _parse_signal_ref(
 
     def_name = raw.get("signalDefinitionName", "")
     sig_def = sig_defs.get(def_name)
+    if sig_def is None and not def_name:
+        # Inline signals carry displayName, dataUnit and evaluationRules themselves.
+        try:
+            sig_def = parse_signal_definition({"name": sig_name, "properties": raw})
+        except (TypeError, ValueError):
+            sig_def = None  # one odd inline signal must not fail the whole model load
 
     status = raw.get("status") or {}
     raw_value = status.get("value")
@@ -167,7 +171,7 @@ def _parse_signal_ref(
     return SignalValue(
         name=sig_name,
         definition_name=def_name,
-        display_name=sig_def.display_name if sig_def else def_name[:12],
+        display_name=sig_def.display_name if sig_def else (raw.get("displayName") or def_name[:12] or sig_name),
         signal_kind=_parse_signal_kind(raw.get("signalKind")),
         health_state=_parse_health_state(status.get("healthState")),
         value=float(raw_value) if raw_value is not None else None,
@@ -266,26 +270,3 @@ def parse_relationships(
 ) -> Sequence[Relationship]:
     """Parse a list of relationships."""
     return [parse_relationship(raw) for raw in raw_list]
-
-
-# ─── Signal history parsing ──────────────────────────────────────────
-
-
-def parse_signal_history(raw: dict[str, Any]) -> SignalHistory:
-    """Parse signal history response from the API."""
-    points = []
-    for p in raw.get("history", []):
-        raw_value = p.get("value")
-        points.append(
-            SignalHistoryPoint(
-                occurred_at=p.get("occurredAt", ""),
-                value=float(raw_value) if raw_value is not None else None,
-                health_state=_parse_health_state(p.get("healthState")),
-                additional_context=p.get("additionalContext"),
-            )
-        )
-    return SignalHistory(
-        entity_name=raw.get("entityName", ""),
-        signal_name=raw.get("signalName", ""),
-        points=tuple(points),
-    )

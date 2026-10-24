@@ -92,7 +92,7 @@ def _stub_executor_and_history(monkeypatch, payload=None, exc=None):
     monkeypatch.setattr(
         HealthWatchApp,
         "_fetch_signal_history",
-        lambda self, e, s: {"history": []},
+        lambda self, e, s, key=None: {"history": []},
     )
 
 

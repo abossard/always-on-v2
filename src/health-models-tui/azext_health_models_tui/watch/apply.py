@@ -1,6 +1,7 @@
 """Guarded single-resource Apply orchestration for live health model edits."""
 from __future__ import annotations
 
+from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from enum import Enum
@@ -16,8 +17,6 @@ from azext_health_models_tui.domain.drafts import (
     collect_signal_definition_consumers,
     diff_documents,
     normalize_known_readonly_fields,
-    validate_target_payload,
-    verify_apply_plan_consistency,
 )
 
 _RACE_WARNING = (
@@ -47,20 +46,34 @@ class ApplyResult:
 
 
 @dataclass(frozen=True)
-class _PreparedPlanReview:
-    target: ResourceTarget
-    revision: int
-    normalized_edited: Mapping[str, Any]
-    changed_fields: tuple[str, ...]
-
-
-@dataclass(frozen=True)
 class ConnectionScopeDescription:
     arm_endpoint: str
     subscription_id: str
     subscription_name: str
     tenant_id: str
     tenant_name: str | None
+
+
+def _written(
+    outcome: ApplyOutcomeKind,
+    target: ResourceTarget,
+    message: str,
+    changed_fields: tuple[str, ...],
+    read_back: dict[str, Any] | None,
+    write_error: str | None = None,
+) -> ApplyResult:
+    """Result for a sequence that reached the write call."""
+    return ApplyResult(
+        outcome=outcome,
+        target=target,
+        attempted_write=True,
+        message=message,
+        race_warning=_RACE_WARNING,
+        changed_fields=changed_fields,
+        confirmation_required=target.name,
+        read_back=read_back,
+        write_error=write_error,
+    )
 
 
 class ApplyCoordinator:
@@ -70,26 +83,24 @@ class ApplyCoordinator:
         self,
         client: CloudHealthClient,
         *,
-        current_revision_supplier: Callable[[ResourceTarget], int] | None = None,
-        live_scope_supplier: Callable[[ResourceTarget], bool] | None = None,
+        current_revision_supplier: Callable[[ResourceTarget], int],
+        live_scope_supplier: Callable[[ResourceTarget], bool],
     ) -> None:
         self._client = client
-        self._current_revision_supplier = current_revision_supplier
-        self._live_scope_supplier = live_scope_supplier
-        self._prepared_plan_reviews: dict[int, _PreparedPlanReview] = {}
+        self._current_revision = current_revision_supplier
+        self._is_live_scope = live_scope_supplier
+        self._prepared: ApplyPlan | None = None  # one prepared plan; Apply must present an equal one
 
     def prepare_plan(
         self,
         *,
         target: ResourceTarget,
         revision: int,
-        current_revision: int,
-        is_live_connected_scope: bool,
         edited_resource: Mapping[str, Any],
         draft_live_baseline: Mapping[str, Any],
         generated_at: datetime | None = None,
     ) -> ApplyPlan | ApplyResult:
-        if not self._is_live_scope(target, fallback=is_live_connected_scope):
+        if not self._is_live_scope(target):
             return self._reject(
                 target,
                 "Apply is allowed only for the current live connected scope.",
@@ -101,7 +112,7 @@ class ApplyCoordinator:
                 target,
                 f"Unable to verify connected tenant/subscription scope before apply: {exc}",
             )
-        if revision != self._current_revision(target, fallback=current_revision):
+        if revision != self._current_revision(target):
             return self._reject(
                 target,
                 "Draft revision is obsolete. Re-open the current draft and prepare again.",
@@ -147,12 +158,7 @@ class ApplyCoordinator:
         changed = changed_paths(plan.changes)
         if not changed:
             return self._reject(target, "No writable changes to apply.")
-        self._prepared_plan_reviews[id(plan)] = _PreparedPlanReview(
-            target=plan.target,
-            revision=plan.revision,
-            normalized_edited=normalize_known_readonly_fields(plan.edited_resource),
-            changed_fields=changed,
-        )
+        self._prepared = deepcopy(plan)
         return plan
 
     def apply_confirmed(
@@ -163,23 +169,16 @@ class ApplyCoordinator:
         confirmation_name: str,
     ) -> ApplyResult:
         target = plan.target
-        prepared_review = self._prepared_plan_reviews.get(id(plan))
-        if prepared_review is None:
-            return self._reject(
-                target,
-                "Apply plan is unknown or expired. Prepare again.",
-            )
-        if prepared_review.target != target or prepared_review.revision != plan.revision:
-            return self._reject(
-                target,
-                "Apply plan token mismatch. Prepare again.",
-            )
-        if current_revision != self._current_revision(target, fallback=current_revision):
+        if self._prepared is None:
+            return self._reject(target, "Apply plan is unknown or expired. Prepare again.")
+        if plan != self._prepared:
+            return self._reject(target, "Apply plan changed after review. Prepare again.")
+        if current_revision != self._current_revision(target):
             return self._reject(
                 target,
                 "Draft revision changed after plan preparation. Prepare again.",
             )
-        if not self._is_live_scope(target, fallback=True):
+        if not self._is_live_scope(target):
             return self._reject(
                 target,
                 "Apply is allowed only for the current live connected scope.",
@@ -190,44 +189,20 @@ class ApplyCoordinator:
                 "Resource-name confirmation mismatch. No write issued.",
             )
 
-        validation = validate_target_payload(target, plan.edited_resource)
-        if not validation.is_valid:
-            return self._reject(
-                target,
-                f"Apply plan payload is invalid: {', '.join(validation.errors)}",
-            )
-        try:
-            verify_apply_plan_consistency(plan)
-        except ValueError as exc:
-            return self._reject(
-                target,
-                f"Apply plan changed after review. {exc}",
-            )
-        normalized_desired = normalize_known_readonly_fields(plan.edited_resource)
-        recomputed_changes = changed_paths(diff_documents(plan.normalized_live_baseline, normalized_desired))
-        if not recomputed_changes:
-            return self._reject(target, "Apply plan has no writable changes.")
-        if recomputed_changes != prepared_review.changed_fields:
-            return self._reject(
-                target,
-                "Apply plan changed after review. Prepare again.",
-            )
-        if normalized_desired != dict(prepared_review.normalized_edited):
-            return self._reject(
-                target,
-                "Apply payload changed after review. Prepare again.",
-            )
+        # build_apply_plan validated and normalized the payload; the equality check above pins it.
+        normalized_desired = dict(plan.edited_resource)
+        recomputed_changes = changed_paths(plan.changes)
 
         try:
             live_before_raw = self._read_target(target)
         except ValueError as exc:
             return self._reject(target, str(exc))
-        if plan.revision != self._current_revision(target, fallback=current_revision):
+        if plan.revision != self._current_revision(target):
             return self._reject(
                 target,
                 "Draft revision changed while preparing apply. No write issued.",
             )
-        if not self._is_live_scope(target, fallback=True):
+        if not self._is_live_scope(target):
             return self._reject(
                 target,
                 "Apply is allowed only for the current live connected scope.",
@@ -254,13 +229,13 @@ class ApplyCoordinator:
                     "Shared definition consumer scope changed. Prepare again.",
                 )
 
-        attempted_write = False
         write_error: str | None = None
+        write_status: int | None = None
         try:
-            attempted_write = True
             self._write_target(target, plan.edited_resource)
         except HealthModelError as exc:
             write_error = exc.diagnostic_text()
+            write_status = exc.status_code
         except Exception as exc:  # noqa: BLE001
             write_error = f"{type(exc).__name__}: {exc}"
 
@@ -273,77 +248,34 @@ class ApplyCoordinator:
                 if write_error is None
                 else f"{write_error}; read-back failed: {readback_error}"
             )
-            return ApplyResult(
-                outcome=ApplyOutcomeKind.UNKNOWN,
-                target=target,
-                attempted_write=attempted_write,
-                message="Write attempted, but read-back failed. Outcome unknown.",
-                race_warning=_RACE_WARNING,
-                changed_fields=recomputed_changes,
-                confirmation_required=target.name,
-                read_back=None,
-                write_error=diagnostic,
+            return _written(
+                ApplyOutcomeKind.UNKNOWN, target, "Write attempted, but read-back failed. Outcome unknown.",
+                recomputed_changes, None, diagnostic,
             )
-        normalized_read_back = normalize_known_readonly_fields(read_back_raw)
-        diffs = changed_paths(diff_documents(normalized_desired, normalized_read_back))
+        diffs = changed_paths(diff_documents(normalized_desired, normalize_known_readonly_fields(read_back_raw)))
         if not diffs:
             if write_error:
-                return ApplyResult(
-                    outcome=ApplyOutcomeKind.UNKNOWN,
-                    target=target,
-                    attempted_write=attempted_write,
-                    message="Write returned an error but read-back matches desired state.",
-                    race_warning=_RACE_WARNING,
-                    changed_fields=recomputed_changes,
-                    confirmation_required=target.name,
-                    read_back=read_back_raw,
-                    write_error=write_error,
+                return _written(
+                    ApplyOutcomeKind.UNKNOWN, target, "Write returned an error but read-back matches desired state.",
+                    recomputed_changes, read_back_raw, write_error,
                 )
-            return ApplyResult(
-                outcome=ApplyOutcomeKind.APPLIED,
-                target=target,
-                attempted_write=attempted_write,
-                message="Apply succeeded and read-back matches desired state.",
-                race_warning=_RACE_WARNING,
-                changed_fields=recomputed_changes,
-                confirmation_required=target.name,
-                read_back=read_back_raw,
+            return _written(
+                ApplyOutcomeKind.APPLIED, target, "Apply succeeded and read-back matches desired state.",
+                recomputed_changes, read_back_raw,
             )
-
+        if write_error and write_status in (400, 403, 409):
+            return _written(
+                ApplyOutcomeKind.REJECTED, target, "Service rejected write and read-back differs from desired state.",
+                diffs, read_back_raw, write_error,
+            )
         if write_error:
-            if "HTTP 403" in write_error or "HTTP 400" in write_error or "HTTP 409" in write_error:
-                return ApplyResult(
-                    outcome=ApplyOutcomeKind.REJECTED,
-                    target=target,
-                    attempted_write=attempted_write,
-                    message="Service rejected write and read-back differs from desired state.",
-                    race_warning=_RACE_WARNING,
-                    changed_fields=diffs,
-                    confirmation_required=target.name,
-                    read_back=read_back_raw,
-                    write_error=write_error,
-                )
-            return ApplyResult(
-                outcome=ApplyOutcomeKind.UNKNOWN,
-                target=target,
-                attempted_write=attempted_write,
-                message="Write outcome is unknown. Read-back differs from desired state.",
-                race_warning=_RACE_WARNING,
-                changed_fields=diffs,
-                confirmation_required=target.name,
-                read_back=read_back_raw,
-                write_error=write_error,
+            return _written(
+                ApplyOutcomeKind.UNKNOWN, target, "Write outcome is unknown. Read-back differs from desired state.",
+                diffs, read_back_raw, write_error,
             )
-
-        return ApplyResult(
-            outcome=ApplyOutcomeKind.DIFFERS,
-            target=target,
-            attempted_write=attempted_write,
-            message="Write completed but read-back differs from desired state.",
-            race_warning=_RACE_WARNING,
-            changed_fields=diffs,
-            confirmation_required=target.name,
-            read_back=read_back_raw,
+        return _written(
+            ApplyOutcomeKind.DIFFERS, target, "Write completed but read-back differs from desired state.",
+            diffs, read_back_raw,
         )
 
     @staticmethod
@@ -435,13 +367,3 @@ class ApplyCoordinator:
         if scoped is None:
             raise ValueError("Unable to resolve scoped client for apply target: for_model returned None")
         return scoped
-
-    def _current_revision(self, target: ResourceTarget, *, fallback: int) -> int:
-        if self._current_revision_supplier is None:
-            return fallback
-        return self._current_revision_supplier(target)
-
-    def _is_live_scope(self, target: ResourceTarget, *, fallback: bool) -> bool:
-        if self._live_scope_supplier is None:
-            return fallback
-        return self._live_scope_supplier(target)

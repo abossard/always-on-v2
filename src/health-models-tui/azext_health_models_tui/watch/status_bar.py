@@ -14,18 +14,15 @@ def _truncate_status_error(message: str, limit: int = 80) -> str:
     return normalized[:limit - 1] + "…"
 
 
+_HINTS = (
+    ("F1", "Help"), ("F2", "Actions"), ("Tab", "Focus"), ("Enter", "Activate"), ("/", "Search"),
+    ("n", "Next"), ("p", "Prev"), ("v", "Verify"), ("d", "Details"), ("e", "Edit"), ("j", "Jump"),
+    ("r", "Refresh"), ("q", "Quit"),
+)
+
+
 class StatusBar(Static):
     """Displays connection state, countdown, change count, and key hints."""
-
-    DEFAULT_CSS = """
-    StatusBar {
-        dock: bottom;
-        height: 1;
-        background: $surface;
-        color: $text;
-        padding: 0 1;
-    }
-    """
 
     poll_countdown: reactive[int] = reactive(30)
     change_count: reactive[int] = reactive(0)
@@ -34,9 +31,13 @@ class StatusBar(Static):
     has_search_results: reactive[bool] = reactive(False)
     error_text: reactive[str] = reactive("")
     model_work: reactive[str] = reactive("")
+    snapshot_at: reactive[str] = reactive("")
 
     def render(self) -> Text:  # noqa: D102
         parts = Text()
+        if self.snapshot_at:
+            parts.append(f"◷ Snapshot {self.snapshot_at}", style="bold yellow")
+            parts.append(" │ ", style="dim")
 
         # Connection indicator
         if self.connected:
@@ -48,54 +49,27 @@ class StatusBar(Static):
                 parts.append(_truncate_status_error(self.error_text), style="dim red")
 
         parts.append(" │ ", style="dim")
-        if self.model_work:
-            parts.append(self.model_work, style="dim")
-            parts.append(" │ ", style="dim")
-
-        # Poll countdown
         parts.append(f"Next poll in {self.poll_countdown}s", style="cyan")
-
         parts.append(" │ ", style="dim")
-
-        # Escalation count
         style = "bold red" if self.change_count > 0 else "dim"
         parts.append(f"{self.change_count} escalations", style=style)
-
         parts.append(" │ ", style="dim")
-
-        # Auto-jump indicator
         jump_label = "on" if self.auto_jump else "off"
         parts.append(f"Auto-jump: {jump_label}", style="italic")
+        # Model work varies in length, so it goes last where the ellipsis may cut it.
+        if self.model_work:
+            parts.append(" │ ", style="dim")
+            parts.append(self.model_work, style="dim")
 
-        parts.append(" │ ", style="dim")
-
-        # Key hints — always-available shortcuts
-        parts.append("↑↓ Nav  ⏎ Toggle  Tab Focus  Enter Activate  ", style="dim")
-        parts.append("F1", style="bold")
-        parts.append(" Help  ", style="dim")
-        parts.append("F2", style="bold")
-        parts.append(" Actions  ", style="dim")
-        parts.append("/", style="bold")
-        parts.append(" Search  ", style="dim")
-        parts.append("e", style="bold")
-        parts.append(" Query  ", style="dim")
-
-        # Conditional: n/p only when search results exist
-        if self.has_search_results:
-            parts.append("n", style="bold")
-            parts.append(" Next  ", style="dim")
-            parts.append("p", style="bold")
-            parts.append(" Prev  ", style="dim")
-
-        parts.append("j", style="bold")
-        parts.append(" Jump  ", style="dim")
-        parts.append("v", style="bold")
-        parts.append(" Verify  ", style="dim")
-        parts.append("r", style="bold")
-        parts.append(" Refresh  ", style="dim")
-        parts.append("d", style="bold")
-        parts.append(" Details  ", style="dim")
-        parts.append("q", style="bold")
-        parts.append(" Quit", style="dim")
-
+        # Only whole hints that fit; F1 Help lists every shortcut.
+        parts.append("\n")
+        line_start = parts.cell_len
+        room = self.content_size.width  # 0 before layout: no limit
+        for key, label in _HINTS:
+            if key in ("n", "p") and not self.has_search_results:
+                continue
+            hint = Text.assemble("  " if parts.cell_len > line_start else "", (key, "bold"), (f" {label}", "dim"))
+            if room and parts.cell_len - line_start + hint.cell_len > room:
+                break
+            parts.append_text(hint)
         return parts

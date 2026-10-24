@@ -4,7 +4,7 @@ from __future__ import annotations
 import json
 import os
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 from pathlib import Path
 import tempfile
@@ -13,7 +13,6 @@ from typing import Any, Mapping
 from azext_health_models_tui.domain.drafts import (
     ResourceTarget,
     apply_field_edit,
-    deep_copy_value,
     find_known_readonly_tampering,
     parse_field_path,
     validate_target_payload,
@@ -43,18 +42,20 @@ class DraftTestResult:
 class DraftStore:
     def __init__(self) -> None:
         self._entries: dict[ResourceTarget, DraftSnapshot] = {}
+        self._active: ResourceTarget | None = None
 
     def get_or_create(self, target: ResourceTarget, baseline: Mapping[str, Any]) -> DraftSnapshot:
         current = self._entries.get(target)
         if current is not None:
+            self._active = target
             return self._clone_snapshot(current)
         validation = validate_target_payload(target, baseline)
         if not validation.is_valid:
             raise ValueError(f"Invalid baseline for {target.kind}:{target.name}: {', '.join(validation.errors)}")
         created = DraftSnapshot(
             target=target,
-            baseline=deep_copy_value(dict(baseline)),
-            edited=deep_copy_value(dict(baseline)),
+            baseline=deepcopy(dict(baseline)),
+            edited=deepcopy(dict(baseline)),
             revision=0,
             saved_revision=0,
             tested_revision=None,
@@ -63,6 +64,7 @@ class DraftStore:
             last_test_summary=None,
         )
         self._entries[target] = created
+        self._active = target
         return self._clone_snapshot(created)
 
     def get(self, target: ResourceTarget) -> DraftSnapshot | None:
@@ -77,24 +79,25 @@ class DraftStore:
     def list_snapshots(self) -> tuple[DraftSnapshot, ...]:
         return tuple(self._clone_snapshot(self._entries[target]) for target in self.list_targets())
 
+    def active_target(self) -> ResourceTarget | None:
+        """The most recently opened or edited draft, else the first listed one."""
+        if self._active in self._entries:
+            return self._active
+        targets = self.list_targets()
+        return targets[0] if targets else None
+
     def update_field(self, target: ResourceTarget, path: str, value: Any) -> DraftSnapshot:
         entry = self._require(target)
         edited = apply_field_edit(entry.edited, parse_field_path(path), value)
         validation = validate_target_payload(target, edited)
         if not validation.is_valid:
             raise ValueError(f"Invalid field update: {', '.join(validation.errors)}")
-        updated = DraftSnapshot(
-            target=entry.target,
-            baseline=entry.baseline,
-            edited=edited,
-            revision=entry.revision + 1,
-            saved_revision=entry.saved_revision,
-            tested_revision=None,
-            tested_at_utc=None,
-            saved_at_utc=entry.saved_at_utc,
-            last_test_summary=None,
+        updated = replace(
+            entry, edited=edited, revision=entry.revision + 1,
+            tested_revision=None, tested_at_utc=None, last_test_summary=None,
         )
         self._entries[target] = updated
+        self._active = target
         return self._clone_snapshot(updated)
 
     def record_test_result(self, target: ResourceTarget, result: DraftTestResult) -> DraftSnapshot:
@@ -103,16 +106,9 @@ class DraftStore:
             raise ValueError(
                 f"Stale test result revision {result.revision}; current revision is {entry.revision}"
             )
-        updated = DraftSnapshot(
-            target=entry.target,
-            baseline=entry.baseline,
-            edited=entry.edited,
-            revision=entry.revision,
-            saved_revision=entry.saved_revision,
-            tested_revision=result.revision,
-            tested_at_utc=result.recorded_at_utc.astimezone(UTC),
-            saved_at_utc=entry.saved_at_utc,
-            last_test_summary=result.summary,
+        updated = replace(
+            entry, tested_revision=result.revision,
+            tested_at_utc=result.recorded_at_utc.astimezone(UTC), last_test_summary=result.summary,
         )
         self._entries[target] = updated
         return self._clone_snapshot(updated)
@@ -124,6 +120,7 @@ class DraftStore:
             raise ValueError(f"Refusing to export invalid draft: {', '.join(validation.errors)}")
         if path.exists() and not overwrite:
             raise FileExistsError(f"Refusing to overwrite existing file: {path}")
+        saved_at = datetime.now(UTC)
         payload = {
             "target": {
                 "endpoint": entry.target.model.endpoint,
@@ -140,7 +137,7 @@ class DraftStore:
                 "savedRevision": entry.revision,
                 "testedRevision": entry.tested_revision,
                 "testedAtUtc": entry.tested_at_utc.isoformat() if entry.tested_at_utc else None,
-                "savedAtUtc": datetime.now(UTC).isoformat(),
+                "savedAtUtc": saved_at.isoformat(),
                 "lastTestSummary": entry.last_test_summary,
             },
         }
@@ -156,27 +153,16 @@ class DraftStore:
                 suffix=".tmp",
                 delete=False,
             ) as handle:
+                temp_path = Path(handle.name)
                 handle.write(encoded)
                 handle.flush()
                 os.fsync(handle.fileno())
-                temp_path = Path(handle.name)
             os.replace(temp_path, path)
         finally:
             if temp_path is not None and temp_path.exists():
                 temp_path.unlink(missing_ok=True)
 
-        refreshed = DraftSnapshot(
-            target=entry.target,
-            baseline=entry.baseline,
-            edited=entry.edited,
-            revision=entry.revision,
-            saved_revision=entry.revision,
-            tested_revision=entry.tested_revision,
-            tested_at_utc=entry.tested_at_utc,
-            saved_at_utc=datetime.now(UTC),
-            last_test_summary=entry.last_test_summary,
-        )
-        self._entries[target] = refreshed
+        self._entries[target] = replace(entry, saved_revision=entry.revision, saved_at_utc=saved_at)
         return path
 
     def restore_from_json(
@@ -218,7 +204,7 @@ class DraftStore:
         }
         if actual_identity != expected_identity:
             raise ValueError("Draft target identity mismatch")
-        current_baseline = deep_copy_value(dict(expected_baseline))
+        current_baseline = deepcopy(dict(expected_baseline))
         restored_baseline = draft_raw.get("baseline")
         restored_edited = draft_raw.get("edited", current_baseline)
         if not isinstance(restored_baseline, Mapping) or not isinstance(restored_edited, Mapping):
@@ -253,33 +239,25 @@ class DraftStore:
                 raise ValueError("Invalid draft file: testedRevision must be an integer") from exc
             if tested_revision > revision:
                 raise ValueError("Invalid draft file: testedRevision cannot exceed revision")
+        saved_at_utc = datetime.fromisoformat(saved_at) if saved_at else None
+        if saved_revision is None and saved_at_utc:
+            saved_revision = revision
         restored = DraftSnapshot(
             target=target,
             baseline=current_baseline,
             edited=deepcopy(restored_edited),
             revision=revision,
             saved_revision=saved_revision,
-            tested_revision=tested_revision if tested_revision is not None else None,
+            tested_revision=tested_revision,
             tested_at_utc=datetime.fromisoformat(tested_at) if tested_at else None,
-            saved_at_utc=datetime.fromisoformat(saved_at) if saved_at else None,
+            saved_at_utc=saved_at_utc,
             last_test_summary=draft_raw.get("lastTestSummary"),
         )
         validation = validate_target_payload(target, restored.edited)
         if not validation.is_valid:
             raise ValueError(f"Invalid draft file payload: {', '.join(validation.errors)}")
-        if restored.saved_revision is None:
-            restored = DraftSnapshot(
-                target=restored.target,
-                baseline=restored.baseline,
-                edited=restored.edited,
-                revision=restored.revision,
-                saved_revision=restored.revision if restored.saved_at_utc else None,
-                tested_revision=restored.tested_revision,
-                tested_at_utc=restored.tested_at_utc,
-                saved_at_utc=restored.saved_at_utc,
-                last_test_summary=restored.last_test_summary,
-            )
         self._entries[target] = restored
+        self._active = target
         return self._clone_snapshot(restored)
 
     def is_test_stale(self, target: ResourceTarget) -> bool:
@@ -299,19 +277,19 @@ class DraftStore:
         validation = validate_target_payload(target, readback)
         if not validation.is_valid:
             raise ValueError(f"Invalid readback for {target.kind}:{target.name}: {', '.join(validation.errors)}")
-        accepted = DraftSnapshot(
-            target=entry.target,
-            baseline=deep_copy_value(dict(readback)),
-            edited=deep_copy_value(dict(readback)),
-            revision=entry.revision,
-            saved_revision=entry.revision,
-            tested_revision=entry.tested_revision,
-            tested_at_utc=entry.tested_at_utc,
-            saved_at_utc=datetime.now(UTC),
-            last_test_summary=entry.last_test_summary,
+        accepted = replace(
+            entry, baseline=deepcopy(dict(readback)), edited=deepcopy(dict(readback)),
+            saved_revision=entry.revision, saved_at_utc=datetime.now(UTC),
         )
         self._entries[target] = accepted
         return self._clone_snapshot(accepted)
+
+    def rebase(self, target: ResourceTarget, baseline: Mapping[str, Any]) -> DraftSnapshot:
+        """Keep the edits on top of a new live baseline (after an apply the user kept editing past)."""
+        entry = self._require(target)
+        updated = replace(entry, baseline=deepcopy(dict(baseline)))
+        self._entries[target] = updated
+        return self._clone_snapshot(updated)
 
     def _require(self, target: ResourceTarget) -> DraftSnapshot:
         if target not in self._entries:
@@ -319,14 +297,4 @@ class DraftStore:
         return self._entries[target]
 
     def _clone_snapshot(self, entry: DraftSnapshot) -> DraftSnapshot:
-        return DraftSnapshot(
-            target=entry.target,
-            baseline=deep_copy_value(dict(entry.baseline)),
-            edited=deep_copy_value(dict(entry.edited)),
-            revision=entry.revision,
-            saved_revision=entry.saved_revision,
-            tested_revision=entry.tested_revision,
-            tested_at_utc=entry.tested_at_utc,
-            saved_at_utc=entry.saved_at_utc,
-            last_test_summary=entry.last_test_summary,
-        )
+        return replace(entry, baseline=deepcopy(dict(entry.baseline)), edited=deepcopy(dict(entry.edited)))

@@ -2,13 +2,12 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from threading import Lock
 from typing import TYPE_CHECKING, Any
 
 from rich.console import Console
 from rich.table import Table
 
-from azext_health_models_tui.client.errors import HealthModelError
+from azext_health_models_tui.client.errors import describe_error
 from azext_health_models_tui.domain.model_reference import ModelKey
 
 if TYPE_CHECKING:
@@ -95,12 +94,6 @@ class CatalogSelection:
     model_key: ModelKey
 
 
-def _format_catalog_error(error: Exception) -> str:
-    if isinstance(error, HealthModelError):
-        return error.diagnostic_text()
-    return f"{type(error).__name__}: {error}"
-
-
 class ModelCatalogApp:  # pragma: no cover - wrapper class for runtime import
     def __new__(
         cls,
@@ -113,6 +106,7 @@ class ModelCatalogApp:  # pragma: no cover - wrapper class for runtime import
         from textual.widgets import DataTable, Footer, Header, Static
 
         class _CatalogApp(App[CatalogSelection | None]):
+            TITLE = "Health models"
             BINDINGS = [
                 Binding("q", "quit", "Quit"),
                 Binding("escape", "quit", "Quit"),
@@ -124,9 +118,7 @@ class ModelCatalogApp:  # pragma: no cover - wrapper class for runtime import
                 self._client = client
                 self._resource_group = resource_group
                 self._rows_by_id: dict[str, ModelCatalogRow] = {}
-                self._last_successful_rows: list[ModelCatalogRow] = []
                 self._load_generation = 0
-                self._load_lock = Lock()
 
             def compose(self) -> ComposeResult:
                 yield Header(show_clock=False)
@@ -145,9 +137,8 @@ class ModelCatalogApp:  # pragma: no cover - wrapper class for runtime import
                 self.action_refresh()
 
             def action_refresh(self) -> None:
-                with self._load_lock:
-                    self._load_generation += 1
-                    generation = self._load_generation
+                self._load_generation += 1
+                generation = self._load_generation
                 self._set_loading_state()
                 self.run_worker(
                     self._load_rows(generation),
@@ -175,7 +166,6 @@ class ModelCatalogApp:  # pragma: no cover - wrapper class for runtime import
                 self.query_one("#catalog-loading", Static).display = False
                 self.query_one("#catalog-error", Static).display = False
                 self._rows_by_id = {row.id: row for row in rows}
-                self._last_successful_rows = list(rows)
                 table = self.query_one("#catalog-table", DataTable)
                 table.clear(columns=False)
                 for row in rows:
@@ -196,16 +186,12 @@ class ModelCatalogApp:  # pragma: no cover - wrapper class for runtime import
                 if generation != self._load_generation:
                     return
                 self.query_one("#catalog-loading", Static).display = False
-                message = _format_catalog_error(error)
+                message = describe_error(error)
                 error_widget = self.query_one("#catalog-error", Static)
                 error_widget.update(
                     f"Failed to load health models. {message} Press r to retry or q to quit."
                 )
                 error_widget.display = True
-                if self._last_successful_rows:
-                    self._rows_by_id = {
-                        row.id: row for row in self._last_successful_rows
-                    }
                 self.query_one("#catalog-empty", Static).display = False
 
             @on(DataTable.RowSelected, "#catalog-table")

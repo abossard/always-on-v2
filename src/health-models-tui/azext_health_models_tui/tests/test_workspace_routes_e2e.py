@@ -14,7 +14,7 @@ from textual.css.query import NoMatches
 from textual.widgets import Button
 
 from azext_health_models_tui.domain.drafts import ApplyPlan, FieldDiff, ResourceTarget
-from azext_health_models_tui.domain.history import HistoryBucketHealth
+from azext_health_models_tui.domain.history import HistoryBucketHealth, parse_history_events
 from azext_health_models_tui.domain.history import SnapshotKey
 from azext_health_models_tui.domain.history import RangeKey
 from azext_health_models_tui.domain.model_reference import ModelKey
@@ -28,7 +28,7 @@ from azext_health_models_tui.watch.poller import Failed
 from azext_health_models_tui.watch.query_editor import QueryEditor
 from azext_health_models_tui.watch.search_modal import SearchModal
 from azext_health_models_tui.watch.shortcuts_dialog import ActionsDialog
-from azext_health_models_tui.watch.timeline import TimelinePane
+from azext_health_models_tui.watch.timeline import BAND_STATES, TimelinePane
 from .test_temporal_monitor import _TemporalClient
 
 
@@ -69,6 +69,22 @@ async def test_workspace_tab_buttons_toggle_panes(make_app, healthy_client, size
         await pilot.pause()
         assert timeline.display is False
         assert changes.display is False
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(("key", "tab"), [("2", "timeline"), ("3", "changes"), ("1", "tree")])
+async def test_digit_keys_switch_tabs_and_help_lists_them(make_app, healthy_client, key, tab) -> None:
+    app = make_app(healthy_client)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        await pilot.press("2" if key == "1" else "1", key)
+        await pilot.pause()
+        assert app.query_one(f"#ws-tab-{tab}").has_class("-selected")
+        await pilot.press("f1")
+        await pilot.pause()
+        help_text = " ".join(str(widget.render()) for widget in app.screen.query("Static"))
+        assert f"{key} / " in help_text and f"{tab.title()} tab" in help_text
 
 
 @pytest.mark.anyio
@@ -139,6 +155,7 @@ async def test_changes_apply_blocked_in_historical_mode(make_app, healthy_client
         await pilot.pause()
         app.action_show_changes()
         app._handle_changes_button("changes-prepare-apply")
+        await app.workers.wait_for_complete()
         await pilot.pause()
 
         pane = app.query_one("#changes-pane", ChangesPane)
@@ -342,7 +359,31 @@ async def test_timeline_controls_reachable_via_tab_and_enter(make_app, healthy_c
         await pilot.press("enter")
         await pilot.pause()
         summary = str(app.query_one("#timeline-summary").render())
-        assert "Preview set" in summary
+        assert "Marked" in summary
+
+
+@pytest.mark.anyio
+async def test_timeline_counts_only_in_window_events_and_rounds_preview_up(make_app, healthy_client) -> None:
+    app: HealthWatchApp = make_app(healthy_client)
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    key = RangeKey(model=app._poller.root, entity_name="EntityA", start_utc=start, end_utc=start + timedelta(hours=1))
+    path = ("EntityA",)
+    app._timeline_key, app._timeline_path = key, path
+    app._timeline_baseline_for = lambda key: None  # type: ignore[assignment]
+    app._visible_occurrence_rows = lambda: [{"path": path, "name": "EntityA", "depth": 0}]  # type: ignore[assignment]
+    view = SimpleNamespace(status="ready", error="", events=parse_history_events([
+        {"occurredAt": "2025-12-31T23:00:00Z", "newState": "Degraded", "reason": "context"},
+        {"occurredAt": "2026-01-01T00:20:00.250Z", "newState": "Healthy", "reason": "inside"},
+    ]))
+    async with app.run_test(size=(120, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        app._apply_timeline_ranges(key, {path: view}, {path: key})
+        await pilot.pause()
+        pane = app.query_one("#timeline-pane", TimelinePane)
+        assert "1 event in" in str(pane.query_one("#timeline-summary").render())
+        assert "context" not in str(pane.query_one("#timeline-events").render())
+        assert pane.go_to_value() == "2026-01-01T00:20:01Z"
 
 
 @pytest.mark.anyio
@@ -377,7 +418,7 @@ async def test_ready_mapping_rangeview_renders_events_and_prev_next_selects_exac
             ]
         }
     )
-    view = SimpleNamespace(status="ready", result=history, error="")
+    view = SimpleNamespace(status="ready", events=parse_history_events(history["history"]), error="")
 
     async with app.run_test(size=(120, 40)) as pilot:
         await app._do_poll()
@@ -415,6 +456,26 @@ async def test_entity_edit_opens_changes_draft(make_app, healthy_client) -> None
         changes = app.query_one("#changes-pane", ChangesPane)
         assert changes.display is True
         assert "Active:" in str(changes.query_one("#changes-summary").render())
+
+
+@pytest.mark.anyio
+async def test_changes_pane_follows_most_recently_edited_entity(make_app, healthy_client) -> None:
+    app: HealthWatchApp = make_app(healthy_client)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        tree = app.query_one("#health-tree", HealthTree)
+        by_name = {
+            n.data.entity_name: n for n in _walk(tree.root)
+            if n.data is not None and not n.data.is_signal and not n.data.entity_name.startswith("__")
+        }
+        first, last = sorted(by_name)[0], sorted(by_name)[-1]
+        for name in (last, first, last):
+            tree.move_cursor(by_name[name])
+            app.action_edit_query()
+            await pilot.pause()
+        summary = str(app.query_one("#changes-pane", ChangesPane).query_one("#changes-summary").render())
+        assert f"Active: {app._forest.entities[last].display_name} (entity)" in summary
 
 
 @pytest.mark.anyio
@@ -574,7 +635,7 @@ async def test_quit_keys_open_save_discard_cancel_modal_with_pending_form_edits(
         assert isinstance(app.screen, QuitDraftsDialog)
         await pilot.click("#quit-save")
         await pilot.pause()
-        assert "Save selected" in str(pane.query_one("#changes-summary").render())
+        assert "Review the drafts" in str(pane.query_one("#changes-summary").render())
 
         app.set_focus(app.query_one("#health-tree", HealthTree))
         await pilot.pause()
@@ -582,6 +643,42 @@ async def test_quit_keys_open_save_discard_cancel_modal_with_pending_form_edits(
         await pilot.pause()
         assert isinstance(app.screen, QuitDraftsDialog)
         await pilot.click("#quit-discard")
+        await pilot.pause()
+        assert app.is_running is False
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(("keys", "running"), [(("escape",), True), (("tab", "enter"), False)])
+async def test_quit_dialog_choices_work_from_keyboard(make_app, healthy_client, keys, running) -> None:
+    app: HealthWatchApp = make_app(healthy_client)
+    target = ResourceTarget(app._poller.root, "entity", "EntityA")
+    app._draft_store.get_or_create(target, {"name": "EntityA", "properties": {"displayName": "EntityA"}})
+    app._draft_store.update_field(target, "properties.displayName", "Unsaved")
+    async with app.run_test(size=(120, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        await pilot.press("q")
+        await pilot.pause()
+        assert isinstance(app.screen, QuitDraftsDialog)
+        await pilot.press(*keys)  # focus starts on Save; Tab moves to Discard
+        await pilot.pause()
+        assert app.is_running is running
+
+
+@pytest.mark.anyio
+async def test_quit_after_discarding_last_draft_exits_without_prompt(make_app, healthy_client) -> None:
+    app: HealthWatchApp = make_app(healthy_client)
+    target = ResourceTarget(app._poller.root, "entity", "EntityA")
+    app._draft_store.get_or_create(target, {"name": "EntityA", "properties": {"displayName": "EntityA"}})
+    async with app.run_test(size=(120, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        app.action_show_changes()
+        await pilot.pause()
+        app._handle_changes_button("changes-discard")
+        await pilot.pause()
+        app.set_focus(app.query_one("#health-tree", HealthTree))
+        await pilot.press("q")
         await pilot.pause()
         assert app.is_running is False
 
@@ -622,7 +719,7 @@ async def test_quit_guard_keeps_pending_changes_when_switching_to_tree_tab(make_
         await pilot.click("#quit-save")
         await pilot.pause()
         pane = app.query_one("#changes-pane", ChangesPane)
-        assert "Review pending form edits first" in str(pane.query_one("#changes-summary").render())
+        assert "apply pending form edits with Update draft" in str(pane.query_one("#changes-summary").render())
 
 
 @pytest.mark.anyio
@@ -664,6 +761,110 @@ async def test_entity_changes_form_shows_labeled_entity_fields_only(make_app, he
 
 
 @pytest.mark.anyio
+async def test_apply_keeps_edits_made_while_the_write_runs(make_app, healthy_client) -> None:
+    app: HealthWatchApp = make_app(healthy_client)
+    target = ResourceTarget(app._poller.root, "entity", "EntityA")
+    baseline = {"name": "EntityA", "properties": {"displayName": "EntityA"}}
+    app._draft_store.get_or_create(target, baseline)
+
+    class _ApplyStub:
+        def apply_confirmed(self, plan, current_revision, confirmation_name):  # noqa: ANN001
+            assert app._applies_in_flight == 1
+            app._draft_store.update_field(target, "properties.displayName", "edited during write")
+            app.query_one("#changes-impact").value = "Limited"  # typed, not yet Update draft
+            return ApplyResult(
+                outcome=ApplyOutcomeKind.APPLIED, target=target, attempted_write=True, message="Applied.",
+                race_warning="", changed_fields=(), confirmation_required=target.name, read_back=read_back,
+            )
+
+    read_back = {"name": "EntityA", "properties": {"displayName": "applied"}}
+
+    app._apply = _ApplyStub()  # type: ignore[assignment]
+    app._prepared_apply_plan = SimpleNamespace(target=target)  # type: ignore[assignment]
+    async with app.run_test(size=(120, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        app.action_show_changes()
+        app._handle_changes_button("changes-apply")
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+        draft = app._draft_store.get(target)
+        assert draft.edited["properties"]["displayName"] == "edited during write"
+        assert draft.baseline == read_back  # the next Prepare compares against the applied state
+        assert app._draft_store.has_unsaved_changes(target)
+        assert app.query_one("#changes-impact").value == "Limited"
+        assert app._applies_in_flight == 0
+
+
+@pytest.mark.anyio
+async def test_prepare_asks_for_update_draft_when_the_form_has_edits(make_app, healthy_client) -> None:
+    app: HealthWatchApp = make_app(healthy_client)
+    target = ResourceTarget(app._poller.root, "entity", "EntityA")
+    app._draft_store.get_or_create(target, {"name": "EntityA", "properties": {"displayName": "EntityA"}})
+    async with app.run_test(size=(120, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        app.action_show_changes()
+        pane = app.query_one("#changes-pane", ChangesPane)
+        pane.query_one("#changes-display-name").value = "typed"
+        app._handle_changes_button("changes-prepare-apply")
+        await pilot.pause()
+        assert "Update draft first" in str(pane.query_one("#changes-summary").render())
+        assert not app.workers
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("setter", ["set_drafts", "set_summary", "set_result", "set_plan", "set_details"])
+async def test_changes_text_with_brackets_renders_literally(make_app, healthy_client, setter) -> None:
+    app: HealthWatchApp = make_app(healthy_client)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        pane = app.query_one("#changes-pane", ChangesPane)
+        getattr(pane, setter)("API [/] [bold]")
+        app.query_one("#timeline-pane", TimelinePane).set_summary("1 event in API [/]")
+        await pilot.pause()
+        assert app.is_running
+
+
+@pytest.mark.anyio
+async def test_nested_model_snapshot_keeps_the_launch_model_tree() -> None:
+    client = _TemporalClient()
+    app = HealthWatchApp(client, "rg", "root", poll_interval=9999)
+    async with app.run_test(size=(160, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        nested = client.model_key("rg", "nested")
+        start = datetime(2026, 1, 1, tzinfo=UTC)
+        app._timeline_key = RangeKey(model=nested, entity_name="nested", start_utc=start, end_utc=start + timedelta(hours=1))
+        app.query_one("#timeline-pane", TimelinePane).query_one("#timeline-go-to").value = "2026-01-01T00:30:00Z"
+        app._handle_timeline_button("timeline-open")
+        for _ in range(100):
+            if app._applied_snapshot is not None:
+                break
+            await pilot.pause(0.02)
+        await pilot.pause()
+        assert app._applied_snapshot is not None
+        assert app.query_one("#health-tree", HealthTree)._occurrence_nodes  # not an empty tree
+
+
+@pytest.mark.anyio
+async def test_quit_waits_for_a_running_apply(make_app, healthy_client) -> None:
+    app: HealthWatchApp = make_app(healthy_client)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        app._applies_in_flight = 1
+        await pilot.press("q")
+        await pilot.pause()
+        assert app.is_running
+        app._applies_in_flight = 0
+        await pilot.press("q")
+        await pilot.pause()
+        assert app.is_running is False
+
+
+@pytest.mark.anyio
 async def test_apply_result_persists_after_render_refresh(make_app, healthy_client) -> None:
     app: HealthWatchApp = make_app(healthy_client)
     model = app._poller.root
@@ -685,7 +886,7 @@ async def test_apply_result_persists_after_render_refresh(make_app, healthy_clie
             )
 
     app._apply = _ApplyStub()  # type: ignore[assignment]
-    app._prepared_apply_plan = object()  # type: ignore[assignment]
+    app._prepared_apply_plan = SimpleNamespace(target=target)  # type: ignore[assignment]
     async with app.run_test(size=(120, 40)) as pilot:
         await app._do_poll()
         await pilot.pause()
@@ -693,6 +894,7 @@ async def test_apply_result_persists_after_render_refresh(make_app, healthy_clie
         pane = app.query_one("#changes-pane", ChangesPane)
         pane.query_one("#changes-apply-confirm").value = target.name
         app._handle_changes_button("changes-apply")
+        await app.workers.wait_for_complete()
         await pilot.pause()
         assert "Applied and verified." in str(pane.query_one("#changes-result").render())
         app._render_changes()
@@ -765,6 +967,7 @@ async def test_prepare_apply_blocked_when_scope_description_unavailable(make_app
         await pilot.pause()
         app.action_show_changes()
         app._handle_changes_button("changes-prepare-apply")
+        await app.workers.wait_for_complete()
         await pilot.pause()
         pane = app.query_one("#changes-pane", ChangesPane)
         assert "Prepare blocked" in str(pane.query_one("#changes-summary").render())
@@ -805,6 +1008,7 @@ async def test_prepare_plan_includes_scope_and_target_review_details(make_app, h
         await pilot.pause()
         app.action_show_changes()
         app._handle_changes_button("changes-prepare-apply")
+        await app.workers.wait_for_complete()
         await pilot.pause()
         plan = str(app.query_one("#changes-plan").render())
         details = str(app.query_one("#changes-details").render())
@@ -859,6 +1063,7 @@ async def test_prepare_review_scroll_and_actions_are_reachable_in_compact_layout
         await pilot.pause()
         app.action_show_changes()
         app._handle_changes_button("changes-prepare-apply")
+        await app.workers.wait_for_complete()
         await pilot.pause()
         width, height = size
         assert _fully_visible(app.query_one("#changes-review-scroll"), width, height)
@@ -871,6 +1076,7 @@ async def test_prepare_review_scroll_and_actions_are_reachable_in_compact_layout
         assert await pilot.click("#changes-apply-confirm")
         await pilot.pause()
         assert await pilot.click("#changes-apply")
+        await app.workers.wait_for_complete()
         await pilot.pause()
         plan = str(app.query_one("#changes-plan").render())
         details = str(app.query_one("#changes-details").render())
@@ -881,78 +1087,134 @@ async def test_prepare_review_scroll_and_actions_are_reachable_in_compact_layout
 @pytest.mark.anyio
 async def test_timeline_row_leases_released_when_request_superseded(make_app, healthy_client) -> None:
     app: HealthWatchApp = make_app(healthy_client)
-    model = app._poller.root
-    requested_at = datetime(2026, 1, 1, tzinfo=UTC)
-    requested_end = requested_at + timedelta(minutes=1)
-    app._timeline_key = RangeKey(model=model, entity_name="Other", start_utc=requested_at, end_utc=requested_end)
-    row_a = RangeKey(model=model, entity_name="EntityA", start_utc=requested_at, end_utc=requested_end)
-    row_b = RangeKey(model=model, entity_name="Child", start_utc=requested_at, end_utc=requested_end)
-    keys_by_path = {("EntityA",): row_a, ("EntityA", "Child"): row_b}
-    released_rows: list[tuple[str, str]] = []
+    released_rows: list[RangeKey] = []
     released_at: list[tuple[datetime, str]] = []
-
-    class Ready:
-        pass
-
-    app._poller.range_view = lambda key: SimpleNamespace(status="ready")  # type: ignore[assignment]
-    app._poller.view_at = lambda at: SimpleNamespace(entries={model: Ready()})  # type: ignore[assignment]
-    app._poller.release_range = lambda key, purpose="default": released_rows.append((key.entity_name, purpose))  # type: ignore[assignment]
-    app._poller.release_at = lambda at, target=None, purpose="default": released_at.append((at, purpose))  # type: ignore[assignment]
-
     async with app.run_test(size=(120, 40)) as pilot:
         await app._do_poll()
         await pilot.pause()
-        await app._await_timeline_ranges(
-            RangeKey(model=model, entity_name="EntityA", start_utc=requested_at, end_utc=requested_end),
-            keys_by_path,
-        )
+        app.action_show_timeline()
+        await pilot.pause()
+        first_key, first_rows = app._timeline_key, dict(app._timeline_keys_by_path)
+        assert first_key is not None and first_rows
+        app._poller.release_range = lambda key, purpose="default": released_rows.append(key)  # type: ignore[assignment]
+        app._poller.release_at = lambda at, target=None, purpose="default": released_at.append((at, purpose))  # type: ignore[assignment]
+        app._request_timeline(hours=6)
+        await pilot.pause()
 
-    assert ("EntityA", "timeline-row") in released_rows
-    assert ("Child", "timeline-row") in released_rows
-    assert any(purpose == "timeline-baseline" for _, purpose in released_at)
+    assert set(released_rows) >= set(first_rows.values())
+    assert (first_key.start_utc, "timeline-baseline") in released_at
 
 
 @pytest.mark.anyio
-async def test_timeline_timeout_releases_all_row_leases(make_app, healthy_client, monkeypatch) -> None:
+async def test_timeline_fills_rows_progressively_and_never_times_out(make_app, healthy_client) -> None:
     app: HealthWatchApp = make_app(healthy_client)
     model = app._poller.root
     start = datetime(2026, 1, 1, tzinfo=UTC)
-    end = start + timedelta(minutes=1)
-    selected_key = RangeKey(model=model, entity_name="EntityA", start_utc=start, end_utc=end)
-    app._timeline_key = selected_key
-    row_a = RangeKey(model=model, entity_name="EntityA", start_utc=start, end_utc=end)
-    row_b = RangeKey(model=model, entity_name="Child", start_utc=start, end_utc=end)
-    keys_by_path = {("EntityA",): row_a, ("EntityA", "Child"): row_b}
-    released_rows: list[tuple[str, str]] = []
-    released_at: list[tuple[datetime, str]] = []
+    key = RangeKey(model=model, entity_name="EntityA", start_utc=start, end_utc=start + timedelta(hours=1))
+    child = RangeKey(model=model, entity_name="Child", start_utc=start, end_utc=start + timedelta(hours=1))
+    rows = {("EntityA",): key, ("EntityA", "Child"): child}
+    ready = SimpleNamespace(status="ready", error="", events=parse_history_events([
+        {"occurredAt": "2026-01-01T00:10:00Z", "newState": "Healthy", "reason": "first"},
+    ]))
+    views = {key: ready, child: SimpleNamespace(status="loading", error="", events=None)}
+    app._poller.range_view = lambda range_key: views[range_key]  # type: ignore[assignment]
+    app._poller.view_at = lambda at: SimpleNamespace(entries={model: Failed()})  # type: ignore[assignment]
+    app._visible_occurrence_rows = lambda: [  # type: ignore[assignment]
+        {"path": ("EntityA",), "name": "EntityA", "depth": 0, "model": model},
+        {"path": ("EntityA", "Child"), "name": "Child", "depth": 1, "model": model},
+    ]
 
-    class Pending:
-        pass
+    def screen(widget_id: str) -> str:
+        return str(app.query_one("#timeline-pane", TimelinePane).query_one(widget_id).render())
 
-    class FakeDateTime:
-        calls = 0
+    async with app.run_test(size=(160, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        app._set_workspace_tab("timeline")
+        app._timeline_key, app._timeline_path, app._timeline_keys_by_path = key, ("EntityA",), rows
+        app._timeline_row_status = {path: "queued" for path in rows}
+        app._refresh_timeline()
+        await pilot.pause()
+        assert "1 event in EntityA" in screen("#timeline-summary")
+        assert "1/2 ready" in screen("#timeline-progress")
+        child_band = next(line for line in screen("#timeline-bands").splitlines() if "Child" in line)
+        assert "━" in child_band
 
-        @classmethod
-        def now(cls, tz=None):  # noqa: ANN001
-            base = datetime(2026, 1, 1, tzinfo=UTC)
-            cls.calls += 1
-            return base if cls.calls == 1 else base + timedelta(seconds=9)
+        app._pulse_timeline()
+        await pilot.pause()
+        moved = next(line for line in screen("#timeline-bands").splitlines() if "Child" in line)
+        assert moved != child_band  # the shimmer advances while data is on the way
 
-    monkeypatch.setattr(watch_app_module, "datetime", FakeDateTime)
-    app._poller.view_at = lambda at: SimpleNamespace(entries={model: Pending()})  # type: ignore[assignment]
-    app._poller.range_view = lambda key: SimpleNamespace(status="loading")  # type: ignore[assignment]
-    app._poller.release_range = lambda key, purpose="default": released_rows.append((key.entity_name, purpose))  # type: ignore[assignment]
-    app._poller.release_at = lambda at, target=None, purpose="default": released_at.append((at, purpose))  # type: ignore[assignment]
+        views[child] = ready
+        app._refresh_timeline()
+        await pilot.pause()
+        assert screen("#timeline-progress").strip() == ""
+        assert "[loading]" not in screen("#timeline-bands")
+        assert "Timed out" not in screen("#timeline-summary")
 
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("button", "inputs", "expected"),
+    [
+        ("timeline-open", {"#timeline-go-to": "2026-01-01T00:30:00Z"}, "Showing snapshot at"),
+        ("timeline-compare", {"#timeline-compare-a": "2026-01-01T00:10:00Z", "#timeline-compare-b": "2026-01-01T00:40:00Z"},
+         "Compare complete"),
+    ],
+)
+async def test_snapshot_open_and_compare_complete_from_poller_updates(button, inputs, expected) -> None:
+    app = HealthWatchApp(_TemporalClient(), "rg", "root", poll_interval=9999)
+    async with app.run_test(size=(160, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        pane = app.query_one("#timeline-pane", TimelinePane)
+        for widget_id, value in inputs.items():
+            pane.query_one(widget_id).value = value
+        app._handle_timeline_button(button)
+        for _ in range(100):
+            if expected in str(pane.query_one("#timeline-summary").render()):
+                break
+            await pilot.pause(0.02)
+        assert expected in str(pane.query_one("#timeline-summary").render())
+        assert str(pane.query_one("#timeline-progress").render()).strip() == ""
+
+
+@pytest.mark.anyio
+async def test_open_snapshot_drives_tree_and_status_until_return_to_live() -> None:
+    app = HealthWatchApp(_TemporalClient(), "rg", "root", poll_interval=9999)
+    async with app.run_test(size=(160, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        tree = app.query_one("#health-tree", HealthTree)
+        shown: list[str] = []
+        apply_view = tree.apply_view
+        tree.apply_view = lambda view: (shown.append(view.entries[view.root].previous.snapshot.timestamp), apply_view(view))  # type: ignore[method-assign]
+        app.query_one("#timeline-pane", TimelinePane).query_one("#timeline-go-to").value = "2026-01-01T00:30:00Z"
+        app._handle_timeline_button("timeline-open")
+        for _ in range(100):
+            if app._applied_snapshot is not None:
+                break
+            await pilot.pause(0.02)
+        app._render_monitor()  # a later poll must not swap the tree back to live data
+        assert shown[-1] == "2026-01-01T00:30:00Z"
+        assert "Snapshot 2026-01-01 00:30:00Z" in str(app.query_one("#status-bar").render())
+        app._handle_timeline_button("timeline-live")
+        await pilot.pause()
+        assert shown[-1] != "2026-01-01T00:30:00Z"
+        assert "Snapshot" not in str(app.query_one("#status-bar").render())
+
+
+@pytest.mark.anyio
+async def test_revisiting_timeline_tab_keeps_the_loaded_range(make_app, healthy_client) -> None:
+    app: HealthWatchApp = make_app(healthy_client)
     async with app.run_test(size=(120, 40)) as pilot:
         await app._do_poll()
         await pilot.pause()
-        await app._await_timeline_ranges(selected_key, keys_by_path)
-        await pilot.pause()
-
-    assert ("EntityA", "timeline-row") in released_rows
-    assert ("Child", "timeline-row") in released_rows
-    assert any(purpose == "timeline-baseline" for _, purpose in released_at)
+        app.action_show_timeline()
+        first = app._timeline_key
+        app.action_show_changes()
+        app.action_show_timeline()
+        assert first is not None and app._timeline_key is first
 
 
 @pytest.mark.anyio
@@ -1051,10 +1313,10 @@ async def test_timeline_bands_use_colored_text_and_display_name_from_snapshot(ma
             )
         }
     )
-    app._applied_snapshot = SnapshotKey(model, key.start_utc)
     async with app.run_test(size=(120, 40)) as pilot:
         await app._do_poll()
         await pilot.pause()
+        app._applied_snapshot = SnapshotKey(model, key.start_utc)  # after the poll: the fake view only serves labels
         rendered = app._render_timeline_bands(key)
         assert isinstance(rendered, Text)
         assert "Entity Display ✅" in rendered.plain
@@ -1146,16 +1408,16 @@ async def test_timeline_band_column_alignment_uses_cell_width(make_app, healthy_
             )
         }
     )
-    app._applied_snapshot = SnapshotKey(model, key.start_utc)
     async with app.run_test(size=(120, 40)) as pilot:
         await app._do_poll()
         await pilot.pause()
+        app._applied_snapshot = SnapshotKey(model, key.start_utc)  # after the poll: the fake view only serves labels
         rendered = app._render_timeline_bands(key).plain.splitlines()
         row_lines = rendered[-2:]
         assert len(row_lines) == 2
         for line in row_lines:
-            band_start = line.index("?")
-            assert cell_len(line[:band_start]) == 33
+            band_start = line.index(BAND_STATES[HistoryBucketHealth.UNKNOWN][0])
+            assert cell_len(line[:band_start]) == watch_app_module._TIMELINE_LABEL_WIDTH + 1
 
 
 def test_timeline_label_uses_applied_nested_snapshot_and_normalizes_control_whitespace() -> None:

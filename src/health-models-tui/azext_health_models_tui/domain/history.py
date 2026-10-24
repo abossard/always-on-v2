@@ -5,6 +5,8 @@ from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import Enum
 import json
+import math
+import statistics
 from typing import Any, Mapping
 
 from azext_health_models_tui.domain.drafts import normalize_known_readonly_fields
@@ -84,6 +86,7 @@ class HistoryBucket:
     worst_health: HistoryBucketHealth
     sample_count: int
     null_value_count: int
+    value: float | None = None  # mean of the bucket's non-null signal samples
 
 
 @dataclass(frozen=True)
@@ -169,6 +172,8 @@ def parse_history_events(points: list[Mapping[str, Any]]) -> tuple[HistoryEvent,
                 numeric = float(value)
             except (TypeError, ValueError) as exc:
                 raise ValueError(f"Invalid numeric value at {point['occurredAt']}: {value!r}") from exc
+            if not math.isfinite(numeric):
+                raise ValueError(f"Invalid numeric value at {point['occurredAt']}: {value!r}")
         events.append(
             HistoryEvent(
                 occurred_at=occurred_at,
@@ -208,6 +213,13 @@ def _bucket_signal_samples(
     range_key: RangeKey,
     bucket_size: timedelta,
 ) -> tuple[HistoryBucket, ...]:
+    times = sorted(event.occurred_at for event in events)
+    gaps = [later - earlier for earlier, later in zip(times, times[1:]) if later > earlier]
+    # A reported state holds until the next report, so buckets narrower than the sampling cadence are not gaps.
+    # shortcut: cadence is inferred from 3+ intervals; pass the signal's refreshInterval if that misleads.
+    hold = statistics.median(gaps) * 1.5 if len(gaps) >= 3 else timedelta(0)
+    last = max((event for event in events if event.occurred_at < range_key.start_utc),
+               key=lambda event: event.occurred_at, default=None)
     buckets: list[HistoryBucket] = []
     cursor = range_key.start_utc
     while cursor < range_key.end_utc:
@@ -217,11 +229,15 @@ def _bucket_signal_samples(
             if cursor <= event.occurred_at < bucket_end
         ]
         if not points:
-            buckets.append(
-                HistoryBucket(cursor, bucket_end, HistoryBucketHealth.NO_COVERAGE, HistoryBucketHealth.NO_COVERAGE, 0, 0)
-            )
+            if last is not None and bucket_end - last.occurred_at <= hold:
+                buckets.append(HistoryBucket(cursor, bucket_end, last.health, last.health, 0, 0, value=last.value))
+            else:
+                buckets.append(
+                    HistoryBucket(cursor, bucket_end, HistoryBucketHealth.NO_COVERAGE, HistoryBucketHealth.NO_COVERAGE, 0, 0)
+                )
             cursor = bucket_end
             continue
+        last = max(points, key=lambda event: event.occurred_at)
 
         states = {event.health for event in points}
         if len(states) == 1:
@@ -229,7 +245,7 @@ def _bucket_signal_samples(
         else:
             health = HistoryBucketHealth.MIXED
         worst_health = max(states, key=lambda item: _HEALTH_ORDER[item])
-        null_count = sum(1 for event in points if event.value is None)
+        values = [event.value for event in points if event.value is not None]
         buckets.append(
             HistoryBucket(
                 start_utc=cursor,
@@ -237,7 +253,8 @@ def _bucket_signal_samples(
                 health=health,
                 worst_health=worst_health,
                 sample_count=len(points),
-                null_value_count=null_count,
+                null_value_count=len(points) - len(values),
+                value=sum(values) / len(values) if values else None,
             )
         )
         cursor = bucket_end

@@ -332,28 +332,6 @@ class Forest:
         object.__setattr__(self, "entities", types.MappingProxyType(dict(self.entities)))
 
 
-# ─── Signal history ──────────────────────────────────────────────────
-
-
-@dataclass(frozen=True)
-class SignalHistoryPoint:
-    """A single data point in a signal's history."""
-
-    occurred_at: str  # ISO 8601
-    value: float | None
-    health_state: HealthState
-    additional_context: str | None
-
-
-@dataclass(frozen=True)
-class SignalHistory:
-    """Signal value history for a specific signal on an entity."""
-
-    entity_name: str
-    signal_name: str
-    points: tuple[SignalHistoryPoint, ...]
-
-
 # ─── Search result ───────────────────────────────────────────────────
 
 

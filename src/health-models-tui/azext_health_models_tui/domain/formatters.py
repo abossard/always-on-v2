@@ -5,10 +5,12 @@ or plain strings.  No I/O, no mutable state, no side effects.
 """
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from typing import Sequence
 
 from rich.text import Text
 
+from azext_health_models_tui.domain.history import parse_utc_timestamp
 from azext_health_models_tui.domain.snapshot import build_change_map
 from azext_health_models_tui.models.domain import (
     EntityNode,
@@ -16,6 +18,19 @@ from azext_health_models_tui.models.domain import (
     SignalValue,
     StateChange,
 )
+
+
+# ─── timestamps ──────────────────────────────────────────────────────
+
+
+def format_utc(value: datetime | str) -> str:
+    """Short display form such as ``2026-10-24 13:11:37Z``; unparsable text is returned as is."""
+    if isinstance(value, str):
+        try:
+            value = parse_utc_timestamp(value)
+        except ValueError:
+            return value
+    return value.astimezone(UTC).strftime("%Y-%m-%d %H:%M:%SZ")
 
 
 # ─── entity label ────────────────────────────────────────────────────
@@ -75,7 +90,7 @@ def format_signal_label(
     if len(name) < _SIGNAL_NAME_WIDTH:
         padded = name + " " + "·" * (_SIGNAL_NAME_WIDTH - len(name) - 1)
     else:
-        padded = name[:_SIGNAL_NAME_WIDTH]
+        padded = name if len(name) == _SIGNAL_NAME_WIDTH else name[:_SIGNAL_NAME_WIDTH - 1] + "…"
     label.append(padded, style="dim")
 
     label.append("  ")

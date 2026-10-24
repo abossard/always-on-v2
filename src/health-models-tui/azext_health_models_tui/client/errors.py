@@ -114,6 +114,11 @@ class ArmError(HealthModelError):
         super().__init__(message, status_code, code=code, details=details)
 
 
+def describe_error(exc: BaseException) -> str:
+    """One-line text for any failure; typed errors add HTTP status, code and first detail."""
+    return exc.diagnostic_text() if isinstance(exc, HealthModelError) else f"{type(exc).__name__}: {exc}"
+
+
 _NOT_FOUND_CODES = frozenset({"ResourceNotFound", "ResourceGroupNotFound"})
 
 _ENTITY_NOT_FOUND_CODES = frozenset({

@@ -21,7 +21,7 @@ from azext_health_models_tui.client.query_executor import (
 )
 from azext_health_models_tui.client.rest_client import CloudHealthClient
 from azext_health_models_tui.domain.drafts import ResourceTarget, get_in, parse_field_path
-from azext_health_models_tui.watch.draft_store import DraftStore, DraftTestResult
+from azext_health_models_tui.watch.draft_store import DraftSnapshot, DraftStore, DraftTestResult
 
 
 _KIND_LABEL = {
@@ -215,21 +215,22 @@ class QueryEditor(ModalScreen[None]):
         ta.text = self._resolve_initial_query(c.get("query_text", "") or "")
 
     def _resolve_initial_query(self, fallback_query: str) -> str:
+        found = self._draft(create=False)
+        query = get_in(found[2].edited, parse_field_path(found[1])) if found else None
+        return query if isinstance(query, str) else fallback_query
+
+    def _draft(self, *, create: bool) -> tuple[ResourceTarget, str, DraftSnapshot] | None:
+        """This editor's draft and query path; viewing never creates one, only a change or a test does."""
         if self._draft_store is None:
-            return fallback_query
-        active_target, query_path = self._active_draft_target_and_path()
-        if active_target is None:
-            return fallback_query
-        existing = self._draft_store.get(active_target)
-        if existing is not None:
-            query = get_in(existing.edited, parse_field_path(query_path))
-            return str(query) if isinstance(query, str) else fallback_query
-        baseline = self._draft_baseline_for_editor(fallback_query)
-        if baseline is None:
-            return fallback_query
-        draft = self._draft_store.get_or_create(active_target, baseline)
-        query = get_in(draft.edited, parse_field_path(query_path))
-        return str(query) if isinstance(query, str) else fallback_query
+            return None
+        target, query_path = self._active_draft_target_and_path()
+        if target is None:
+            return None
+        draft = self._draft_store.get(target)
+        if draft is None and create:
+            baseline = self._draft_baseline_for_editor(str(self._config.get("query_text", "") or ""))
+            draft = self._draft_store.get_or_create(target, baseline) if baseline is not None else None
+        return (target, query_path, draft) if draft is not None else None
 
     def _draft_baseline_for_editor(self, fallback_query: str) -> dict[str, Any] | None:
         active_target, _ = self._active_draft_target_and_path()
@@ -324,14 +325,13 @@ class QueryEditor(ModalScreen[None]):
 
         edited_query = self.query_one("#qe-query", TextArea).text
         original = self._config.get("query_text", "")
-        active_target, query_path = self._active_draft_target_and_path()
+        found = self._draft(create=True)
         revision_for_result: int | None = None
-        if self._draft_store is not None and active_target is not None:
-            baseline = self._draft_baseline_for_editor(original)
-            if baseline is not None:
-                self._draft_store.get_or_create(active_target, baseline)
-            updated = self._draft_store.update_field(active_target, query_path, edited_query)
-            revision_for_result = updated.revision
+        if found is not None:
+            active_target, query_path, draft = found
+            if get_in(draft.edited, parse_field_path(query_path)) != edited_query:
+                draft = self._draft_store.update_field(active_target, query_path, edited_query)
+            revision_for_result = draft.revision
 
         try:
             result = await asyncio.to_thread(
@@ -354,6 +354,9 @@ class QueryEditor(ModalScreen[None]):
                 and active_target is not None
             ):
                 summary = "error" if result.get("error") else "ok"
+                current = self._draft_store.get(active_target)
+                if current is None or current.revision != revision_for_result:
+                    return  # the query was edited while the test ran, so this result is stale
                 self._draft_store.record_test_result(
                     active_target,
                     DraftTestResult(
@@ -365,34 +368,20 @@ class QueryEditor(ModalScreen[None]):
 
     def _run_with_override(self, edited_query: str, original: str) -> dict[str, Any]:
         """Call execute_signal for an edited or unedited query."""
-        if edited_query == original:
-            return execute_signal(
-                self._client, self._rg, self._model,
-                self._entity_name, self._signal_name,
-            )
-
         return execute_signal(
             self._client, self._rg, self._model,
             self._entity_name, self._signal_name,
-            query_override=edited_query,
+            query_override=None if edited_query == original else edited_query,
         )
 
     def _persist_draft_query(self) -> None:
-        if self._draft_store is None or not self._loaded:
-            return
-        active_target, query_path = self._active_draft_target_and_path()
-        if active_target is None:
+        if not self._loaded:
             return
         query = self.query_one("#qe-query", TextArea).text
-        draft = self._draft_store.get(active_target)
-        if draft is None:
-            baseline = self._draft_baseline_for_editor(str(self._config.get("query_text", "") or ""))
-            if baseline is None:
-                return
-            draft = self._draft_store.get_or_create(active_target, baseline)
-        current = get_in(draft.edited, parse_field_path(query_path))
-        if current != query:
-            self._draft_store.update_field(active_target, query_path, query)
+        unchanged = query == str(self._config.get("query_text", "") or "")
+        found = self._draft(create=not unchanged)
+        if found is not None and get_in(found[2].edited, parse_field_path(found[1])) != query:
+            self._draft_store.update_field(found[0], found[1], query)
 
 
 def _add_row(text: Text, key: str, value: str) -> None:

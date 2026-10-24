@@ -17,13 +17,21 @@ class _BaseDialog(ModalScreen[None]):
 
 
 class HelpDialog(_BaseDialog):
+    """Lists the app's own bindings, so help cannot drift from the keys."""
+
+    def __init__(self, bindings: list[Binding]) -> None:
+        super().__init__()
+        self._shortcuts = bindings
+
     def compose(self) -> ComposeResult:
+        keys: dict[str, list[str]] = {}
+        for binding in self._shortcuts:
+            keys.setdefault(binding.description, []).append(self.app.get_key_display(binding))
         with Vertical(id="shortcut-dialog"):
             yield Label("Help", classes="shortcut-title")
-            yield Static("Tab/Shift+Tab moves focus. Enter activates focused control.")
-            yield Static("Tree: arrows navigate, Enter/Space keeps expand/collapse behavior.")
-            yield Static("Search: / opens search from navigation contexts.")
-            yield Static("F2 opens Actions. Esc closes this dialog.")
+            yield Static("Arrows move, Enter expands or activates, Tab moves focus. Esc closes this dialog.")
+            for description, shown in keys.items():
+                yield Static(f"{' / '.join(shown):<16} {description}")
 
 
 class ActionsDialog(_BaseDialog):
@@ -47,8 +55,8 @@ class ActionsDialog(_BaseDialog):
                 yield Button("Edit selected (e)", id="action-edit")
                 yield Button("Details (d)", id="action-details")
                 yield Button("Verify signal (v)", id="action-verify")
-                yield Button("Timeline tab (Ctrl+2)", id="action-timeline")
-                yield Button("Changes tab (Ctrl+3)", id="action-changes")
+                yield Button("Timeline tab (2)", id="action-timeline")
+                yield Button("Changes tab (3)", id="action-changes")
                 yield Button("Refresh (r)", id="action-refresh")
                 if self._include_back_to_models:
                     yield Button("Back to models", id="action-back")

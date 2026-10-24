@@ -52,7 +52,22 @@ class ApplyPlan:
     shared_consumer_entity_names: tuple[str, ...] = ()
 
 
-_READ_ONLY_FIELDS = {"id", "type", "systemdata", "etag", "provisioningstate"}
+# The one list of read-only fields. "*" matches any key or index; keys compare after strip().casefold().
+_READ_ONLY_PATHS: tuple[tuple[str, ...], ...] = (
+    ("id",), ("type",), ("systemdata",), ("etag",), ("provisioningstate",),
+    ("properties", "provisioningstate"), ("properties", "healthstate"), ("properties", "discoveredby"),
+    ("properties", "signalgroups", "*", "signals", "*", "status"),
+    ("properties", "signalgroups", "*", "resourcehealth", "status"),
+)
+
+
+def _is_read_only(path: tuple[PathToken, ...]) -> bool:
+    """True when ``path`` is a read-only field or lies inside one."""
+    canonical = tuple(token.strip().casefold() if isinstance(token, str) else token for token in path)
+    return any(
+        len(canonical) >= len(pattern) and all(part in ("*", token) for part, token in zip(pattern, canonical))
+        for pattern in _READ_ONLY_PATHS
+    )
 
 
 def parse_field_path(path: str) -> tuple[PathToken, ...]:
@@ -88,89 +103,41 @@ def parse_field_path(path: str) -> tuple[PathToken, ...]:
     return tuple(tokens)
 
 
-def deep_copy_value(value: Any) -> Any:
-    return deepcopy(value)
-
-
 def normalize_known_readonly_fields(payload: Mapping[str, Any]) -> dict[str, Any]:
-    normalized = deep_copy_value(dict(payload))
-    for field_name in tuple(normalized.keys()):
-        if isinstance(field_name, str) and field_name.casefold() in _READ_ONLY_FIELDS:
-            normalized.pop(field_name, None)
-    properties = normalized.get("properties")
-    if isinstance(properties, dict):
-        properties = dict(properties)
-        properties.pop("provisioningState", None)
-        properties.pop("healthState", None)
-        properties.pop("discoveredBy", None)
-        signal_groups = properties.get("signalGroups")
-        if isinstance(signal_groups, dict):
-            copied_groups: dict[str, Any] = {}
-            for group_name, group_payload in signal_groups.items():
-                if not isinstance(group_payload, dict):
-                    copied_groups[group_name] = group_payload
-                    continue
-                group_copy = dict(group_payload)
-                signals = group_copy.get("signals")
-                if isinstance(signals, list):
-                    copied_signals: list[Any] = []
-                    for signal in signals:
-                        if not isinstance(signal, dict):
-                            copied_signals.append(signal)
-                            continue
-                        signal_copy = dict(signal)
-                        signal_copy.pop("status", None)
-                        copied_signals.append(signal_copy)
-                    group_copy["signals"] = copied_signals
-                copied_groups[group_name] = group_copy
-            properties["signalGroups"] = copied_groups
-        normalized["properties"] = properties
-    return normalized
+    """A deep copy without read-only fields, for comparing and writing resources."""
+    def strip(value: Any, path: tuple[PathToken, ...]) -> Any:
+        if isinstance(value, Mapping):
+            return {k: strip(v, path + (k,)) for k, v in value.items() if not _is_read_only(path + (k,))}
+        if isinstance(value, list):
+            return [strip(v, path + (i,)) for i, v in enumerate(value) if not _is_read_only(path + (i,))]
+        return deepcopy(value)
+
+    return strip(payload, ())
 
 
 def apply_field_edit(document: Mapping[str, Any], path: tuple[PathToken, ...], value: Any) -> dict[str, Any]:
     if not path:
         raise ValueError("Field path must be non-empty")
     _assert_editable_path(path)
-    root = deep_copy_value(dict(document))
+    root = deepcopy(dict(document))
     cursor: Any = root
-    for index, segment in enumerate(path[:-1]):
-        next_segment = path[index + 1]
+    for segment, next_segment in zip(path, path[1:]):
+        label = f"[{segment}]" if isinstance(segment, int) else f"'{segment}'"
         if isinstance(segment, int):
             if not isinstance(cursor, list):
-                raise ValueError(f"Cannot index non-list at [{segment}]")
+                raise ValueError(f"Cannot index non-list at {label}")
             if segment < 0 or segment >= len(cursor):
-                raise ValueError(f"Index out of range at [{segment}]")
+                raise ValueError(f"Index out of range at {label}")
             current = cursor[segment]
-            if isinstance(current, dict):
-                cursor[segment] = dict(current)
-            elif isinstance(current, list):
-                cursor[segment] = list(current)
-            elif current is None and isinstance(next_segment, str):
-                cursor[segment] = {}
-            elif current is None and isinstance(next_segment, int):
-                cursor[segment] = []
-            else:
-                raise ValueError(f"Cannot descend through scalar at [{segment}]")
-            cursor = cursor[segment]
-            continue
-
-        if not isinstance(cursor, dict):
-            raise ValueError(f"Cannot descend through non-object at '{segment}'")
-        next_value = cursor.get(segment)
-        if next_value is None:
-            next_value = [] if isinstance(next_segment, int) else {}
-            cursor[segment] = next_value
-        if isinstance(next_value, dict):
-            copied = dict(next_value)
-            cursor[segment] = copied
-            cursor = copied
-        elif isinstance(next_value, list):
-            copied = list(next_value)
-            cursor[segment] = copied
-            cursor = copied
+        elif isinstance(cursor, dict):
+            current = cursor.get(segment)
         else:
-            raise ValueError(f"Cannot descend through scalar at '{segment}'")
+            raise ValueError(f"Cannot descend through non-object at {label}")
+        if current is None:
+            current = cursor[segment] = [] if isinstance(next_segment, int) else {}
+        elif not isinstance(current, (dict, list)):
+            raise ValueError(f"Cannot descend through scalar at {label}")
+        cursor = current
 
     leaf = path[-1]
     if isinstance(leaf, int):
@@ -178,11 +145,11 @@ def apply_field_edit(document: Mapping[str, Any], path: tuple[PathToken, ...], v
             raise ValueError(f"Cannot index non-list at [{leaf}]")
         if leaf < 0 or leaf >= len(cursor):
             raise ValueError(f"Index out of range at [{leaf}]")
-        cursor[leaf] = deep_copy_value(value)
+        cursor[leaf] = deepcopy(value)
     else:
         if not isinstance(cursor, dict):
             raise ValueError(f"Cannot set property on non-object at '{leaf}'")
-        cursor[leaf] = deep_copy_value(value)
+        cursor[leaf] = deepcopy(value)
     return root
 
 
@@ -272,9 +239,9 @@ def build_apply_plan(
         target=target,
         revision=revision,
         changes=changes,
-        edited_resource=deep_copy_value(dict(normalized_edited)),
-        expected_baseline=deep_copy_value(dict(normalized_expected)),
-        normalized_live_baseline=deep_copy_value(dict(normalized_live)),
+        edited_resource=deepcopy(dict(normalized_edited)),
+        expected_baseline=deepcopy(dict(normalized_expected)),
+        normalized_live_baseline=deepcopy(dict(normalized_live)),
         shared_consumer_entity_names=tuple(shared_consumer_entity_names),
         generated_at=generated_at,
     )
@@ -284,167 +251,31 @@ def collect_signal_definition_consumers(
     entities: Iterable[Mapping[str, Any]],
     signal_definition_name: str,
 ) -> tuple[str, ...]:
-    consumers: list[str] = []
-    for entity in entities:
-        entity_name = str(entity.get("name", "")).strip()
-        if not entity_name:
-            continue
+    def uses_definition(entity: Mapping[str, Any]) -> bool:
         properties = entity.get("properties")
-        if not isinstance(properties, Mapping):
-            continue
-        signal_groups = properties.get("signalGroups")
-        if not isinstance(signal_groups, Mapping):
-            continue
-        found = False
-        for group_payload in signal_groups.values():
-            if not isinstance(group_payload, Mapping):
-                continue
-            signals = group_payload.get("signals")
-            if not isinstance(signals, list):
-                continue
-            for signal in signals:
-                if (
-                    isinstance(signal, Mapping)
-                    and str(signal.get("signalDefinitionName", "")).strip() == signal_definition_name
-                ):
-                    found = True
-                    break
-            if found:
-                break
-        if found:
-            consumers.append(entity_name)
-    return tuple(sorted(set(consumers)))
+        groups = properties.get("signalGroups") if isinstance(properties, Mapping) else None
+        return isinstance(groups, Mapping) and any(
+            isinstance(signal, Mapping)
+            and str(signal.get("signalDefinitionName", "")).strip() == signal_definition_name
+            for group in groups.values() if isinstance(group, Mapping)
+            for signal in (group.get("signals") if isinstance(group.get("signals"), list) else ())
+        )
 
-
-def verify_apply_plan_consistency(plan: ApplyPlan) -> None:
-    validation = validate_target_payload(plan.target, plan.edited_resource)
-    if not validation.is_valid:
-        raise ValueError(f"Plan payload is invalid: {', '.join(validation.errors)}")
-    recomputed = diff_documents(plan.normalized_live_baseline, plan.edited_resource)
-    if recomputed != plan.changes:
-        raise ValueError("Plan changes do not match edited payload")
+    return tuple(sorted({
+        name for entity in entities
+        if (name := str(entity.get("name", "")).strip()) and uses_definition(entity)
+    }))
 
 
 def changed_paths(changes: Iterable[FieldDiff]) -> tuple[str, ...]:
-    def _format(tokens: tuple[PathToken, ...]) -> str:
-        output: list[str] = []
-        for token in tokens:
-            if isinstance(token, int):
-                if not output:
-                    output.append(f"[{token}]")
-                else:
-                    output[-1] = f"{output[-1]}[{token}]"
-            else:
-                output.append(token)
-        return ".".join(output)
-
-    return tuple(_format(change.path) for change in changes)
+    return tuple(_format_path(change.path) for change in changes)
 
 
 def find_known_readonly_tampering(
     baseline: Mapping[str, Any],
     edited: Mapping[str, Any],
 ) -> tuple[str, ...]:
-    readonly_diffs: list[str] = []
-    static_paths = (
-        ("id",),
-        ("type",),
-        ("systemData",),
-        ("etag",),
-        ("provisioningState",),
-        ("properties", "provisioningState"),
-        ("properties", "healthState"),
-        ("properties", "discoveredBy"),
-    )
-    for path in static_paths:
-        if _get_known_path(baseline, path) != _get_known_path(edited, path):
-            readonly_diffs.append(_format_path(path))
-
-    baseline_groups = _get_known_path(baseline, ("properties", "signalGroups"))
-    edited_groups = _get_known_path(edited, ("properties", "signalGroups"))
-    baseline_group_map = _canonical_key_map(baseline_groups) if isinstance(baseline_groups, Mapping) else {}
-    edited_group_map = _canonical_key_map(edited_groups) if isinstance(edited_groups, Mapping) else {}
-    canonical_group_names = set(baseline_group_map) | set(edited_group_map)
-    for canonical_group_name in sorted(canonical_group_names):
-        baseline_group_name = baseline_group_map.get(canonical_group_name, canonical_group_name)
-        edited_group_name = edited_group_map.get(canonical_group_name, canonical_group_name)
-        baseline_signals = _get_known_path(
-            baseline, ("properties", "signalGroups", baseline_group_name, "signals")
-        )
-        edited_signals = _get_known_path(
-            edited, ("properties", "signalGroups", edited_group_name, "signals")
-        )
-        baseline_len = len(baseline_signals) if isinstance(baseline_signals, list) else 0
-        edited_len = len(edited_signals) if isinstance(edited_signals, list) else 0
-        for index in range(max(baseline_len, edited_len)):
-            baseline_status_path = (
-                "properties",
-                "signalGroups",
-                baseline_group_name,
-                "signals",
-                index,
-                "status",
-            )
-            edited_status_path = (
-                "properties",
-                "signalGroups",
-                edited_group_name,
-                "signals",
-                index,
-                "status",
-            )
-            if _get_known_path(baseline, baseline_status_path) != _get_known_path(edited, edited_status_path):
-                readonly_diffs.append(_format_path(baseline_status_path))
-
-    return tuple(readonly_diffs)
-
-
-def _get_known_path(document: Mapping[str, Any], path: tuple[PathToken, ...]) -> Any:
-    cursor: Any = document
-    for segment in path:
-        if isinstance(segment, int):
-            if not isinstance(cursor, list) or segment < 0 or segment >= len(cursor):
-                return None
-            cursor = cursor[segment]
-            continue
-        if not isinstance(cursor, Mapping):
-            return None
-        cursor = _mapping_lookup_known_key(cursor, segment)
-    return cursor
-
-
-def _mapping_lookup_known_key(payload: Mapping[str, Any], key: str) -> Any:
-    if key in payload:
-        return payload.get(key)
-    canonical_key = _canonical_key(key)
-    fallback_name: str | None = None
-    for candidate_name in payload.keys():
-        if not isinstance(candidate_name, str):
-            continue
-        if _canonical_key(candidate_name) != canonical_key:
-            continue
-        if candidate_name == key:
-            return payload.get(candidate_name)
-        if fallback_name is None:
-            fallback_name = candidate_name
-    if fallback_name is None:
-        return None
-    return payload.get(fallback_name)
-
-
-def _canonical_key(raw: str) -> str:
-    return raw.strip().casefold()
-
-
-def _canonical_key_map(payload: Mapping[str, Any]) -> dict[str, str]:
-    mapping: dict[str, str] = {}
-    for key in payload.keys():
-        if not isinstance(key, str):
-            continue
-        canonical = _canonical_key(key)
-        if canonical not in mapping:
-            mapping[canonical] = key
-    return mapping
+    return tuple(_format_path(diff.path) for diff in diff_documents(baseline, edited) if _is_read_only(diff.path))
 
 
 def _format_path(tokens: tuple[PathToken, ...]) -> str:
@@ -465,20 +296,8 @@ def _assert_editable_path(path: tuple[PathToken, ...]) -> None:
         raise ValueError("Field path must be non-empty")
     if not isinstance(path[0], str):
         raise ValueError("Field path must start with an object key")
-    canonical = tuple(token.casefold() if isinstance(token, str) else token for token in path)
-    root = canonical[0]
-    if root in _READ_ONLY_FIELDS:
-        raise ValueError(f"Field path is read-only: {path[0]}")
-    if canonical[:2] == ("properties", "provisioningstate"):
-        raise ValueError("Field path is read-only: properties.provisioningState")
-    if canonical[:2] == ("properties", "healthstate"):
-        raise ValueError("Field path is read-only: properties.healthState")
-    if canonical[:2] == ("properties", "discoveredby"):
-        raise ValueError("Field path is read-only: properties.discoveredBy")
-    if len(canonical) >= 6 and canonical[0:2] == ("properties", "signalgroups"):
-        # properties.signalGroups.<group>.signals[<index>].status...
-        if canonical[3] == "signals" and isinstance(canonical[4], int) and canonical[5] == "status":
-            raise ValueError("Field path is read-only: signal status")
+    if _is_read_only(path):
+        raise ValueError(f"Field path is read-only: {_format_path(path)}")
 
 
 def _validate_finite_percentage_field(

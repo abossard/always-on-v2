@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "health-models-tui"
-version = "0.3.0"
+version = "0.4.0"
 description = "Azure CLI extension that launches the Health Models terminal monitor"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -35,14 +35,9 @@ dev = [
 ]
 
 [tool.setuptools.packages.find]
-exclude = [
-  "tests",
-  "tests.*",
-  "*.tests",
-  "*.tests.*",
-  "azext_health_models_tui.tests",
-  "azext_health_models_tui.tests.*",
-]
+# Namespace discovery is on by default here, so without include a local build/ dir ships too.
+include = ["azext_health_models_tui*"]
+exclude = ["azext_health_models_tui.tests*"]
 
 [tool.setuptools.package-data]
 azext_health_models_tui = ["py.typed", "watch/styles.tcss"]

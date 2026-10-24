@@ -148,6 +148,43 @@ async def test_query_editor_default_constructor_path_unchanged() -> None:
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize(("typed", "creates_draft"), [(None, False), ("rate(changed[5m])", True)])
+async def test_query_editor_creates_a_draft_only_when_the_query_changes(typed, creates_draft) -> None:
+    store = DraftStore()
+    editor = QueryEditor(_make_client(), "rg", "hm", "entity", "sig-A", draft_store=store, draft_target=_target())
+    app = _EditorHost(editor)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await _wait_loaded(editor, pilot)
+        if typed is not None:
+            editor.query_one("#qe-query", TextArea).text = typed
+            await pilot.pause()
+        await pilot.press("escape")
+        await pilot.pause()
+    assert (store.get(_definition_target()) is not None) is creates_draft
+    assert (store.active_target() == _definition_target()) is creates_draft
+
+
+@pytest.mark.anyio
+async def test_query_editor_edit_during_a_test_drops_the_stale_result() -> None:
+    store = DraftStore()
+    editor = QueryEditor(_make_client(), "rg", "hm", "entity", "sig-A", draft_store=store, draft_target=_target())
+    app = _EditorHost(editor)
+
+    def fake_execute(*_args, **_kwargs):
+        store.update_field(_definition_target(), "properties.queryText", "typed during the test")
+        return {"healthState": "Healthy", "rawValue": 1.0, "durationMs": 1, "timestamp": "now"}
+
+    with patch("azext_health_models_tui.watch.query_editor.execute_signal", side_effect=fake_execute):
+        async with app.run_test(size=(120, 40)) as pilot:
+            await _wait_loaded(editor, pilot)
+            await pilot.press("ctrl+r")
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+            assert app.is_running
+    assert store.get(_definition_target()).tested_revision is None
+
+
+@pytest.mark.anyio
 async def test_query_editor_retains_query_across_reopen_and_tracks_revision() -> None:
     client = _make_client()
     store = DraftStore()

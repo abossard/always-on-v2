@@ -123,7 +123,7 @@ async def test_signal_panel_lifecycle(
     monkeypatch.setattr(
         HealthWatchApp,
         "_fetch_signal_history",
-        lambda self, e, s: {"history": []},
+        lambda self, e, s, key=None: {"history": []},
     )
 
     app = make_app(healthy_client)
@@ -315,7 +315,7 @@ async def test_query_editor_lifecycle(
     }
     outcome = outcome_map[test_outcome]
 
-    def fake_execute(client, rg, model, entity_name, signal_name):
+    def fake_execute(client, rg, model, entity_name, signal_name, **kwargs):
         if isinstance(outcome, BaseException):
             raise outcome
         return outcome
