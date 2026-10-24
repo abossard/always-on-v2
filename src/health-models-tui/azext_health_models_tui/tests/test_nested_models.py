@@ -644,10 +644,11 @@ async def test_queue_orders_explicit_navigation_then_visible_distance_and_withdr
         async with app.run_test(size=(160, 55)) as pilot:
             await until(pilot, lambda: "ref-E" in labels(app))
             # Expanding arrow occurrences without changing the cursor.
-            for name in "BCDEH":
-                next(n for n in nodes(app) if n.data and n.data.entity_name == f"ref-{name}").expand()
-            await until(pilot, lambda: all(transport.counts()[n] == 3 for n in "bcdeh"))
-            await idle(pilot, app)
+            # One at a time: each activation withdraws the previous one if it is still queued.
+            for name in "bcdeh":
+                next(n for n in nodes(app) if n.data and n.data.entity_name == f"ref-{name.upper()}").expand()
+                await until(pilot, lambda: transport.counts()[name] == 3)
+                await idle(pilot, app)
             await enter_root(pilot, app)
             for name, release in [("b", b_release), ("c", c_release)]:
                 transport.replies[(name, f"entities/{name}")] = [
@@ -679,6 +680,30 @@ async def test_queue_orders_explicit_navigation_then_visible_distance_and_withdr
     finally:
         b_release.set()
         c_release.set()
+
+
+@pytest.mark.anyio
+async def test_references_expanded_while_both_slots_are_busy_all_load(service):
+    transport, client = service
+    transport.put("R", *(entity("R", f"ref-{name}", model_id(name)) for name in "BCDEH"))
+    for name in "BCDEH":
+        transport.put(name)
+    release = threading.Event()
+    transport.blocks.update(b=release, c=release)
+    app = HealthWatchApp(client, "rg", "R", poll_interval=9999)
+    try:
+        async with app.run_test(size=(160, 55)) as pilot:
+            await until(pilot, lambda: "ref-H" in labels(app))
+            # Each activation withdraws the previous one's explicit demand while D, E and H wait.
+            for name in "BCDEH":
+                next(n for n in nodes(app) if n.data and n.data.entity_name == f"ref-{name}").expand()
+            await until(pilot, lambda: app._poller._active is not None and app._poller._active.name == "H")
+            release.set()
+            await until(pilot, lambda: all(transport.counts()[name] == 3 for name in "bcdeh"))
+            await idle(pilot, app)
+            assert "unloaded" not in labels(app)
+    finally:
+        release.set()
 
 
 @pytest.mark.anyio
@@ -1332,8 +1357,6 @@ async def test_matching_observation_withdraws_only_obsolete_queued_health(servic
                         and "Root R: cached" in app.query_one(StatusBar).model_work)
             d_release.set()
             await idle(pilot, app)
-            print("QUEUED_HEALTH", origin, demand, "counts", dict(transport.counts()),
-                  "tail", transport.requests[ledger_start:], "row", b_label())
             assert transport.counts()["b"] == before_b + extra_reads
             assert transport.maximum == 2
             if demand in {"none", "alias"}:

@@ -371,7 +371,8 @@ class Poller:
         state = self._entries.get(key)
         if isinstance(state, Queued):
             remaining = state.reasons - reasons
-            if remaining or isinstance(state, Checking):
+            # An expanded reference with nothing loaded yet keeps its load, at visible-distance priority.
+            if remaining or isinstance(state, Checking) or (state.previous is None and key in self._visible):
                 self._entries[key] = replace(state, reasons=remaining)
             else:
                 self._entries[key] = _settled(state)
@@ -478,9 +479,6 @@ class Poller:
     def _client_for(self, model: ModelKey) -> Any:
         return self._client if model == self.root else self._client.for_model(model)
 
-    def _reads(self, client: Any) -> Any:
-        return client.monitor_reads(self._stop)
-
     def _load(self, client: Any, model: ModelKey, at: datetime | None, previous: ModelSnapshot | None) -> ModelSnapshot:
         """Read definitions, entities and relationships live (``at=None``) or at a UTC instant."""
         timestamp = {} if at is None else {"timestamp": at}
@@ -510,7 +508,7 @@ class Poller:
 
     def _run(self, key: ModelKey, command: Checking) -> ModelSnapshot | None:
         client = self._client_for(key)
-        with self._reads(client):
+        with client.monitor_reads(self._stop):
             self._check_live()
             if type(command) is Checking:
                 raw = client.get_entity(key.group, key.name, key.name)
@@ -537,7 +535,7 @@ class Poller:
 
     def _run_snapshot(self, key: SnapshotKey, command: Checking) -> ModelSnapshot | None:
         client = self._client_for(key.model)
-        with self._reads(client):
+        with client.monitor_reads(self._stop):
             return self._load(client, key.model, key.at_utc, command.previous)
 
     def _run_range(self, key: RangeKey) -> tuple[HistoryEvent, ...]:
@@ -549,7 +547,7 @@ class Poller:
         }
         if key.signal_name is not None:
             body["signalName"] = key.signal_name
-        with self._reads(client):
+        with client.monitor_reads(self._stop):
             self._check_live()
             if key.signal_name is None:
                 result = client.get_entity_history(model.group, model.name, key.entity_name, body)

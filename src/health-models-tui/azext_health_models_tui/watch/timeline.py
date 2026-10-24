@@ -57,12 +57,8 @@ def event_line(event: HistoryEvent) -> str:
     return "  ".join(parts)
 
 
-def node_path_label(
-    canonical: str,
-    primary: dict[str, SnapshotNode],
-    secondary: dict[str, SnapshotNode] | None = None,
-) -> str:
-    node = primary.get(canonical) or (secondary.get(canonical) if secondary is not None else None)
+def node_path_label(canonical: str, nodes: dict[str, SnapshotNode]) -> str:
+    node = nodes.get(canonical)
     if node is None:
         return canonical
     names = [node.display_name]
@@ -70,7 +66,7 @@ def node_path_label(
     parent = node.parent_canonical_name
     while parent and parent not in seen:  # relationships can form cycles
         seen.add(parent)
-        parent_node = primary.get(parent) or (secondary.get(parent) if secondary is not None else None)
+        parent_node = nodes.get(parent)
         if parent_node is None:
             names.insert(0, parent)
             break
@@ -86,6 +82,7 @@ def compare_text(
     lines = [f"Compare {format_utc(left_at)} -> {format_utc(right_at)}"]
     lines.extend(f"added {node_path_label(item, right_nodes)}" for item in comparison.added)
     lines.extend(f"removed {node_path_label(item, left_nodes)}" for item in comparison.removed)
+    both = {**left_nodes, **right_nodes}  # an edited node is labeled by its path at B, else at A
     for label, edits in (
         ("health", comparison.health_edits),
         ("value", comparison.value_edits),
@@ -93,7 +90,7 @@ def compare_text(
         ("topology", comparison.topology_edits),
     ):
         lines.extend(
-            f"{label} {node_path_label(edit.canonical_name, right_nodes, left_nodes)}: {edit.before} -> {edit.after}"
+            f"{label} {node_path_label(edit.canonical_name, both)}: {edit.before} -> {edit.after}"
             for edit in edits
         )
     output = "\n".join(lines)

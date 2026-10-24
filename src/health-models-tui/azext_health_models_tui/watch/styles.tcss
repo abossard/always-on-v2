@@ -103,6 +103,12 @@ ChangesPane Input:focus {
     background: $primary-darken-2;
 }
 
+/* A wrapped row would break the band column; a long row ends in an ellipsis instead. */
+#timeline-bands {
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
+}
+
 #timeline-scroll,
 #changes-form-scroll {
     height: 1fr;
@@ -125,10 +131,6 @@ TimelinePane Horizontal,
 ChangesPane Horizontal {
     height: auto;
     width: 100%;
-}
-
-.changes-kind {
-    height: auto;
 }
 
 .changes-section-label {

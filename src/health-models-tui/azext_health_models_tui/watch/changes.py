@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from rich.text import Text
 from textual.app import ComposeResult
-from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.containers import Horizontal, Vertical, VerticalGroup, VerticalScroll
 from textual.widgets import Button, Input, Static
 
 
@@ -28,7 +28,7 @@ class ChangesPane(Vertical):
         yield Static("", id="changes-result")
         with VerticalScroll(id="changes-form-scroll"):
             # One section per draft kind; set_kind shows the active draft's.
-            with Vertical(id="changes-entity-fields", classes="changes-kind"):
+            with VerticalGroup(id="changes-entity-fields", classes="changes-kind"):
                 yield Static("Entity fields", classes="changes-section-label")
                 yield Static("Display name", classes="changes-field-label")
                 with Horizontal():
@@ -42,7 +42,7 @@ class ChangesPane(Vertical):
                 yield Static("Icon name", classes="changes-field-label")
                 with Horizontal():
                     yield Input(placeholder="Icon", id="changes-icon")
-            with Vertical(id="changes-signal_definition-fields", classes="changes-kind"):
+            with VerticalGroup(id="changes-signal_definition-fields", classes="changes-kind"):
                 yield Static("Signal definition fields", classes="changes-section-label")
                 yield Static("Query text", classes="changes-field-label")
                 with Horizontal():
@@ -104,8 +104,8 @@ class ChangesPane(Vertical):
         return {key: self.query_one(f"#{field_input_id(key)}", Input).value.strip() for key in FIELDS}
 
     def set_form_values(self, values: dict[str, str]) -> None:
-        for key in FIELDS:
-            self.query_one(f"#{field_input_id(key)}", Input).value = values.get(key, "")
+        for key, value in values.items():
+            self.query_one(f"#{field_input_id(key)}", Input).value = value
 
     def set_kind(self, kind: str) -> None:
         for section in self.query(".changes-kind"):

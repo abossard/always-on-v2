@@ -27,7 +27,7 @@ class HelpDialog(_BaseDialog):
         keys: dict[str, list[str]] = {}
         for binding in self._shortcuts:
             key = self.app.get_key_display(binding)
-            keys.setdefault(binding.description, []).append(key if len(key) == 1 else key.capitalize())  # F1, Esc
+            keys.setdefault(binding.description, []).append(key if len(key) == 1 else key.replace("^", "ctrl+").title())  # F1, Esc, Ctrl+Q
         with VerticalScroll(id="shortcut-dialog"):  # focused on open, so arrows and Page keys scroll a short terminal
             yield Label("Help", classes="shortcut-title")
             yield Static("Arrows move, Enter expands or activates, Tab moves focus. Esc closes this dialog.")

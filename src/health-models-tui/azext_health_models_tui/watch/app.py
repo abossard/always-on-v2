@@ -171,7 +171,7 @@ class HealthWatchApp(App[str | None]):
         self._timeline_frame = 0
         self._timeline_pulse: Any = None
         self._changes_result_by_target: dict[ResourceTarget, str] = {}
-        self._form_draft: tuple[ResourceTarget, int] | None = None  # the draft revision the form shows
+        self._form_draft: tuple[ResourceTarget, dict[str, str]] | None = None  # the draft the form shows, as last filled
         self._allow_back_to_models = allow_back_to_models
 
     # ── layout ────────────────────────────────────────────────────────
@@ -303,10 +303,7 @@ class HealthWatchApp(App[str | None]):
     def action_show_changes(self) -> None:
         self._set_workspace_tab("changes")
         self._ensure_tree_selection()
-        target = self._draft_store.active_target()
-        # Reopening the same draft keeps what the user typed; a changed or other draft refills the form.
-        same = target is not None and self._form_draft == (target, self._current_revision_for_target(target))
-        self._render_changes(keep_form=same)
+        self._render_changes()
 
     def action_increase_interval(self) -> None:
         """Increase the poll interval by 10 s (max 300 s)."""
@@ -514,6 +511,7 @@ class HealthWatchApp(App[str | None]):
         target = ResourceTarget(key, "entity", data.entity_name)
         self._draft_store.get_or_create(target, baseline)
         self._prepared_apply_plan = None
+        self.query_one("#changes-pane", ChangesPane).set_plan("")
         self._set_workspace_tab("changes")
         self._render_changes()
 
@@ -715,7 +713,9 @@ class HealthWatchApp(App[str | None]):
         draft = self._draft_store.get(target)
         if draft is None:
             return False
-        return pane.form_values() != self._draft_form_values(draft.edited)
+        current = self._draft_form_values(draft.edited)
+        # Empty means no edit, as in Update draft, so an emptied field never blocks Prepare.
+        return any(value and value != current[key] for key, value in pane.form_values().items())
 
     @staticmethod
     def _draft_form_values(edited: Mapping[str, Any]) -> dict[str, str]:
@@ -803,7 +803,7 @@ class HealthWatchApp(App[str | None]):
         requested = self._requested_snapshot
         if requested is not None and requested != self._applied_snapshot and all(
             isinstance(self._poller.view_at(requested.at_utc).entries.get(model), _SETTLED)
-            for model in self._snapshot_models(requested)
+            for model in self._snapshot_scopes[requested]
         ):
             self._apply_snapshot(requested)
         lease = self._compare_lease
@@ -1078,25 +1078,20 @@ class HealthWatchApp(App[str | None]):
         key = SnapshotKey(model, at)
         for previous in {self._requested_snapshot, self._applied_snapshot} - {key, None}:
             self._release_snapshot(previous)
-        # Every model on the way down to the row, or the tree cannot reach the row at that time.
+        # The tree is projected from the launch model, and needs every model on the way down to the row at that time.
         path = self._timeline_path
-        self._snapshot_scopes[key] = self._snapshot_models(key) | {
+        self._snapshot_scopes[key] = self._snapshot_scopes.get(key, frozenset()) | {key.model, self._poller.root} | {
             row_key.model for row_path, row_key in self._timeline_keys_by_path.items()
             if path[:len(row_path)] == row_path
         }
         self._requested_snapshot = key
-        for snapshot_model in self._snapshot_models(key):
+        for snapshot_model in self._snapshot_scopes[key]:
             self._poller.open_at(at, target=snapshot_model, purpose="timeline-open")
         self._refresh_timeline()
 
-    def _snapshot_models(self, key: SnapshotKey) -> frozenset[ModelKey]:
-        # The tree is projected from the launch model, so a nested model's snapshot needs it too.
-        return self._snapshot_scopes.get(key, frozenset({key.model, self._poller.root}))
-
-    def _release_snapshot(self, key: SnapshotKey | None) -> None:
-        for model in self._snapshot_models(key) if key is not None else ():
+    def _release_snapshot(self, key: SnapshotKey) -> None:
+        for model in self._snapshot_scopes.pop(key, ()):
             self._poller.release_at(key.at_utc, target=model, purpose="timeline-open")
-        self._snapshot_scopes.pop(key, None)
 
     def _apply_snapshot(self, key: SnapshotKey) -> None:
         if self._requested_snapshot != key:
@@ -1174,7 +1169,7 @@ class HealthWatchApp(App[str | None]):
         pane.set_summary("Compare complete.")
         self._release_compare(model, left_at, right_at)
 
-    def _render_changes(self, *, keep_form: bool = False) -> None:
+    def _render_changes(self) -> None:
         pane = self.query_one("#changes-pane", ChangesPane)
         snapshots = self._draft_store.list_snapshots()
         if not snapshots:
@@ -1186,7 +1181,7 @@ class HealthWatchApp(App[str | None]):
             pane.set_details("")
             # A discarded draft must not leave values the quit guard reads as pending edits.
             self._form_draft = None
-            pane.set_form_values({})
+            pane.set_form_values(dict.fromkeys(FIELDS, ""))
             return
         def label(snapshot: DraftSnapshot) -> str:
             name = self._draft_form_values(snapshot.edited)["display_name"] or snapshot.target.name
@@ -1212,9 +1207,18 @@ class HealthWatchApp(App[str | None]):
             summary += f" (consumers: {consumers})"
         pane.set_summary(summary)
         pane.set_result(self._changes_result_by_target.get(target, ""))
-        if not keep_form:  # never overwrite what the user is typing
-            pane.set_form_values(self._draft_form_values(draft.edited))
-        self._form_draft = (target, draft.revision)
+        current = self._draft_form_values(draft.edited)
+        if self._form_draft is not None and self._form_draft[0] == target:
+            # The same draft again: a field typed into since the last fill stays, unless the draft changed that field.
+            typed, filled = pane.form_values(), self._form_draft[1]
+            pane.set_form_values({
+                key: value for key, value in current.items()
+                if not typed[key] or typed[key] == filled[key] or value != filled[key]
+            })
+        else:
+            pane.set_plan("")  # a plan or note about another draft
+            pane.set_form_values(current)
+        self._form_draft = (target, current)
         pane.set_details(
             ("Unsaved changes" if self._draft_store.has_unsaved_changes(target) else "No unsaved changes")
             + ("" if draft.tested_revision is None
@@ -1235,15 +1239,18 @@ class HealthWatchApp(App[str | None]):
         try:
             if button_id == "changes-review":
                 values = pane.form_values()
+                current = self._draft_form_values(draft.edited)
                 updates: list[tuple[str, Any]] = []
                 allowed_impacts = {"Standard", "Limited", "Suppressed"}
                 mapping = {key: path for key, (path, kind) in FIELDS.items() if kind == target.kind}
                 for key, path in mapping.items():
                     value = values.get(key, "")
-                    if key == "impact" and value and value not in allowed_impacts:
+                    if not value or value == current[key]:
+                        continue
+                    if key == "impact" and value not in allowed_impacts:
                         pane.set_summary("Impact must be one of: Standard, Limited, Suppressed.")
                         return
-                    if key == "objective" and value:
+                    if key == "objective":
                         try:
                             parsed = float(value)
                         except ValueError:
@@ -1254,18 +1261,15 @@ class HealthWatchApp(App[str | None]):
                             return
                         updates.append((path, parsed))
                         continue
-                    if value:
-                        updates.append((path, value))
-                updates = [
-                    (path, value) for path, value in updates if get_in(draft.edited, parse_field_path(path)) != value
-                ]
+                    updates.append((path, value))
                 if not updates:
                     pane.set_summary("No changed fields to update.")
                     return
                 for path, value in updates:
                     self._draft_store.update_field(target, path, value)
+                if self._prepared_apply_plan is not None:
+                    pane.set_plan("Prepared apply plan invalidated by field updates.")
                 self._prepared_apply_plan = None
-                pane.set_plan("Prepared apply plan invalidated by field updates.")
                 self._changes_result_by_target[target] = f"Draft updated ({len(updates)} field(s))."
                 self._render_changes()
                 return
@@ -1378,7 +1382,7 @@ class HealthWatchApp(App[str | None]):
         if self._draft_store.active_target() != target:
             return  # the user switched drafts while this plan was being prepared
         if self._changes_form_has_pending_edits() or self._current_revision_for_target(target) != draft.revision:
-            pane.set_plan("Plan dropped: the draft or form changed while preparing. Update draft, then prepare again.")
+            pane.set_summary("Plan dropped: the draft or form changed while preparing. Update draft, then prepare again.")
             return
         self._prepared_apply_plan = plan_or_result
         changed = tuple(changed_paths(plan_or_result.changes))
@@ -1417,6 +1421,7 @@ class HealthWatchApp(App[str | None]):
         self, target: ResourceTarget, revision: int, plan: ApplyPlan, confirmation: str,
     ) -> None:
         pane = self.query_one("#changes-pane", ChangesPane)
+        pane.set_plan("")  # the coordinator uses a plan once, even when the apply raises
         self._applies_in_flight += 1
         try:
             result = await asyncio.to_thread(
@@ -1428,20 +1433,18 @@ class HealthWatchApp(App[str | None]):
         finally:
             self._applies_in_flight -= 1
         pane.set_summary(f"{result.outcome.value}: {result.message}")
-        pane.set_plan("")
         pane.set_details(result.race_warning + (f"\nWrite error: {result.write_error}" if result.write_error else ""))
         self._changes_result_by_target[target] = (
             f"Apply {result.outcome.value}: {result.message}"
             + (f" | changed: {', '.join(result.changed_fields)}" if result.changed_fields else "")
         )
-        typing = self._changes_form_has_pending_edits()
         current = self._draft_store.get(target)
         if result.outcome.value == "applied" and result.read_back is not None and current is not None:
             if current.revision == revision:
                 self._draft_store.accept_applied(target, result.read_back)
             else:
                 self._draft_store.rebase(target, result.read_back)  # edits made during the write stay
-        self._render_changes(keep_form=typing)
+        self._render_changes()
 
     def _current_revision_for_target(self, target: ResourceTarget) -> int:
         draft = self._draft_store.get(target)

@@ -85,8 +85,8 @@ async def test_digit_keys_switch_tabs_and_help_lists_them(make_app, healthy_clie
         await pilot.press("f1")
         await pilot.pause()
         help_text = " ".join(str(widget.render()) for widget in app.screen.query("Static"))
-        assert f"{key} / " in help_text and f"{tab.title()} tab" in help_text
-        assert "F1 " in help_text and "Esc " in help_text  # spelled as the status bar spells keys
+        assert f"{key} / Ctrl+{key} " in help_text and f"{tab.title()} tab" in help_text
+        assert "F1 " in help_text and "Esc " in help_text and "q / Ctrl+Q " in help_text  # as the status bar and README spell keys
 
 
 @pytest.mark.anyio
@@ -366,7 +366,12 @@ async def test_timeline_controls_reachable_via_tab_and_enter(make_app, healthy_c
 
 @pytest.mark.anyio
 @pytest.mark.parametrize(
-    ("typed", "expected"), [("", "2026-01-01T00:20:01Z"), ("2026-01-01T00:05:00Z", "2026-01-01T00:05:00Z")],
+    ("typed", "expected"),
+    [
+        ("", "2026-01-01T00:20:01Z"),
+        ("2026-01-01T00:05:00Z", "2026-01-01T00:05:00Z"),
+        (datetime(2026, 1, 1, 0, 5, tzinfo=UTC), "2026-01-01T00:20:01Z"),  # filled by an earlier load, not typed
+    ],
 )
 async def test_timeline_counts_only_in_window_events_and_fills_untyped_time_rounded_up(
     make_app, healthy_client, typed, expected,
@@ -386,7 +391,10 @@ async def test_timeline_counts_only_in_window_events_and_fills_untyped_time_roun
         await app._do_poll()
         await pilot.pause()
         pane = app.query_one("#timeline-pane", TimelinePane)
-        pane.query_one("#timeline-go-to").value = typed
+        if isinstance(typed, datetime):
+            pane.set_go_to_value(typed)
+        else:
+            pane.query_one("#timeline-go-to").value = typed
         app._apply_timeline_ranges(key, {path: view}, {path: key})
         await pilot.pause()
         assert "1 event in" in str(pane.query_one("#timeline-summary").render())
@@ -748,6 +756,9 @@ async def test_prepared_plan_invalidated_after_field_edit(make_app, healthy_clie
         pane.query_one("#changes-display-name").value = "Edited Later"
         await pilot.pause()
         assert "invalidated" in str(pane.query_one("#changes-plan").render()).lower()
+        app._draft_store.get_or_create(ResourceTarget(model, "entity", "EntityB"), {"name": "EntityB", "properties": {}})
+        app.action_show_changes()
+        assert str(pane.query_one("#changes-plan").render()) == ""
 
 
 @pytest.mark.anyio
@@ -768,29 +779,49 @@ async def test_entity_changes_form_shows_labeled_entity_fields_only(make_app, he
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize(("draft_edited_meanwhile", "expected"), [(False, "typed"), (True, "edited in the editor")])
-async def test_reopening_changes_keeps_typed_input_unless_the_draft_changed(
-    make_app, healthy_client, draft_edited_meanwhile, expected,
+@pytest.mark.parametrize("reopen", ["action_show_changes", "action_edit_query"])
+@pytest.mark.parametrize(
+    "edit_meanwhile",
+    [None, ("properties.impact", "Suppressed"), ("properties.displayName", "edited in the editor")],
+    ids=["no-edit", "other-field", "typed-field"],
+)
+async def test_reopening_the_same_draft_keeps_typed_input_unless_the_draft_changed_that_field(
+    make_app, healthy_client, reopen, edit_meanwhile,
 ) -> None:
     app: HealthWatchApp = make_app(healthy_client)
-    target = ResourceTarget(app._poller.root, "entity", "EntityA")
-    app._draft_store.get_or_create(target, {"name": "EntityA", "properties": {"displayName": "EntityA"}})
     async with app.run_test(size=(120, 40)) as pilot:
         await app._do_poll()
         await pilot.pause()
-        app.action_show_changes()
+        tree = app.query_one("#health-tree", HealthTree)
+        tree.move_cursor(next(
+            n for n in _walk(tree.root) if n.data is not None and not n.data.is_signal and not n.data.entity_name.startswith("__")
+        ))
+        app.action_edit_query()
+        target = app._draft_store.active_target()
         app.query_one("#changes-display-name").value = "typed"
+        app._prepared_apply_plan = object()  # type: ignore[assignment]
+        app.query_one("#changes-pane", ChangesPane).set_plan("Prepared plan")
         app.action_show_tree()
-        if draft_edited_meanwhile:
-            app._draft_store.update_field(target, "properties.displayName", "edited in the editor")
-        app.action_show_changes()
-        assert app.query_one("#changes-display-name").value == expected
+        if edit_meanwhile:  # another edit of the same draft: a query saved in the query editor, a Restore
+            app._draft_store.update_field(target, *edit_meanwhile)
+        getattr(app, reopen)()
+        edited = app._draft_store.get(target).edited["properties"]
+        typed_field_changed = edit_meanwhile is not None and edit_meanwhile[0] == "properties.displayName"
+        assert app.query_one("#changes-display-name").value == (edited["displayName"] if typed_field_changed else "typed")
+        assert app.query_one("#changes-impact").value == edited["impact"]
+        # The plan text shows exactly while a plan is held.
+        assert (str(app.query_one("#changes-plan").render()) == "") == (app._prepared_apply_plan is None)
 
 
 @pytest.mark.anyio
 @pytest.mark.parametrize(
     ("typed", "message", "revision"),
-    [({"#changes-display-name": "Renamed"}, "Draft updated (1 field(s)).", 1), ({}, "No changed fields to update.", 0)],
+    [
+        ({"#changes-display-name": "Renamed"}, "Draft updated (1 field(s)).", 1),
+        ({"#changes-objective": "99.0"}, "Draft updated (1 field(s)).", 1),
+        ({"#changes-display-name": ""}, "No changed fields to update.", 0),
+        ({}, "No changed fields to update.", 0),
+    ],
 )
 async def test_update_draft_writes_and_counts_only_changed_fields(
     make_app, healthy_client, typed, message, revision,
@@ -811,6 +842,8 @@ async def test_update_draft_writes_and_counts_only_changed_fields(
         shown = str(pane.query_one("#changes-result").render()) + str(pane.query_one("#changes-summary").render())
         assert message in shown
         assert app._draft_store.get(target).revision == revision
+        assert not app._changes_form_has_pending_edits()  # Prepare is not blocked
+        assert str(pane.query_one("#changes-plan").render()) == ""  # no plan was prepared, so none was invalidated
 
 
 @pytest.mark.anyio
@@ -903,7 +936,7 @@ async def test_prepare_drops_the_plan_when_the_draft_was_updated_during_the_read
         await app.workers.wait_for_complete()
         await pilot.pause()
         assert app._prepared_apply_plan is None
-        assert "Plan prepared" not in str(app.query_one("#changes-summary").render())
+        assert "Plan dropped" in str(app.query_one("#changes-summary").render())
 
 
 @pytest.mark.anyio
@@ -1238,15 +1271,14 @@ async def test_prepare_review_scroll_and_actions_are_reachable_in_compact_layout
         review.scroll_end(animate=False)
         await pilot.pause()
         assert review.scroll_y > 0
+        assert "Tenant: anbo (tenant-123)" in str(app.query_one("#changes-plan").render())
         assert await pilot.click("#changes-apply-confirm")
         await pilot.pause()
         assert await pilot.click("#changes-apply")
         await app.workers.wait_for_complete()
         await pilot.pause()
-        plan = str(app.query_one("#changes-plan").render())
-        details = str(app.query_one("#changes-details").render())
-        assert "Tenant: anbo (tenant-123)" in plan
-        assert "Race warning:" in details
+        assert str(app.query_one("#changes-plan").render()) == ""  # a started apply uses the plan up
+        assert "Race warning:" in str(app.query_one("#changes-details").render())
 
 
 @pytest.mark.anyio
@@ -1409,6 +1441,26 @@ async def test_timeline_selected_zero_bucket_row_shows_error_marker(make_app, he
     assert "EntityA" in output
     assert "[no-buckets]" in output
     assert "[no-buckets]" in rendered
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("width", [115, 130])
+async def test_failed_timeline_rows_stay_on_one_line_in_the_docked_pane(make_app, healthy_client, width) -> None:
+    app: HealthWatchApp = make_app(healthy_client)
+    start = datetime(2026, 1, 1, tzinfo=UTC)
+    key = RangeKey(model=app._poller.root, entity_name="EntityA", start_utc=start, end_utc=start + timedelta(hours=1))
+    app._timeline_row_status = {("EntityA",): "failed"}
+    app._visible_occurrence_rows = lambda: [{"path": ("EntityA",), "name": "EntityA", "depth": 0}]  # type: ignore[assignment]
+    async with app.run_test(size=(width, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        app._set_workspace_tab("timeline")
+        bands = app._render_timeline_bands(key)
+        assert "[failed]" in bands.plain
+        pane = app.query_one("#timeline-pane", TimelinePane)
+        pane.set_bands(bands)
+        await pilot.pause()
+        assert pane.query_one("#timeline-bands").region.height == len(bands.plain.split("\n"))
 
 
 @pytest.mark.anyio

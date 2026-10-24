@@ -1,6 +1,7 @@
 """Guarded single-resource Apply orchestration for live health model edits."""
 from __future__ import annotations
 
+import threading
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -91,6 +92,7 @@ class ApplyCoordinator:
         self._is_live_scope = live_scope_supplier
         self._prepared: ApplyPlan | None = None  # one prepared plan; Apply must present an equal one
         self._preparations = 0  # a cancelled Prepare's thread runs on; only the latest one may publish
+        self._publication = threading.Lock()  # guards numbering, publishing and consuming the prepared plan
 
     def prepare_plan(
         self,
@@ -101,8 +103,9 @@ class ApplyCoordinator:
         draft_live_baseline: Mapping[str, Any],
         generated_at: datetime | None = None,
     ) -> ApplyPlan | ApplyResult:
-        self._preparations += 1
-        preparation = self._preparations
+        with self._publication:
+            self._preparations += 1
+            preparation = self._preparations
         if not self._is_live_scope(target):
             return self._reject(
                 target,
@@ -154,8 +157,9 @@ class ApplyCoordinator:
         changed = changed_paths(plan.changes)
         if not changed:
             return self._reject(target, "No writable changes to apply.")
-        if preparation == self._preparations:
-            self._prepared = deepcopy(plan)
+        with self._publication:
+            if preparation == self._preparations:
+                self._prepared = deepcopy(plan)
         return plan
 
     def apply_confirmed(
@@ -165,11 +169,12 @@ class ApplyCoordinator:
         confirmation_name: str,
     ) -> ApplyResult:
         target = plan.target
-        if self._prepared is None:
-            return self._reject(target, "Apply plan is unknown or expired. Prepare again.")
-        if plan != self._prepared:
-            return self._reject(target, "Apply plan changed after review. Prepare again.")
-        self._prepared = None
+        with self._publication:
+            if self._prepared is None:
+                return self._reject(target, "Apply plan is unknown or expired. Prepare again.")
+            if plan != self._prepared:
+                return self._reject(target, "Apply plan changed after review. Prepare again.")
+            self._prepared = None
         if confirmation_name != target.name:
             return self._reject(
                 target,
