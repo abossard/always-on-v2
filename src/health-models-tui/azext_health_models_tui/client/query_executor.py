@@ -25,8 +25,6 @@ from azext_health_models_tui.models.enums import ComparisonOperator, HealthState
 
 _log = logging.getLogger(__name__)
 
-# A known local limitation rather than a query failure; the TUI shows it as info.
-
 
 @dataclass(frozen=True)
 class SignalExecutionConfig:

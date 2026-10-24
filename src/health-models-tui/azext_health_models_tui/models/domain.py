@@ -310,11 +310,6 @@ class StateChange:
         """True if this is a severity escalation (worse health)."""
         return self.kind == ChangeKind.ESCALATION
 
-    @property
-    def is_recovery(self) -> bool:
-        """True if this is a recovery (better health)."""
-        return self.kind == ChangeKind.RECOVERY
-
 
 # ─── Forest (validated graph output) ─────────────────────────────────
 

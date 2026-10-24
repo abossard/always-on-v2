@@ -73,9 +73,6 @@ class HistoryEvent:
     previous_health: HistoryBucketHealth | None = None
     value: float | None = None
     reason: str | None = None
-    context: Mapping[str, Any] | None = None
-    baseline_value: float | None = None
-    baseline_health: HistoryBucketHealth | None = None
 
 
 @dataclass(frozen=True)
@@ -181,13 +178,6 @@ def parse_history_events(points: list[Mapping[str, Any]]) -> tuple[HistoryEvent,
                 previous_health=previous_health,
                 value=numeric,
                 reason=point.get("reason"),
-                context=point.get("context"),
-                baseline_value=point.get("baselineValue"),
-                baseline_health=(
-                    _to_bucket_health(point["baselineHealthState"])
-                    if point.get("baselineHealthState") is not None
-                    else None
-                ),
             )
         )
     events.sort(key=lambda event: event.occurred_at)

@@ -57,7 +57,7 @@ regular Azure CLI extensions stay untouched:
 
 ```bash
 cd src/health-models-tui
-uv build --wheel
+rm -rf dist && uv build --wheel
 AZURE_EXTENSION_DIR="$(mktemp -d)"
 export AZURE_EXTENSION_DIR
 az extension add --source dist/health_models_tui-*.whl --yes
@@ -66,8 +66,7 @@ az health-models-tui --help
 
 Keep running usage commands in the same shell session (or re-export
 `AZURE_EXTENSION_DIR`) so bare `az health-models-tui ...` calls keep using the
-isolated extension path. To load a rebuilt wheel there, run
-`az extension remove --name health-models-tui` before adding it again (see Update).
+isolated extension path. Rerunning the block installs a rebuilt wheel into a new isolated directory.
 
 ## Usage
 
@@ -79,7 +78,6 @@ az health-models-tui -g myRg --model myModel --plain --poll-interval 10
 ```
 
 Without a TTY (or with `--plain`) the command prints plain text instead of the UI.
-It uses the current `az login` account and subscription.
 
 ## Keys
 
@@ -96,7 +94,7 @@ It uses the current `az login` account and subscription.
 ## Timeline
 
 Rows fill in as their history arrives; rows still loading show a moving bar and the
-progress line counts them. There is no timeout. Color shows the worst health state
+progress line counts them. Color shows the worst health state
 in each time slot. For a selected signal, bar height shows its value. `·` marks
 time without data. Use Prev/Next to step through events, **Open tree at time**
 to see the model at that time (the status bar then says **Snapshot**), and
@@ -105,7 +103,8 @@ to see the model at that time (the status bar then says **Snapshot**), and
 ## Changes
 
 Edits are local drafts until you apply them. Save (or Overwrite) writes a draft to
-a JSON file; Restore loads one back. Applying is a two-step flow: **Prepare apply** reads the live resource and
+a JSON file; Restore loads one back. To apply, press **Update draft** to take the
+form edits into the draft, then **Prepare apply** reads the live resource and
 shows the tenant, subscription and changed fields, then **Apply prepared** writes
 after you type the resource name, and reads the result back.
 

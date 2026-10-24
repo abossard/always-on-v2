@@ -7,7 +7,6 @@ import json
 from collections import Counter
 from collections.abc import Callable, Mapping
 from concurrent.futures import Future, ThreadPoolExecutor
-from contextlib import nullcontext
 from dataclasses import dataclass, field, replace
 from datetime import datetime, timezone
 from types import MappingProxyType
@@ -157,20 +156,10 @@ class PollResult:
 
 @dataclass(frozen=True)
 class RangeView:
-    status: str
-    events: tuple[HistoryEvent, ...] | None = None  # parsed once in the worker; immutable, so shared freely
-    error: str = ""
-
-
-@dataclass(frozen=True)
-class _RangeEntry:
     status: Literal["unloaded", "queued", "loading", "ready", "failed", "stopped"] = "unloaded"
     sequence: int = 0
-    events: tuple[HistoryEvent, ...] | None = None
+    events: tuple[HistoryEvent, ...] | None = None  # parsed once in the worker; immutable, so shared freely
     error: str = ""
-
-    def as_view(self) -> RangeView:
-        return RangeView(status=self.status, events=self.events, error=self.error)
 
 
 class Poller:
@@ -189,7 +178,7 @@ class Poller:
         self._candidates: dict[tuple[ModelKey, str], tuple[ModelKey, HealthState]] = {}
         self._condition = threading.Condition(threading.RLock())
         self._executor = ThreadPoolExecutor(max_workers=2, thread_name_prefix="health-model")
-        self._running: dict[object, Future[Any] | object] = {}
+        self._running: dict[tuple[str, Any], Future[Any]] = {}
         self._stop = threading.Event()
         self._sequence = 0
         self._token = 0
@@ -198,7 +187,7 @@ class Poller:
         self._visible: dict[ModelKey, int] = {}
         self._listener: Callable[[], None] | None = None
         self._snapshots: dict[SnapshotKey, State] = {}
-        self._ranges: dict[RangeKey, _RangeEntry] = {}
+        self._ranges: dict[RangeKey, RangeView] = {}
         self._advance_requested = False
         self._snapshot_demands: dict[SnapshotKey, set[str]] = {}
         self._range_demands: dict[RangeKey, set[str]] = {}
@@ -274,8 +263,7 @@ class Poller:
                 for k, s in self._snapshots.items()
             }
             self._ranges = {
-                k: _RangeEntry(status="stopped", sequence=v.sequence, events=v.events, error=v.error)
-                for k, v in self._ranges.items()
+                k: replace(v, status="stopped") for k, v in self._ranges.items()
             }
             self._snapshot_demands.clear()
             self._range_demands.clear()
@@ -283,8 +271,7 @@ class Poller:
         self._executor.shutdown(wait=False, cancel_futures=True)
 
     def _snapshot_key(self, at: datetime, target: ModelKey | None) -> SnapshotKey:
-        scoped = target or self.root
-        return SnapshotKey(scoped, at.astimezone(timezone.utc))
+        return SnapshotKey(target or self.root, at)
 
     @staticmethod
     def _resource_json(
@@ -301,19 +288,10 @@ class Poller:
             if (name := str(resource.get("name", "")).casefold())
         }
 
-    @staticmethod
-    def _require_aware_utc(value: datetime, label: str) -> datetime:
-        if value.tzinfo is None or value.utcoffset() is None:
-            raise ValueError(f"{label} must be timezone-aware UTC datetime")
-        if value.utcoffset() != timezone.utc.utcoffset(None):
-            raise ValueError(f"{label} must use UTC timezone")
-        return value.astimezone(timezone.utc)
-
     def open_at(self, at: datetime, target: ModelKey | None = None, *, purpose: str = "default") -> None:
         with self._condition:
             if self._stop.is_set():
                 return
-            self._require_aware_utc(at, "open_at(at)")
             key = self._snapshot_key(at, target)
             if not purpose:
                 raise ValueError("open_at purpose must be non-empty")
@@ -325,7 +303,6 @@ class Poller:
 
     def release_at(self, at: datetime, target: ModelKey | None = None, *, purpose: str = "default") -> None:
         with self._condition:
-            self._require_aware_utc(at, "release_at(at)")
             key = self._snapshot_key(at, target)
             owners = self._snapshot_demands.get(key)
             if owners is not None:
@@ -340,7 +317,7 @@ class Poller:
 
     def view_at(self, at: datetime) -> MonitorView:
         with self._condition:
-            stamp = self._require_aware_utc(at, "view_at(at)")
+            stamp = SnapshotKey(self.root, at).at_utc
             entries = {
                 key.model: state
                 for key, state in self._snapshots.items()
@@ -358,15 +335,10 @@ class Poller:
                 raise ValueError("request_range purpose must be non-empty")
             self._range_demands.setdefault(key, set()).add(purpose)
             self._sequence += 1
-            entry = self._ranges.get(key, _RangeEntry())
+            entry = self._ranges.get(key, RangeView())
             if entry.status in {"queued", "loading", "ready"}:
                 return
-            self._ranges[key] = _RangeEntry(
-                status="queued",
-                sequence=self._sequence,
-                events=entry.events,
-                error=entry.error,
-            )
+            self._ranges[key] = replace(entry, status="queued", sequence=self._sequence)
             self._prune_ranges()
             self._advance()
 
@@ -379,13 +351,13 @@ class Poller:
                     self._range_demands.pop(key, None)
             entry = self._ranges.get(key)
             if entry and entry.status == "queued":
-                self._ranges[key] = _RangeEntry(status="unloaded", sequence=entry.sequence, events=entry.events, error=entry.error)
+                self._ranges[key] = replace(entry, status="unloaded")
                 self._prune_ranges()
             self._advance()
 
     def range_view(self, key: RangeKey) -> RangeView:
         with self._condition:
-            return self._ranges.get(key, _RangeEntry()).as_view()
+            return self._ranges.get(key, RangeView())
 
     def _request(self, key: ModelKey, reason: Reason) -> None:
         if self._stop.is_set():
@@ -494,8 +466,8 @@ class Poller:
         self._running[run_key] = future
         future.add_done_callback(lambda f: self._complete_snapshot(key, command.token, f, run_key))
 
-    def _start_range(self, key: RangeKey, command: _RangeEntry) -> None:
-        self._ranges[key] = _RangeEntry(status="loading", sequence=command.sequence, events=command.events, error=command.error)
+    def _start_range(self, key: RangeKey, command: RangeView) -> None:
+        self._ranges[key] = replace(command, status="loading")
         if self._listener:
             self._listener()
         future = self._executor.submit(self._run_range, key)
@@ -507,7 +479,7 @@ class Poller:
         return self._client if model == self.root else self._client.for_model(model)
 
     def _reads(self, client: Any) -> Any:
-        return client.monitor_reads(self._stop) if hasattr(client, "monitor_reads") else nullcontext()
+        return client.monitor_reads(self._stop)
 
     def _load(self, client: Any, model: ModelKey, at: datetime | None, previous: ModelSnapshot | None) -> ModelSnapshot:
         """Read definitions, entities and relationships live (``at=None``) or at a UTC instant."""
@@ -572,8 +544,8 @@ class Poller:
         model = key.model
         client = self._client_for(model)
         body = {
-            "startAt": key.start_utc.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
-            "endAt": key.end_utc.astimezone(timezone.utc).isoformat().replace("+00:00", "Z"),
+            "startAt": key.start_utc.isoformat().replace("+00:00", "Z"),
+            "endAt": key.end_utc.isoformat().replace("+00:00", "Z"),
         }
         if key.signal_name is not None:
             body["signalName"] = key.signal_name
@@ -667,16 +639,16 @@ class Poller:
             if self._stop.is_set():
                 self._condition.notify_all()
                 return
-            current = self._ranges.get(key, _RangeEntry())
+            current = self._ranges.get(key, RangeView())
             if current.status != "loading":
                 self._advance()
                 return
             try:
                 result = future.result()
             except Exception as exc:
-                self._ranges[key] = _RangeEntry(status="failed", sequence=current.sequence, events=current.events, error=describe_error(exc))
+                self._ranges[key] = replace(current, status="failed", error=describe_error(exc))
             else:
-                self._ranges[key] = _RangeEntry(status="ready", sequence=current.sequence, events=result, error="")
+                self._ranges[key] = replace(current, status="ready", events=result, error="")
             self._prune_ranges()
             self._advance()
 
@@ -685,13 +657,12 @@ class Poller:
             return
         running = {
             job_key[1] for job_key in self._running
-            if isinstance(job_key, tuple) and len(job_key) == 2 and job_key[0] == "snapshot"
+            if job_key[0] == "snapshot"
         }
         pinned_instants = {
             demand_key.at_utc for demand_key, owners in self._snapshot_demands.items() if owners
         }
-        ordered = sorted(self._snapshots.items(), key=lambda item: item[1].generation)
-        for key, state in ordered:
+        for key, state in list(self._snapshots.items()):
             if len(self._snapshots) <= self._MAX_HISTORY_CACHE:
                 break
             if key in running or type(state) is Queued:
@@ -705,7 +676,7 @@ class Poller:
             return
         running = {
             job_key[1] for job_key in self._running
-            if isinstance(job_key, tuple) and len(job_key) == 2 and job_key[0] == "range"
+            if job_key[0] == "range"
         }
         ordered = sorted(self._ranges.items(), key=lambda item: item[1].sequence)
         for key, state in ordered:

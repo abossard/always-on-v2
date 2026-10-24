@@ -768,7 +768,7 @@ async def test_apply_keeps_edits_made_while_the_write_runs(make_app, healthy_cli
     app._draft_store.get_or_create(target, baseline)
 
     class _ApplyStub:
-        def apply_confirmed(self, plan, current_revision, confirmation_name):  # noqa: ANN001
+        def apply_confirmed(self, plan, confirmation_name):  # noqa: ANN001
             assert app._applies_in_flight == 1
             app._draft_store.update_field(target, "properties.displayName", "edited during write")
             app.query_one("#changes-impact").value = "Limited"  # typed, not yet Update draft
@@ -873,7 +873,7 @@ async def test_apply_result_persists_after_render_refresh(make_app, healthy_clie
     app._draft_store.get_or_create(target, baseline)
 
     class _ApplyStub:
-        def apply_confirmed(self, plan, current_revision, confirmation_name):  # noqa: ANN001
+        def apply_confirmed(self, plan, confirmation_name):  # noqa: ANN001
             return ApplyResult(
                 outcome=ApplyOutcomeKind.APPLIED,
                 target=target,
@@ -996,7 +996,6 @@ async def test_prepare_plan_includes_scope_and_target_review_details(make_app, h
                 revision=3,
                 changes=(FieldDiff(path=("properties", "displayName"), before="EntityA", after="EntityA-edited"),),
                 edited_resource=baseline,
-                expected_baseline=baseline,
                 normalized_live_baseline=baseline,
                 generated_at=datetime(2026, 1, 1, tzinfo=UTC),
                 shared_consumer_entity_names=("ConsumerA",),
@@ -1051,7 +1050,6 @@ async def test_prepare_review_scroll_and_actions_are_reachable_in_compact_layout
                     for i in range(16)
                 ),
                 edited_resource=baseline,
-                expected_baseline=baseline,
                 normalized_live_baseline=baseline,
                 generated_at=datetime(2026, 1, 1, tzinfo=UTC),
                 shared_consumer_entity_names=("ConsumerA",),

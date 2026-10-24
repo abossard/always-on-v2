@@ -619,24 +619,6 @@ def test_parse_entity_signal_metadata_from_inline_or_definition(signal: dict, de
     assert parsed.unhealthy_rule is not None and parsed.unhealthy_rule.threshold == 95.0
 
 
-# ─── D. Transport type tests ──────────────────────────────────────────
-def test_transport_signal_history_typeddict() -> None:
-    from azext_health_models_tui.models.transport import TransportSignalHistory
-
-    h: TransportSignalHistory = {
-        "entityName": "e1",
-        "signalName": "sig-cpu",
-        "history": [
-            {
-                "occurredAt": "2026-01-01T10:00:00Z",
-                "value": 1.0,
-                "healthState": "Healthy",
-            }
-        ],
-    }
-    assert h["signalName"] == "sig-cpu"
-
-
 # ─── Phase 1: Diagnostic UI sinks ────────────────────────────────────
 
 def test_truncate_status_error_short():

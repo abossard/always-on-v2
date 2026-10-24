@@ -37,11 +37,6 @@ class HealthState(Enum):
         return self.severity < other.severity
 
     @property
-    def is_actionable(self) -> bool:
-        """True if this state requires attention (Degraded or Unhealthy)."""
-        return self in (HealthState.DEGRADED, HealthState.UNHEALTHY)
-
-    @property
     def icon(self) -> str:
         """Emoji icon representing this health state."""
         _map: dict[str, str] = {
@@ -86,16 +81,6 @@ class SignalKind(Enum):
             "External": "Ext",
         }
         return _map[self.value]
-
-
-class AlertSeverity(Enum):
-    """Severity levels for alert configuration."""
-
-    SEV0 = "Sev0"
-    SEV1 = "Sev1"
-    SEV2 = "Sev2"
-    SEV3 = "Sev3"
-    SEV4 = "Sev4"
 
 
 class DataUnit(Enum):

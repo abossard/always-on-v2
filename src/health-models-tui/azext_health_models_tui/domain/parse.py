@@ -26,6 +26,7 @@ from azext_health_models_tui.models.enums import (
 )
 from azext_health_models_tui.models.transport import (
     TransportEntity,
+    TransportEvaluationRule,
     TransportRelationship,
     TransportSignalDefinition,
     TransportSignalRef,
@@ -94,43 +95,25 @@ def _parse_impact(raw: str | None) -> Impact:
 # ─── Signal definition parsing ────────────────────────────────────────
 
 
+def _parse_rule(raw: TransportEvaluationRule | None) -> EvaluationRule | None:
+    operator = _parse_operator(raw.get("operator")) if raw else None
+    if operator is None:
+        return None
+    return EvaluationRule(operator=operator, threshold=float(raw.get("threshold", 0)))
+
+
 def parse_signal_definition(raw: TransportSignalDefinition) -> SignalDefinition:
     """Parse a single signal definition from the API wire format."""
     props = raw.get("properties") or {}
     rules = props.get("evaluationRules") or {}
-
-    degraded_raw = rules.get("degradedRule")
-    unhealthy_raw = rules.get("unhealthyRule")
-
-    degraded_rule = None
-    if degraded_raw:
-        degraded_op = _parse_operator(degraded_raw.get("operator"))
-    else:
-        degraded_op = None
-    if degraded_raw and degraded_op is not None:
-        degraded_rule = EvaluationRule(
-            operator=degraded_op,
-            threshold=float(degraded_raw.get("threshold", 0)),
-        )
-
-    unhealthy_rule = None
-    if unhealthy_raw:
-        unhealthy_op = _parse_operator(unhealthy_raw.get("operator"))
-    else:
-        unhealthy_op = None
-    if unhealthy_raw and unhealthy_op is not None:
-        unhealthy_rule = EvaluationRule(
-            operator=unhealthy_op,
-            threshold=float(unhealthy_raw.get("threshold", 0)),
-        )
 
     return SignalDefinition(
         name=raw.get("name", ""),
         display_name=props.get("displayName", raw.get("name", "")),
         signal_kind=_parse_signal_kind(props.get("signalKind")),
         data_unit=_parse_data_unit(props.get("dataUnit")),
-        degraded_rule=degraded_rule,
-        unhealthy_rule=unhealthy_rule,
+        degraded_rule=_parse_rule(rules.get("degradedRule")),
+        unhealthy_rule=_parse_rule(rules.get("unhealthyRule")),
     )
 
 

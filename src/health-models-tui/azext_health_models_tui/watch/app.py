@@ -897,7 +897,7 @@ class HealthWatchApp(App[str | None]):
             was_ready = self._timeline_row_status.get(path) == "ready"
             self._timeline_row_status[path] = view.status
             selected = path == self._timeline_path
-            if view.status != "ready" or view.events is None:
+            if view.status != "ready":
                 if selected and view.status not in _ROW_PENDING:
                     pane.set_summary(f"Range load: {view.status} {view.error}")
                     pane.set_events("")
@@ -1533,7 +1533,7 @@ class HealthWatchApp(App[str | None]):
         self._applies_in_flight += 1
         try:
             result = await asyncio.to_thread(
-                self._apply.apply_confirmed, plan, current_revision=revision, confirmation_name=confirmation,
+                self._apply.apply_confirmed, plan, confirmation_name=confirmation,
             )
         except Exception as exc:  # noqa: BLE001 (surface apply failures in the pane)
             pane.set_summary(f"{type(exc).__name__}: {exc}")

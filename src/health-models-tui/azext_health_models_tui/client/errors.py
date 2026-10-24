@@ -103,16 +103,6 @@ class ThrottledError(HealthModelError):
 class ArmError(HealthModelError):
     """Generic ARM error response."""
 
-    def __init__(
-        self,
-        message: str,
-        status_code: int | None = None,
-        *,
-        code: str = "",
-        details: list[dict[str, str]] | None = None,
-    ) -> None:
-        super().__init__(message, status_code, code=code, details=details)
-
 
 def describe_error(exc: BaseException) -> str:
     """One-line text for any failure; typed errors add HTTP status, code and first detail."""
@@ -141,17 +131,7 @@ def parse_arm_error(
 
         {"error": {"code": "...", "message": "...", "details": [...]}}
     """
-    if not isinstance(response_body, dict):
-        body_repr = repr(response_body)
-        if len(body_repr) > 200:
-            body_repr = body_repr[:200] + "..."
-        return ArmError(
-            f"Unexpected error response (HTTP {status_code}): {body_repr}",
-            status_code=status_code,
-            code="",
-            details=[{"code": "raw_body", "message": body_repr}],
-        )
-    error_obj = response_body.get("error")
+    error_obj = response_body.get("error") if isinstance(response_body, dict) else None
     if not isinstance(error_obj, dict):
         body_repr = repr(response_body)
         if len(body_repr) > 200:

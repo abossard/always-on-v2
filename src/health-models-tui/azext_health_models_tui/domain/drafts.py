@@ -46,7 +46,6 @@ class ApplyPlan:
     revision: int
     changes: tuple[FieldDiff, ...]
     edited_resource: Mapping[str, Any]
-    expected_baseline: Mapping[str, Any]
     normalized_live_baseline: Mapping[str, Any]
     generated_at: datetime
     shared_consumer_entity_names: tuple[str, ...] = ()
@@ -240,7 +239,6 @@ def build_apply_plan(
         revision=revision,
         changes=changes,
         edited_resource=deepcopy(dict(normalized_edited)),
-        expected_baseline=deepcopy(dict(normalized_expected)),
         normalized_live_baseline=deepcopy(dict(normalized_live)),
         shared_consumer_entity_names=tuple(shared_consumer_entity_names),
         generated_at=generated_at,

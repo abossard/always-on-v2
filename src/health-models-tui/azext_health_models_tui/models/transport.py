@@ -132,27 +132,3 @@ class TransportRelationship(TypedDict, total=False):
     name: str  # GUID
     type: str
     properties: TransportRelationshipProperties
-
-
-# ─── List response wrapper ───────────────────────────────────────────
-
-
-class TransportListResponse(TypedDict, total=False):
-    value: list[dict[str, Any]]
-    nextLink: str
-
-
-# ─── Signal history ──────────────────────────────────────────────────
-
-
-class TransportSignalHistoryDataPoint(TypedDict, total=False):
-    occurredAt: str
-    value: float | None
-    healthState: str
-    additionalContext: str
-
-
-class TransportSignalHistory(TypedDict, total=False):
-    entityName: str
-    signalName: str
-    history: list[TransportSignalHistoryDataPoint]

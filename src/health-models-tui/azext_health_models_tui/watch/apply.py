@@ -122,13 +122,6 @@ class ApplyCoordinator:
             live_now_raw = self._read_target(target)
         except ValueError as exc:
             return self._reject(target, str(exc))
-        live_now = normalize_known_readonly_fields(live_now_raw)
-        baseline = normalize_known_readonly_fields(draft_live_baseline)
-        if live_now != baseline:
-            return self._reject(
-                target,
-                "Baseline is stale. Live resource differs from the draft baseline.",
-            )
 
         shared_consumers: tuple[str, ...] = ()
         if target.kind == "signal_definition":
@@ -165,7 +158,6 @@ class ApplyCoordinator:
         self,
         plan: ApplyPlan,
         *,
-        current_revision: int,
         confirmation_name: str,
     ) -> ApplyResult:
         target = plan.target
@@ -173,16 +165,7 @@ class ApplyCoordinator:
             return self._reject(target, "Apply plan is unknown or expired. Prepare again.")
         if plan != self._prepared:
             return self._reject(target, "Apply plan changed after review. Prepare again.")
-        if current_revision != self._current_revision(target):
-            return self._reject(
-                target,
-                "Draft revision changed after plan preparation. Prepare again.",
-            )
-        if not self._is_live_scope(target):
-            return self._reject(
-                target,
-                "Apply is allowed only for the current live connected scope.",
-            )
+        self._prepared = None
         if confirmation_name != target.name:
             return self._reject(
                 target,
@@ -200,7 +183,7 @@ class ApplyCoordinator:
         if plan.revision != self._current_revision(target):
             return self._reject(
                 target,
-                "Draft revision changed while preparing apply. No write issued.",
+                "Draft revision changed after plan preparation. No write issued.",
             )
         if not self._is_live_scope(target):
             return self._reject(

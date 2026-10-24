@@ -105,7 +105,6 @@ def test_apply_routes_read_and_write_by_named_resource_kind(
     assert not isinstance(plan, ApplyResult)
     result = coordinator.apply_confirmed(
         plan,
-        current_revision=7,
         confirmation_name=target.name,
     )
 
@@ -157,7 +156,6 @@ def test_no_writes_on_cancel_history_or_stale_plan(
     else:
         result = coordinator.apply_confirmed(
             plan_or_rejected,
-            current_revision=revision,
             confirmation_name=confirmation,
         )
 
@@ -296,7 +294,6 @@ def test_apply_surfaces_rejected_for_403_and_reads_back(client: MagicMock) -> No
     assert not isinstance(plan, ApplyResult)
     result = coordinator.apply_confirmed(
         plan,
-        current_revision=3,
         confirmation_name="res-1",
     )
 
@@ -324,7 +321,6 @@ def test_apply_surfaces_unknown_for_timeout_with_mismatch(client: MagicMock) -> 
     assert not isinstance(plan, ApplyResult)
     result = coordinator.apply_confirmed(
         plan,
-        current_revision=9,
         confirmation_name="res-1",
     )
 
@@ -350,7 +346,6 @@ def test_apply_returns_unknown_when_readback_fails_after_write(client: MagicMock
     assert not isinstance(plan, ApplyResult)
     result = coordinator.apply_confirmed(
         plan,
-        current_revision=2,
         confirmation_name="res-1",
     )
 
@@ -376,12 +371,38 @@ def test_apply_rejects_tampered_plan_payload(client: MagicMock) -> None:
     plan.edited_resource["properties"]["displayName"] = "EVIL"  # type: ignore[index]
     result = coordinator.apply_confirmed(
         plan,
-        current_revision=2,
         confirmation_name="res-1",
     )
     assert result.outcome is ApplyOutcomeKind.REJECTED
     assert "changed after review" in result.message
     client.update_entity.assert_not_called()
+
+
+@pytest.mark.parametrize(
+    "write_error",
+    [AuthenticationError("forbidden", status_code=403), TimeoutError("timed out")],
+)
+def test_apply_rejects_a_second_apply_of_the_same_plan(client: MagicMock, write_error: Exception) -> None:
+    baseline = {"name": "res-1", "properties": {"displayName": "before"}}
+    edited = {"name": "res-1", "properties": {"displayName": "after"}}
+    client.get_entity.return_value = baseline
+    client.update_entity.side_effect = write_error
+    coordinator = _coordinator(client, revision=2)
+    plan = coordinator.prepare_plan(
+        target=_target("entity"),
+        revision=2,
+        edited_resource=edited,
+        draft_live_baseline=baseline,
+    )
+    assert not isinstance(plan, ApplyResult)
+    coordinator.apply_confirmed(plan, confirmation_name="res-1")
+
+    result = coordinator.apply_confirmed(plan, confirmation_name="res-1")
+
+    assert result.outcome is ApplyOutcomeKind.REJECTED
+    assert result.attempted_write is False
+    assert "unknown or expired" in result.message
+    client.update_entity.assert_called_once()
 
 
 def test_apply_rechecks_revision_after_network_read_before_write(client: MagicMock) -> None:
@@ -415,11 +436,10 @@ def test_apply_rechecks_revision_after_network_read_before_write(client: MagicMo
     assert not isinstance(plan, ApplyResult)
     result = coordinator.apply_confirmed(
         plan,
-        current_revision=1,
         confirmation_name="res-1",
     )
     assert result.outcome is ApplyOutcomeKind.REJECTED
-    assert "changed while preparing apply" in result.message
+    assert "changed after plan preparation" in result.message
     client.update_entity.assert_not_called()
 
 
@@ -490,7 +510,6 @@ def test_apply_signal_definition_refuses_consumer_scope_drift(client: MagicMock)
     assert not isinstance(plan, ApplyResult)
     result = coordinator.apply_confirmed(
         plan,
-        current_revision=1,
         confirmation_name="res-1",
     )
 
@@ -516,7 +535,6 @@ def test_apply_surfaces_differs_on_readback_mismatch_without_error(client: Magic
     assert not isinstance(plan, ApplyResult)
     result = coordinator.apply_confirmed(
         plan,
-        current_revision=4,
         confirmation_name="res-1",
     )
 

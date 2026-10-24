@@ -36,7 +36,7 @@ def build_forest(
     warnings: list[str] = []
     adjacency = _build_adjacency(entities, relationships, warnings)
     all_children = _all_child_names(adjacency)
-    roots = _find_roots(entities, adjacency, all_children)
+    roots = sorted(name for name in entities if name not in all_children)
 
     visited: set[str] = set()
     unlinked: list[str] = []
@@ -95,10 +95,6 @@ def _build_adjacency(
 
     Dangling references (parent or child not in *entities*) are recorded as
     diagnostic strings in *warnings* rather than being silently dropped.
-
-    Handles the special case where ``parent_entity_name`` is a health-model
-    name (e.g. "hm-graphorleons") that doesn't exist in *entities* directly
-    — it is resolved to the entity whose ``name`` matches, or skipped.
     """
     adj: dict[str, list[str]] = {}
     entity_names = set(entities)
@@ -116,18 +112,14 @@ def _build_adjacency(
             warnings.append(msg)
             continue
 
-        # Resolve parent — may be an actual entity name or a model-level name
         if parent not in entity_names:
-            resolved = _resolve_model_parent(parent, entities)
-            if resolved is None:
-                msg = (
-                    f"Dangling relationship {rel.name!r}: "
-                    f"parent entity {parent!r} not in entity set (child={child!r})."
-                )
-                _LOG.warning(msg)
-                warnings.append(msg)
-                continue
-            parent = resolved
+            msg = (
+                f"Dangling relationship {rel.name!r}: "
+                f"parent entity {parent!r} not in entity set (child={child!r})."
+            )
+            _LOG.warning(msg)
+            warnings.append(msg)
+            continue
 
         adj.setdefault(parent, [])
         if child not in adj[parent]:
@@ -136,54 +128,12 @@ def _build_adjacency(
     return adj
 
 
-def _resolve_model_parent(
-    model_name: str,
-    entities: Mapping[str, EntityNode],
-) -> str | None:
-    """If *model_name* matches an entity by display-name heuristic, return it.
-
-    The Azure API sometimes uses the health-model name (e.g. "hm-graphorleons")
-    as ``parentEntityName`` for top-level entities.  We map this to the entity
-    whose ``name`` equals *model_name*, if one exists; otherwise ``None``.
-    """
-    if model_name in entities:
-        return model_name
-    return None
-
-
 def _all_child_names(adjacency: dict[str, list[str]]) -> set[str]:
     """Return the set of all names that appear as children in *adjacency*."""
     children: set[str] = set()
     for child_list in adjacency.values():
         children.update(child_list)
     return children
-
-
-def _find_roots(
-    entities: Mapping[str, EntityNode],
-    adjacency: dict[str, list[str]],
-    all_children: set[str],
-) -> list[str]:
-    """Determine root entity names.
-
-    A root is any entity that:
-    - appears as a parent in the adjacency but never as a child, **or**
-    - appears in no relationship at all (isolated node).
-
-    Results are sorted for determinism.
-    """
-    parents_in_adj = set(adjacency)
-    roots: list[str] = []
-
-    for name in entities:
-        is_child = name in all_children
-        is_parent = name in parents_in_adj
-        # Root if it's a parent but never a child, or entirely isolated
-        if (is_parent and not is_child) or (not is_parent and not is_child):
-            roots.append(name)
-
-    roots.sort()
-    return roots
 
 
 def _break_cycles(

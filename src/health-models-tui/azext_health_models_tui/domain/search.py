@@ -18,52 +18,29 @@ def search_forest(forest: Forest, query: str) -> list[SearchResult]:
         return []
 
     q = query.lower()
-    prefix_entities: list[SearchResult] = []
-    contains_entities: list[SearchResult] = []
-    prefix_signals: list[SearchResult] = []
-    contains_signals: list[SearchResult] = []
-
+    results: list[SearchResult] = []
     for entity in forest.entities.values():
-        name_lower = entity.display_name.lower()
-        if name_lower.startswith(q):
-            prefix_entities.append(SearchResult(
+        if q in entity.display_name.lower():
+            results.append(SearchResult(
                 entity_id=entity.entity_id,
                 display_name=entity.display_name,
                 is_signal=False,
                 health_state=entity.health_state,
             ))
-        elif q in name_lower:
-            contains_entities.append(SearchResult(
+        results.extend(
+            SearchResult(
                 entity_id=entity.entity_id,
-                display_name=entity.display_name,
-                is_signal=False,
-                health_state=entity.health_state,
-            ))
-
-        for sig in entity.signals:
-            sig_lower = sig.display_name.lower()
-            if sig_lower.startswith(q):
-                prefix_signals.append(SearchResult(
-                    entity_id=entity.entity_id,
-                    display_name=sig.display_name,
-                    is_signal=True,
-                    health_state=sig.health_state,
-                    signal_value=sig.formatted_value,
-                    parent_display_name=entity.display_name,
-                    signal_name=sig.name,
-                ))
-            elif q in sig_lower:
-                contains_signals.append(SearchResult(
-                    entity_id=entity.entity_id,
-                    display_name=sig.display_name,
-                    is_signal=True,
-                    health_state=sig.health_state,
-                    signal_value=sig.formatted_value,
-                    parent_display_name=entity.display_name,
-                    signal_name=sig.name,
-                ))
-
-    return prefix_entities + prefix_signals + contains_entities + contains_signals
+                display_name=sig.display_name,
+                is_signal=True,
+                health_state=sig.health_state,
+                signal_value=sig.formatted_value,
+                parent_display_name=entity.display_name,
+                signal_name=sig.name,
+            )
+            for sig in entity.signals
+            if q in sig.display_name.lower()
+        )
+    return sorted(results, key=lambda r: (not r.display_name.lower().startswith(q), r.is_signal))
 
 
 def search_occurrences(rows: Sequence[Occurrence], query: str) -> list[SearchResult]:
