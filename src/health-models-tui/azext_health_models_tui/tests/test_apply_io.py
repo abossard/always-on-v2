@@ -405,6 +405,36 @@ def test_apply_rejects_a_second_apply_of_the_same_plan(client: MagicMock, write_
     client.update_entity.assert_called_once()
 
 
+def test_a_superseded_prepare_finishing_late_keeps_the_newer_plan(client: MagicMock) -> None:
+    baseline = {"name": "res-1", "properties": {"displayName": "before"}}
+    coordinator = _coordinator(client)
+    newer: dict[str, Any] = {}
+
+    def read_side_effect(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+        if not newer:  # the first prepare's live read: a second prepare starts and finishes meanwhile
+            newer["plan"] = None
+            newer["plan"] = coordinator.prepare_plan(
+                target=_target("entity"),
+                revision=1,
+                edited_resource={"name": "res-1", "properties": {"displayName": "newer"}},
+                draft_live_baseline=baseline,
+            )
+        return baseline
+
+    client.get_entity.side_effect = read_side_effect
+    coordinator.prepare_plan(
+        target=_target("entity"),
+        revision=1,
+        edited_resource={"name": "res-1", "properties": {"displayName": "older"}},
+        draft_live_baseline=baseline,
+    )
+
+    result = coordinator.apply_confirmed(newer["plan"], confirmation_name="res-1")
+
+    assert "changed after review" not in result.message
+    client.update_entity.assert_called_once()
+
+
 def test_apply_rechecks_revision_after_network_read_before_write(client: MagicMock) -> None:
     baseline = {"name": "res-1", "properties": {"displayName": "before"}}
     edited = {"name": "res-1", "properties": {"displayName": "after"}}

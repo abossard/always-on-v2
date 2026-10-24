@@ -11,7 +11,6 @@ from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding
 from textual.containers import Horizontal, Vertical, VerticalScroll
-from textual.events import Key
 from textual.screen import ModalScreen
 from textual.widgets import Button, Label, Static, TextArea
 
@@ -300,22 +299,11 @@ class QueryEditor(ModalScreen[None]):
 
     def action_request_quit(self) -> None:
         self._persist_draft_query()
-        if hasattr(self.app, "action_quit"):
-            self.app.action_quit()
+        self.app.action_quit()
 
     def action_open_actions(self) -> None:
         self._persist_draft_query()
         self.app.action_open_actions()
-
-    def on_key(self, event: Key) -> None:
-        if event.key == "ctrl+q":
-            event.stop()
-            self.action_request_quit()
-            return
-        if event.key == "f2":
-            event.stop()
-            self.action_open_actions()
-            return
 
     async def _test_query(self) -> None:
         if not self._loaded:
@@ -326,6 +314,7 @@ class QueryEditor(ModalScreen[None]):
         edited_query = self.query_one("#qe-query", TextArea).text
         original = self._config.get("query_text", "")
         found = self._draft(create=True)
+        active_target: ResourceTarget | None = None
         revision_for_result: int | None = None
         if found is not None:
             active_target, query_path, draft = found

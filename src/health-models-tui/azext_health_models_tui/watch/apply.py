@@ -90,6 +90,7 @@ class ApplyCoordinator:
         self._current_revision = current_revision_supplier
         self._is_live_scope = live_scope_supplier
         self._prepared: ApplyPlan | None = None  # one prepared plan; Apply must present an equal one
+        self._preparations = 0  # a cancelled Prepare's thread runs on; only the latest one may publish
 
     def prepare_plan(
         self,
@@ -100,6 +101,8 @@ class ApplyCoordinator:
         draft_live_baseline: Mapping[str, Any],
         generated_at: datetime | None = None,
     ) -> ApplyPlan | ApplyResult:
+        self._preparations += 1
+        preparation = self._preparations
         if not self._is_live_scope(target):
             return self._reject(
                 target,
@@ -151,7 +154,8 @@ class ApplyCoordinator:
         changed = changed_paths(plan.changes)
         if not changed:
             return self._reject(target, "No writable changes to apply.")
-        self._prepared = deepcopy(plan)
+        if preparation == self._preparations:
+            self._prepared = deepcopy(plan)
         return plan
 
     def apply_confirmed(

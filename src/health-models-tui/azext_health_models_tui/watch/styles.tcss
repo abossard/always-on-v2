@@ -60,7 +60,8 @@ TimelinePane, ChangesPane {
     display: none;
 }
 
-/* App.HORIZONTAL_BREAKPOINTS: below 100 columns a side pane gets the whole width instead of a sliver of tree. */
+/* App.HORIZONTAL_BREAKPOINTS: below 110 columns a side pane gets the whole width instead of a sliver of tree,
+   and its timeline rows (label plus band) do not wrap. */
 Screen.-narrow TimelinePane,
 Screen.-narrow ChangesPane {
     width: 100%;
@@ -85,11 +86,15 @@ ChangesPane Input {
 
 TimelinePane Button,
 ChangesPane Button {
+    width: auto;
+    min-width: 0;
     background: $primary-muted;
 }
 
 TimelinePane Input,
 ChangesPane Input {
+    width: 1fr;
+    min-width: 10;
     background: $boost;
 }
 
@@ -116,76 +121,23 @@ ChangesPane Input:focus {
     min-height: 1;
 }
 
-#timeline-ranges,
-#timeline-preview-row,
-#timeline-open-row,
-#timeline-compare-row,
-#changes-edit-row-a,
-#changes-edit-row-impact,
-#changes-edit-row-b,
-#changes-edit-row-icon,
-#changes-edit-row-c,
-#changes-review-row,
-#changes-relationship-row,
-#changes-relationship-row-child,
-#changes-save-row,
-#changes-restore-path-row,
-#changes-restore-row,
-#changes-restore-confirm-row,
-#changes-apply-row,
-#changes-apply-confirm-row {
+TimelinePane Horizontal,
+ChangesPane Horizontal {
     height: auto;
     width: 100%;
+}
+
+.changes-kind {
+    height: auto;
 }
 
 .changes-section-label {
     color: $accent;
     text-style: bold;
-    padding-top: 0;
 }
 
 .changes-field-label {
     color: $text-muted;
-    padding-top: 0;
-}
-
-#timeline-preview-row Input,
-#timeline-compare-row Input,
-#changes-edit-row-a Input,
-#changes-edit-row-impact Input,
-#changes-edit-row-b Input,
-#changes-edit-row-icon Input,
-#changes-edit-row-c Input,
-#changes-relationship-row Input,
-#changes-relationship-row-child Input,
-#changes-save-row Input,
-#changes-restore-path-row Input,
-#changes-restore-row Input,
-#changes-restore-confirm-row Input,
-#changes-apply-row Input,
-#changes-apply-confirm-row Input {
-    width: 1fr;
-    min-width: 10;
-}
-
-#timeline-ranges Button,
-#timeline-preview-row Button,
-#timeline-open-row Button,
-#timeline-compare-row Button,
-#changes-edit-row-c Button,
-#changes-review-row Button,
-#changes-save-row Button,
-#changes-restore-row Button,
-#changes-apply-row Button {
-    width: auto;
-    min-width: 0;
-}
-
-#changes-review-row,
-#changes-save-row,
-#changes-restore-row,
-#changes-apply-row {
-    align: left middle;
 }
 
 #changes-apply-controls {
@@ -342,7 +294,6 @@ EntityDrawer {
     max-width: 50%;
     height: 1fr;
     background: $panel;
-    border-left: solid $primary;
     border: round $primary;
     padding: 1 2;
     scrollbar-size-vertical: 1;

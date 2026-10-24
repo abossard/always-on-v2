@@ -28,9 +28,7 @@ from azext_health_models_tui.domain.history import (
     RangeKey,
     HistoryBucketHealth,
     SnapshotKey,
-    SnapshotNode,
     bucket_history,
-    compare_snapshots,
     parse_utc_timestamp,
     project_snapshot_nodes,
 )
@@ -50,7 +48,7 @@ from azext_health_models_tui.watch.shortcuts_dialog import ActionsDialog, HelpDi
 from azext_health_models_tui.watch.search_modal import SearchModal
 from azext_health_models_tui.watch.signal_panel import SignalPanel, SignalPanelContext, build_context
 from azext_health_models_tui.watch.status_bar import StatusBar
-from azext_health_models_tui.watch.timeline import TimelinePane, health_band
+from azext_health_models_tui.watch.timeline import TimelinePane, bucket_size, compare_text, event_line, health_band
 
 _SETTLED = (Ready, Failed, Stopped)
 _ROW_PENDING = frozenset({"queued", "loading"})
@@ -96,8 +94,8 @@ class HealthWatchApp(App[str | None]):
 
     CSS_PATH = "styles.tcss"
     TITLE = "Health Model Watch"
-    # Below 100 columns side panes take the full width (see styles.tcss).
-    HORIZONTAL_BREAKPOINTS = [(0, "-narrow"), (100, "-wide")]
+    # Below 110 columns side panes take the full width (see styles.tcss).
+    HORIZONTAL_BREAKPOINTS = [(0, "-narrow"), (110, "-wide")]
     RESULT_BACK_TO_MODELS = "back-to-models"
 
     BINDINGS = [
@@ -139,7 +137,6 @@ class HealthWatchApp(App[str | None]):
         super().__init__()
         self._poller = Poller(client, rg, model)
         self._client = client
-        self._rg = rg
         self._poll_interval = poll_interval
         self._model = model
         self._forest: Forest | None = None
@@ -164,6 +161,7 @@ class HealthWatchApp(App[str | None]):
         self._timeline_path: tuple[str, ...] = ()
         self._requested_snapshot: SnapshotKey | None = None
         self._applied_snapshot: SnapshotKey | None = None
+        self._snapshot_scopes: dict[SnapshotKey, frozenset[ModelKey]] = {}
         self._prepared_apply_plan: ApplyPlan | None = None
         self._compare_lease: tuple[ModelKey, datetime, datetime] | None = None
         self._applies_in_flight = 0
@@ -173,9 +171,8 @@ class HealthWatchApp(App[str | None]):
         self._timeline_frame = 0
         self._timeline_pulse: Any = None
         self._changes_result_by_target: dict[ResourceTarget, str] = {}
-        self._updating_changes_form: bool = False
+        self._form_draft: tuple[ResourceTarget, int] | None = None  # the draft revision the form shows
         self._allow_back_to_models = allow_back_to_models
-        self._pending_exit_result: str | None = None
 
     # ── layout ────────────────────────────────────────────────────────
 
@@ -200,7 +197,6 @@ class HealthWatchApp(App[str | None]):
         panel.display = False
         panel.clear_signal()
         self._set_workspace_tab("tree")
-        self.query_one("#timeline-pane", TimelinePane).set_applied_at("Tree shows: live")
         loop = asyncio.get_running_loop()
 
         def request_render() -> None:
@@ -242,6 +238,7 @@ class HealthWatchApp(App[str | None]):
         previous = self._forest
         self._forest = root.previous.forest if root.previous else None
         status.snapshot_at = format_utc(self._applied_snapshot.at_utc) if self._applied_snapshot else ""
+        self.query_one("#timeline-pane", TimelinePane).set_applied_at(f"Tree shows: {status.snapshot_at or 'live'}")
         tree = self.query_one("#health-tree", HealthTree)
         shown = self._shown_view()
         tree.apply_view(shown)
@@ -253,17 +250,8 @@ class HealthWatchApp(App[str | None]):
                 tree.scroll_to_entity(escalations[0].entity_id)
         drawer = self.query_one("#entity-drawer", EntityDrawer)
         if drawer.is_visible and self._drawer_data:
-            data = self._drawer_data
-            key = data.model or shown.root
-            state = shown.entries.get(key)
-            if not tree.contains(data.path) or not state or not state.previous:
+            if not tree.contains(self._drawer_data.path) or not self._show_drawer(self._drawer_data):
                 drawer.hide()
-            else:
-                entity = state.previous.forest.entities.get(data.entity_name)
-                target = entity.reference.target if entity and entity.reference else None
-                drawer.show_entity(state.previous.forest, data.entity_name,
-                                   f"{key.label}; {shown.status(key)}",
-                                   f"{target.label}: {shown.status(target)}" if target else "")
         panel = self.query_one(SignalPanel)
         if panel.context and panel.context.occurrence_path:
             if not tree.contains(panel.context.occurrence_path):
@@ -315,7 +303,10 @@ class HealthWatchApp(App[str | None]):
     def action_show_changes(self) -> None:
         self._set_workspace_tab("changes")
         self._ensure_tree_selection()
-        self._render_changes()
+        target = self._draft_store.active_target()
+        # Reopening the same draft keeps what the user typed; a changed or other draft refills the form.
+        same = target is not None and self._form_draft == (target, self._current_revision_for_target(target))
+        self._render_changes(keep_form=same)
 
     def action_increase_interval(self) -> None:
         """Increase the poll interval by 10 s (max 300 s)."""
@@ -377,26 +368,8 @@ class HealthWatchApp(App[str | None]):
         )
 
     def _run_named_action(self, action_name: str | None) -> None:
-        if action_name == "search":
-            self.action_open_search()
-        elif action_name == "edit":
-            self.action_edit_query()
-        elif action_name == "details":
-            self.action_show_details()
-        elif action_name == "verify":
-            self.action_verify_signal()
-        elif action_name == "timeline":
-            self.action_show_timeline()
-        elif action_name == "changes":
-            self.action_show_changes()
-        elif action_name == "refresh":
-            self.action_force_refresh()
-        elif action_name == "back":
-            self.action_back_to_models()
-        elif action_name == "quit":
-            self.action_quit()
-        elif action_name is not None:
-            self.notify(f"Action '{action_name}' is unavailable in this context.", severity="warning")
+        if action_name is not None:
+            getattr(self, f"action_{action_name}")()
 
     def _update_search_state(self, query: str, results: list[SearchResult]) -> None:
         """Called by SearchModal on each keystroke to keep app state in sync."""
@@ -467,30 +440,29 @@ class HealthWatchApp(App[str | None]):
             drawer.hide()
             return
 
-        # For signal leaves, walk up the tree to the parent entity node.
-        entity_name = data.entity_name
-        if data.is_signal and node is not None and node.parent is not None:
-            parent_data = node.parent.data
-            if parent_data is not None:
-                entity_name = parent_data.entity_name
+        # For signal leaves, the drawer shows the parent entity.
+        if data.is_signal and node is not None and node.parent is not None and node.parent.data is not None:
+            data = node.parent.data
+        if drawer.is_visible and self._drawer_data == data:
+            drawer.hide()
+        elif self._show_drawer(data):
+            self._drawer_data = data
 
-        key = data.model or self._poller.root
+    def _show_drawer(self, data: EntityData) -> bool:
+        """Show *data*'s entity as the shown view has it; False while its model is not loaded there."""
         shown = self._shown_view()
+        key = data.model or shown.root
         state = shown.entries.get(key)
-        if state and state.previous:
-            entity_data = (
-                node.parent.data if data.is_signal and node is not None and node.parent is not None
-                and node.parent.data is not None else data
-            )
-            if drawer.is_visible and self._drawer_data == entity_data:
-                drawer.hide()
-            else:
-                self._drawer_data = entity_data
-                entity = state.previous.forest.entities.get(entity_name)
-                target = entity.reference.target if entity and entity.reference else None
-                drawer.show_entity(state.previous.forest, entity_name,
-                                   f"{key.label}; {shown.status(key)}",
-                                   f"{target.label}: {shown.status(target)}" if target else "")
+        if not state or not state.previous:
+            return False
+        entity = state.previous.forest.entities.get(data.entity_name)
+        target = entity.reference.target if entity and entity.reference else None
+        self.query_one("#entity-drawer", EntityDrawer).show_entity(
+            state.previous.forest, data.entity_name,
+            f"{key.label}; {shown.status(key)}",
+            f"{target.label}: {shown.status(target)}" if target else "",
+        )
+        return True
 
     # ── query editor ──────────────────────────────────────────────────
 
@@ -508,32 +480,19 @@ class HealthWatchApp(App[str | None]):
         if not node.data.is_signal:
             self._open_entity_draft_editor(node.data)
             return
-        signal_name = node.data.entity_name
-        parent = node.parent
-        if parent is None or parent.data is None or parent.data.is_signal:
-            return
-        entity_name = parent.data.entity_name
-        if entity_name.startswith("__"):
+        entity_name = node.data.owner_entity_name
+        if not entity_name or entity_name.startswith("__"):
             return
         key = node.data.model or self._poller.root
-        state = self._poller.view.entries.get(key)
-        entity = state.previous.forest.entities.get(entity_name) if state and state.previous else None
-        signal = (
-            next((item for item in entity.signals if item.name == signal_name), None)
-            if entity is not None
-            else None
-        )
-        scoped = self._scoped_client(key)
-        target = ResourceTarget(key, "entity", entity_name)
         self.push_screen(
             QueryEditor(
-                scoped,
+                self._scoped_client(key),
                 key.group,
                 key.name,
                 entity_name,
-                signal_name,
+                node.data.entity_name,
                 draft_store=self._draft_store,
-                draft_target=target,
+                draft_target=ResourceTarget(key, "entity", entity_name),
             )
         )
 
@@ -638,8 +597,7 @@ class HealthWatchApp(App[str | None]):
         self._run_verification(panel.context)
 
     def on_input_changed(self, event: Input.Changed) -> None:
-        if self._updating_changes_form:
-            return
+        # Changed arrives after the value is set, so only focus tells typing from set_form_values.
         if not event.input.has_focus:
             return
         input_id = event.input.id or ""
@@ -701,9 +659,7 @@ class HealthWatchApp(App[str | None]):
         if panel.context is ctx and panel.display:
             panel.show_history(history)
 
-    def _fetch_signal_history(
-        self, entity_name: str, signal_name: str, key: ModelKey | None = None,
-    ) -> dict[str, Any]:
+    def _fetch_signal_history(self, entity_name: str, signal_name: str, key: ModelKey) -> dict[str, Any]:
         """Request the last hour of history for *signal_name* on *entity_name*."""
         now = datetime.now(UTC)
         body = {
@@ -711,7 +667,6 @@ class HealthWatchApp(App[str | None]):
             "startAt": (now - timedelta(hours=1)).strftime("%Y-%m-%dT%H:%M:%SZ"),
             "endAt": now.strftime("%Y-%m-%dT%H:%M:%SZ"),
         }
-        key = key or self._poller.root
         return self._scoped_client(key).get_signal_history(key.group, key.name, entity_name, body)
 
     def action_back_to_models(self) -> None:
@@ -730,17 +685,14 @@ class HealthWatchApp(App[str | None]):
         has_draft_changes = any(self._draft_store.has_unsaved_changes(target) for target in self._draft_store.list_targets())
         has_pending_form_edits = self._changes_form_has_pending_edits()
         if has_draft_changes or has_pending_form_edits:
-            self._pending_exit_result = result
-            self.push_screen(QuitDraftsDialog(), self._handle_quit_choice)
+            self.push_screen(QuitDraftsDialog(), lambda choice: self._handle_quit_choice(choice, result))
             return
         self.exit(result)
 
-    def _handle_quit_choice(self, choice: str | None) -> None:
+    def _handle_quit_choice(self, choice: str | None, result: str | None) -> None:
         if choice == "discard":
             for target in self._draft_store.list_targets():
                 self._draft_store.discard(target)
-            result = self._pending_exit_result
-            self._pending_exit_result = None
             self.exit(result)
             return
         if choice == "save":
@@ -750,16 +702,13 @@ class HealthWatchApp(App[str | None]):
                 pane.set_summary("Review the drafts: apply pending form edits with Update draft, then Save each to a file.")
             else:
                 pane.set_summary("Review the drafts: Save or Overwrite writes each one to a file before you quit.")
-            self._pending_exit_result = None
-            return
-        self._pending_exit_result = None
 
     def _changes_form_has_pending_edits(self) -> bool:
         try:
             pane = self.query_one("#changes-pane", ChangesPane)
         except NoMatches:
             return False
-        target = self._active_target()
+        target = self._draft_store.active_target()
         if target is None:
             values = pane.form_values()
             return any(bool(value.strip()) for value in values.values())
@@ -892,7 +841,7 @@ class HealthWatchApp(App[str | None]):
     ) -> None:
         """Merge newly settled row views; rows still loading keep animating."""
         pane = self.query_one("#timeline-pane", TimelinePane)
-        bucket_size = self._timeline_bucket_size(selected_key)
+        size = bucket_size(selected_key)
         for path, view in views_by_path.items():
             was_ready = self._timeline_row_status.get(path) == "ready"
             self._timeline_row_status[path] = view.status
@@ -904,7 +853,7 @@ class HealthWatchApp(App[str | None]):
                 continue
             key = keys_by_path[path]
             events = view.events
-            buckets = bucket_history(events, key, bucket_size, baseline_health=self._timeline_baseline_for(key))
+            buckets = bucket_history(events, key, size, baseline_health=self._timeline_baseline_for(key))
             self._timeline_buckets_by_path[path] = buckets
             if not selected:
                 continue
@@ -915,16 +864,15 @@ class HealthWatchApp(App[str | None]):
                 continue
             self._timeline_index = len(events) - 1
             if events:
-                pane.set_go_to_value(events[-1].occurred_at)
+                pane.set_go_to_value(events[-1].occurred_at, keep_typed=True)
                 noun, preposition = ("sample", "of") if selected_key.signal_name else ("event", "in")
                 pane.set_summary(
                     f"{len(events)} {noun}{'' if len(events) == 1 else 's'} {preposition} {self._timeline_subject(selected_key)}"
                 )
-                pane.set_events("\n".join(self._event_line(event) for event in events[-10:]))
+                pane.set_events("\n".join(event_line(event) for event in events[-10:]))
             else:
                 pane.set_summary("No events in selected range.")
                 pane.set_events("")
-        pane.set_applied_at(f"Tree shows: {format_utc(self._applied_snapshot.at_utc) if self._applied_snapshot else 'live'}")
         pane.set_bands(self._render_timeline_bands(selected_key))
 
     def _timeline_subject(self, key: RangeKey) -> str:
@@ -935,16 +883,6 @@ class HealthWatchApp(App[str | None]):
         if key.signal_name is None:
             return entity.display_name
         return next((s.display_name for s in entity.signals if s.name == key.signal_name), key.signal_name)
-
-    @staticmethod
-    def _event_line(event: Any) -> str:
-        state = f"{event.previous_health.value} -> {event.health.value}" if event.previous_health else event.health.value
-        parts = [format_utc(event.occurred_at), state]
-        if event.value is not None:
-            parts.append(f"{event.value:g}")
-        if event.reason:
-            parts.append(event.reason)
-        return "  ".join(parts)
 
     def _render_timeline_progress(self) -> bool:
         """Show what is still coming in; True while anything is pending."""
@@ -970,10 +908,6 @@ class HealthWatchApp(App[str | None]):
         if not self.query("#timeline-progress") or not self._render_timeline_progress():
             self._timeline_pulse.pause()
 
-    @staticmethod
-    def _timeline_bucket_size(key: RangeKey) -> timedelta:
-        return max((key.end_utc - key.start_utc) / 48, timedelta(minutes=1))
-
     def _timeline_baseline_for(self, key: RangeKey) -> HistoryBucketHealth | None:
         start_state = self._poller.view_at(key.start_utc).entries.get(key.model)
         previous = getattr(start_state, "previous", None)
@@ -987,7 +921,7 @@ class HealthWatchApp(App[str | None]):
         except ValueError:
             return HistoryBucketHealth.UNKNOWN
 
-    def _timeline_label(self, key: RangeKey, row: dict[str, Any], width: int) -> str:
+    def _timeline_label(self, row: dict[str, Any], width: int) -> str:
         name = str(row.get("name", "")).strip() or "<unnamed>"
         row_model = row.get("model")
         # An applied snapshot labels rows by its own metadata, never by later live renames.
@@ -1026,7 +960,7 @@ class HealthWatchApp(App[str | None]):
 
     def _render_timeline_bands(self, key: RangeKey) -> Text:
         reference = self._timeline_buckets_by_path.get(self._timeline_path, ())
-        width = len(reference) or max(1, math.ceil((key.end_utc - key.start_utc) / self._timeline_bucket_size(key)))
+        width = len(reference) or max(1, math.ceil((key.end_utc - key.start_utc) / bucket_size(key)))
         preview_value = self.query_one("#timeline-pane", TimelinePane).go_to_value()
         preview = preview_value or "unset"
         crosshair = [" "] * width
@@ -1045,7 +979,7 @@ class HealthWatchApp(App[str | None]):
         text.append(f"Marked time: {preview}\n")
         text.append(f"{'':<{_TIMELINE_LABEL_WIDTH}} {''.join(crosshair)}\n")
         for offset, row in enumerate(self._visible_occurrence_rows()):
-            text.append(self._timeline_label(key, row, _TIMELINE_LABEL_WIDTH) + " ")
+            text.append(self._timeline_label(row, _TIMELINE_LABEL_WIDTH) + " ")
             text.append_text(self._row_band(row["path"], width, offset))
             text.append("\n")
         return text
@@ -1144,25 +1078,33 @@ class HealthWatchApp(App[str | None]):
         key = SnapshotKey(model, at)
         for previous in {self._requested_snapshot, self._applied_snapshot} - {key, None}:
             self._release_snapshot(previous)
+        # Every model on the way down to the row, or the tree cannot reach the row at that time.
+        path = self._timeline_path
+        self._snapshot_scopes[key] = self._snapshot_models(key) | {
+            row_key.model for row_path, row_key in self._timeline_keys_by_path.items()
+            if path[:len(row_path)] == row_path
+        }
         self._requested_snapshot = key
         for snapshot_model in self._snapshot_models(key):
             self._poller.open_at(at, target=snapshot_model, purpose="timeline-open")
         self._refresh_timeline()
 
-    def _snapshot_models(self, key: SnapshotKey) -> set[ModelKey]:
+    def _snapshot_models(self, key: SnapshotKey) -> frozenset[ModelKey]:
         # The tree is projected from the launch model, so a nested model's snapshot needs it too.
-        return {key.model, self._poller.root}
+        return self._snapshot_scopes.get(key, frozenset({key.model, self._poller.root}))
 
     def _release_snapshot(self, key: SnapshotKey | None) -> None:
         for model in self._snapshot_models(key) if key is not None else ():
             self._poller.release_at(key.at_utc, target=model, purpose="timeline-open")
+        self._snapshot_scopes.pop(key, None)
 
     def _apply_snapshot(self, key: SnapshotKey) -> None:
         if self._requested_snapshot != key:
             return
         view = self._poller.view_at(key.at_utc)
         pane = self.query_one("#timeline-pane", TimelinePane)
-        if not all(isinstance(view.entries.get(model), Ready) for model in self._snapshot_models(key)):
+        # A nested model without data at that time shows as [unloaded]; the tree needs only the launch model.
+        if not isinstance(view.entries.get(self._poller.root), Ready):
             pane.set_summary(f"Snapshot unavailable at {format_utc(key.at_utc)}.")
             self._release_snapshot(key)
             self._requested_snapshot = None
@@ -1171,7 +1113,6 @@ class HealthWatchApp(App[str | None]):
         self._render_monitor()
         if self._timeline_path:
             self.query_one("#health-tree", HealthTree).reveal(self._timeline_path, view)
-        pane.set_applied_at(f"Tree shows: {format_utc(key.at_utc)}")
         pane.set_summary(f"Showing snapshot at {format_utc(key.at_utc)}.")
 
     def _return_to_live(self) -> None:
@@ -1179,23 +1120,7 @@ class HealthWatchApp(App[str | None]):
             self._release_snapshot(key)
         self._requested_snapshot = None
         self._applied_snapshot = None
-        self.query_one("#timeline-pane", TimelinePane).set_applied_at("Tree shows: live")
         self._render_monitor()
-
-    def _snapshot_nodes(self, view: Any) -> dict[str, SnapshotNode]:
-        result: dict[str, SnapshotNode] = {}
-        for model, state in view.entries.items():
-            previous = getattr(state, "previous", None)
-            if previous is None:
-                continue
-            result.update(
-                project_snapshot_nodes(
-                    model=model,
-                    forest=previous.forest,
-                    resource_json=previous.resource_json,
-                )
-            )
-        return result
 
     def _compare_snapshots_by_inputs(self) -> None:
         pane = self.query_one("#timeline-pane", TimelinePane)
@@ -1240,51 +1165,14 @@ class HealthWatchApp(App[str | None]):
             )
             self._release_compare(model, left_at, right_at)
             return
-        left_nodes = self._snapshot_nodes(left_view)
-        right_nodes = self._snapshot_nodes(right_view)
-        comparison = compare_snapshots(left_nodes, right_nodes)
-        lines = [f"Compare {format_utc(left_at)} -> {format_utc(right_at)}"]
-        lines.extend(f"added {self._node_path_label(item, right_nodes)}" for item in comparison.added)
-        lines.extend(f"removed {self._node_path_label(item, left_nodes)}" for item in comparison.removed)
-        for label, edits in (
-            ("health", comparison.health_edits),
-            ("value", comparison.value_edits),
-            ("config", comparison.configuration_edits),
-            ("topology", comparison.topology_edits),
-        ):
-            lines.extend(
-                f"{label} {self._node_path_label(edit.canonical_name, right_nodes, left_nodes)}: {edit.before} -> {edit.after}"
-                for edit in edits
-            )
-        output = "\n".join(lines)
-        if len(lines) == 1:
-            output += "\nNo differences."
-        pane.set_events(output)
+        # Only the compared model: other models cached at one of the times would show as added or removed.
+        left_nodes, right_nodes = (
+            project_snapshot_nodes(model=model, forest=state.previous.forest, resource_json=state.previous.resource_json)
+            for state in (left_state, right_state)
+        )
+        pane.set_events(compare_text(left_at, right_at, left_nodes, right_nodes))
         pane.set_summary("Compare complete.")
         self._release_compare(model, left_at, right_at)
-
-    def _node_path_label(
-        self,
-        canonical: str,
-        primary: dict[str, SnapshotNode],
-        secondary: dict[str, SnapshotNode] | None = None,
-    ) -> str:
-        node = primary.get(canonical) or (secondary.get(canonical) if secondary is not None else None)
-        if node is None:
-            return canonical
-        names = [node.display_name]
-        parent = node.parent_canonical_name
-        while parent:
-            parent_node = primary.get(parent) or (secondary.get(parent) if secondary is not None else None)
-            if parent_node is None:
-                names.insert(0, parent)
-                break
-            names.insert(0, parent_node.display_name)
-            parent = parent_node.parent_canonical_name
-        return " / ".join(names)
-
-    def _active_target(self) -> ResourceTarget | None:
-        return self._draft_store.active_target()
 
     def _render_changes(self, *, keep_form: bool = False) -> None:
         pane = self.query_one("#changes-pane", ChangesPane)
@@ -1297,11 +1185,8 @@ class HealthWatchApp(App[str | None]):
             pane.set_plan("")
             pane.set_details("")
             # A discarded draft must not leave values the quit guard reads as pending edits.
-            self._updating_changes_form = True
-            try:
-                pane.set_form_values({})
-            finally:
-                self._updating_changes_form = False
+            self._form_draft = None
+            pane.set_form_values({})
             return
         def label(snapshot: DraftSnapshot) -> str:
             name = self._draft_form_values(snapshot.edited)["display_name"] or snapshot.target.name
@@ -1311,7 +1196,7 @@ class HealthWatchApp(App[str | None]):
             f"- {label(snapshot)}" + (", unsaved" if self._draft_store.has_unsaved_changes(snapshot.target) else "")
             for snapshot in snapshots
         ))
-        active = self._active_target()
+        active = self._draft_store.active_target()
         draft = next(snapshot for snapshot in snapshots if snapshot.target == active)
         target = draft.target
         pane.set_kind(target.kind)
@@ -1328,11 +1213,8 @@ class HealthWatchApp(App[str | None]):
         pane.set_summary(summary)
         pane.set_result(self._changes_result_by_target.get(target, ""))
         if not keep_form:  # never overwrite what the user is typing
-            self._updating_changes_form = True
-            try:
-                pane.set_form_values(self._draft_form_values(draft.edited))
-            finally:
-                self._updating_changes_form = False
+            pane.set_form_values(self._draft_form_values(draft.edited))
+        self._form_draft = (target, draft.revision)
         pane.set_details(
             ("Unsaved changes" if self._draft_store.has_unsaved_changes(target) else "No unsaved changes")
             + ("" if draft.tested_revision is None
@@ -1341,7 +1223,7 @@ class HealthWatchApp(App[str | None]):
 
     def _handle_changes_button(self, button_id: str) -> None:
         pane = self.query_one("#changes-pane", ChangesPane)
-        target = self._active_target()
+        target = self._draft_store.active_target()
         if target is None:
             pane.set_summary("No draft available.")
             return
@@ -1374,8 +1256,11 @@ class HealthWatchApp(App[str | None]):
                         continue
                     if value:
                         updates.append((path, value))
+                updates = [
+                    (path, value) for path, value in updates if get_in(draft.edited, parse_field_path(path)) != value
+                ]
                 if not updates:
-                    pane.set_summary("No applicable guided fields provided.")
+                    pane.set_summary("No changed fields to update.")
                     return
                 for path, value in updates:
                     self._draft_store.update_field(target, path, value)
@@ -1391,6 +1276,8 @@ class HealthWatchApp(App[str | None]):
                     return
                 path = Path(raw_path).expanduser()
                 self._draft_store.export_to_json(target, path, overwrite=(button_id == "changes-export"))
+                if self._prepared_apply_plan is None:
+                    pane.set_plan("")  # an earlier "plan invalidated" note is stale once the draft is saved
                 self._changes_result_by_target[target] = f"Saved draft to {path}"
                 self._render_changes()
                 return
@@ -1488,10 +1375,10 @@ class HealthWatchApp(App[str | None]):
             pane.set_details(plan_or_result.race_warning)
             self._changes_result_by_target[target] = plan_or_result.message
             return
-        if self._active_target() != target:
+        if self._draft_store.active_target() != target:
             return  # the user switched drafts while this plan was being prepared
-        if self._changes_form_has_pending_edits():
-            pane.set_plan("Plan dropped: the form changed while preparing. Update draft, then prepare again.")
+        if self._changes_form_has_pending_edits() or self._current_revision_for_target(target) != draft.revision:
+            pane.set_plan("Plan dropped: the draft or form changed while preparing. Update draft, then prepare again.")
             return
         self._prepared_apply_plan = plan_or_result
         changed = tuple(changed_paths(plan_or_result.changes))

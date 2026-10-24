@@ -26,8 +26,9 @@ class HelpDialog(_BaseDialog):
     def compose(self) -> ComposeResult:
         keys: dict[str, list[str]] = {}
         for binding in self._shortcuts:
-            keys.setdefault(binding.description, []).append(self.app.get_key_display(binding))
-        with Vertical(id="shortcut-dialog"):
+            key = self.app.get_key_display(binding)
+            keys.setdefault(binding.description, []).append(key if len(key) == 1 else key.capitalize())  # F1, Esc
+        with VerticalScroll(id="shortcut-dialog"):  # focused on open, so arrows and Page keys scroll a short terminal
             yield Label("Help", classes="shortcut-title")
             yield Static("Arrows move, Enter expands or activates, Tab moves focus. Esc closes this dialog.")
             for description, shown in keys.items():
@@ -35,10 +36,11 @@ class HelpDialog(_BaseDialog):
 
 
 class ActionsDialog(_BaseDialog):
+    """Dismisses with the app action a button names: its id is ``action-<name>`` for ``action_<name>``."""
+
     BINDINGS = [
-        Binding("escape", "dismiss_dialog", "Close", priority=True),
-        Binding("down", "focus_next_action", "Next action", priority=True),
-        Binding("up", "focus_previous_action", "Previous action", priority=True),
+        Binding("down", "step(1)", "Next action", priority=True),
+        Binding("up", "step(-1)", "Previous action", priority=True),
     ]
 
     def __init__(self, *, include_back_to_models: bool = False) -> None:
@@ -51,15 +53,15 @@ class ActionsDialog(_BaseDialog):
             yield Label("Actions", classes="shortcut-title")
             yield Input(placeholder="Filter actions", id="actions-filter")
             with VerticalScroll(id="actions-scroll"):
-                yield Button("Search (/)", id="action-search")
-                yield Button("Edit selected (e)", id="action-edit")
-                yield Button("Details (d)", id="action-details")
-                yield Button("Verify signal (v)", id="action-verify")
-                yield Button("Timeline tab (2)", id="action-timeline")
-                yield Button("Changes tab (3)", id="action-changes")
-                yield Button("Refresh (r)", id="action-refresh")
+                yield Button("Search (/)", id="action-open_search")
+                yield Button("Edit selected (e)", id="action-edit_query")
+                yield Button("Details (d)", id="action-show_details")
+                yield Button("Verify signal (v)", id="action-verify_signal")
+                yield Button("Timeline tab (2)", id="action-show_timeline")
+                yield Button("Changes tab (3)", id="action-show_changes")
+                yield Button("Refresh (r)", id="action-force_refresh")
                 if self._include_back_to_models:
-                    yield Button("Back to models", id="action-back")
+                    yield Button("Back to models", id="action-back_to_models")
                 yield Button("Quit (q / Ctrl+Q)", id="action-quit")
             yield Static("No matching actions.", id="actions-empty")
         self.call_after_refresh(self._sync_empty_state)
@@ -90,33 +92,16 @@ class ActionsDialog(_BaseDialog):
         if button_id.startswith("action-"):
             self._dismiss_action(button_id.removeprefix("action-"))
 
-    def action_focus_next_action(self) -> None:
+    def action_step(self, delta: int) -> None:
+        """Move focus *delta* actions on; from the filter, Down goes to the first and Up to the last."""
         actions = self._visible_actions()
         if not actions:
             return
         focused = self.focused
-        if focused is self.query_one("#actions-filter", Input):
-            self.set_focus(actions[0])
-            return
-        if isinstance(focused, Button) and focused in actions:
-            index = min(actions.index(focused) + 1, len(actions) - 1)
-            self.set_focus(actions[index])
-            return
-        self.set_focus(actions[0])
-
-    def action_focus_previous_action(self) -> None:
-        actions = self._visible_actions()
-        if not actions:
-            return
-        focused = self.focused
-        if focused is self.query_one("#actions-filter", Input):
-            self.set_focus(actions[-1])
-            return
-        if isinstance(focused, Button) and focused in actions:
-            index = max(actions.index(focused) - 1, 0)
-            self.set_focus(actions[index])
-            return
-        self.set_focus(actions[-1])
+        if focused in actions:
+            self.set_focus(actions[min(max(actions.index(focused) + delta, 0), len(actions) - 1)])
+        else:
+            self.set_focus(actions[0 if delta > 0 else -1])
 
     def _visible_actions(self) -> list[Button]:
         return [

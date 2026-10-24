@@ -14,21 +14,22 @@ from textual.css.query import NoMatches
 from textual.widgets import Button
 
 from azext_health_models_tui.domain.drafts import ApplyPlan, FieldDiff, ResourceTarget
-from azext_health_models_tui.domain.history import HistoryBucketHealth, parse_history_events
+from azext_health_models_tui.domain.history import HistoryBucketHealth, SnapshotNode, parse_history_events
 from azext_health_models_tui.domain.history import SnapshotKey
 from azext_health_models_tui.domain.history import RangeKey
 from azext_health_models_tui.domain.model_reference import ModelKey
+from azext_health_models_tui.domain.occurrences import project
 from azext_health_models_tui.watch.app import HealthWatchApp
 from azext_health_models_tui.watch.app import QuitDraftsDialog
 import azext_health_models_tui.watch.app as watch_app_module
 from azext_health_models_tui.watch.apply import ApplyOutcomeKind, ApplyResult
 from azext_health_models_tui.watch.changes import ChangesPane
 from azext_health_models_tui.watch.health_tree import HealthTree
-from azext_health_models_tui.watch.poller import Failed
+from azext_health_models_tui.watch.poller import Failed, Ready
 from azext_health_models_tui.watch.query_editor import QueryEditor
 from azext_health_models_tui.watch.search_modal import SearchModal
 from azext_health_models_tui.watch.shortcuts_dialog import ActionsDialog
-from azext_health_models_tui.watch.timeline import BAND_STATES, TimelinePane
+from azext_health_models_tui.watch.timeline import BAND_STATES, TimelinePane, node_path_label
 from .test_temporal_monitor import _TemporalClient
 
 
@@ -85,6 +86,7 @@ async def test_digit_keys_switch_tabs_and_help_lists_them(make_app, healthy_clie
         await pilot.pause()
         help_text = " ".join(str(widget.render()) for widget in app.screen.query("Static"))
         assert f"{key} / " in help_text and f"{tab.title()} tab" in help_text
+        assert "F1 " in help_text and "Esc " in help_text  # spelled as the status bar spells keys
 
 
 @pytest.mark.anyio
@@ -363,7 +365,12 @@ async def test_timeline_controls_reachable_via_tab_and_enter(make_app, healthy_c
 
 
 @pytest.mark.anyio
-async def test_timeline_counts_only_in_window_events_and_rounds_preview_up(make_app, healthy_client) -> None:
+@pytest.mark.parametrize(
+    ("typed", "expected"), [("", "2026-01-01T00:20:01Z"), ("2026-01-01T00:05:00Z", "2026-01-01T00:05:00Z")],
+)
+async def test_timeline_counts_only_in_window_events_and_fills_untyped_time_rounded_up(
+    make_app, healthy_client, typed, expected,
+) -> None:
     app: HealthWatchApp = make_app(healthy_client)
     start = datetime(2026, 1, 1, tzinfo=UTC)
     key = RangeKey(model=app._poller.root, entity_name="EntityA", start_utc=start, end_utc=start + timedelta(hours=1))
@@ -378,12 +385,13 @@ async def test_timeline_counts_only_in_window_events_and_rounds_preview_up(make_
     async with app.run_test(size=(120, 40)) as pilot:
         await app._do_poll()
         await pilot.pause()
+        pane = app.query_one("#timeline-pane", TimelinePane)
+        pane.query_one("#timeline-go-to").value = typed
         app._apply_timeline_ranges(key, {path: view}, {path: key})
         await pilot.pause()
-        pane = app.query_one("#timeline-pane", TimelinePane)
         assert "1 event in" in str(pane.query_one("#timeline-summary").render())
         assert "context" not in str(pane.query_one("#timeline-events").render())
-        assert pane.go_to_value() == "2026-01-01T00:20:01Z"
+        assert pane.go_to_value() == expected
 
 
 @pytest.mark.anyio
@@ -491,7 +499,7 @@ async def test_actions_dialog_can_run_search_then_guided_edit(make_app, healthy_
 
         await pilot.press("f2")
         await pilot.pause()
-        await pilot.click("#action-search")
+        await pilot.click("#action-open_search")
         await pilot.pause()
         assert isinstance(app.screen, SearchModal)
         await pilot.press("escape")
@@ -499,7 +507,7 @@ async def test_actions_dialog_can_run_search_then_guided_edit(make_app, healthy_
 
         await pilot.press("f2")
         await pilot.pause()
-        await pilot.click("#action-edit")
+        await pilot.click("#action-edit_query")
         await pilot.pause()
         changes = app.query_one("#changes-pane", ChangesPane)
         assert changes.display is True
@@ -535,7 +543,7 @@ async def test_back_action_hidden_for_direct_launch(make_app, healthy_client) ->
         await pilot.press("f2")
         await pilot.pause()
         with pytest.raises(NoMatches):
-            app.screen.query_one("#action-back")
+            app.screen.query_one("#action-back_to_models")
 
 
 @pytest.mark.anyio
@@ -565,7 +573,7 @@ async def test_back_action_uses_quit_guard_and_cancel_keeps_focus_and_buffer(hea
         await pilot.click("#actions-filter")
         await pilot.press("b", "a", "c", "k")
         await pilot.pause()
-        await pilot.click("#action-back")
+        await pilot.click("#action-back_to_models")
         await pilot.pause()
         assert isinstance(app.screen, QuitDraftsDialog)
 
@@ -594,7 +602,7 @@ async def test_back_action_discard_exits_browser_launch_monitor(healthy_client) 
         await pilot.click("#actions-filter")
         await pilot.press("b", "a", "c", "k")
         await pilot.pause()
-        await pilot.click("#action-back")
+        await pilot.click("#action-back_to_models")
         await pilot.pause()
         assert isinstance(app.screen, QuitDraftsDialog)
         await pilot.click("#quit-discard")
@@ -753,11 +761,56 @@ async def test_entity_changes_form_shows_labeled_entity_fields_only(make_app, he
         await pilot.pause()
         app.action_show_changes()
         pane = app.query_one("#changes-pane", ChangesPane)
-        assert pane.query_one("#changes-label-impact").display is True
+        assert pane.query_one("#changes-entity-fields").display is True
         impact_label = str(pane.query_one("#changes-label-impact").render())
         assert "Standard|Limited|Suppressed" in impact_label
-        assert pane.query_one("#changes-edit-row-c").display is False
-        assert pane.query_one("#changes-relationship-row").display is False
+        assert pane.query_one("#changes-signal_definition-fields").display is False
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(("draft_edited_meanwhile", "expected"), [(False, "typed"), (True, "edited in the editor")])
+async def test_reopening_changes_keeps_typed_input_unless_the_draft_changed(
+    make_app, healthy_client, draft_edited_meanwhile, expected,
+) -> None:
+    app: HealthWatchApp = make_app(healthy_client)
+    target = ResourceTarget(app._poller.root, "entity", "EntityA")
+    app._draft_store.get_or_create(target, {"name": "EntityA", "properties": {"displayName": "EntityA"}})
+    async with app.run_test(size=(120, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        app.action_show_changes()
+        app.query_one("#changes-display-name").value = "typed"
+        app.action_show_tree()
+        if draft_edited_meanwhile:
+            app._draft_store.update_field(target, "properties.displayName", "edited in the editor")
+        app.action_show_changes()
+        assert app.query_one("#changes-display-name").value == expected
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("typed", "message", "revision"),
+    [({"#changes-display-name": "Renamed"}, "Draft updated (1 field(s)).", 1), ({}, "No changed fields to update.", 0)],
+)
+async def test_update_draft_writes_and_counts_only_changed_fields(
+    make_app, healthy_client, typed, message, revision,
+) -> None:
+    app: HealthWatchApp = make_app(healthy_client)
+    target = ResourceTarget(app._poller.root, "entity", "EntityA")
+    baseline = {"name": "EntityA", "properties": {"displayName": "EntityA", "impact": "Standard", "healthObjective": 99}}
+    app._draft_store.get_or_create(target, baseline)
+    async with app.run_test(size=(120, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        app.action_show_changes()
+        pane = app.query_one("#changes-pane", ChangesPane)
+        for widget_id, value in typed.items():
+            pane.query_one(widget_id).value = value
+        app._handle_changes_button("changes-review")
+        await pilot.pause()
+        shown = str(pane.query_one("#changes-result").render()) + str(pane.query_one("#changes-summary").render())
+        assert message in shown
+        assert app._draft_store.get(target).revision == revision
 
 
 @pytest.mark.anyio
@@ -814,6 +867,46 @@ async def test_prepare_asks_for_update_draft_when_the_form_has_edits(make_app, h
 
 
 @pytest.mark.anyio
+async def test_prepare_drops_the_plan_when_the_draft_was_updated_during_the_read(make_app, healthy_client) -> None:
+    app: HealthWatchApp = make_app(healthy_client)
+    target = ResourceTarget(app._poller.root, "entity", "EntityA")
+    baseline = {"name": "EntityA", "properties": {"displayName": "EntityA"}}
+    app._draft_store.get_or_create(target, baseline)
+
+    class _PrepareStub:
+        def describe_connection_scope(self, target):  # noqa: ANN001
+            return SimpleNamespace(
+                arm_endpoint="https://management.azure.com", tenant_id="t", tenant_name="anbo",
+                subscription_id="s", subscription_name="MCAP",
+            )
+
+        def prepare_plan(self, **kwargs):  # noqa: ANN003
+            # The user types and presses Update draft while the live read runs.
+            app._draft_store.update_field(target, "properties.displayName", "newer")
+            app.query_one("#changes-display-name").value = "newer"
+            return ApplyPlan(
+                target=target,
+                revision=kwargs["revision"],
+                changes=(FieldDiff(path=("properties", "displayName"), before="EntityA", after="EntityA"),),
+                edited_resource=baseline,
+                normalized_live_baseline=baseline,
+                generated_at=datetime(2026, 1, 1, tzinfo=UTC),
+                shared_consumer_entity_names=(),
+            )
+
+    app._apply = _PrepareStub()  # type: ignore[assignment]
+    async with app.run_test(size=(120, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        app.action_show_changes()
+        app._handle_changes_button("changes-prepare-apply")
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+        assert app._prepared_apply_plan is None
+        assert "Plan prepared" not in str(app.query_one("#changes-summary").render())
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize("setter", ["set_drafts", "set_summary", "set_result", "set_plan", "set_details"])
 async def test_changes_text_with_brackets_renders_literally(make_app, healthy_client, setter) -> None:
     app: HealthWatchApp = make_app(healthy_client)
@@ -846,6 +939,80 @@ async def test_nested_model_snapshot_keeps_the_launch_model_tree() -> None:
         await pilot.pause()
         assert app._applied_snapshot is not None
         assert app.query_one("#health-tree", HealthTree)._occurrence_nodes  # not an empty tree
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("missing", ["", "nested"], ids=["all-present", "intermediate-missing-at-that-time"])
+async def test_nested_snapshot_loads_every_model_on_the_way_to_the_row(missing) -> None:
+    class _CreatedLaterClient(_TemporalClient):
+        def list_entities(self, group, model, *, timestamp=None):  # noqa: ANN001
+            if model == missing and timestamp is not None:
+                raise LookupError(f"{model} did not exist yet")
+            return super().list_entities(group, model, timestamp=timestamp)
+
+    client = _CreatedLaterClient()
+    app = HealthWatchApp(client, "rg", "root", poll_interval=9999)
+    async with app.run_test(size=(160, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        nested, grandchild = client.model_key("rg", "nested"), client.model_key("rg", "grandchild")
+        for model in (nested, grandchild):
+            app._poller.expand(model, {model: 0})
+            await app._do_poll()
+        view = app._poller.view
+        rows = project(view.root, {k: s.previous.forest for k, s in view.entries.items() if s.previous})
+        start = datetime(2026, 1, 1, tzinfo=UTC)
+        end = start + timedelta(hours=1)
+        app._timeline_keys_by_path = {
+            row.path: RangeKey(model=row.model, entity_name=row.entity.name, start_utc=start, end_utc=end) for row in rows
+        }
+        app._timeline_path = next(row.path for row in rows if row.entity.name == "node")
+        app._timeline_key = app._timeline_keys_by_path[app._timeline_path]
+        app.query_one("#timeline-pane", TimelinePane).query_one("#timeline-go-to").value = "2026-01-01T00:30:00Z"
+        app._handle_timeline_button("timeline-open")
+        for _ in range(100):
+            if app._applied_snapshot is not None:
+                break
+            await pilot.pause(0.02)
+        await pilot.pause()
+        # A model created later degrades to an unloaded subtree; only the launch model failing is fatal.
+        assert app._applied_snapshot is not None
+        assert "Showing snapshot at" in str(app.query_one("#timeline-summary").render())
+        assert isinstance(app._poller.view_at(app._applied_snapshot.at_utc).entries.get(nested), Ready) is (not missing)
+        assert app.query_one("#health-tree", HealthTree).contains(app._timeline_path) is (not missing)
+
+
+@pytest.mark.anyio
+async def test_compare_ignores_models_cached_at_only_one_of_the_times() -> None:
+    client = _TemporalClient()
+    app = HealthWatchApp(client, "rg", "root", poll_interval=9999)
+    async with app.run_test(size=(160, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        left = datetime(2026, 1, 1, 0, 10, tzinfo=UTC)
+        app._poller.open_at(left, target=client.model_key("rg", "nested"), purpose="test")
+        await app._do_poll()
+        pane = app.query_one("#timeline-pane", TimelinePane)
+        pane.query_one("#timeline-compare-a").value = "2026-01-01T00:10:00Z"
+        pane.query_one("#timeline-compare-b").value = "2026-01-01T00:40:00Z"
+        app._handle_timeline_button("timeline-compare")
+        for _ in range(100):
+            if "Compare complete" in str(pane.query_one("#timeline-summary").render()):
+                break
+            await pilot.pause(0.02)
+        assert "No differences." in str(pane.query_one("#timeline-events").render())
+
+
+@pytest.mark.parametrize(
+    ("parents", "expected"),
+    [({"a": "a"}, "A"), ({"a": "b", "b": "a"}, "B / A"), ({"a": "b", "b": None}, "B / A")],
+)
+def test_compare_path_label_stops_at_a_parent_cycle(parents, expected) -> None:
+    nodes = {
+        name: SnapshotNode(name, name.upper(), HistoryBucketHealth.HEALTHY, None, parent_canonical_name=parent)
+        for name, parent in parents.items()
+    }
+    assert node_path_label("a", nodes) == expected
 
 
 @pytest.mark.anyio
@@ -1428,14 +1595,8 @@ def test_timeline_label_uses_applied_nested_snapshot_and_normalizes_control_whit
         app._poller.open_at(applied_at, target=nested_model, purpose="test")
         app._poller.wait()
         app._applied_snapshot = SnapshotKey(nested_model, applied_at)
-        key = RangeKey(
-            model=app._poller.root,
-            entity_name="root",
-            start_utc=datetime(2026, 1, 2, 0, 0, tzinfo=UTC),
-            end_utc=datetime(2026, 1, 2, 1, 0, tzinfo=UTC),
-        )
         row = {"name": "nested", "depth": 0, "model": nested_model}
-        label = app._timeline_label(key, row, 32)
+        label = app._timeline_label(row, 32)
         assert "Nested Display Name" in label
         assert "\n" not in label and "\t" not in label
         assert cell_len(label) == 32
@@ -1452,13 +1613,7 @@ def test_timeline_label_uses_live_nested_metadata_without_viewat_patch() -> None
         app._poller.poll_once()
         app._poller.expand(nested_model, {nested_model: 0})
         app._poller.wait()
-        key = RangeKey(
-            model=app._poller.root,
-            entity_name="root",
-            start_utc=datetime(2026, 1, 2, 0, 0, tzinfo=UTC),
-            end_utc=datetime(2026, 1, 2, 1, 0, tzinfo=UTC),
-        )
-        label = app._timeline_label(key, {"name": "nested", "depth": 0, "model": nested_model}, 32)
+        label = app._timeline_label({"name": "nested", "depth": 0, "model": nested_model}, 32)
         assert "Nested Live Name" in label
     finally:
         app._poller.close()
@@ -1480,13 +1635,7 @@ def test_timeline_label_prefers_applied_historical_name_over_later_live_rename()
         app._poller.navigate(app._poller.root, {nested_model: 0})
         app._poller.wait()
 
-        key = RangeKey(
-            model=app._poller.root,
-            entity_name="root",
-            start_utc=datetime(2026, 1, 2, 0, 0, tzinfo=UTC),
-            end_utc=datetime(2026, 1, 2, 1, 0, tzinfo=UTC),
-        )
-        label = app._timeline_label(key, {"name": "nested", "depth": 0, "model": nested_model}, 32)
+        label = app._timeline_label({"name": "nested", "depth": 0, "model": nested_model}, 32)
         assert "Historical Name" in label
         assert "Live Renamed" not in label
     finally:
@@ -1509,13 +1658,7 @@ def test_timeline_label_historical_missing_metadata_uses_canonical_not_live_name
         app._poller.navigate(app._poller.root, {nested_model: 0})
         app._poller.wait()
 
-        key = RangeKey(
-            model=app._poller.root,
-            entity_name="root",
-            start_utc=datetime(2026, 1, 2, 0, 0, tzinfo=UTC),
-            end_utc=datetime(2026, 1, 2, 1, 0, tzinfo=UTC),
-        )
-        label = app._timeline_label(key, {"name": "nested", "depth": 0, "model": nested_model}, 32)
+        label = app._timeline_label({"name": "nested", "depth": 0, "model": nested_model}, 32)
         assert label.lstrip().startswith("nested")
         assert "Live Name" not in label
     finally:
@@ -1538,13 +1681,7 @@ def test_timeline_label_ignores_requested_snapshot_until_applied() -> None:
         app._poller.wait()
         app._requested_snapshot = SnapshotKey(nested_model, requested_at)
 
-        key = RangeKey(
-            model=app._poller.root,
-            entity_name="root",
-            start_utc=datetime(2026, 1, 2, 0, 0, tzinfo=UTC),
-            end_utc=datetime(2026, 1, 2, 1, 0, tzinfo=UTC),
-        )
-        label = app._timeline_label(key, {"name": "nested", "depth": 0, "model": nested_model}, 32)
+        label = app._timeline_label({"name": "nested", "depth": 0, "model": nested_model}, 32)
         assert "Live Name" in label
         assert "Requested Name" not in label
     finally:
@@ -1610,4 +1747,4 @@ async def test_actions_overlay_paints_labels_and_back_row_with_real_content_regi
         await pilot.pause()
         await pilot.press("enter")
         await pilot.pause()
-        assert fired[-1] == "back"
+        assert fired[-1] == "back_to_models"

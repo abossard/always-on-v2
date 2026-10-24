@@ -6,7 +6,7 @@ Release History
 0.4.0
 +++++
 * Timeline fills in row by row with a loading indicator and no timeout; bands use colored blocks (color = worst state, height = signal value).
-* Layout: compact Timeline controls, highlighted active tab, short UTC timestamps, a status bar that never breaks words, full-width side panes below 100 columns.
+* Layout: compact Timeline controls, highlighted active tab, short UTC timestamps, a status bar that never breaks words, full-width side panes below 110 columns.
 * Signal panel shows the service-side error and treats unsupported Log Analytics verification as information.
 * Changes tab follows the draft you changed last; Prepare and Apply run in the background and keep edits made meanwhile; quitting waits for a running write; the quit dialog works from the keyboard.
 * ``1`` ``2`` ``3`` switch tabs (Ctrl+digit rarely reaches terminal apps); Help lists every key from the bindings; the status bar marks an open snapshot.

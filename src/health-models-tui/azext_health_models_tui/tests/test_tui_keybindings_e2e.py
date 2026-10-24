@@ -647,6 +647,28 @@ async def test_f1_f2_open_help_and_actions_dialogs(
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("key", ["end", "pagedown"])
+async def test_help_key_list_scrolls_with_the_keyboard_at_80x24(make_app, healthy_client, key):
+    app = make_app(healthy_client)
+    async with app.run_test(size=(80, 24)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        await pilot.press("f1")
+        await pilot.pause()
+
+        def painted() -> str:
+            return "\n".join(
+                "".join(segment.text for segment in strip)
+                for strip in app.screen._compositor.render_strips()  # type: ignore[attr-defined]
+            )
+
+        assert "Poll interval -10 s" not in painted()
+        await pilot.press(key, key)
+        await pilot.pause()
+        assert "Poll interval -10 s" in painted()
+
+
+@pytest.mark.anyio
 async def test_status_bar_shows_tab_enter_help_actions_hints(make_app, healthy_client):
     app = make_app(healthy_client)
     async with app.run_test(size=(120, 40)) as pilot:
@@ -677,11 +699,11 @@ async def test_actions_filter_arrow_keys_and_enter_dispatch_visible_actions(make
         await pilot.press("down")
         await pilot.pause()
         assert app.screen.focused is not None
-        assert app.screen.focused.id == "action-timeline"
+        assert app.screen.focused.id == "action-show_timeline"
 
         await pilot.press("enter")
         await pilot.pause()
-        assert fired == ["timeline"]
+        assert fired == ["show_timeline"]
 
         await pilot.press("f2")
         await pilot.pause()
