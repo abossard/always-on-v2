@@ -94,32 +94,20 @@ class DataUnit(Enum):
 
 
 class ComparisonOperator(Enum):
-    """Comparison operators for evaluation rules.
-
-    Primary values mirror the Microsoft.CloudHealth SDK wire format
-    (``LowerThan`` / ``LowerOrEquals`` / ``GreaterOrEquals`` / ``Equals``).
-    Older Python-side names (``LESS_THAN``, ``LESS_THAN_OR_EQUAL`` …) are
-    preserved as enum aliases for backward compatibility.
-    """
+    """Comparison operators for evaluation rules, in the Microsoft.CloudHealth wire format."""
 
     GREATER_THAN = "GreaterThan"
-    LOWER_THAN = "LowerThan"
-    GREATER_OR_EQUALS = "GreaterOrEquals"
-    LOWER_OR_EQUALS = "LowerOrEquals"
-    EQUALS = "Equals"
-
-    # ─── backward-compatible Python-name aliases ──────────────────
-    # Same value ⇒ alias members (resolve to the canonical members above).
-    LESS_THAN = "LowerThan"
-    LESS_THAN_OR_EQUAL = "LowerOrEquals"
-    GREATER_THAN_OR_EQUAL = "GreaterOrEquals"
+    LESS_THAN = "LessThan"
+    GREATER_THAN_OR_EQUAL = "GreaterThanOrEqual"
+    LESS_THAN_OR_EQUAL = "LessThanOrEqual"
+    EQUAL = "Equal"
 
     @property
     def direction(self) -> str:
         """Conceptual direction: 'up', 'down', or 'eq'."""
-        if self in (ComparisonOperator.GREATER_THAN, ComparisonOperator.GREATER_OR_EQUALS):
+        if self in (ComparisonOperator.GREATER_THAN, ComparisonOperator.GREATER_THAN_OR_EQUAL):
             return "up"
-        if self in (ComparisonOperator.LOWER_THAN, ComparisonOperator.LOWER_OR_EQUALS):
+        if self in (ComparisonOperator.LESS_THAN, ComparisonOperator.LESS_THAN_OR_EQUAL):
             return "down"
         return "eq"
 
@@ -127,13 +115,13 @@ class ComparisonOperator(Enum):
         """Return True if *value* violates the threshold (triggers the rule)."""
         if self is ComparisonOperator.GREATER_THAN:
             return value > threshold
-        if self is ComparisonOperator.GREATER_OR_EQUALS:
+        if self is ComparisonOperator.GREATER_THAN_OR_EQUAL:
             return value >= threshold
-        if self is ComparisonOperator.LOWER_THAN:
+        if self is ComparisonOperator.LESS_THAN:
             return value < threshold
-        if self is ComparisonOperator.LOWER_OR_EQUALS:
+        if self is ComparisonOperator.LESS_THAN_OR_EQUAL:
             return value <= threshold
-        if self is ComparisonOperator.EQUALS:
+        if self is ComparisonOperator.EQUAL:
             return value == threshold
         raise ValueError(f"Unknown ComparisonOperator: {self!r}")
 

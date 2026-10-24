@@ -552,6 +552,34 @@ def test_parse_signal_definition_dynamic_rules_are_not_coerced(
 
 
 @pytest.mark.parametrize(
+    ("wire_operator", "value", "violates"),
+    [
+        ("GreaterThan", 96.0, True),
+        ("LessThan", 94.0, True),
+        ("LessThan", 95.0, False),
+        ("LessThanOrEqual", 95.0, True),
+        ("GreaterThanOrEqual", 95.0, True),
+        ("Equal", 95.0, True),
+    ],
+)
+def test_parse_signal_definition_reads_sdk_wire_operators(wire_operator: str, value: float, violates: bool) -> None:
+    from azext_health_models_tui.domain.parse import parse_signal_definition
+
+    raw = {
+        "name": "sig-availability",
+        "properties": {
+            "signalKind": "AzureResourceMetric",
+            "evaluationRules": {"unhealthyRule": {"operator": wire_operator, "threshold": 95}},
+        },
+    }
+
+    rule = parse_signal_definition(raw).unhealthy_rule
+    assert rule is not None
+    assert rule.operator.value == wire_operator
+    assert rule.operator.evaluate(value, rule.threshold) is violates
+
+
+@pytest.mark.parametrize(
     "wire_impact,expected",
     [
         ("Suppressed", "Suppressed"),
