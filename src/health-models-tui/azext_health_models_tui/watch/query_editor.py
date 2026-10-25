@@ -79,16 +79,14 @@ class QueryEditor(ModalScreen[None]):
     def compose(self) -> ComposeResult:
         with VerticalScroll(id="query-editor-root"):
             yield Label("Loading signal configuration…", id="qe-title")
-            with VerticalScroll(id="qe-meta-scroll"):
-                yield Static("", id="qe-meta")
+            yield Static("", id="qe-meta")
             yield Label("Query text", classes="qe-section-label")
             yield TextArea("", id="qe-query", show_line_numbers=True)
             with Horizontal(id="qe-buttons"):
                 yield Button("Test Query (Ctrl+R)", id="qe-test", variant="primary")
                 yield Button("Close (Esc)", id="qe-close")
             yield Label("Test results", classes="qe-section-label")
-            with VerticalScroll(id="qe-results-scroll"):
-                yield Static("— not yet run —", id="qe-results")
+            yield Static("— not yet run —", id="qe-results")
 
     # ── lifecycle ─────────────────────────────────────────────────────
 
@@ -369,8 +367,11 @@ class QueryEditor(ModalScreen[None]):
         query = self.query_one("#qe-query", TextArea).text
         unchanged = query == str(self._config.get("query_text", "") or "")
         found = self._draft(create=not unchanged)
-        # A metric signal has no queryText; missing equals the empty editor.
-        if found is not None and (get_in(found[2].edited, parse_field_path(found[1])) or "") != query:
+        if found is None:
+            return
+        if unchanged:
+            self._draft_store.revert_field(found[0], found[1])
+        elif get_in(found[2].edited, parse_field_path(found[1])) != query:
             self._draft_store.update_field(found[0], found[1], query)
 
 

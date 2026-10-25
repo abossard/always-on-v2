@@ -272,9 +272,7 @@ QueryEditor #qe-title {
     height: 1;
 }
 
-QueryEditor #qe-meta-scroll {
-    height: auto;
-    max-height: 30vh;
+QueryEditor #qe-meta {
     background: $panel;
     border: round $primary-darken-2;
     padding: 0 1;
@@ -286,7 +284,7 @@ QueryEditor .qe-section-label {
     padding: 1 0 0 0;
 }
 
-/* The query and the results share the room; on a short screen the editor scrolls to the results. */
+/* The query takes the free room; the results grow, and the editor is the one scroll that reaches them. */
 QueryEditor #qe-query {
     height: 1fr;
     min-height: 4;
@@ -308,9 +306,7 @@ QueryEditor #qe-buttons Button {
     margin-right: 2;
 }
 
-QueryEditor #qe-results-scroll {
-    height: 1fr;
-    min-height: 5;
+QueryEditor #qe-results {
     background: $panel;
     border: round $primary-darken-2;
     padding: 0 1;

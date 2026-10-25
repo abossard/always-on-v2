@@ -272,6 +272,20 @@ def test_rebase_replays_only_the_drafts_own_edits_on_the_new_live_state(
     assert rebased.edited["properties"]["unknownServerField"] == {"nested": 2}  # someone else's change is not reverted
 
 
+@pytest.mark.parametrize("baseline_query", [{"queryText": "rate(original[5m])"}, {}])  # a metric signal has no query text
+def test_revert_field_restores_the_baseline_field_and_keeps_other_edits(baseline_query: dict[str, str]) -> None:
+    store = DraftStore()
+    target = _target()
+    baseline = {"name": "signal-cpu", "properties": {"signalKind": "PrometheusMetricsQuery", **baseline_query}}
+    store.get_or_create(target, baseline)
+    store.update_field(target, "properties.displayName", "Mine")
+    store.update_field(target, "properties.queryText", "rate(changed[5m])")
+
+    store.revert_field(target, "properties.queryText")
+
+    assert store.get(target).edited == {**baseline, "properties": {**baseline["properties"], "displayName": "Mine"}}
+
+
 def test_restore_rejects_wrong_model_and_unsaved_overwrite(tmp_path: Path) -> None:
     store = DraftStore()
     target = _target()

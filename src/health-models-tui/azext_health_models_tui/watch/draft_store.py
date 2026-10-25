@@ -15,6 +15,7 @@ from azext_health_models_tui.domain.drafts import (
     apply_field_edit,
     diff_documents,
     find_known_readonly_tampering,
+    get_in,
     normalize_known_readonly_fields,
     parse_field_path,
     validate_target_payload,
@@ -101,6 +102,24 @@ class DraftStore:
         self._entries[target] = updated
         self._active = target
         return self._clone_snapshot(updated)
+
+    def revert_field(self, target: ResourceTarget, path: str) -> None:
+        """Put one field back as the baseline has it, absent included; a draft left without edits is dropped."""
+        entry = self._require(target)
+        *parents, leaf = parse_field_path(path)
+        edited = deepcopy(dict(entry.edited))
+        edited_parent, baseline_parent = get_in(edited, tuple(parents)), get_in(entry.baseline, tuple(parents))
+        if isinstance(baseline_parent, Mapping) and leaf in baseline_parent:
+            edited_parent[leaf] = deepcopy(baseline_parent[leaf])
+        elif isinstance(edited_parent, dict):
+            edited_parent.pop(leaf, None)
+        if edited == entry.baseline:
+            self.discard(target)
+        elif edited != entry.edited:
+            self._entries[target] = replace(
+                entry, edited=edited, revision=entry.revision + 1,
+                tested_revision=None, tested_at_utc=None, last_test_summary=None,
+            )
 
     def record_test_result(self, target: ResourceTarget, result: DraftTestResult) -> DraftSnapshot:
         entry = self._require(target)

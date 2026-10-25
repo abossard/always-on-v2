@@ -11,6 +11,7 @@ import xml.etree.ElementTree as ET
 import pytest
 from rich.cells import cell_len
 from rich.text import Text
+from textual.containers import ScrollableContainer
 from textual.css.query import NoMatches
 from textual.widgets import Button
 
@@ -264,10 +265,42 @@ async def test_query_editor_shows_title_query_and_buttons_and_reaches_results(ma
         for label in (str(editor.query_one("#qe-title").render()), "Test Query (Ctrl+R)", "Close (Esc)"):
             assert label in rendered_text
 
-        results = editor.query_one("#qe-results-scroll")
+        assert list(editor.query(ScrollableContainer).exclude("TextArea")) == [root]  # one scroll, so the wheel reaches everything
+        results = editor.query_one("#qe-results")
         root.scroll_to_widget(results, animate=False)
         await pilot.pause()
         assert results.content_region.height > 0 and root.content_region.contains_region(results.region)
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("keys", [("escape",), ("ctrl+r", "escape")])
+@pytest.mark.parametrize("query_text", ["", "rate(original[5m])"])  # a metric signal has no query text
+async def test_query_editor_reverted_query_leaves_no_draft_and_quits_without_asking(
+    monkeypatch, make_app, healthy_client, query_text, keys,
+) -> None:
+    result = {"healthState": "Healthy", "rawValue": 1.0, "durationMs": 1, "timestamp": "now"}
+    monkeypatch.setattr("azext_health_models_tui.watch.query_editor.execute_signal", lambda *_a, **_kw: result)
+    app = make_app(healthy_client)
+    target = ResourceTarget(app._poller.root, "entity", "entity")
+    editor = QueryEditor(_editor_client(query_text), "rg", "hm", "entity", "sig-A", draft_store=app._draft_store, draft_target=target)
+    async with app.run_test(size=(120, 40)) as pilot:
+        app.push_screen(editor)
+        await _wait_loaded(editor, pilot)
+        query = editor.query_one("#qe-query")
+        query.text = "rate(changed[5m])"
+        await pilot.pause()
+        await pilot.press("ctrl+r")
+        await app.workers.wait_for_complete()
+        query.text = query_text
+        await pilot.pause()
+        for key in keys:
+            await pilot.press(key)
+            await app.workers.wait_for_complete()
+            await pilot.pause()
+        assert app._draft_store.list_targets() == ()
+        await pilot.press("ctrl+q")
+        await pilot.pause()
+        assert app.is_running is False
 
 
 @pytest.mark.anyio
