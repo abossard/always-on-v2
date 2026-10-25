@@ -437,20 +437,35 @@ def test_a_superseded_prepare_finishing_late_keeps_the_newer_plan(client: MagicM
     client.update_entity.assert_called_once()
 
 
-def test_a_superseded_prepare_paused_before_publishing_keeps_the_newer_plan(
-    client: MagicMock, monkeypatch: pytest.MonkeyPatch,
+@pytest.mark.parametrize(
+    ("paused", "older", "writes", "rejection"),
+    [
+        # An older prepare stops after its generation check, before it publishes.
+        ((apply_module, "deepcopy"), lambda coordinator, prepare: prepare("older"), 1, "changed after review"),
+        # An apply stops between comparing its plan and consuming it.
+        (
+            (ApplyPlan, "__eq__"),
+            lambda coordinator, prepare: coordinator.apply_confirmed(prepare("older"), confirmation_name="res-1"),
+            2,
+            "unknown or expired",
+        ),
+    ],
+    ids=["prepare-paused-before-publishing", "apply-paused-before-consuming"],
+)
+def test_a_paused_older_operation_keeps_the_newer_prepared_plan(
+    client: MagicMock, monkeypatch: pytest.MonkeyPatch, paused: tuple[Any, str], older: Any, writes: int, rejection: str,
 ) -> None:
     baseline = {"name": "res-1", "properties": {"displayName": "before"}}
     client.get_entity.return_value = baseline
     coordinator = _coordinator(client)
-    copying, resume = threading.Event(), threading.Event()
-    real_deepcopy = apply_module.deepcopy
+    pausing, resume = threading.Event(), threading.Event()
+    real = getattr(*paused)
 
-    def paused_deepcopy(value: Any) -> Any:
-        if not copying.is_set():  # the older prepare stops after its generation check
-            copying.set()
+    def pause_once(*args: Any) -> Any:
+        if not pausing.is_set():
+            pausing.set()
             assert resume.wait(5)
-        return real_deepcopy(value)
+        return real(*args)
 
     def prepare(name: str) -> Any:
         return coordinator.prepare_plan(
@@ -460,65 +475,22 @@ def test_a_superseded_prepare_paused_before_publishing_keeps_the_newer_plan(
             draft_live_baseline=baseline,
         )
 
-    monkeypatch.setattr(apply_module, "deepcopy", paused_deepcopy)
-    older = threading.Thread(target=prepare, args=("older",))
-    older.start()
-    assert copying.wait(5)
+    monkeypatch.setattr(*paused, pause_once)
+    older_thread = threading.Thread(target=older, args=(coordinator, prepare))
+    older_thread.start()
+    assert pausing.wait(5)
     newer: dict[str, Any] = {}
     newer_thread = threading.Thread(target=lambda: newer.update(plan=prepare("newer")))
     newer_thread.start()
-    newer_thread.join(0.2)  # time for the newer prepare to publish while the older one is paused
+    newer_thread.join(0.2)  # time for the newer prepare to start; it waits for the lock the paused operation holds
     resume.set()
-    older.join(5)
+    older_thread.join(5)
     newer_thread.join(5)
 
     result = coordinator.apply_confirmed(newer["plan"], confirmation_name="res-1")
 
-    assert "changed after review" not in result.message
-    client.update_entity.assert_called_once()
-
-
-def test_an_apply_consuming_its_plan_never_clears_a_newer_prepared_one(
-    client: MagicMock, monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    baseline = {"name": "res-1", "properties": {"displayName": "before"}}
-    client.get_entity.return_value = baseline
-    coordinator = _coordinator(client)
-
-    def prepare(name: str) -> Any:
-        return coordinator.prepare_plan(
-            target=_target("entity"),
-            revision=1,
-            edited_resource={"name": "res-1", "properties": {"displayName": name}},
-            draft_live_baseline=baseline,
-        )
-
-    older = prepare("older")
-    comparing, resume = threading.Event(), threading.Event()
-    real_eq = ApplyPlan.__eq__
-
-    def paused_eq(self: ApplyPlan, other: object) -> bool:
-        if not comparing.is_set():  # the apply stops between comparing its plan and consuming it
-            comparing.set()
-            assert resume.wait(5)
-        return real_eq(self, other)
-
-    monkeypatch.setattr(ApplyPlan, "__eq__", paused_eq)
-    applying = threading.Thread(target=coordinator.apply_confirmed, args=(older,), kwargs={"confirmation_name": "res-1"})
-    applying.start()
-    assert comparing.wait(5)
-    newer: dict[str, Any] = {}
-    preparing = threading.Thread(target=lambda: newer.update(plan=prepare("newer")))
-    preparing.start()
-    preparing.join(0.2)  # time for the newer prepare to publish while the apply is paused
-    resume.set()
-    applying.join(5)
-    preparing.join(5)
-
-    result = coordinator.apply_confirmed(newer["plan"], confirmation_name="res-1")
-
-    assert "unknown or expired" not in result.message
-    assert client.update_entity.call_count == 2
+    assert rejection not in result.message
+    assert client.update_entity.call_count == writes
 
 
 def test_apply_rechecks_revision_after_network_read_before_write(client: MagicMock) -> None:

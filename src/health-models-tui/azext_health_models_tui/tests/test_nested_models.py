@@ -683,7 +683,8 @@ async def test_queue_orders_explicit_navigation_then_visible_distance_and_withdr
 
 
 @pytest.mark.anyio
-async def test_references_expanded_while_both_slots_are_busy_all_load(service):
+@pytest.mark.parametrize("collapsed", ["", "D"])
+async def test_references_expanded_while_both_slots_are_busy_load_unless_collapsed(service, collapsed):
     transport, client = service
     transport.put("R", *(entity("R", f"ref-{name}", model_id(name)) for name in "BCDEH"))
     for name in "BCDEH":
@@ -698,10 +699,14 @@ async def test_references_expanded_while_both_slots_are_busy_all_load(service):
             for name in "BCDEH":
                 next(n for n in nodes(app) if n.data and n.data.entity_name == f"ref-{name}").expand()
             await until(pilot, lambda: app._poller._active is not None and app._poller._active.name == "H")
+            for name in collapsed:
+                next(n for n in nodes(app) if n.data and n.data.entity_name == f"ref-{name}").collapse()
+            await until(pilot, lambda: not any(key.name in collapsed for key in app._poller._visible))
             release.set()
-            await until(pilot, lambda: all(transport.counts()[name] == 3 for name in "bcdeh"))
+            await until(pilot, lambda: all(transport.counts()[name] == 3 for name in "bceh"))
             await idle(pilot, app)
-            assert "unloaded" not in labels(app)
+            assert transport.counts()["d"] == (0 if collapsed else 3)
+            assert ("unloaded" in labels(app)) == bool(collapsed)
     finally:
         release.set()
 

@@ -200,9 +200,9 @@ class HealthTree(Tree[EntityData]):
         distances: dict[ModelKey, int] = {}
         for path, node in self._occurrence_nodes.items():
             data = node.data
-            if not data or not data.target or not node.is_expanded:
+            if not data or not data.target:
                 continue
-            parent = node.parent
+            parent = node
             visible = True
             while parent:
                 if not parent.is_expanded:

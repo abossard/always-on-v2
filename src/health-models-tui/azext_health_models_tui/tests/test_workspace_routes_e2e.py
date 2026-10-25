@@ -366,15 +366,17 @@ async def test_timeline_controls_reachable_via_tab_and_enter(make_app, healthy_c
 
 @pytest.mark.anyio
 @pytest.mark.parametrize(
-    ("typed", "expected"),
+    ("fill", "expected"),
     [
-        ("", "2026-01-01T00:20:01Z"),
-        ("2026-01-01T00:05:00Z", "2026-01-01T00:05:00Z"),
-        (datetime(2026, 1, 1, 0, 5, tzinfo=UTC), "2026-01-01T00:20:01Z"),  # filled by an earlier load, not typed
+        (lambda pane: setattr(pane.query_one("#timeline-go-to"), "value", ""), "2026-01-01T00:20:01Z"),
+        (lambda pane: setattr(pane.query_one("#timeline-go-to"), "value", "2026-01-01T00:05:00Z"), "2026-01-01T00:05:00Z"),
+        # filled by an earlier load, not typed
+        (lambda pane: pane.set_go_to_value(datetime(2026, 1, 1, 0, 5, tzinfo=UTC)), "2026-01-01T00:20:01Z"),
     ],
+    ids=["empty", "typed", "filled"],
 )
 async def test_timeline_counts_only_in_window_events_and_fills_untyped_time_rounded_up(
-    make_app, healthy_client, typed, expected,
+    make_app, healthy_client, fill, expected,
 ) -> None:
     app: HealthWatchApp = make_app(healthy_client)
     start = datetime(2026, 1, 1, tzinfo=UTC)
@@ -391,10 +393,7 @@ async def test_timeline_counts_only_in_window_events_and_fills_untyped_time_roun
         await app._do_poll()
         await pilot.pause()
         pane = app.query_one("#timeline-pane", TimelinePane)
-        if isinstance(typed, datetime):
-            pane.set_go_to_value(typed)
-        else:
-            pane.query_one("#timeline-go-to").value = typed
+        fill(pane)
         app._apply_timeline_ranges(key, {path: view}, {path: key})
         await pilot.pause()
         assert "1 event in" in str(pane.query_one("#timeline-summary").render())
@@ -755,7 +754,8 @@ async def test_prepared_plan_invalidated_after_field_edit(make_app, healthy_clie
         await pilot.pause()
         pane.query_one("#changes-display-name").value = "Edited Later"
         await pilot.pause()
-        assert "invalidated" in str(pane.query_one("#changes-plan").render()).lower()
+        assert "invalidated" in str(pane.query_one("#changes-summary").render()).lower()
+        assert str(pane.query_one("#changes-plan").render()) == ""
         app._draft_store.get_or_create(ResourceTarget(model, "entity", "EntityB"), {"name": "EntityB", "properties": {}})
         app.action_show_changes()
         assert str(pane.query_one("#changes-plan").render()) == ""
@@ -799,7 +799,7 @@ async def test_reopening_the_same_draft_keeps_typed_input_unless_the_draft_chang
         app.action_edit_query()
         target = app._draft_store.active_target()
         app.query_one("#changes-display-name").value = "typed"
-        app._prepared_apply_plan = object()  # type: ignore[assignment]
+        app._prepared_apply_plan = SimpleNamespace(target=target, revision=app._draft_store.get(target).revision)  # type: ignore[assignment]
         app.query_one("#changes-pane", ChangesPane).set_plan("Prepared plan")
         app.action_show_tree()
         if edit_meanwhile:  # another edit of the same draft: a query saved in the query editor, a Restore
@@ -809,26 +809,28 @@ async def test_reopening_the_same_draft_keeps_typed_input_unless_the_draft_chang
         typed_field_changed = edit_meanwhile is not None and edit_meanwhile[0] == "properties.displayName"
         assert app.query_one("#changes-display-name").value == (edited["displayName"] if typed_field_changed else "typed")
         assert app.query_one("#changes-impact").value == edited["impact"]
-        # The plan text shows exactly while a plan is held.
+        # A plan is held only while it matches the shown draft revision, and its text shows exactly while one is held.
+        assert (app._prepared_apply_plan is None) == (edit_meanwhile is not None or reopen == "action_edit_query")
         assert (str(app.query_one("#changes-plan").render()) == "") == (app._prepared_apply_plan is None)
 
 
 @pytest.mark.anyio
 @pytest.mark.parametrize(
-    ("typed", "message", "revision"),
+    ("stored", "typed", "message", "revision"),
     [
-        ({"#changes-display-name": "Renamed"}, "Draft updated (1 field(s)).", 1),
-        ({"#changes-objective": "99.0"}, "Draft updated (1 field(s)).", 1),
-        ({"#changes-display-name": ""}, "No changed fields to update.", 0),
-        ({}, "No changed fields to update.", 0),
+        (99, {"#changes-display-name": "Renamed"}, "Draft updated (1 field(s)).", 1),
+        (99, {"#changes-objective": "99.0"}, "Draft updated (1 field(s)).", 1),
+        (99.0, {"#changes-objective": "99.00"}, "Draft updated (1 field(s)).", 1),
+        (99, {"#changes-display-name": ""}, "No changed fields to update.", 0),
+        (99, {}, "No changed fields to update.", 0),
     ],
 )
 async def test_update_draft_writes_and_counts_only_changed_fields(
-    make_app, healthy_client, typed, message, revision,
+    make_app, healthy_client, stored, typed, message, revision,
 ) -> None:
     app: HealthWatchApp = make_app(healthy_client)
     target = ResourceTarget(app._poller.root, "entity", "EntityA")
-    baseline = {"name": "EntityA", "properties": {"displayName": "EntityA", "impact": "Standard", "healthObjective": 99}}
+    baseline = {"name": "EntityA", "properties": {"displayName": "EntityA", "impact": "Standard", "healthObjective": stored}}
     app._draft_store.get_or_create(target, baseline)
     async with app.run_test(size=(120, 40)) as pilot:
         await app._do_poll()
@@ -866,7 +868,7 @@ async def test_apply_keeps_edits_made_while_the_write_runs(make_app, healthy_cli
     read_back = {"name": "EntityA", "properties": {"displayName": "applied"}}
 
     app._apply = _ApplyStub()  # type: ignore[assignment]
-    app._prepared_apply_plan = SimpleNamespace(target=target)  # type: ignore[assignment]
+    app._prepared_apply_plan = SimpleNamespace(target=target, revision=0)  # type: ignore[assignment]
     async with app.run_test(size=(120, 40)) as pilot:
         await app._do_poll()
         await pilot.pause()
@@ -1086,7 +1088,7 @@ async def test_apply_result_persists_after_render_refresh(make_app, healthy_clie
             )
 
     app._apply = _ApplyStub()  # type: ignore[assignment]
-    app._prepared_apply_plan = SimpleNamespace(target=target)  # type: ignore[assignment]
+    app._prepared_apply_plan = SimpleNamespace(target=target, revision=0)  # type: ignore[assignment]
     async with app.run_test(size=(120, 40)) as pilot:
         await app._do_poll()
         await pilot.pause()

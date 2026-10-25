@@ -210,6 +210,8 @@ class Poller:
     def navigate(self, active: ModelKey | None, distances: Mapping[ModelKey, int]) -> None:
         with self._condition:
             self._visible = dict(distances)
+            for key in self._entries.keys() - self._visible.keys():
+                self._withdraw(key, set())  # a reference kept only for being expanded goes once it is not
             if active != self._active:
                 self._withdraw(self._active, {"navigation", "active"})
                 self._active = active
@@ -220,6 +222,8 @@ class Poller:
     def expand(self, target: ModelKey, distances: Mapping[ModelKey, int]) -> None:
         with self._condition:
             self._visible = dict(distances)
+            for key in self._entries.keys() - self._visible.keys():
+                self._withdraw(key, set())
             activation = target != self._active
             if activation:
                 self._withdraw(self._active, {"navigation", "active"})

@@ -22,6 +22,8 @@ def field_input_id(key: str) -> str:
 
 
 class ChangesPane(Vertical):
+    _filled = dict.fromkeys(FIELDS, "")  # the values last filled in, so typed values can be told apart
+
     def compose(self) -> ComposeResult:
         yield Static("Changes", id="changes-title")
         yield Static("Drafts: none", id="changes-drafts")
@@ -103,9 +105,17 @@ class ChangesPane(Vertical):
     def form_values(self) -> dict[str, str]:
         return {key: self.query_one(f"#{field_input_id(key)}", Input).value.strip() for key in FIELDS}
 
-    def set_form_values(self, values: dict[str, str]) -> None:
+    def set_form_values(self, values: dict[str, str], *, keep_typed: bool = False) -> None:
+        typed = self.form_values()
         for key, value in values.items():
+            if keep_typed and typed[key] not in ("", self._filled[key]) and value == self._filled[key]:
+                continue
             self.query_one(f"#{field_input_id(key)}", Input).value = value
+        self._filled = values
+
+    def edits(self, base: dict[str, str]) -> dict[str, str]:
+        """The typed fields that differ from *base*; empty means no edit."""
+        return {key: value for key, value in self.form_values().items() if value and value != base[key]}
 
     def set_kind(self, kind: str) -> None:
         for section in self.query(".changes-kind"):

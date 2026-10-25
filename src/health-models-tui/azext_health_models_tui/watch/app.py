@@ -171,7 +171,7 @@ class HealthWatchApp(App[str | None]):
         self._timeline_frame = 0
         self._timeline_pulse: Any = None
         self._changes_result_by_target: dict[ResourceTarget, str] = {}
-        self._form_draft: tuple[ResourceTarget, dict[str, str]] | None = None  # the draft the form shows, as last filled
+        self._form_target: ResourceTarget | None = None  # the draft the form shows
         self._allow_back_to_models = allow_back_to_models
 
     # ── layout ────────────────────────────────────────────────────────
@@ -511,7 +511,6 @@ class HealthWatchApp(App[str | None]):
         target = ResourceTarget(key, "entity", data.entity_name)
         self._draft_store.get_or_create(target, baseline)
         self._prepared_apply_plan = None
-        self.query_one("#changes-pane", ChangesPane).set_plan("")
         self._set_workspace_tab("changes")
         self._render_changes()
 
@@ -604,7 +603,8 @@ class HealthWatchApp(App[str | None]):
         if input_id in {field_input_id(key) for key in FIELDS}:
             self._prepared_apply_plan = None
             pane = self.query_one("#changes-pane", ChangesPane)
-            pane.set_plan("Prepared apply plan invalidated by pending field edits.")
+            pane.set_plan("")
+            pane.set_summary("Prepared apply plan invalidated by pending field edits.")
 
     def _run_verification(self, ctx: SignalPanelContext) -> None:
         panel = self.query_one("#signal-panel", SignalPanel)
@@ -707,15 +707,9 @@ class HealthWatchApp(App[str | None]):
         except NoMatches:
             return False
         target = self._draft_store.active_target()
-        if target is None:
-            values = pane.form_values()
-            return any(bool(value.strip()) for value in values.values())
-        draft = self._draft_store.get(target)
-        if draft is None:
-            return False
-        current = self._draft_form_values(draft.edited)
+        draft = self._draft_store.get(target) if target is not None else None
         # Empty means no edit, as in Update draft, so an emptied field never blocks Prepare.
-        return any(value and value != current[key] for key, value in pane.form_values().items())
+        return bool(pane.edits(self._draft_form_values(draft.edited if draft else {})))
 
     @staticmethod
     def _draft_form_values(edited: Mapping[str, Any]) -> dict[str, str]:
@@ -1180,7 +1174,7 @@ class HealthWatchApp(App[str | None]):
             pane.set_plan("")
             pane.set_details("")
             # A discarded draft must not leave values the quit guard reads as pending edits.
-            self._form_draft = None
+            self._form_target = None
             pane.set_form_values(dict.fromkeys(FIELDS, ""))
             return
         def label(snapshot: DraftSnapshot) -> str:
@@ -1205,20 +1199,17 @@ class HealthWatchApp(App[str | None]):
                 for entity in previous.forest.entities.values():
                     consumers += sum(1 for signal in entity.signals if signal.definition_name == target.name)
             summary += f" (consumers: {consumers})"
+        plan = self._prepared_apply_plan
+        if plan is not None and (plan.target != target or plan.revision != draft.revision):
+            self._prepared_apply_plan = None
+            summary += "\nPrepared apply plan invalidated: the draft changed since Prepare."
+        if self._prepared_apply_plan is None:
+            pane.set_plan("")
         pane.set_summary(summary)
         pane.set_result(self._changes_result_by_target.get(target, ""))
-        current = self._draft_form_values(draft.edited)
-        if self._form_draft is not None and self._form_draft[0] == target:
-            # The same draft again: a field typed into since the last fill stays, unless the draft changed that field.
-            typed, filled = pane.form_values(), self._form_draft[1]
-            pane.set_form_values({
-                key: value for key, value in current.items()
-                if not typed[key] or typed[key] == filled[key] or value != filled[key]
-            })
-        else:
-            pane.set_plan("")  # a plan or note about another draft
-            pane.set_form_values(current)
-        self._form_draft = (target, current)
+        # The same draft again: a field typed into since the last fill stays, unless the draft changed that field.
+        pane.set_form_values(self._draft_form_values(draft.edited), keep_typed=self._form_target == target)
+        self._form_target = target
         pane.set_details(
             ("Unsaved changes" if self._draft_store.has_unsaved_changes(target) else "No unsaved changes")
             + ("" if draft.tested_revision is None
@@ -1238,14 +1229,11 @@ class HealthWatchApp(App[str | None]):
 
         try:
             if button_id == "changes-review":
-                values = pane.form_values()
-                current = self._draft_form_values(draft.edited)
                 updates: list[tuple[str, Any]] = []
                 allowed_impacts = {"Standard", "Limited", "Suppressed"}
-                mapping = {key: path for key, (path, kind) in FIELDS.items() if kind == target.kind}
-                for key, path in mapping.items():
-                    value = values.get(key, "")
-                    if not value or value == current[key]:
+                for key, value in pane.edits(self._draft_form_values(draft.edited)).items():
+                    path, kind = FIELDS[key]
+                    if kind != target.kind:
                         continue
                     if key == "impact" and value not in allowed_impacts:
                         pane.set_summary("Impact must be one of: Standard, Limited, Suppressed.")
@@ -1267,10 +1255,8 @@ class HealthWatchApp(App[str | None]):
                     return
                 for path, value in updates:
                     self._draft_store.update_field(target, path, value)
-                if self._prepared_apply_plan is not None:
-                    pane.set_plan("Prepared apply plan invalidated by field updates.")
-                self._prepared_apply_plan = None
                 self._changes_result_by_target[target] = f"Draft updated ({len(updates)} field(s))."
+                self._form_target = None  # refill from the draft, so "99.00" shows as the stored "99.0", not as an edit
                 self._render_changes()
                 return
             if button_id in {"changes-save", "changes-export"}:
@@ -1280,8 +1266,6 @@ class HealthWatchApp(App[str | None]):
                     return
                 path = Path(raw_path).expanduser()
                 self._draft_store.export_to_json(target, path, overwrite=(button_id == "changes-export"))
-                if self._prepared_apply_plan is None:
-                    pane.set_plan("")  # an earlier "plan invalidated" note is stale once the draft is saved
                 self._changes_result_by_target[target] = f"Saved draft to {path}"
                 self._render_changes()
                 return
@@ -1311,14 +1295,12 @@ class HealthWatchApp(App[str | None]):
                     confirm_overwrite_unsaved=(pane.restore_confirmation() == target.name),
                 )
                 self._prepared_apply_plan = None
-                pane.set_plan("")
                 self._changes_result_by_target[target] = f"Restored draft from {path}"
                 self._render_changes()
                 return
             if button_id == "changes-discard":
                 self._draft_store.discard(target)
                 self._prepared_apply_plan = None
-                pane.set_plan("")
                 self._changes_result_by_target.pop(target, None)
                 self._render_changes()
                 self.notify(f"Discarded the draft for {target.name}.")
