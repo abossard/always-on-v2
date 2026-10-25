@@ -30,19 +30,8 @@ have been run for the subscription you want to browse.
 
 ## Update
 
-Builds between releases share one version number, so `az extension add` (with or
-without `--upgrade`) only prints `already installed` and keeps the old files.
-Remove the extension first, then add a freshly built wheel:
-
-```bash
-TMP="$(mktemp -d)"
-git clone --depth 1 https://github.com/abossard/always-on-v2.git "$TMP/always-on-v2"
-(cd "$TMP/always-on-v2/src/health-models-tui" && uv build --wheel)
-az extension remove --name health-models-tui
-az extension add --source "$TMP"/always-on-v2/src/health-models-tui/dist/health_models_tui-*.whl --yes
-git -C "$TMP/always-on-v2" log -1 --format='Installed commit %h (%cs)'
-rm -rf "$TMP"
-```
+Builds between releases share one version number, so `az extension add --upgrade`
+only prints `already installed`. Uninstall, then run the Install block again.
 
 ## Uninstall
 
@@ -64,9 +53,8 @@ az extension add --source dist/health_models_tui-*.whl --yes
 az health-models-tui --help
 ```
 
-Keep running usage commands in the same shell session (or re-export
-`AZURE_EXTENSION_DIR`) so bare `az health-models-tui ...` calls keep using the
-isolated extension path. Rerunning the block installs a rebuilt wheel into a new isolated directory.
+Run the usage commands in the same shell, where `AZURE_EXTENSION_DIR` is set.
+Rerunning the block installs the rebuilt wheel into a new directory.
 
 ## Usage
 
@@ -94,8 +82,7 @@ Without a TTY (or with `--plain`) the command prints plain text instead of the U
 ## Timeline
 
 Rows fill in as their history arrives; rows still loading show a moving bar and the
-progress line counts them. Color shows the worst health state
-in each time slot. For a selected signal, bar height shows its value. `·` marks
+progress line counts them. Color shows the worst health state in each time slot. For a selected signal, bar height shows its value. `·` marks
 time without data. Use Prev/Next to step through events, **Open tree at time**
 to see the model at that time (the status bar then says **Snapshot**), and
 **Compare** to diff two times.
