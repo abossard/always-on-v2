@@ -231,13 +231,15 @@ class ApplyCoordinator:
             write_status = exc.status_code
         except Exception as exc:  # noqa: BLE001
             write_error = f"{type(exc).__name__}: {exc}"
+        rejected = write_error is not None and write_status in (400, 403, 409)
 
         try:
             read_back_raw = self._read_target(target)
         except Exception as exc:  # noqa: BLE001
             return _written(
-                ApplyOutcomeKind.UNKNOWN, target,
-                f"Write attempted, outcome unknown. Read-back failed: {type(exc).__name__}: {exc}",
+                ApplyOutcomeKind.REJECTED if rejected else ApplyOutcomeKind.UNKNOWN, target,
+                ("Service rejected write. " if rejected else "Write attempted, outcome unknown. ")
+                + f"Read-back failed: {type(exc).__name__}: {exc}",
                 recomputed_changes, None, write_error,
             )
         read_back = normalize_known_readonly_fields(read_back_raw)
@@ -254,7 +256,7 @@ class ApplyCoordinator:
                 else "Apply succeeded and read-back matches desired state.",
                 recomputed_changes, read_back_raw, write_error,
             )
-        if write_error and write_status in (400, 403, 409):
+        if rejected:
             return _written(
                 ApplyOutcomeKind.REJECTED, target, "Service rejected write and read-back differs from desired state.",
                 unconfirmed, read_back_raw, write_error,

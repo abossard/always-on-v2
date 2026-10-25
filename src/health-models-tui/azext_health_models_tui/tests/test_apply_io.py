@@ -331,10 +331,15 @@ def test_apply_outcome_for_timeout_follows_the_read_back(
 
 
 @pytest.mark.parametrize(
-    "write_error", [None, AuthenticationError("forbidden", status_code=403)], ids=["write-ok", "write-403"],
+    ("write_error", "outcome"),
+    [
+        (None, ApplyOutcomeKind.UNKNOWN),
+        (AuthenticationError("forbidden", status_code=403), ApplyOutcomeKind.REJECTED),  # the service said no
+    ],
+    ids=["write-ok", "write-403"],
 )
-def test_apply_returns_unknown_when_readback_fails_after_write(
-    client: MagicMock, write_error: AuthenticationError | None,
+def test_apply_outcome_when_readback_fails_after_write(
+    client: MagicMock, write_error: AuthenticationError | None, outcome: ApplyOutcomeKind,
 ) -> None:
     baseline = {"name": "res-1", "properties": {"displayName": "before"}}
     edited = {"name": "res-1", "properties": {"displayName": "after"}}
@@ -355,7 +360,7 @@ def test_apply_returns_unknown_when_readback_fails_after_write(
         confirmation_name="res-1",
     )
 
-    assert result.outcome is ApplyOutcomeKind.UNKNOWN
+    assert result.outcome is outcome
     assert result.attempted_write is True
     assert result.read_back is None
     assert "Read-back failed: RuntimeError: read-back unavailable" in result.message

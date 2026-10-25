@@ -1507,6 +1507,7 @@ async def test_prepare_review_scroll_and_actions_are_reachable_in_compact_layout
         assert _fully_visible(app.query_one("#changes-apply-confirm"), width, height)
         assert _fully_visible(app.query_one("#changes-apply"), width, height)
         review = app.query_one("#changes-review-scroll")
+        assert review.size.height == (4 if height < 30 else height * 3 // 10)  # grows with the screen above the short layout
         review.scroll_end(animate=False)
         await pilot.pause()
         assert review.scroll_y > 0
