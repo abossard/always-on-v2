@@ -258,6 +258,8 @@ async def test_query_editor_shows_title_query_and_buttons_and_reaches_results(ma
     async with app.run_test(size=size) as pilot:
         app.push_screen(editor)
         await _wait_loaded(editor, pilot)
+        editor.query_one("#qe-meta").update("\n".join(f"Row {index}: value" for index in range(30)))  # a long real config
+        await pilot.pause()
         root = editor.query_one("#query-editor-root")
         query = editor.query_one("#qe-query")
         assert query.content_region.height > 0 and root.content_region.contains_region(query.region)

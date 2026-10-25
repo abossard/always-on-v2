@@ -30,8 +30,7 @@ Written 2026-10-25 for the next agent working on `az health-models-tui`.
    - Prepare with two or more shared consumers was only tested with unit tests, not live.
    - Log Analytics verification reads the last row of the first table and sends `timeGrain` as the query timespan. Both match the SDK docs but are not confirmed against how the service evaluates.
    - An Azure metric signal without `timeGrain` is queried without an `interval`, so the API picks the grain.
-   - In the query editor, editing a query, testing it, reverting it and testing again leaves a "query tested" draft, so quit still asks.
-   - At 80x24 the query editor's results box shows 3 lines; mouse-wheel scrolling switches between the editor and the box.
+   - Rare slow quit (seen once in six live quits): the process waited about 5 minutes for a background network read to time out before exiting. Python joins the poller's worker threads at exit; a shorter read timeout or not joining them would fix it.
 
 ## Decided, do not reopen without the user
 
