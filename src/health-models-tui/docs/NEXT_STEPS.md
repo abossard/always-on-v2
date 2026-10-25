@@ -28,7 +28,8 @@ Written 2026-10-25 for the next agent working on `az health-models-tui`.
    - A snapshot covers the rows that were visible when the timeline was requested. A nested model expanded after that shows `[unloaded]` until the timeline refreshes.
    - The 256-character name limit counts Python code points. How the API counts emoji is unknown.
    - Prepare with two or more shared consumers was only tested with unit tests, not live.
-   - Log Analytics signals cannot be verified (shown as Unknown). The user chose to leave this for later (2026-10-25).
+   - Log Analytics verification reads the last row of the first table and sends `timeGrain` as the query timespan. Both match the SDK docs but are not confirmed against how the service evaluates.
+   - An Azure metric signal without `timeGrain` is queried without an `interval`, so the API picks the grain.
 
 ## Decided, do not reopen without the user
 

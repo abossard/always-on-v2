@@ -10,7 +10,8 @@ import pytest
 from textual.widgets import Input, Static, TextArea
 from textual.widgets._tree import TreeNode
 
-from azext_health_models_tui.watch.app import HealthWatchApp
+from azext_health_models_tui.domain.drafts import ResourceTarget
+from azext_health_models_tui.watch.app import HealthWatchApp, QuitDraftsDialog
 from azext_health_models_tui.watch.entity_drawer import EntityDrawer
 from azext_health_models_tui.watch.health_tree import EntityData, HealthTree
 from azext_health_models_tui.watch.query_editor import QueryEditor
@@ -497,6 +498,34 @@ async def test_q_quits_app(make_app, healthy_client):
 
     # Reaching this point without hanging means q triggered shutdown.
     assert app.return_code == 0 or app.return_code is None
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(("key", "first_node"), [("v", _first_signal_node), ("d", _first_entity_node)])
+async def test_quit_review_drafts_closes_panels_and_lists_the_drafts(
+    monkeypatch, make_app, healthy_client, key, first_node,
+):
+    _stub_executor_and_history(monkeypatch)
+    app = make_app(healthy_client)
+    target = ResourceTarget(app._poller.root, "entity", "EntityA")
+    app._draft_store.get_or_create(target, {"name": "EntityA", "properties": {"displayName": "EntityA"}})
+    app._draft_store.update_field(target, "properties.displayName", "Unsaved")
+    async with app.run_test(size=(120, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        tree = app.query_one("#health-tree", HealthTree)
+        _focus_node(tree, first_node(tree))
+        tree.focus()
+        await pilot.press(key, "q")
+        await pilot.pause()
+        assert isinstance(app.screen, QuitDraftsDialog)
+
+        await pilot.click("#quit-save")
+        await pilot.pause()
+
+        assert _static_text(app.query_one("#changes-drafts", Static)) == "Drafts (1): Unsaved (entity) unsaved"
+        assert app.query_one("#signal-panel", SignalPanel).display is False
+        assert not app.query_one("#entity-drawer", EntityDrawer).is_visible
 
 
 # ── 13. r forces refresh / resets countdown ──────────────────────────

@@ -698,7 +698,8 @@ class HealthWatchApp(App[str | None]):
             self.exit(result)
             return
         if choice == "save":
-            self._set_workspace_tab("changes")
+            self.action_close_panel()
+            self.action_show_changes()
             pane = self.query_one("#changes-pane", ChangesPane)
             if self._changes_form_has_pending_edits():
                 pane.set_summary("Review the drafts: apply pending form edits with Update draft, then Save each to a file.")

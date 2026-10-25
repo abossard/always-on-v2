@@ -32,6 +32,7 @@ from azext_health_models_tui.watch.query_editor import QueryEditor
 from azext_health_models_tui.watch.search_modal import SearchModal
 from azext_health_models_tui.watch.shortcuts_dialog import ActionsDialog
 from azext_health_models_tui.watch.timeline import BAND_STATES, TimelinePane, node_path_label
+from .test_retained_editor import _make_client as _editor_client, _wait_loaded
 from .test_temporal_monitor import _TemporalClient
 
 
@@ -246,6 +247,27 @@ async def test_query_editor_target_uses_definition_when_instance_query_absent(ma
     assert target is not None
     assert target.kind == "entity"
     assert target.name == entity_name
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("size", [(80, 24), (80, 40), (160, 50)])
+async def test_query_editor_shows_title_query_and_buttons_and_reaches_results(make_app, healthy_client, size) -> None:
+    app = make_app(healthy_client)
+    editor = QueryEditor(_editor_client(), "rg", "hm", "entity", "sig-A")
+    async with app.run_test(size=size) as pilot:
+        app.push_screen(editor)
+        await _wait_loaded(editor, pilot)
+        root = editor.query_one("#query-editor-root")
+        query = editor.query_one("#qe-query")
+        assert query.content_region.height > 0 and root.content_region.contains_region(query.region)
+        rendered_text = "".join(ET.fromstring(app.export_screenshot()).itertext()).replace("\xa0", " ")
+        for label in (str(editor.query_one("#qe-title").render()), "Test Query (Ctrl+R)", "Close (Esc)"):
+            assert label in rendered_text
+
+        results = editor.query_one("#qe-results-scroll")
+        root.scroll_to_widget(results, animate=False)
+        await pilot.pause()
+        assert results.content_region.height > 0 and root.content_region.contains_region(results.region)
 
 
 @pytest.mark.anyio

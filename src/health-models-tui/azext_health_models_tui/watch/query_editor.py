@@ -10,7 +10,7 @@ from rich.text import Text
 from textual import on
 from textual.app import ComposeResult
 from textual.binding import Binding
-from textual.containers import Horizontal, Vertical, VerticalScroll
+from textual.containers import Horizontal, VerticalScroll
 from textual.screen import ModalScreen
 from textual.widgets import Button, Label, Static, TextArea
 
@@ -77,7 +77,7 @@ class QueryEditor(ModalScreen[None]):
     # ── layout ────────────────────────────────────────────────────────
 
     def compose(self) -> ComposeResult:
-        with Vertical(id="query-editor-root"):
+        with VerticalScroll(id="query-editor-root"):
             yield Label("Loading signal configuration…", id="qe-title")
             with VerticalScroll(id="qe-meta-scroll"):
                 yield Static("", id="qe-meta")
@@ -143,6 +143,7 @@ class QueryEditor(ModalScreen[None]):
             "data_source": config.data_source,
             "query_text": config.query_text,
             "time_grain": config.time_grain,
+            "value_column_name": config.value_column_name,
             "data_unit": config.data_unit,
             "metric_namespace": config.metric_namespace,
             "metric_name": config.metric_name,
@@ -203,6 +204,8 @@ class QueryEditor(ModalScreen[None]):
             _add_row(meta, "Metric namespace", c.get("metric_namespace", "") or "—")
             _add_row(meta, "Metric name", c.get("metric_name", "") or "—")
             _add_row(meta, "Aggregation", c.get("aggregation", "") or "—")
+        if kind == "LogAnalyticsQuery":
+            _add_row(meta, "Value column", c.get("value_column_name", "") or "first column")
         _add_row(meta, "Degraded rule", _fmt_rule(c.get("degraded_rule")))
         _add_row(meta, "Unhealthy rule", _fmt_rule(c.get("unhealthy_rule")))
         if c.get("signal_def_name"):
@@ -219,7 +222,7 @@ class QueryEditor(ModalScreen[None]):
         return query if isinstance(query, str) else fallback_query
 
     def _draft(self, *, create: bool) -> tuple[ResourceTarget, str, DraftSnapshot] | None:
-        """This editor's draft and query path; viewing never creates one, only a change or a test does."""
+        """This editor's draft and query path; viewing or testing never creates one, only a change does."""
         if self._draft_store is None:
             return None
         target, query_path = self._active_draft_target_and_path()
@@ -313,14 +316,10 @@ class QueryEditor(ModalScreen[None]):
 
         edited_query = self.query_one("#qe-query", TextArea).text
         original = self._config.get("query_text", "")
-        found = self._draft(create=True)
-        active_target: ResourceTarget | None = None
-        revision_for_result: int | None = None
-        if found is not None:
-            active_target, query_path, draft = found
-            if get_in(draft.edited, parse_field_path(query_path)) != edited_query:
-                draft = self._draft_store.update_field(active_target, query_path, edited_query)
-            revision_for_result = draft.revision
+        self._persist_draft_query()
+        found = self._draft(create=False)
+        active_target = found[0] if found else None
+        revision_for_result = found[2].revision if found else None
 
         try:
             result = await asyncio.to_thread(
@@ -369,7 +368,8 @@ class QueryEditor(ModalScreen[None]):
         query = self.query_one("#qe-query", TextArea).text
         unchanged = query == str(self._config.get("query_text", "") or "")
         found = self._draft(create=not unchanged)
-        if found is not None and get_in(found[2].edited, parse_field_path(found[1])) != query:
+        # A metric signal has no queryText; missing equals the empty editor.
+        if found is not None and (get_in(found[2].edited, parse_field_path(found[1])) or "") != query:
             self._draft_store.update_field(found[0], found[1], query)
 
 

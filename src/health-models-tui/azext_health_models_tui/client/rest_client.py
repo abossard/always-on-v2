@@ -607,7 +607,7 @@ class CloudHealthClient:
             f"&metricnames={urllib.parse.quote(metric_name)}"
             f"&metricNamespace={urllib.parse.quote(metric_namespace)}"
             f"&aggregation={urllib.parse.quote(aggregation)}"
-            f"&interval={urllib.parse.quote(time_grain)}"
+            + (f"&interval={urllib.parse.quote(time_grain)}" if time_grain else "")  # ARM picks one when omitted
         )
         return self._raw_get(url)
 

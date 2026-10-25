@@ -138,29 +138,25 @@ def execute_signal(
             if not workspace_id:
                 raise ValueError(f"Signal group '{config.signal_group}' has no azureMonitorWorkspaceResourceId")
             raw_output = client.query_prometheus(workspace_id, query_text)
-            raw_value, extract_err = _extract_prometheus_value(raw_output)
-            if raw_value is None and extract_err:
-                error = extract_err
+            raw_value, error = _extract_prometheus_value(raw_output)
 
         elif config.signal_kind == "AzureResourceMetric":
             resource_id = config.data_source
             if not resource_id:
                 raise ValueError(f"Signal group '{config.signal_group}' has no azureResourceId")
             raw_output = client.query_azure_metric(
-                resource_id, config.metric_name, config.metric_namespace, config.aggregation, config.time_grain or "PT5M",
+                resource_id, config.metric_name, config.metric_namespace, config.aggregation, config.time_grain,
             )
-            raw_value, extract_err = _extract_azure_metric_value(raw_output)
-            if raw_value is None and extract_err:
-                error = extract_err
+            raw_value, error = _extract_azure_metric_value(raw_output)
 
         elif config.signal_kind == "LogAnalyticsQuery":
             workspace_id = config.data_source
             if not workspace_id:
                 raise ValueError(f"Signal group '{config.signal_group}' has no logAnalyticsWorkspaceResourceId")
             raw_output = client.query_log_analytics(workspace_id, query_text, config.time_grain)
-            raw_value, extract_err = _extract_log_analytics_value(raw_output, config.value_column_name)
-            if raw_value is None and extract_err:
-                error = extract_err
+            raw_value, error = _extract_log_analytics_value(raw_output, config.value_column_name)
+            if raw_value is None and error is None:
+                evaluation_warning = "Log query returned no rows"  # the service's wording; it reports Unknown
 
         else:
             error = f"Unsupported signal kind: {config.signal_kind}"
@@ -175,6 +171,8 @@ def execute_signal(
         error_type = type(exc).__name__
         error_status_code = getattr(exc, "status_code", None)
         error_code = getattr(exc, "code", "")
+    if raw_value is not None and not math.isfinite(raw_value):
+        raw_value, error = None, f"value {raw_value} is not finite"
 
     # 4. Evaluate health (delegate to domain rule objects)
     health_state = HealthState.UNKNOWN
@@ -296,29 +294,25 @@ def _extract_azure_metric_value(data: dict[str, Any]) -> tuple[float | None, str
 def _extract_log_analytics_value(data: dict[str, Any], column: str) -> tuple[float | None, str | None]:
     """Read *column* from the last row of the first table; unnamed means the first column, as the service does.
 
-    Returns ``(value, error_message)``. See :func:`_extract_prometheus_value`.
+    Returns ``(value, error_message)``, or ``(None, None)`` when the query returned no rows.
     """
     try:
-        if data.get("error"):
-            return None, f"Log Analytics query error: {data['error']}"
+        if error := data.get("error") or data.get("Error"):
+            return None, f"Log Analytics query error: {error}"
         tables = data.get("Tables") or []
         if not tables:
             return None, "no tables returned by Log Analytics query"
         names = [c.get("ColumnName") for c in tables[0].get("Columns") or []]
         rows = tables[0].get("Rows") or []
         if not rows:
-            return None, "no rows returned by Log Analytics query"
+            return None, None
         name = column or (names[0] if names else "")
         if name not in names:
             return None, f"column '{name}' not in Log Analytics result columns {names}"
         raw = rows[-1][names.index(name)]
-        try:
-            value = float(raw)
-        except (TypeError, ValueError):
+        if isinstance(raw, bool) or not isinstance(raw, (int, float)):
             return None, f"column '{name}' value {raw!r} is not numeric"
-        if not math.isfinite(value):
-            return None, f"column '{name}' value {raw!r} is not finite"
-        return value, None
+        return float(raw), None
     except (TypeError, IndexError, AttributeError) as exc:
         _log.debug("Failed to extract Log Analytics value: %s: %s", type(exc).__name__, exc)
         return None, f"malformed Log Analytics response ({type(exc).__name__})"

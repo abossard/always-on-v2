@@ -12,6 +12,7 @@ The test must run after conftest.py mocks azure.cli.core.
 from __future__ import annotations
 
 import json
+import math
 import subprocess
 import sys
 import threading
@@ -957,76 +958,6 @@ def test_execute_signal_structured_error_fields():
     assert result.get("errorCode") == "ResourceNotFound"
 
 
-def test_execute_signal_no_error_fields_on_success():
-    """execute_signal result has no error fields on success."""
-    from azext_health_models_tui.client.query_executor import execute_signal
-    from unittest.mock import MagicMock
-
-    client = MagicMock()
-    client.get_entity.return_value = {
-        "name": "entity-1",
-        "properties": {
-            "signalGroups": {
-                "azureMonitorWorkspace": {
-                    "azureMonitorWorkspaceResourceId": "/sub/x/amw",
-                    "signals": [{
-                        "name": "sig-1",
-                        "signalKind": "PrometheusMetricsQuery",
-                        "queryText": "rate(x[5m])",
-                        "timeGrain": "PT1M",
-                    }]
-                }
-            }
-        }
-    }
-    client.query_prometheus.return_value = {
-        "status": "success",
-        "data": {"resultType": "vector", "result": [{"value": [1234567890, "42.5"]}]}
-    }
-
-    result = execute_signal(client, "rg", "model", "entity-1", "sig-1")
-
-    assert result.get("error") in ("", None)
-    assert result.get("errorType") is None
-    assert result.get("errorStatusCode") is None
-
-
-def test_execute_signal_azure_metric_success_path():
-    from azext_health_models_tui.client.query_executor import execute_signal
-
-    client = MagicMock()
-    client.get_entity.return_value = {
-        "name": "entity-1",
-        "properties": {
-            "signalGroups": {
-                "azureResource": {
-                    "azureResourceId": "/subscriptions/sub/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm1",
-                    "signals": [{
-                        "name": "sig-1",
-                        "signalKind": "AzureResourceMetric",
-                        "metricNamespace": "Microsoft.Compute/virtualMachines",
-                        "metricName": "Percentage CPU",
-                        "aggregationType": "Average",
-                        "timeGrain": "PT1M",
-                        "evaluationRules": {},
-                    }],
-                }
-            }
-        },
-    }
-    client.query_azure_metric.return_value = {
-        "value": [{
-            "timeseries": [{"data": [{"average": 12.5}]}],
-        }],
-    }
-
-    result = execute_signal(client, "rg", "model", "entity-1", "sig-1")
-
-    assert result["rawValue"] == 12.5
-    assert result["error"] in ("", None)
-    assert result["healthState"] == "Healthy"
-
-
 @pytest.mark.parametrize(
     "evaluation_rules",
     [
@@ -1193,6 +1124,23 @@ def test_metric_query_http_failures_become_typed_errors(monkeypatch, status: int
     assert type(raised.value).__name__ == expected
 
 
+@pytest.mark.parametrize(("time_grain", "interval"), [("PT5M", "&interval=PT5M"), ("", None)])
+def test_query_azure_metric_sends_the_interval_only_when_set(time_grain: str, interval: str | None) -> None:
+    from azext_health_models_tui.client.rest_client import CloudHealthClient
+
+    client = object.__new__(CloudHealthClient)
+    client.arm_endpoint = "https://management.azure.com"
+    urls: list[str] = []
+    client._raw_get = lambda url, **_kw: urls.append(url) or {}  # type: ignore[method-assign]
+
+    client.query_azure_metric(
+        "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg/providers/Microsoft.Web/sites/a",
+        "CpuTime", "Microsoft.Web/sites", "Average", time_grain,
+    )
+
+    assert (interval in urls[0]) if interval else ("interval=" not in urls[0])
+
+
 _LA_WORKSPACE = (
     "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg"
     "/providers/Microsoft.OperationalInsights/workspaces/ws"
@@ -1244,16 +1192,17 @@ def test_query_log_analytics_error_payload_becomes_typed_error(status: int, code
 @pytest.mark.parametrize(
     ("payload", "column", "expected_value", "expected_error"),
     [
-        pytest.param(_la_table(["TimeGenerated", "Value"], [["t1", 1], ["t2", 3]]), "Value", 3.0, None, id="named-column-last-row"),
+        pytest.param(_la_table(["TimeGenerated", "Value"], [["t1", 1], ["t2", 3.5]]), "Value", 3.5, None, id="named-column-last-row"),
         pytest.param(_la_table(["value", "s"], [[20, "x"]]), "", 20.0, None, id="first-column-when-unnamed"),
-        pytest.param(_la_table(["Value"], []), "Value", None, "no rows", id="empty-table"),
+        pytest.param(_la_table(["Value"], []), "Value", None, None, id="empty-table"),
         pytest.param({"Tables": []}, "Value", None, "no tables", id="no-tables"),
         pytest.param(_la_table(["Other"], [[1]]), "Value", None, "column 'Value' not in", id="missing-column"),
-        pytest.param(_la_table(["s"], [["x"]]), "", None, "is not numeric", id="non-numeric"),
+        pytest.param(_la_table(["s"], [["x"]]), "", None, "column 's' value 'x' is not numeric", id="non-numeric"),
+        pytest.param(_la_table(["Value"], [["20"]]), "Value", None, "column 'Value' value '20' is not numeric", id="numeric-string"),
+        pytest.param(_la_table(["Value"], [[True]]), "Value", None, "column 'Value' value True is not numeric", id="bool"),
         pytest.param(_la_table(["Value"], [[None]]), "Value", None, "is not numeric", id="null"),
-        pytest.param(_la_table(["Value"], [["NaN"]]), "Value", None, "is not finite", id="nan"),
-        pytest.param(_la_table(["Value"], [["Infinity"]]), "Value", None, "is not finite", id="infinity"),
         pytest.param({"error": {"code": "PartialError", "message": "timed out"}}, "Value", None, "PartialError", id="error-payload"),
+        pytest.param({"Error": {"code": "PartialError", "message": "timed out"}}, "Value", None, "PartialError", id="pascal-case-error-payload"),
     ],
 )
 def test_log_analytics_value_extraction(
@@ -1280,43 +1229,106 @@ _LESS_THAN = {
 }
 
 
-@pytest.mark.parametrize("owner", ["instance", "definition"])
-@pytest.mark.parametrize(
-    ("rules", "rows", "expected_value", "expected_health"),
-    [
-        (_GREATER_THAN, [[20]], 20.0, "Unhealthy"),
-        (_GREATER_THAN, [[5]], 5.0, "Degraded"),
-        (_GREATER_THAN, [[0]], 0.0, "Healthy"),
-        (_LESS_THAN, [[50]], 50.0, "Unhealthy"),
-        (_LESS_THAN, [[80]], 80.0, "Degraded"),
-        (_LESS_THAN, [[100]], 100.0, "Healthy"),
-        (_LESS_THAN, [], None, "Error"),
-    ],
-)
-def test_execute_signal_log_analytics_evaluates_rules(
-    owner: str, rules: dict[str, Any], rows: list[list[Any]], expected_value: float | None, expected_health: str,
-) -> None:
+# kind: (data source field, signal fields, client method, its arguments after the data source, payload of the values)
+_SIGNAL_KINDS: dict[str, tuple[str, dict[str, Any], str, tuple[str, ...], Any]] = {
+    "PrometheusMetricsQuery": (
+        "azureMonitorWorkspaceResourceId", {"queryText": "rate(x[5m])", "timeGrain": "PT1M"},
+        "query_prometheus", ("rate(x[5m])",),
+        lambda values: {"status": "success", "data": {"resultType": "vector", "result": [{"value": [1234567890, str(v)]} for v in values]}},
+    ),
+    "AzureResourceMetric": (
+        "azureResourceId",
+        {"metricNamespace": "Microsoft.Compute/virtualMachines", "metricName": "Percentage CPU", "aggregationType": "Average", "timeGrain": "PT1M"},
+        "query_azure_metric", ("Percentage CPU", "Microsoft.Compute/virtualMachines", "Average", "PT1M"),
+        lambda values: {"value": [{"timeseries": [{"data": [{"average": v} for v in values]}]}]},
+    ),
+    "LogAnalyticsQuery": (
+        "logAnalyticsWorkspaceResourceId", {"queryText": "T | summarize value = count()", "timeGrain": "PT30M", "valueColumnName": "value"},
+        "query_log_analytics", ("T | summarize value = count()", "PT30M"),
+        lambda values: _la_table(["Count", "value"], [[999, v] for v in values]),
+    ),
+}
+
+
+def _execute_signal_of_kind(kind: str, owner: str, rules: dict[str, Any], values: list[float]) -> dict[str, Any]:
     from azext_health_models_tui.client.query_executor import execute_signal
 
-    fields = {"queryText": "T | summarize value = count()", "timeGrain": "PT30M", "valueColumnName": "value", "evaluationRules": rules}
-    signal = {"name": "sig-1", "signalKind": "LogAnalyticsQuery"}
+    source_field, fields, method, arguments, payload = _SIGNAL_KINDS[kind]
+    fields = {**fields, "evaluationRules": rules}
+    signal = {"name": "sig-1", "signalKind": kind}
     client = MagicMock()
     if owner == "instance":
         signal.update(fields)
     else:
         signal["signalDefinitionName"] = "def-1"
-        client.get_signal_definition.return_value = {"properties": {"signalKind": "LogAnalyticsQuery", **fields}}
+        client.get_signal_definition.return_value = {"properties": {"signalKind": kind, **fields}}
     client.get_entity.return_value = {
         "name": "entity-1",
-        "properties": {"signalGroups": {"azureLogAnalytics": {"logAnalyticsWorkspaceResourceId": _LA_WORKSPACE, "signals": [signal]}}},
+        "properties": {"signalGroups": {"group": {source_field: _LA_WORKSPACE, "signals": [signal]}}},
     }
-    client.query_log_analytics.return_value = _la_table(["Count", "value"], [[999, *row] for row in rows])
+    getattr(client, method).return_value = payload(values)
 
     result = execute_signal(client, "rg", "model", "entity-1", "sig-1")
 
-    client.query_log_analytics.assert_called_once_with(_LA_WORKSPACE, "T | summarize value = count()", "PT30M")
+    getattr(client, method).assert_called_once_with(_LA_WORKSPACE, *arguments)
+    return result
+
+
+@pytest.mark.parametrize("kind", list(_SIGNAL_KINDS))
+@pytest.mark.parametrize("owner", ["instance", "definition"])
+@pytest.mark.parametrize(
+    ("rules", "values", "expected_value", "expected_health"),
+    [
+        (_GREATER_THAN, [20], 20.0, "Unhealthy"),
+        (_GREATER_THAN, [5], 5.0, "Degraded"),
+        (_GREATER_THAN, [0], 0.0, "Healthy"),
+        (_LESS_THAN, [50], 50.0, "Unhealthy"),
+        (_LESS_THAN, [80], 80.0, "Degraded"),
+        (_LESS_THAN, [100], 100.0, "Healthy"),
+        (_LESS_THAN, [math.nan], None, "Error"),
+        (_GREATER_THAN, [math.inf], None, "Error"),
+    ],
+)
+def test_execute_signal_evaluates_rules(
+    kind: str, owner: str, rules: dict[str, Any], values: list[float], expected_value: float | None, expected_health: str,
+) -> None:
+    result = _execute_signal_of_kind(kind, owner, rules, values)
+
     assert (result["rawValue"], result["healthState"]) == (expected_value, expected_health)
     assert (result["error"] is None) == (expected_value is not None)
+
+
+@pytest.mark.parametrize(
+    ("kind", "expected_health", "expected_message"),
+    [
+        ("PrometheusMetricsQuery", "Error", "no datapoints"),
+        ("AzureResourceMetric", "Error", "no data points"),
+        ("LogAnalyticsQuery", "Unknown", "Log query returned no rows"),
+    ],
+)
+def test_execute_signal_empty_result(kind: str, expected_health: str, expected_message: str) -> None:
+    result = _execute_signal_of_kind(kind, "instance", _LESS_THAN, [])
+
+    assert (result["rawValue"], result["healthState"]) == (None, expected_health)
+    assert expected_message in (result["error"] or result["evaluationWarning"])
+
+
+@pytest.mark.parametrize("time_grain", ["PT1M", ""])
+def test_execute_signal_azure_metric_requests_the_time_grain_the_editor_shows(time_grain: str) -> None:
+    from azext_health_models_tui.client.query_executor import execute_signal
+
+    client = MagicMock()
+    client.get_entity.return_value = {
+        "name": "entity-1",
+        "properties": {"signalGroups": {"group": {"azureResourceId": _LA_WORKSPACE, "signals": [
+            {"name": "sig-1", "signalKind": "AzureResourceMetric", "metricName": "Percentage CPU", "timeGrain": time_grain},
+        ]}}},
+    }
+    client.query_azure_metric.return_value = {"value": []}
+
+    execute_signal(client, "rg", "model", "entity-1", "sig-1")
+
+    assert client.query_azure_metric.call_args.args[-1] == time_grain
 
 
 def test_execute_signal_query_override_is_per_invocation_without_mutation():

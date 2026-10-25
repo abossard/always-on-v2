@@ -148,20 +148,46 @@ async def test_query_editor_default_constructor_path_unchanged() -> None:
 
 
 @pytest.mark.anyio
-@pytest.mark.parametrize(("typed", "creates_draft"), [(None, False), ("rate(changed[5m])", True)])
-async def test_query_editor_creates_a_draft_only_when_the_query_changes(typed, creates_draft) -> None:
-    store = DraftStore()
-    editor = QueryEditor(_make_client(), "rg", "hm", "entity", "sig-A", draft_store=store, draft_target=_target())
-    app = _EditorHost(editor)
-    async with app.run_test(size=(120, 40)) as pilot:
+@pytest.mark.parametrize(("value_column", "shown"), [("", "first column"), ("count_", "count_")])
+async def test_query_editor_shows_the_log_analytics_value_column(value_column, shown) -> None:
+    client = _make_client()
+    signal = client.get_entity.return_value["properties"]["signalGroups"]["default"]["signals"][0]
+    signal.update(signalKind="LogAnalyticsQuery", valueColumnName=value_column)
+    editor = QueryEditor(client, "rg", "hm", "entity", "sig-A")
+    async with _EditorHost(editor).run_test(size=(120, 40)) as pilot:
         await _wait_loaded(editor, pilot)
-        if typed is not None:
-            editor.query_one("#qe-query", TextArea).text = typed
-            await pilot.pause()
-        await pilot.press("escape")
-        await pilot.pause()
-    assert (store.get(_definition_target()) is not None) is creates_draft
-    assert (store.active_target() == _definition_target()) is creates_draft
+        meta = str(editor.query_one("#qe-meta", Static).render())
+    assert f"{'Value column':<18}{shown}\n" in meta
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize("keys", [("escape",), ("ctrl+r", "escape")])
+@pytest.mark.parametrize(
+    ("query_text", "typed", "drafts"),
+    [
+        ("rate(original[5m])", None, ()),
+        ("rate(original[5m])", "rate(changed[5m])", (_definition_target(),)),
+        ("", None, ()),  # a metric signal has no query text
+        ("", "rate(changed[5m])", (_target(),)),
+    ],
+)
+async def test_query_editor_creates_a_draft_only_when_the_query_changes(keys, query_text, typed, drafts) -> None:
+    store = DraftStore()
+    editor = QueryEditor(_make_client(query_text), "rg", "hm", "entity", "sig-A", draft_store=store, draft_target=_target())
+    app = _EditorHost(editor)
+    result = {"healthState": "Healthy", "rawValue": 1.0, "durationMs": 1, "timestamp": "now"}
+    with patch("azext_health_models_tui.watch.query_editor.execute_signal", return_value=result):
+        async with app.run_test(size=(120, 40)) as pilot:
+            await _wait_loaded(editor, pilot)
+            if typed is not None:
+                editor.query_one("#qe-query", TextArea).text = typed
+                await pilot.pause()
+            for key in keys:
+                await pilot.press(key)
+                await app.workers.wait_for_complete()
+                await pilot.pause()
+    assert store.list_targets() == drafts
+    assert store.active_target() == (drafts[0] if drafts else None)
 
 
 @pytest.mark.anyio
@@ -177,6 +203,8 @@ async def test_query_editor_edit_during_a_test_drops_the_stale_result() -> None:
     with patch("azext_health_models_tui.watch.query_editor.execute_signal", side_effect=fake_execute):
         async with app.run_test(size=(120, 40)) as pilot:
             await _wait_loaded(editor, pilot)
+            editor.query_one("#qe-query", TextArea).text = "typed before the test"
+            await pilot.pause()
             await pilot.press("ctrl+r")
             await app.workers.wait_for_complete()
             await pilot.pause()
