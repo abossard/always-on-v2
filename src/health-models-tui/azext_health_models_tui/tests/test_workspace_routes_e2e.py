@@ -1432,8 +1432,8 @@ async def test_a_long_result_message_leaves_a_form_field_visible_at_80x24(make_a
     target = ResourceTarget(app._poller.root, "entity", "EntityA")
     app._draft_store.get_or_create(target, {"name": "EntityA", "properties": {"displayName": "EntityA"}})
     app._changes_result_by_target[target] = (
-        "Apply rejected: Service rejected write and read-back differs from desired state. | changed: properties.displayName\n"
-        "Write error: " + AuthenticationError("forbidden", status_code=403).diagnostic_text()
+        "Apply rejected: Service rejected write and read-back differs from desired state.\n"
+        "Write error: " + AuthenticationError("forbidden", status_code=403).diagnostic_text() + "\nChanged: properties.displayName"
     )
     async with app.run_test(size=(80, 24)) as pilot:
         await app._do_poll()

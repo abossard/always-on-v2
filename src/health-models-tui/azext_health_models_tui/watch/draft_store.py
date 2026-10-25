@@ -13,6 +13,7 @@ from typing import Any, Mapping
 from azext_health_models_tui.domain.drafts import (
     ResourceTarget,
     apply_field_edit,
+    diff_documents,
     find_known_readonly_tampering,
     parse_field_path,
     validate_target_payload,
@@ -285,9 +286,15 @@ class DraftStore:
         return self._clone_snapshot(accepted)
 
     def rebase(self, target: ResourceTarget, baseline: Mapping[str, Any]) -> DraftSnapshot:
-        """Keep the edits on top of a new live baseline (after an apply the user kept editing past)."""
+        """Replay the draft's own edits on a new live baseline, so fields the user did not edit follow live."""
         entry = self._require(target)
-        updated = replace(entry, baseline=deepcopy(dict(baseline)))
+        edited = dict(baseline)
+        try:
+            for change in diff_documents(entry.baseline, entry.edited):
+                edited = apply_field_edit(edited, change.path, change.after)
+        except ValueError:  # the live shape no longer fits an edit: keep the edits whole, the next Prepare shows the diff
+            edited = entry.edited
+        updated = replace(entry, baseline=deepcopy(dict(baseline)), edited=deepcopy(dict(edited)))
         self._entries[target] = updated
         return self._clone_snapshot(updated)
 

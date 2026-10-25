@@ -1299,7 +1299,7 @@ class HealthWatchApp(App[str | None]):
                     target=target,
                     expected_baseline=draft.baseline,
                     path=path,
-                    confirm_overwrite_unsaved=(pane.restore_confirmation() == target.name),
+                    confirm_overwrite_unsaved=(pane.take_confirmation("restore") == target.name),
                 )
                 self._prepared_apply_plan = None
                 self._form_target = None  # the file replaces the whole form, typed text included
@@ -1335,7 +1335,7 @@ class HealthWatchApp(App[str | None]):
                 pane.set_summary("Applying prepared plan...")
                 self._applies_in_flight += 1  # before the worker starts, so no click in between starts a second write
                 self.run_worker(
-                    self._apply_prepared(plan.target, draft.revision, plan, pane.take_apply_confirmation()),
+                    self._apply_prepared(plan.target, draft.revision, plan, pane.take_confirmation("apply")),
                     group="changes-apply",
                 )
                 return
@@ -1424,11 +1424,11 @@ class HealthWatchApp(App[str | None]):
             return
         finally:
             self._applies_in_flight -= 1
-        self._changes_result_by_target[target] = (
-            f"Apply {result.outcome.value}: {result.message}"
-            + (f" | changed: {', '.join(result.changed_fields)}" if result.changed_fields else "")
-            + (f"\nWrite error: {result.write_error}" if result.write_error else "")
-        )
+        self._changes_result_by_target[target] = "\n".join(filter(None, (  # the error before the field list: short screens show 3 lines
+            f"Apply {result.outcome.value}: {result.message}",
+            result.write_error and f"Write error: {result.write_error}",
+            result.changed_fields and f"Changed: {', '.join(result.changed_fields)}",
+        )))
         current = self._draft_store.get(target)
         if result.read_back is not None and current is not None:
             if result.outcome.value == "applied" and current.revision == revision:

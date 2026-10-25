@@ -79,12 +79,9 @@ class ChangesPane(Vertical):
     def restore_path(self) -> str:
         return self.query_one("#changes-restore-path", Input).value.strip()
 
-    def restore_confirmation(self) -> str:
-        return self.query_one("#changes-restore-confirm", Input).value.strip()
-
-    def take_apply_confirmation(self) -> str:
-        """The typed resource name, cleared so every Apply needs it typed again."""
-        confirm = self.query_one("#changes-apply-confirm", Input)
+    def take_confirmation(self, action: str) -> str:
+        """The resource name typed for `action` ("apply" or "restore"), cleared so every use needs it typed again."""
+        confirm = self.query_one(f"#changes-{action}-confirm", Input)
         value, confirm.value = confirm.value.strip(), ""
         return value
 
