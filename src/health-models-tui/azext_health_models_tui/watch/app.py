@@ -56,6 +56,7 @@ _SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 # Label plus a 48-bucket band fits one line in the side pane from 120 columns up.
 _TIMELINE_LABEL_WIDTH = 20
 _APPLY_RUNNING = "An apply is still writing; wait for its result."
+_MAX_NAME_LENGTH = 256  # the CloudHealth API documents no limit for names; query text gets none
 _TIMELINE_RANGE_HOURS = {
     "timeline-range-1h": 1,
     "timeline-range-6h": 6,
@@ -1077,11 +1078,9 @@ class HealthWatchApp(App[str | None]):
         key = SnapshotKey(model, at)
         for previous in {self._requested_snapshot, self._applied_snapshot} - {key, None}:
             self._release_snapshot(previous)
-        # The tree is projected from the launch model, and needs every model on the way down to the row at that time.
-        path = self._timeline_path
+        # The tree is projected from the launch model, and needs every model with a visible row at that time.
         self._snapshot_scopes[key] = self._snapshot_scopes.get(key, frozenset()) | {key.model, self._poller.root} | {
-            row_key.model for row_path, row_key in self._timeline_keys_by_path.items()
-            if path[:len(row_path)] == row_path
+            row_key.model for row_key in self._timeline_keys_by_path.values()
         }
         self._requested_snapshot = key
         for snapshot_model in self._snapshot_scopes[key]:
@@ -1248,6 +1247,9 @@ class HealthWatchApp(App[str | None]):
                     path, kind = FIELDS[key]
                     if kind != target.kind:
                         continue
+                    if key in ("display_name", "icon") and len(value) > _MAX_NAME_LENGTH:
+                        pane.set_summary(f"{path} must be at most {_MAX_NAME_LENGTH} characters (got {len(value)}).")
+                        return
                     if key == "impact" and value not in allowed_impacts:
                         pane.set_summary(f"Impact must be one of: Standard, Limited, Suppressed (got {value!r}).")
                         return
@@ -1385,6 +1387,10 @@ class HealthWatchApp(App[str | None]):
             return
         self._prepared_apply_plan = plan_or_result
         changed = tuple(changed_paths(plan_or_result.changes))
+        state = self._poller.view.entries.get(target.model)
+        entities = state.previous.forest.entities if state is not None and state.previous else {}
+        consumers = ((entities[name].display_name if name in entities else "") or name
+                     for name in plan_or_result.shared_consumer_entity_names)
         pane.set_plan(
             "\n".join(
                 [
@@ -1394,7 +1400,7 @@ class HealthWatchApp(App[str | None]):
                     f"Model: {plan_or_result.target.model.group}/{plan_or_result.target.model.name}",
                     f"Prepared target: {plan_or_result.target.kind}:{plan_or_result.target.name}",
                     f"Revision: {plan_or_result.revision}",
-                    f"Shared consumers: {', '.join(plan_or_result.shared_consumer_entity_names) or 'none'}",
+                    f"Shared consumers: {', '.join(consumers) or 'none'}",
                 ]
             )
         )
@@ -1434,7 +1440,7 @@ class HealthWatchApp(App[str | None]):
             f"Apply {result.outcome.value}: {result.message}",
             result.write_error and f"Write error: {result.write_error}",
             result.changed_fields and (
-                f"{'Changed' if result.outcome.value == 'applied' else 'Not confirmed'}: {', '.join(result.changed_fields)}"
+                f"{'Changed' if result.outcome.value == 'applied' else 'Not confirmed'}: {'; '.join(result.changed_fields)}"
             ),
         )))
         current = self._draft_store.get(target)

@@ -294,14 +294,15 @@ def test_apply_surfaces_rejected_for_403_and_reads_back(client: MagicMock) -> No
 
 
 @pytest.mark.parametrize(
-    ("read_back_name", "outcome", "message"),
+    ("read_back_name", "outcome", "message", "changed"),
     [
-        ("before", ApplyOutcomeKind.UNKNOWN, "Read-back differs"),
-        ("after", ApplyOutcomeKind.APPLIED, "despite the write error"),  # live matches the edit: same as an applied write
+        ("before", ApplyOutcomeKind.UNKNOWN, "Read-back differs", "properties.displayName: wanted 'after', live 'before'"),
+        # live matches the edit: same as an applied write
+        ("after", ApplyOutcomeKind.APPLIED, "despite the write error", "properties.displayName"),
     ],
 )
 def test_apply_outcome_for_timeout_follows_the_read_back(
-    client: MagicMock, read_back_name: str, outcome: ApplyOutcomeKind, message: str,
+    client: MagicMock, read_back_name: str, outcome: ApplyOutcomeKind, message: str, changed: str,
 ) -> None:
     baseline = {"name": "res-1", "properties": {"displayName": "before"}}
     edited = {"name": "res-1", "properties": {"displayName": "after"}}
@@ -325,7 +326,7 @@ def test_apply_outcome_for_timeout_follows_the_read_back(
     assert result.outcome is outcome
     assert message in result.message
     assert result.attempted_write is True
-    assert result.changed_fields == ("properties.displayName",)
+    assert result.changed_fields == (changed,)
     assert "timed out" in (result.write_error or "")
 
 
@@ -390,7 +391,7 @@ def test_apply_lists_the_plan_fields_that_did_not_land_not_another_writers(
     result = coordinator.apply_confirmed(plan, confirmation_name="res-1")
 
     assert result.outcome is outcome
-    assert result.changed_fields == ("properties.displayName",)
+    assert result.changed_fields == ("properties.displayName: wanted 'after', live 'before'",)
 
 
 def test_apply_rejects_tampered_plan_payload(client: MagicMock) -> None:
@@ -663,7 +664,7 @@ def test_apply_surfaces_differs_on_readback_mismatch_without_error(client: Magic
     )
 
     assert result.outcome is ApplyOutcomeKind.DIFFERS
-    assert result.changed_fields == ("properties.x.y",)
+    assert result.changed_fields == ("properties.x.y: wanted 2, live 1",)
 
 
 def test_normalize_known_readonly_fields_preserves_unknown_data() -> None:

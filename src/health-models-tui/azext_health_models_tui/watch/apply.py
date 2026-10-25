@@ -250,7 +250,11 @@ class ApplyCoordinator:
                 recomputed_changes, read_back_raw, write_error,
             )
         # This plan's fields only: a field another writer changed differs from desired too, but is not this write's.
-        unconfirmed = changed_paths(change for change in plan.changes if get_in(read_back, change.path) != change.after)
+        unconfirmed = tuple(
+            f"{path}: wanted {change.after!r}, live {live!r}"
+            for path, change in zip(changed_paths(plan.changes), plan.changes)
+            if (live := get_in(read_back, change.path)) != change.after
+        )
         if write_error and write_status in (400, 403, 409):
             return _written(
                 ApplyOutcomeKind.REJECTED, target, "Service rejected write and read-back differs from desired state.",

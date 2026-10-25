@@ -918,6 +918,35 @@ async def test_update_draft_rejects_an_unknown_impact_showing_the_typed_value(ma
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("kind", "widget_id", "length", "rejected"),
+    [
+        ("entity", "#changes-display-name", 256, ""),
+        ("entity", "#changes-display-name", 257, "properties.displayName must be at most 256 characters (got 257)."),
+        ("entity", "#changes-icon", 257, "properties.icon.iconName must be at most 256 characters (got 257)."),
+        ("signal_definition", "#changes-query-text", 3000, ""),
+    ],
+    ids=["name-at-limit", "name-above-limit", "icon-above-limit", "query-has-no-limit"],
+)
+async def test_update_draft_rejects_a_name_above_the_length_limit(
+    make_app, healthy_client, kind, widget_id, length, rejected,
+) -> None:
+    app: HealthWatchApp = make_app(healthy_client)
+    target = ResourceTarget(app._poller.root, kind, "res-1")
+    app._draft_store.get_or_create(target, {"name": "res-1", "properties": {"signalKind": "PrometheusMetricsQuery"}})
+    async with app.run_test(size=(120, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        app.action_show_changes()
+        pane = app.query_one("#changes-pane", ChangesPane)
+        pane.query_one(widget_id).value = "x" * length
+        app._handle_changes_button("changes-review")
+        await pilot.pause()
+        assert (rejected or "Active:") in str(pane.query_one("#changes-summary").render())
+        assert app._draft_store.get(target).revision == (0 if rejected else 1)
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize("edited_during_write", ["edited during write", "EntityA"], ids=["new-value", "old-live-value"])
 async def test_apply_keeps_edits_made_while_the_write_runs(make_app, healthy_client, edited_during_write) -> None:
     app: HealthWatchApp = make_app(healthy_client)
@@ -1047,8 +1076,9 @@ async def test_nested_model_snapshot_keeps_the_launch_model_tree() -> None:
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("selected", ["node", "root"], ids=["row-in-deepest-model", "nested-models-beside-the-row"])
 @pytest.mark.parametrize("missing", ["", "nested"], ids=["all-present", "intermediate-missing-at-that-time"])
-async def test_nested_snapshot_loads_every_model_on_the_way_to_the_row(missing) -> None:
+async def test_nested_snapshot_loads_every_model_with_a_timeline_row(missing, selected) -> None:
     class _CreatedLaterClient(_TemporalClient):
         def list_entities(self, group, model, *, timestamp=None):  # noqa: ANN001
             if model == missing and timestamp is not None:
@@ -1071,7 +1101,9 @@ async def test_nested_snapshot_loads_every_model_on_the_way_to_the_row(missing) 
         app._timeline_keys_by_path = {
             row.path: RangeKey(model=row.model, entity_name=row.entity.name, start_utc=start, end_utc=end) for row in rows
         }
-        app._timeline_path = next(row.path for row in rows if row.entity.name == "node")
+        node_path = next(row.path for row in rows if row.entity.name == "node")
+        app.query_one("#health-tree", HealthTree).reveal(node_path, view)  # the nested models are expanded in the tree
+        app._timeline_path = next(row.path for row in rows if row.entity.name == selected)
         app._timeline_key = app._timeline_keys_by_path[app._timeline_path]
         app.query_one("#timeline-pane", TimelinePane).query_one("#timeline-go-to").value = "2026-01-01T00:30:00Z"
         app._handle_timeline_button("timeline-open")
@@ -1084,7 +1116,7 @@ async def test_nested_snapshot_loads_every_model_on_the_way_to_the_row(missing) 
         assert app._applied_snapshot is not None
         assert "Showing snapshot at" in str(app.query_one("#timeline-summary").render())
         assert isinstance(app._poller.view_at(app._applied_snapshot.at_utc).entries.get(nested), Ready) is (not missing)
-        assert app.query_one("#health-tree", HealthTree).contains(app._timeline_path) is (not missing)
+        assert app.query_one("#health-tree", HealthTree).contains(node_path) is (not missing)
 
 
 @pytest.mark.anyio
@@ -1254,7 +1286,7 @@ async def test_apply_outcome_with_read_back_stays_shown_and_the_next_prepare_dif
         await pilot.pause()
         result = str(pane.query_one("#changes-result").render())
         assert all(text in result for text in shown)
-        assert "Not confirmed: properties.displayName" in result
+        assert "Not confirmed: properties.displayName: wanted 'after', live 'elsewhere'" in result
         assert pane.query_one("#changes-apply-confirm").value == ""  # another Apply needs the name typed again
         assert app._draft_store.get(target).edited["properties"] == {"displayName": "after"}
 
@@ -1376,7 +1408,12 @@ async def test_prepare_apply_blocked_when_scope_description_unavailable(make_app
 
 
 @pytest.mark.anyio
-async def test_prepare_plan_includes_scope_and_target_review_details(make_app, healthy_client) -> None:
+@pytest.mark.parametrize(
+    ("consumer", "shown"),
+    [("ConsumerA", "ConsumerA"), ("21eb9ab7-3f38-55a4-bf16-38367018071f", "Failures")],
+    ids=["unknown-entity-shows-its-name", "loaded-entity-shows-its-display-name"],
+)
+async def test_prepare_plan_includes_scope_and_target_review_details(make_app, healthy_client, consumer, shown) -> None:
     app: HealthWatchApp = make_app(healthy_client)
     model = app._poller.root
     target = ResourceTarget(model, "entity", "EntityA")
@@ -1400,7 +1437,7 @@ async def test_prepare_plan_includes_scope_and_target_review_details(make_app, h
                 edited_resource=baseline,
                 normalized_live_baseline=baseline,
                 generated_at=datetime(2026, 1, 1, tzinfo=UTC),
-                shared_consumer_entity_names=("ConsumerA",),
+                shared_consumer_entity_names=(consumer,),
             )
 
     app._apply = _PrepareStub()  # type: ignore[assignment]
@@ -1418,7 +1455,7 @@ async def test_prepare_plan_includes_scope_and_target_review_details(make_app, h
         assert "ARM endpoint: https://management.azure.com" in plan
         assert f"Model: {model.group}/{model.name}" in plan
         assert "Prepared target: entity:EntityA" in plan
-        assert "Shared consumers: ConsumerA" in plan
+        assert f"Shared consumers: {shown}" in plan
         assert "Changed fields:" in details
         assert " - properties.displayName" in details
         assert "Race warning:" in details
