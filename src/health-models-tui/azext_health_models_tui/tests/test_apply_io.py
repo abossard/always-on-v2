@@ -297,7 +297,7 @@ def test_apply_surfaces_rejected_for_403_and_reads_back(client: MagicMock) -> No
     ("read_back_name", "outcome", "message"),
     [
         ("before", ApplyOutcomeKind.UNKNOWN, "Read-back differs"),
-        ("after", ApplyOutcomeKind.APPLIED, "landed"),  # the write landed despite the error: same as an applied write
+        ("after", ApplyOutcomeKind.APPLIED, "despite the write error"),  # live matches the edit: same as an applied write
     ],
 )
 def test_apply_outcome_for_timeout_follows_the_read_back(

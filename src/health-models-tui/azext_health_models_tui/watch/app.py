@@ -1182,8 +1182,8 @@ class HealthWatchApp(App[str | None]):
             name = self._draft_form_values(snapshot.edited)["display_name"] or snapshot.target.name
             return f"{name} ({snapshot.target.kind.replace('_', ' ')})"
 
-        pane.set_drafts("Drafts:\n" + "\n".join(
-            f"- {label(snapshot)}" + (", unsaved" if self._draft_store.has_unsaved_changes(snapshot.target) else "")
+        pane.set_drafts(f"Drafts ({len(snapshots)}): " + "; ".join(
+            label(snapshot) + (" unsaved" if self._draft_store.has_unsaved_changes(snapshot.target) else "")
             for snapshot in snapshots
         ))
         active = self._draft_store.active_target()

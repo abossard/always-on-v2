@@ -249,7 +249,7 @@ class ApplyCoordinator:
         if not diffs:
             return _written(
                 ApplyOutcomeKind.APPLIED, target,
-                "The write landed despite an error: read-back matches desired state." if write_error
+                "Read-back matches desired state despite the write error." if write_error
                 else "Apply succeeded and read-back matches desired state.",
                 recomputed_changes, read_back_raw, write_error,
             )

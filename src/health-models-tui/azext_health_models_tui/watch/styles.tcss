@@ -118,6 +118,12 @@ ChangesPane Input:focus {
     scrollbar-size-vertical: 1;
 }
 
+/* One line however many drafts exist, so the list never squeezes the form out. */
+#changes-drafts {
+    text-wrap: nowrap;
+    text-overflow: ellipsis;
+}
+
 /* At most 40% of the room above the apply controls: a long result is cut and a form field stays in view. */
 #changes-result {
     color: $accent;

@@ -1429,8 +1429,11 @@ async def test_prepare_review_scroll_and_actions_are_reachable_in_compact_layout
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("height", [24, 31, 32, 50])
-async def test_a_long_result_message_leaves_a_form_field_visible_at_80_columns(make_app, healthy_client, height) -> None:
+@pytest.mark.parametrize("other_drafts", [0, 8])
+async def test_a_long_result_message_leaves_a_form_field_visible_at_80_columns(make_app, healthy_client, height, other_drafts) -> None:
     app: HealthWatchApp = make_app(healthy_client)
+    for index in range(other_drafts):
+        app._draft_store.get_or_create(ResourceTarget(app._poller.root, "entity", f"Other{index}"), {"name": f"Other{index}", "properties": {}})
     target = ResourceTarget(app._poller.root, "entity", "EntityA")
     app._draft_store.get_or_create(target, {"name": "EntityA", "properties": {"displayName": "EntityA"}})
     app._changes_result_by_target[target] = (
