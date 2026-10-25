@@ -55,6 +55,7 @@ _ROW_PENDING = frozenset({"queued", "loading"})
 _SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 # Label plus a 48-bucket band fits one line in the side pane from 120 columns up.
 _TIMELINE_LABEL_WIDTH = 20
+_APPLY_RUNNING = "An apply is still writing; wait for its result."
 _TIMELINE_RANGE_HOURS = {
     "timeline-range-1h": 1,
     "timeline-range-6h": 6,
@@ -1069,6 +1070,9 @@ class HealthWatchApp(App[str | None]):
         except ValueError as exc:
             pane.set_summary(str(exc))
             return
+        if at > datetime.now(UTC):
+            pane.set_summary(f"{format_utc(at)} is in the future. Enter a past time.")
+            return
         model = self._timeline_key.model if self._timeline_key is not None else self._selected_context()[0]
         key = SnapshotKey(model, at)
         for previous in {self._requested_snapshot, self._applied_snapshot} - {key, None}:
@@ -1207,6 +1211,8 @@ class HealthWatchApp(App[str | None]):
                 summary += "\nPrepared apply plan invalidated: the draft changed since Prepare."
         if self._prepared_apply_plan is None:
             pane.set_plan("")
+        if self._applies_in_flight:
+            summary += "\n" + _APPLY_RUNNING
         pane.set_summary(summary)
         pane.set_result(self._changes_result_by_target.get(target, ""))
         # The same draft again: a field typed into since the last fill stays, unless the draft changed that field.
@@ -1231,7 +1237,7 @@ class HealthWatchApp(App[str | None]):
         if self._applies_in_flight and button_id in {
             "changes-prepare-apply", "changes-apply", "changes-restore", "changes-discard",
         }:
-            pane.set_summary("An apply is still writing; wait for its result.")
+            pane.set_summary(_APPLY_RUNNING)
             return
 
         try:
@@ -1243,7 +1249,7 @@ class HealthWatchApp(App[str | None]):
                     if kind != target.kind:
                         continue
                     if key == "impact" and value not in allowed_impacts:
-                        pane.set_summary("Impact must be one of: Standard, Limited, Suppressed.")
+                        pane.set_summary(f"Impact must be one of: Standard, Limited, Suppressed (got {value!r}).")
                         return
                     if key == "objective":
                         try:
@@ -1427,7 +1433,9 @@ class HealthWatchApp(App[str | None]):
         self._changes_result_by_target[target] = "\n".join(filter(None, (  # the error before the field list: short screens show 3 lines
             f"Apply {result.outcome.value}: {result.message}",
             result.write_error and f"Write error: {result.write_error}",
-            result.changed_fields and f"Changed: {', '.join(result.changed_fields)}",
+            result.changed_fields and (
+                f"{'Changed' if result.outcome.value == 'applied' else 'Not confirmed'}: {', '.join(result.changed_fields)}"
+            ),
         )))
         current = self._draft_store.get(target)
         if result.read_back is not None and current is not None:

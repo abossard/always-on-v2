@@ -28,11 +28,12 @@ class HelpDialog(_BaseDialog):
         for binding in self._shortcuts:
             key = self.app.get_key_display(binding)
             keys.setdefault(binding.description, []).append(key if len(key) == 1 else key.replace("^", "ctrl+").title())  # F1, Esc, Ctrl+Q
-        with VerticalScroll(id="shortcut-dialog"):  # focused on open, so arrows and Page keys scroll a short terminal
+        with Vertical(id="shortcut-dialog"):
             yield Label("Help", classes="shortcut-title")
-            yield Static("Arrows move, Enter expands or activates, Tab moves focus. Esc closes this dialog.")
-            for description, shown in keys.items():
-                yield Static(f"{' / '.join(shown):<16} {description}")
+            with VerticalScroll(id="help-scroll"):  # focused on open, so arrows and Page keys scroll a short terminal
+                yield Static("Arrows move, Enter expands or activates, Tab moves focus. Esc closes this dialog.")
+                for description, shown in keys.items():
+                    yield Static(f"{' / '.join(shown):<16} {description}")
 
 
 class ActionsDialog(_BaseDialog):

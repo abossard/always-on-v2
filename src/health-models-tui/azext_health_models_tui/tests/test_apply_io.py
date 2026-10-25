@@ -329,11 +329,17 @@ def test_apply_outcome_for_timeout_follows_the_read_back(
     assert "timed out" in (result.write_error or "")
 
 
-def test_apply_returns_unknown_when_readback_fails_after_write(client: MagicMock) -> None:
+@pytest.mark.parametrize(
+    "write_error", [None, AuthenticationError("forbidden", status_code=403)], ids=["write-ok", "write-403"],
+)
+def test_apply_returns_unknown_when_readback_fails_after_write(
+    client: MagicMock, write_error: AuthenticationError | None,
+) -> None:
     baseline = {"name": "res-1", "properties": {"displayName": "before"}}
     edited = {"name": "res-1", "properties": {"displayName": "after"}}
     client.get_entity.side_effect = [baseline, baseline, RuntimeError("read-back unavailable")]
     client.update_entity.return_value = {"ok": True}
+    client.update_entity.side_effect = write_error
     coordinator = _coordinator(client, revision=2)
 
     plan = coordinator.prepare_plan(
@@ -351,7 +357,40 @@ def test_apply_returns_unknown_when_readback_fails_after_write(client: MagicMock
     assert result.outcome is ApplyOutcomeKind.UNKNOWN
     assert result.attempted_write is True
     assert result.read_back is None
-    assert "read-back failed" in (result.write_error or "")
+    assert "Read-back failed: RuntimeError: read-back unavailable" in result.message
+    assert result.write_error == (write_error and write_error.diagnostic_text())  # only the write's own error
+
+
+@pytest.mark.parametrize(
+    ("write_error", "outcome"),
+    [
+        (AuthenticationError("forbidden", status_code=403), ApplyOutcomeKind.REJECTED),
+        (TimeoutError("timed out"), ApplyOutcomeKind.UNKNOWN),
+        (None, ApplyOutcomeKind.DIFFERS),
+    ],
+    ids=["403", "timeout", "differs"],
+)
+def test_apply_lists_the_plan_fields_that_did_not_land_not_another_writers(
+    client: MagicMock, write_error: Exception | None, outcome: ApplyOutcomeKind,
+) -> None:
+    baseline = {"name": "res-1", "properties": {"displayName": "before", "impact": "Standard"}}
+    edited = {"name": "res-1", "properties": {"displayName": "after", "impact": "Standard"}}
+    read_back = {"name": "res-1", "properties": {"displayName": "before", "impact": "Limited"}}  # another writer
+    client.get_entity.side_effect = [baseline, baseline, read_back]
+    client.update_entity.side_effect = write_error
+    coordinator = _coordinator(client, revision=5)
+
+    plan = coordinator.prepare_plan(
+        target=_target("entity"),
+        revision=5,
+        edited_resource=edited,
+        draft_live_baseline=baseline,
+    )
+    assert not isinstance(plan, ApplyResult)
+    result = coordinator.apply_confirmed(plan, confirmation_name="res-1")
+
+    assert result.outcome is outcome
+    assert result.changed_fields == ("properties.displayName",)
 
 
 def test_apply_rejects_tampered_plan_payload(client: MagicMock) -> None:

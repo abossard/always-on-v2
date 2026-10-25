@@ -17,6 +17,7 @@ from azext_health_models_tui.domain.drafts import (
     changed_paths,
     collect_signal_definition_consumers,
     diff_documents,
+    get_in,
     normalize_known_readonly_fields,
 )
 
@@ -235,39 +236,36 @@ class ApplyCoordinator:
         try:
             read_back_raw = self._read_target(target)
         except Exception as exc:  # noqa: BLE001
-            readback_error = f"{type(exc).__name__}: {exc}"
-            diagnostic = (
-                f"read-back failed: {readback_error}"
-                if write_error is None
-                else f"{write_error}; read-back failed: {readback_error}"
-            )
             return _written(
-                ApplyOutcomeKind.UNKNOWN, target, "Write attempted, but read-back failed. Outcome unknown.",
-                recomputed_changes, None, diagnostic,
+                ApplyOutcomeKind.UNKNOWN, target,
+                f"Write attempted, outcome unknown. Read-back failed: {type(exc).__name__}: {exc}",
+                recomputed_changes, None, write_error,
             )
-        diffs = changed_paths(diff_documents(normalized_desired, normalize_known_readonly_fields(read_back_raw)))
-        if not diffs:
+        read_back = normalize_known_readonly_fields(read_back_raw)
+        if not diff_documents(normalized_desired, read_back):
             return _written(
                 ApplyOutcomeKind.APPLIED, target,
                 "Read-back matches desired state despite the write error." if write_error
                 else "Apply succeeded and read-back matches desired state.",
                 recomputed_changes, read_back_raw, write_error,
             )
+        # This plan's fields only: a field another writer changed differs from desired too, but is not this write's.
+        unconfirmed = changed_paths(change for change in plan.changes if get_in(read_back, change.path) != change.after)
         if write_error and write_status in (400, 403, 409):
             return _written(
                 ApplyOutcomeKind.REJECTED, target, "Service rejected write and read-back differs from desired state.",
-                diffs, read_back_raw, write_error,
+                unconfirmed, read_back_raw, write_error,
             )
         if write_error:
             return _written(
                 ApplyOutcomeKind.UNKNOWN, target,
                 "Write outcome is unknown. Read-back differs from desired state. " + _RETRY_STEP,
-                diffs, read_back_raw, write_error,
+                unconfirmed, read_back_raw, write_error,
             )
         return _written(
             ApplyOutcomeKind.DIFFERS, target,
             "Write completed but read-back differs from desired state. " + _RETRY_STEP,
-            diffs, read_back_raw,
+            unconfirmed, read_back_raw,
         )
 
     @staticmethod

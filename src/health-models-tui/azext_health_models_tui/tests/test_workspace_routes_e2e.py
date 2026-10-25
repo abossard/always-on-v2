@@ -900,6 +900,24 @@ async def test_update_draft_writes_typed_text_exactly_and_filled_live_text_is_no
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("typed", [" Limited ", "Bogus"])
+async def test_update_draft_rejects_an_unknown_impact_showing_the_typed_value(make_app, healthy_client, typed) -> None:
+    app: HealthWatchApp = make_app(healthy_client)
+    target = ResourceTarget(app._poller.root, "entity", "EntityA")
+    app._draft_store.get_or_create(target, {"name": "EntityA", "properties": {"displayName": "EntityA", "impact": "Standard"}})
+    async with app.run_test(size=(120, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        app.action_show_changes()
+        pane = app.query_one("#changes-pane", ChangesPane)
+        pane.query_one("#changes-impact").value = typed
+        app._handle_changes_button("changes-review")
+        await pilot.pause()
+        assert repr(typed) in str(pane.query_one("#changes-summary").render())  # quoted, so padding spaces show
+        assert app._draft_store.get(target).revision == 0
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize("edited_during_write", ["edited during write", "EntityA"], ids=["new-value", "old-live-value"])
 async def test_apply_keeps_edits_made_while_the_write_runs(make_app, healthy_client, edited_during_write) -> None:
     app: HealthWatchApp = make_app(healthy_client)
@@ -1156,6 +1174,43 @@ async def test_changes_actions_that_replace_the_draft_wait_for_a_running_apply(m
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("typed", ["Renamed", ""], ids=["update-draft", "re-render"])
+async def test_changes_summary_shows_a_running_apply_until_its_result(make_app, healthy_client, typed) -> None:
+    app: HealthWatchApp = make_app(healthy_client)
+    target = ResourceTarget(app._poller.root, "entity", "EntityA")
+    app._draft_store.get_or_create(target, {"name": "EntityA", "properties": {"displayName": "EntityA"}})
+    release = threading.Event()
+
+    class _SlowApply:
+        def apply_confirmed(self, plan, confirmation_name):  # noqa: ANN001
+            release.wait(5)
+            return ApplyResult(
+                outcome=ApplyOutcomeKind.APPLIED, target=target, attempted_write=True, message="Applied.",
+                race_warning="", changed_fields=(), confirmation_required=target.name,
+            )
+
+    app._apply = _SlowApply()  # type: ignore[assignment]
+    async with app.run_test(size=(120, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        app.action_show_changes()
+        app._prepared_apply_plan = SimpleNamespace(target=target, revision=0)  # type: ignore[assignment]
+        app._handle_changes_button("changes-apply")
+        await pilot.pause()
+        if typed:
+            app.query_one("#changes-display-name").value = typed
+            app._handle_changes_button("changes-review")
+        else:
+            app._render_changes()
+        await pilot.pause()
+        assert "An apply is still writing; wait for its result." in str(app.query_one("#changes-summary").render())
+        release.set()
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+        assert "still writing" not in str(app.query_one("#changes-summary").render())
+
+
+@pytest.mark.anyio
 @pytest.mark.parametrize(
     ("write_error", "shown"),
     [
@@ -1199,6 +1254,7 @@ async def test_apply_outcome_with_read_back_stays_shown_and_the_next_prepare_dif
         await pilot.pause()
         result = str(pane.query_one("#changes-result").render())
         assert all(text in result for text in shown)
+        assert "Not confirmed: properties.displayName" in result
         assert pane.query_one("#changes-apply-confirm").value == ""  # another Apply needs the name typed again
         assert app._draft_store.get(target).edited["properties"] == {"displayName": "after"}
 
@@ -1442,7 +1498,7 @@ async def test_a_long_result_message_leaves_a_form_field_visible_at_80_columns(m
             "The client 'qa@fake' does not have authorization to perform action "
             "'Microsoft.CloudHealth/healthmodels/entities/write'.",
             status_code=403, code="AuthorizationFailed",
-        ).diagnostic_text() + "\nChanged: properties.displayName"
+        ).diagnostic_text() + "\nNot confirmed: properties.displayName"
     )
     async with app.run_test(size=(80, height)) as pilot:
         await app._do_poll()
@@ -1532,6 +1588,7 @@ async def test_timeline_fills_rows_progressively_and_never_times_out(make_app, h
     ("button", "inputs", "expected"),
     [
         ("timeline-open", {"#timeline-go-to": "2026-01-01T00:30:00Z"}, "Showing snapshot at"),
+        ("timeline-open", {"#timeline-go-to": "2999-01-01T00:00:00Z"}, "is in the future"),
         ("timeline-compare", {"#timeline-compare-a": "2026-01-01T00:10:00Z", "#timeline-compare-b": "2026-01-01T00:40:00Z"},
          "Compare complete"),
     ],

@@ -666,6 +666,8 @@ async def test_help_key_list_scrolls_with_the_keyboard_at_80x24(make_app, health
         await pilot.press(key, key)
         await pilot.pause()
         assert "Poll interval -10 s" in painted()
+        title = app.screen.query_one(".shortcut-title")
+        assert app.screen.get_widget_at(title.region.x, title.region.y)[0] is title  # the title stays while the list scrolls
 
 
 @pytest.mark.anyio

@@ -399,6 +399,15 @@ SignalPanel Button {
     margin-bottom: 1;
 }
 
+HelpDialog .shortcut-title {
+    dock: top;  /* docked, so the key list's 100% max-height is the space below the title */
+}
+
+#help-scroll {
+    height: auto;
+    max-height: 100%;
+}
+
 ActionsDialog, HelpDialog, QuitDraftsDialog {
     align: center middle;
     background: $background 60%;
