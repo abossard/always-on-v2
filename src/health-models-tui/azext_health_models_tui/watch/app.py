@@ -32,7 +32,9 @@ from azext_health_models_tui.domain.history import (
     parse_utc_timestamp,
     project_snapshot_nodes,
 )
-from azext_health_models_tui.domain.drafts import ApplyPlan, ResourceTarget, changed_paths, get_in, parse_field_path
+from azext_health_models_tui.domain.drafts import (
+    MAX_NAME_LENGTH, ApplyPlan, ResourceTarget, changed_paths, get_in, parse_field_path,
+)
 from azext_health_models_tui.domain.formatters import format_utc
 from azext_health_models_tui.models.domain import Forest, SearchResult
 from azext_health_models_tui.domain.occurrences import project
@@ -56,7 +58,6 @@ _SPINNER = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏"
 # Label plus a 48-bucket band fits one line in the side pane from 120 columns up.
 _TIMELINE_LABEL_WIDTH = 20
 _APPLY_RUNNING = "An apply is still writing; wait for its result."
-_MAX_NAME_LENGTH = 256  # the CloudHealth API documents no limit for names; query text gets none
 _TIMELINE_RANGE_HOURS = {
     "timeline-range-1h": 1,
     "timeline-range-6h": 6,
@@ -1250,8 +1251,8 @@ class HealthWatchApp(App[str | None]):
                     path, kind = FIELDS[key]
                     if kind != target.kind:
                         continue
-                    if key in ("display_name", "icon") and len(value) > _MAX_NAME_LENGTH:
-                        pane.set_summary(f"{path} must be at most {_MAX_NAME_LENGTH} characters (got {len(value)}).")
+                    if key in ("display_name", "icon") and len(value) > MAX_NAME_LENGTH:
+                        pane.set_summary(f"{path} must be at most {MAX_NAME_LENGTH} characters (got {len(value)}).")
                         return
                     if key == "impact" and value not in allowed_impacts:
                         pane.set_summary(f"Impact must be one of: Standard, Limited, Suppressed (got {value!r}).")

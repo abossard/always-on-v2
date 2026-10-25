@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from contextlib import nullcontext
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -519,6 +520,30 @@ def test_build_apply_plan_rejects_changed_live_baseline() -> None:
             edited_resource=edited,
             expected_baseline=baseline,
             live_baseline=live_changed,
+            generated_at=datetime.now(UTC),
+        )
+
+
+@pytest.mark.parametrize(
+    ("live_name", "path", "value", "rejected"),
+    [
+        ("x", ("properties", "displayName"), "n" * 257, True),  # a restored file skips Update draft's check
+        ("x", ("properties", "icon", "iconName"), "n" * 257, True),
+        ("x", ("properties", "displayName"), "n" * 256, False),
+        ("n" * 300, ("properties", "queryText"), "rate(edited[5m])", False),  # an unchanged long live name is not this edit's
+    ],
+)
+def test_build_apply_plan_limits_changed_names(live_name: str, path: tuple[str, ...], value: str, rejected: bool) -> None:
+    baseline = _baseline()
+    baseline["properties"]["displayName"] = live_name  # type: ignore[index]
+    edited = apply_field_edit(baseline, path, value)
+    with pytest.raises(ValueError, match="at most 256 characters") if rejected else nullcontext():
+        build_apply_plan(
+            target=_target(),
+            revision=1,
+            edited_resource=edited,
+            expected_baseline=baseline,
+            live_baseline=baseline,
             generated_at=datetime.now(UTC),
         )
 

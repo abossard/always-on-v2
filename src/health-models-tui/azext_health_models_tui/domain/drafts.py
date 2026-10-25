@@ -188,6 +188,10 @@ def diff_documents(before: Mapping[str, Any], after: Mapping[str, Any]) -> tuple
     return tuple(diffs)
 
 
+MAX_NAME_LENGTH = 256  # the CloudHealth API documents no limit for names; query text gets none
+_NAME_PATHS = (("properties", "displayName"), ("properties", "icon", "iconName"))
+
+
 def validate_target_payload(target: ResourceTarget, payload: Mapping[str, Any]) -> DraftValidationResult:
     errors: list[str] = []
     if str(payload.get("name", "")).strip() not in {"", target.name}:
@@ -234,6 +238,14 @@ def build_apply_plan(
         raise ValueError("Live baseline changed; draft baseline no longer matches current live resource. Discard the draft and edit again from the live state.")
     normalized_edited = normalize_known_readonly_fields(edited_resource)
     changes = diff_documents(normalized_live, normalized_edited)
+    too_long = [  # changed names only: a long name already live is not this edit's
+        f"{_format_path(path)} must be at most {MAX_NAME_LENGTH} characters (got {len(name)})."
+        for path in _NAME_PATHS
+        if isinstance(name := get_in(normalized_edited, path), str)
+        and len(name) > MAX_NAME_LENGTH and name != get_in(normalized_live, path)
+    ]
+    if too_long:
+        raise ValueError(" ".join(too_long))
     return ApplyPlan(
         target=target,
         revision=revision,
