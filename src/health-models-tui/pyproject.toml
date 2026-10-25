@@ -40,4 +40,4 @@ include = ["azext_health_models_tui*"]
 exclude = ["azext_health_models_tui.tests*"]
 
 [tool.setuptools.package-data]
-azext_health_models_tui = ["py.typed", "watch/styles.tcss"]
+azext_health_models_tui = ["py.typed", "azext_metadata.json", "watch/styles.tcss"]
