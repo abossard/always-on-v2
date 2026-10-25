@@ -1452,6 +1452,10 @@ async def test_a_long_result_message_leaves_a_form_field_visible_at_80_columns(m
         assert "Write error:" in str(app.query_one("#changes-result").render())
         field = app.query_one("#changes-display-name")
         assert app.screen.get_widget_at(field.region.x, field.region.y)[0] is field
+        result_scroll = app.query_one("#changes-result-scroll")
+        assert result_scroll.can_focus
+        if height == 24:
+            assert result_scroll.max_scroll_y > 0  # the cut-off rest of the error stays reachable
 
 
 @pytest.mark.anyio

@@ -27,7 +27,8 @@ class ChangesPane(Vertical):
     def compose(self) -> ComposeResult:
         yield Static("Changes", id="changes-title")
         yield Static("Drafts: none", id="changes-drafts")
-        yield Static("", id="changes-result")
+        with VerticalScroll(id="changes-result-scroll"):  # focusable, so a cut-off result can be scrolled
+            yield Static("", id="changes-result")
         with VerticalScroll(id="changes-form-scroll"):
             # One section per draft kind; set_kind shows the active draft's.
             with VerticalGroup(id="changes-entity-fields", classes="changes-kind"):
@@ -92,9 +93,8 @@ class ChangesPane(Vertical):
         self.query_one("#changes-summary", Static).update(Text(text))
 
     def set_result(self, text: str) -> None:
-        result = self.query_one("#changes-result", Static)
-        result.update(Text(text))
-        result.display = bool(text)  # an empty bordered box is noise
+        self.query_one("#changes-result", Static).update(Text(text))
+        self.query_one("#changes-result-scroll").display = bool(text)  # an empty bordered box is noise
 
     def set_plan(self, text: str) -> None:
         self.query_one("#changes-plan", Static).update(Text(text))
