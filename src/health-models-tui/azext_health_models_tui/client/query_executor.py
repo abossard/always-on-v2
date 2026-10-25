@@ -302,17 +302,23 @@ def _extract_log_analytics_value(data: dict[str, Any], column: str) -> tuple[flo
         tables = data.get("Tables") or []
         if not tables:
             return None, "no tables returned by Log Analytics query"
-        names = [c.get("ColumnName") for c in tables[0].get("Columns") or []]
+        columns = tables[0].get("Columns") or []
+        names = [c.get("ColumnName") for c in columns]
         rows = tables[0].get("Rows") or []
         if not rows:
             return None, None
         name = column or (names[0] if names else "")
         if name not in names:
             return None, f"column '{name}' not in Log Analytics result columns {names}"
-        raw = rows[-1][names.index(name)]
+        index = names.index(name)
+        raw = rows[-1][index]
+        if isinstance(raw, str) and columns[index].get("ColumnType") == "decimal":
+            raw = float(raw)  # the query API sends decimal values as strings
         if isinstance(raw, bool) or not isinstance(raw, (int, float)):
             return None, f"column '{name}' value {raw!r} is not numeric"
         return float(raw), None
+    except ValueError:
+        return None, f"column '{name}' value {raw!r} is not numeric"
     except (TypeError, IndexError, AttributeError) as exc:
         _log.debug("Failed to extract Log Analytics value: %s: %s", type(exc).__name__, exc)
         return None, f"malformed Log Analytics response ({type(exc).__name__})"

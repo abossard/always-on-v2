@@ -215,6 +215,7 @@ class QueryEditor(ModalScreen[None]):
 
         ta = self.query_one("#qe-query", TextArea)
         ta.text = self._resolve_initial_query(c.get("query_text", "") or "")
+        ta.focus()
 
     def _resolve_initial_query(self, fallback_query: str) -> str:
         found = self._draft(create=False)

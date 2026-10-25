@@ -228,6 +228,7 @@ async def test_query_editor_retains_query_across_reopen_and_tracks_revision() ->
             await pilot.pause()
             await pilot.pause()
             ta = first.query_one("#qe-query", TextArea)
+            assert app.focused is ta  # typed letters go to the query, not to app keys
             ta.text = "rate(edited_metric[5m])"
             await pilot.pause()
             await pilot.press("ctrl+r")

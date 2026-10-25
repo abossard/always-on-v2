@@ -1147,9 +1147,10 @@ _LA_WORKSPACE = (
 )
 
 
-def _la_table(columns: list[str], rows: list[list[Any]]) -> dict[str, Any]:
+def _la_table(columns: list[str], rows: list[list[Any]], column_type: str = "real") -> dict[str, Any]:
     """The ARM workspace proxy answers in PascalCase."""
-    return {"Tables": [{"TableName": "Table_0", "Columns": [{"ColumnName": c} for c in columns], "Rows": rows}]}
+    columns_json = [{"ColumnName": c, "ColumnType": column_type} for c in columns]
+    return {"Tables": [{"TableName": "Table_0", "Columns": columns_json, "Rows": rows}]}
 
 
 @pytest.mark.parametrize(
@@ -1199,6 +1200,8 @@ def test_query_log_analytics_error_payload_becomes_typed_error(status: int, code
         pytest.param(_la_table(["Other"], [[1]]), "Value", None, "column 'Value' not in", id="missing-column"),
         pytest.param(_la_table(["s"], [["x"]]), "", None, "column 's' value 'x' is not numeric", id="non-numeric"),
         pytest.param(_la_table(["Value"], [["20"]]), "Value", None, "column 'Value' value '20' is not numeric", id="numeric-string"),
+        pytest.param(_la_table(["Value"], [["20.5"]], "decimal"), "Value", 20.5, None, id="decimal-as-string"),
+        pytest.param(_la_table(["Value"], [["x"]], "decimal"), "Value", None, "is not numeric", id="bad-decimal"),
         pytest.param(_la_table(["Value"], [[True]]), "Value", None, "column 'Value' value True is not numeric", id="bool"),
         pytest.param(_la_table(["Value"], [[None]]), "Value", None, "is not numeric", id="null"),
         pytest.param({"error": {"code": "PartialError", "message": "timed out"}}, "Value", None, "PartialError", id="error-payload"),
