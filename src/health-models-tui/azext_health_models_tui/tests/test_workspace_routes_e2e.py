@@ -309,6 +309,18 @@ async def test_restore_rejects_target_mismatch_and_unsaved_overwrite_without_con
         app._handle_changes_button("changes-restore")
         assert "overwrite unsaved draft" in str(pane.query_one("#changes-summary").render())
 
+        # Restore replaces typed text even in a field whose value the file does not change.
+        edited = app._draft_store.get(target).edited
+        valid_path.write_text(
+            json.dumps({**json.loads(valid_path.read_text(encoding="utf-8")), "draft": {"baseline": baseline, "edited": edited, "revision": 0}}),
+            encoding="utf-8",
+        )
+        pane.query_one("#changes-query-text").value = "rate(edited[5m]) typed"
+        pane.query_one("#changes-restore-confirm").value = target.name
+        app._handle_changes_button("changes-restore")
+        assert "Restored draft" in str(pane.query_one("#changes-result").render())
+        assert pane.query_one("#changes-query-text").value == "rate(edited[5m])"
+
 
 @pytest.mark.anyio
 @pytest.mark.parametrize("size", [(80, 24), (120, 40)])
@@ -756,9 +768,12 @@ async def test_prepared_plan_invalidated_after_field_edit(make_app, healthy_clie
         await pilot.pause()
         assert "invalidated" in str(pane.query_one("#changes-summary").render()).lower()
         assert str(pane.query_one("#changes-plan").render()) == ""
+        app._prepared_apply_plan = SimpleNamespace(target=target, revision=app._draft_store.get(target).revision)  # type: ignore[assignment]
         app._draft_store.get_or_create(ResourceTarget(model, "entity", "EntityB"), {"name": "EntityB", "properties": {}})
         app.action_show_changes()
+        assert app._prepared_apply_plan is None
         assert str(pane.query_one("#changes-plan").render()) == ""
+        assert "draft changed since prepare" not in str(pane.query_one("#changes-summary").render()).lower()  # B never had a plan
 
 
 @pytest.mark.anyio

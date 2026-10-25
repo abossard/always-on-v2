@@ -1202,7 +1202,8 @@ class HealthWatchApp(App[str | None]):
         plan = self._prepared_apply_plan
         if plan is not None and (plan.target != target or plan.revision != draft.revision):
             self._prepared_apply_plan = None
-            summary += "\nPrepared apply plan invalidated: the draft changed since Prepare."
+            if plan.target == target:
+                summary += "\nPrepared apply plan invalidated: the draft changed since Prepare."
         if self._prepared_apply_plan is None:
             pane.set_plan("")
         pane.set_summary(summary)
@@ -1295,6 +1296,7 @@ class HealthWatchApp(App[str | None]):
                     confirm_overwrite_unsaved=(pane.restore_confirmation() == target.name),
                 )
                 self._prepared_apply_plan = None
+                self._form_target = None  # the file replaces the whole form, typed text included
                 self._changes_result_by_target[target] = f"Restored draft from {path}"
                 self._render_changes()
                 return
