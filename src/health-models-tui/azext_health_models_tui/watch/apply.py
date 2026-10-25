@@ -16,7 +16,6 @@ from azext_health_models_tui.domain.drafts import (
     build_apply_plan,
     changed_paths,
     collect_signal_definition_consumers,
-    diff_documents,
     get_in,
     normalize_known_readonly_fields,
 )
@@ -242,19 +241,19 @@ class ApplyCoordinator:
                 recomputed_changes, None, write_error,
             )
         read_back = normalize_known_readonly_fields(read_back_raw)
-        if not diff_documents(normalized_desired, read_back):
+        # This plan's fields only: a field another writer changed is not this write's to confirm.
+        unconfirmed = tuple(
+            f"{path}: wanted {change.after!r}, live {live!r}"
+            for path, change in zip(changed_paths(plan.changes), plan.changes)
+            if (live := get_in(read_back, change.path)) != change.after
+        )
+        if not unconfirmed:
             return _written(
                 ApplyOutcomeKind.APPLIED, target,
                 "Read-back matches desired state despite the write error." if write_error
                 else "Apply succeeded and read-back matches desired state.",
                 recomputed_changes, read_back_raw, write_error,
             )
-        # This plan's fields only: a field another writer changed differs from desired too, but is not this write's.
-        unconfirmed = tuple(
-            f"{path}: wanted {change.after!r}, live {live!r}"
-            for path, change in zip(changed_paths(plan.changes), plan.changes)
-            if (live := get_in(read_back, change.path)) != change.after
-        )
         if write_error and write_status in (400, 403, 409):
             return _written(
                 ApplyOutcomeKind.REJECTED, target, "Service rejected write and read-back differs from desired state.",

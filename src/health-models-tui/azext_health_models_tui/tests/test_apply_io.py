@@ -394,6 +394,34 @@ def test_apply_lists_the_plan_fields_that_did_not_land_not_another_writers(
     assert result.changed_fields == ("properties.displayName: wanted 'after', live 'before'",)
 
 
+@pytest.mark.parametrize(
+    "write_error",
+    [AuthenticationError("forbidden", status_code=403), TimeoutError("timed out"), None],
+    ids=["403", "timeout", "no-error"],
+)
+def test_apply_is_applied_when_own_fields_landed_and_another_writer_changed_others(
+    client: MagicMock, write_error: Exception | None,
+) -> None:
+    baseline = {"name": "res-1", "properties": {"displayName": "before", "impact": "Standard"}}
+    edited = {"name": "res-1", "properties": {"displayName": "after", "impact": "Standard"}}
+    read_back = {"name": "res-1", "properties": {"displayName": "after", "impact": "Limited"}}  # another writer
+    client.get_entity.side_effect = [baseline, baseline, read_back]
+    client.update_entity.side_effect = write_error
+    coordinator = _coordinator(client, revision=5)
+
+    plan = coordinator.prepare_plan(
+        target=_target("entity"),
+        revision=5,
+        edited_resource=edited,
+        draft_live_baseline=baseline,
+    )
+    assert not isinstance(plan, ApplyResult)
+    result = coordinator.apply_confirmed(plan, confirmation_name="res-1")
+
+    assert result.outcome is ApplyOutcomeKind.APPLIED
+    assert result.read_back == read_back
+
+
 def test_apply_rejects_tampered_plan_payload(client: MagicMock) -> None:
     baseline = {"name": "res-1", "properties": {"displayName": "before"}}
     edited = {"name": "res-1", "properties": {"displayName": "after"}}

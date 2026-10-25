@@ -1128,6 +1128,9 @@ class HealthWatchApp(App[str | None]):
         except ValueError as exc:
             pane.set_summary(str(exc))
             return
+        if (latest := max(left_at, right_at)) > datetime.now(UTC):
+            pane.set_summary(f"{format_utc(latest)} is in the future. Enter a past time.")
+            return
         pane.set_summary(f"Loading compare snapshots at {format_utc(left_at)} and {format_utc(right_at)}...")
         model = self._timeline_key.model if self._timeline_key is not None else self._poller.root
         # Only the latest compare is pending; a rerun drops the previous one's leases.

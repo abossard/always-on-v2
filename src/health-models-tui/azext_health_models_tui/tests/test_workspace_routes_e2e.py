@@ -1628,6 +1628,8 @@ async def test_timeline_fills_rows_progressively_and_never_times_out(make_app, h
         ("timeline-open", {"#timeline-go-to": "2999-01-01T00:00:00Z"}, "is in the future"),
         ("timeline-compare", {"#timeline-compare-a": "2026-01-01T00:10:00Z", "#timeline-compare-b": "2026-01-01T00:40:00Z"},
          "Compare complete"),
+        ("timeline-compare", {"#timeline-compare-a": "2026-01-01T00:10:00Z", "#timeline-compare-b": "2999-01-01T00:00:00Z"},
+         "is in the future"),
     ],
 )
 async def test_snapshot_open_and_compare_complete_from_poller_updates(button, inputs, expected) -> None:

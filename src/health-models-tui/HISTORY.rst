@@ -14,4 +14,5 @@ Release History
 * Data-source query errors and entity 404s are reported as typed errors.
 * Snapshots load every nested model on the selected path; Compare diffs only the compared model; nested references expanded in quick succession all load.
 * Metric and Prometheus verification use the configured cloud endpoint instead of the public Azure host.
-* The wheel no longer ships a stale copy of the package from a local ``build/`` directory.
+* Apply results show the wanted and the live value of every field that did not land; Prepare lists shared consumers by display name; display and icon names are limited to 256 characters.
+* The wheel ships ``azext_metadata.json`` (minimum Azure CLI 2.61.0) and no longer a stale copy of the package from a local ``build/`` directory.
