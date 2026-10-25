@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import threading
 from types import MappingProxyType
 from datetime import UTC, datetime
 from datetime import timedelta
@@ -13,6 +14,7 @@ from rich.text import Text
 from textual.css.query import NoMatches
 from textual.widgets import Button
 
+from azext_health_models_tui.client.errors import AuthenticationError
 from azext_health_models_tui.domain.drafts import ApplyPlan, FieldDiff, ResourceTarget
 from azext_health_models_tui.domain.history import HistoryBucketHealth, SnapshotNode, parse_history_events
 from azext_health_models_tui.domain.history import SnapshotKey
@@ -864,6 +866,40 @@ async def test_update_draft_writes_and_counts_only_changed_fields(
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("kind", "live", "typed", "written"),
+    [
+        ("entity", {"displayName": "EntityA"}, {"#changes-display-name": "  x ; "}, {"displayName": "  x ; "}),
+        ("entity", {"displayName": "EntityA"}, {"#changes-display-name": "  "}, {"displayName": "  "}),
+        ("entity", {"healthObjective": 99}, {"#changes-objective": " 50 "}, {"healthObjective": 50.0}),
+        ("entity", {"displayName": "Event Hubs ", "impact": "Standard"}, {"#changes-impact": "Limited"}, {"impact": "Limited"}),
+        ("signal_definition", {"signalKind": "PrometheusMetricsQuery", "queryText": "rate(x[5m])\n"}, {}, {}),
+    ],
+    ids=["padded", "spaces-only", "padded-number", "live-trailing-space", "live-query-newline"],
+)
+async def test_update_draft_writes_typed_text_exactly_and_filled_live_text_is_no_edit(
+    make_app, healthy_client, kind, live, typed, written,
+) -> None:
+    app: HealthWatchApp = make_app(healthy_client)
+    target = ResourceTarget(app._poller.root, kind, "res-1")
+    app._draft_store.get_or_create(target, {"name": "res-1", "properties": live})
+    async with app.run_test(size=(120, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        app.action_show_changes()
+        assert not app._changes_form_has_pending_edits()
+        pane = app.query_one("#changes-pane", ChangesPane)
+        for widget_id, value in typed.items():
+            pane.query_one(widget_id).value = value
+        app._handle_changes_button("changes-review")
+        await pilot.pause()
+        draft = app._draft_store.get(target)
+        assert draft.edited["properties"] == {**live, **written}
+        assert draft.revision == len(typed)
+        assert not app._changes_form_has_pending_edits()
+
+
+@pytest.mark.anyio
 async def test_apply_keeps_edits_made_while_the_write_runs(make_app, healthy_client) -> None:
     app: HealthWatchApp = make_app(healthy_client)
     target = ResourceTarget(app._poller.root, "entity", "EntityA")
@@ -1082,6 +1118,98 @@ async def test_quit_waits_for_a_running_apply(make_app, healthy_client) -> None:
 
 
 @pytest.mark.anyio
+@pytest.mark.parametrize("button", ["changes-prepare-apply", "changes-apply", "changes-discard", "changes-restore"])
+async def test_changes_actions_that_replace_the_draft_wait_for_a_running_apply(make_app, healthy_client, button) -> None:
+    app: HealthWatchApp = make_app(healthy_client)
+    target = ResourceTarget(app._poller.root, "entity", "EntityA")
+    app._draft_store.get_or_create(target, {"name": "EntityA", "properties": {"displayName": "EntityA"}})
+    release = threading.Event()
+    writes = []
+
+    class _SlowApply:
+        def apply_confirmed(self, plan, confirmation_name):  # noqa: ANN001
+            writes.append(plan)
+            release.wait(5)
+            return ApplyResult(
+                outcome=ApplyOutcomeKind.APPLIED, target=target, attempted_write=True, message="Applied.",
+                race_warning="", changed_fields=(), confirmation_required=target.name,
+            )
+
+    app._apply = _SlowApply()  # type: ignore[assignment]
+    async with app.run_test(size=(120, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        app.action_show_changes()
+        app._prepared_apply_plan = SimpleNamespace(target=target, revision=0)  # type: ignore[assignment]
+        app.query_one("#changes-apply", Button).press()
+        await pilot.pause()
+        app._prepared_apply_plan = SimpleNamespace(target=target, revision=0)  # type: ignore[assignment]
+        app.query_one(f"#{button}", Button).press()
+        await pilot.pause()
+        assert "An apply is still writing; wait for its result." in str(app.query_one("#changes-summary").render())
+        release.set()
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+        assert len(writes) == 1
+        assert app._draft_store.get(target) is not None
+
+
+@pytest.mark.anyio
+@pytest.mark.parametrize(
+    ("write_error", "shown"),
+    [
+        (AuthenticationError("forbidden", status_code=403), ("Apply rejected:", "HTTP 403")),
+        (TimeoutError("timed out"), ("Apply unknown:", "TimeoutError: timed out", "Prepare again")),
+        (None, ("Apply differs:", "Prepare again")),
+    ],
+    ids=["rejected", "unknown", "differs"],
+)
+async def test_apply_outcome_with_read_back_stays_shown_and_the_next_prepare_diffs_against_it(
+    make_app, healthy_client, write_error, shown,
+) -> None:
+    app: HealthWatchApp = make_app(healthy_client)
+    target = ResourceTarget(app._poller.root, "entity", "EntityA")
+    app._draft_store.get_or_create(target, {"name": "EntityA", "properties": {"displayName": "before"}})
+    app._draft_store.update_field(target, "properties.displayName", "after")
+    live = {"name": "EntityA", "properties": {"displayName": "before"}}
+
+    def _write(*_args):  # noqa: ANN002
+        live["properties"] = {"displayName": "elsewhere"}  # the live state moved on, whether or not this write landed
+        if write_error is not None:
+            raise write_error
+
+    healthy_client.for_model.return_value = healthy_client
+    healthy_client.get_connection_scope.return_value = {
+        "arm_endpoint": "https://management.azure.com", "subscription_id": "s", "subscription_name": "MCAP",
+        "tenant_id": "t", "tenant_name": "anbo",
+    }
+    healthy_client.get_entity.side_effect = lambda *_args: json.loads(json.dumps(live))
+    healthy_client.update_entity.side_effect = _write
+    async with app.run_test(size=(120, 40)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        app.action_show_changes()
+        pane = app.query_one("#changes-pane", ChangesPane)
+        app._handle_changes_button("changes-prepare-apply")
+        await app.workers.wait_for_complete()
+        pane.query_one("#changes-apply-confirm").value = target.name
+        app._handle_changes_button("changes-apply")
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+        result = str(pane.query_one("#changes-result").render())
+        assert all(text in result for text in shown)
+        assert pane.query_one("#changes-apply-confirm").value == ""  # another Apply needs the name typed again
+        assert app._draft_store.get(target).edited["properties"] == {"displayName": "after"}
+
+        app._handle_changes_button("changes-prepare-apply")
+        await app.workers.wait_for_complete()
+        await pilot.pause()
+        assert "Plan prepared." in str(pane.query_one("#changes-summary").render())
+        assert "Apply" not in str(pane.query_one("#changes-result").render())
+        assert healthy_client.update_entity.call_count == 1
+
+
+@pytest.mark.anyio
 async def test_apply_result_persists_after_render_refresh(make_app, healthy_client) -> None:
     app: HealthWatchApp = make_app(healthy_client)
     model = app._poller.root
@@ -1296,6 +1424,25 @@ async def test_prepare_review_scroll_and_actions_are_reachable_in_compact_layout
         await pilot.pause()
         assert str(app.query_one("#changes-plan").render()) == ""  # a started apply uses the plan up
         assert "Race warning:" in str(app.query_one("#changes-details").render())
+
+
+@pytest.mark.anyio
+async def test_a_long_result_message_leaves_a_form_field_visible_at_80x24(make_app, healthy_client) -> None:
+    app: HealthWatchApp = make_app(healthy_client)
+    target = ResourceTarget(app._poller.root, "entity", "EntityA")
+    app._draft_store.get_or_create(target, {"name": "EntityA", "properties": {"displayName": "EntityA"}})
+    app._changes_result_by_target[target] = (
+        "Apply rejected: Service rejected write and read-back differs from desired state. | changed: properties.displayName\n"
+        "Write error: " + AuthenticationError("forbidden", status_code=403).diagnostic_text()
+    )
+    async with app.run_test(size=(80, 24)) as pilot:
+        await app._do_poll()
+        await pilot.pause()
+        app.action_show_changes()
+        await pilot.pause()
+        assert "Write error:" in str(app.query_one("#changes-result").render())
+        field = app.query_one("#changes-display-name")
+        assert app.screen.get_widget_at(field.region.x, field.region.y)[0] is field
 
 
 @pytest.mark.anyio

@@ -82,8 +82,11 @@ class ChangesPane(Vertical):
     def restore_confirmation(self) -> str:
         return self.query_one("#changes-restore-confirm", Input).value.strip()
 
-    def apply_confirmation(self) -> str:
-        return self.query_one("#changes-apply-confirm", Input).value.strip()
+    def take_apply_confirmation(self) -> str:
+        """The typed resource name, cleared so every Apply needs it typed again."""
+        confirm = self.query_one("#changes-apply-confirm", Input)
+        value, confirm.value = confirm.value.strip(), ""
+        return value
 
     def set_drafts(self, text: str) -> None:
         self.query_one("#changes-drafts", Static).update(Text(text))
@@ -103,7 +106,7 @@ class ChangesPane(Vertical):
         self.query_one("#changes-details", Static).update(Text(text))
 
     def form_values(self) -> dict[str, str]:
-        return {key: self.query_one(f"#{field_input_id(key)}", Input).value.strip() for key in FIELDS}
+        return {key: self.query_one(f"#{field_input_id(key)}", Input).value for key in FIELDS}
 
     def set_form_values(self, values: dict[str, str], *, keep_typed: bool = False) -> None:
         typed = self.form_values()

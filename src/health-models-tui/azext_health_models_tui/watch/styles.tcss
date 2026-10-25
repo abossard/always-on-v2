@@ -127,6 +127,13 @@ ChangesPane Input:focus {
     min-height: 1;
 }
 
+/* App.VERTICAL_BREAKPOINTS: on a short screen a result of at most 3 unbordered lines leaves a form field in view. */
+Screen.-short #changes-result {
+    border: none;
+    margin: 0;
+    max-height: 3;
+}
+
 TimelinePane Horizontal,
 ChangesPane Horizontal {
     height: auto;

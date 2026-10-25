@@ -94,8 +94,9 @@ class HealthWatchApp(App[str | None]):
 
     CSS_PATH = "styles.tcss"
     TITLE = "Health Model Watch"
-    # Below 110 columns side panes take the full width (see styles.tcss).
+    # Below 110 columns side panes take the full width; below 30 rows the Changes result is compact (see styles.tcss).
     HORIZONTAL_BREAKPOINTS = [(0, "-narrow"), (110, "-wide")]
+    VERTICAL_BREAKPOINTS = [(0, "-short"), (30, "-tall")]
     RESULT_BACK_TO_MODELS = "back-to-models"
 
     BINDINGS = [
@@ -1227,6 +1228,11 @@ class HealthWatchApp(App[str | None]):
         if draft is None:
             pane.set_summary("No draft available.")
             return
+        if self._applies_in_flight and button_id in {
+            "changes-prepare-apply", "changes-apply", "changes-restore", "changes-discard",
+        }:
+            pane.set_summary("An apply is still writing; wait for its result.")
+            return
 
         try:
             if button_id == "changes-review":
@@ -1315,6 +1321,8 @@ class HealthWatchApp(App[str | None]):
                     pane.set_summary("Update draft first: the plan would not include the edits in the form.")
                     return
                 pane.set_summary("Preparing apply plan...")
+                pane.set_result("")
+                self._changes_result_by_target.pop(target, None)
                 self.run_worker(self._prepare_apply(target, draft), group="changes-prepare", exclusive=True)
                 return
             if button_id == "changes-apply":
@@ -1325,8 +1333,9 @@ class HealthWatchApp(App[str | None]):
                 # Consume the plan now so a second click cannot issue a second write.
                 self._prepared_apply_plan = None
                 pane.set_summary("Applying prepared plan...")
+                self._applies_in_flight += 1  # before the worker starts, so no click in between starts a second write
                 self.run_worker(
-                    self._apply_prepared(plan.target, draft.revision, plan, pane.apply_confirmation()),
+                    self._apply_prepared(plan.target, draft.revision, plan, pane.take_apply_confirmation()),
                     group="changes-apply",
                 )
                 return
@@ -1406,7 +1415,6 @@ class HealthWatchApp(App[str | None]):
     ) -> None:
         pane = self.query_one("#changes-pane", ChangesPane)
         pane.set_plan("")  # the coordinator uses a plan once, even when the apply raises
-        self._applies_in_flight += 1
         try:
             result = await asyncio.to_thread(
                 self._apply.apply_confirmed, plan, confirmation_name=confirmation,
@@ -1416,18 +1424,17 @@ class HealthWatchApp(App[str | None]):
             return
         finally:
             self._applies_in_flight -= 1
-        pane.set_summary(f"{result.outcome.value}: {result.message}")
-        pane.set_details(result.race_warning + (f"\nWrite error: {result.write_error}" if result.write_error else ""))
         self._changes_result_by_target[target] = (
             f"Apply {result.outcome.value}: {result.message}"
             + (f" | changed: {', '.join(result.changed_fields)}" if result.changed_fields else "")
+            + (f"\nWrite error: {result.write_error}" if result.write_error else "")
         )
         current = self._draft_store.get(target)
-        if result.outcome.value == "applied" and result.read_back is not None and current is not None:
-            if current.revision == revision:
+        if result.read_back is not None and current is not None:
+            if result.outcome.value == "applied" and current.revision == revision:
                 self._draft_store.accept_applied(target, result.read_back)
             else:
-                self._draft_store.rebase(target, result.read_back)  # edits made during the write stay
+                self._draft_store.rebase(target, result.read_back)  # the edits stay, so the next Prepare diffs against live
         self._render_changes()
 
     def _current_revision_for_target(self, target: ResourceTarget) -> int:

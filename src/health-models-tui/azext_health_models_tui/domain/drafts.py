@@ -231,7 +231,7 @@ def build_apply_plan(
     normalized_expected = normalize_known_readonly_fields(expected_baseline)
     normalized_live = normalize_known_readonly_fields(live_baseline)
     if normalized_expected != normalized_live:
-        raise ValueError("Live baseline changed; draft baseline no longer matches current live resource")
+        raise ValueError("Live baseline changed; draft baseline no longer matches current live resource. Discard the draft and edit again from the live state.")
     normalized_edited = normalize_known_readonly_fields(edited_resource)
     changes = diff_documents(normalized_live, normalized_edited)
     return ApplyPlan(

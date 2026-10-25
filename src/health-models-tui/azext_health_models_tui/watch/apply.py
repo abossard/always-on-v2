@@ -24,6 +24,7 @@ _RACE_WARNING = (
     "Race warning: this apply flow has no proven atomic If-Match protection. "
     "State may change between confirmation, write, and read-back."
 )
+_RETRY_STEP = "Prepare again to see and retry the remaining changes."
 
 
 class ApplyOutcomeKind(str, Enum):
@@ -262,11 +263,13 @@ class ApplyCoordinator:
             )
         if write_error:
             return _written(
-                ApplyOutcomeKind.UNKNOWN, target, "Write outcome is unknown. Read-back differs from desired state.",
+                ApplyOutcomeKind.UNKNOWN, target,
+                "Write outcome is unknown. Read-back differs from desired state. " + _RETRY_STEP,
                 diffs, read_back_raw, write_error,
             )
         return _written(
-            ApplyOutcomeKind.DIFFERS, target, "Write completed but read-back differs from desired state.",
+            ApplyOutcomeKind.DIFFERS, target,
+            "Write completed but read-back differs from desired state. " + _RETRY_STEP,
             diffs, read_back_raw,
         )
 
