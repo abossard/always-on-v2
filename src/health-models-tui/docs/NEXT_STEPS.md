@@ -4,7 +4,7 @@ Written 2026-10-25 for the next agent working on `az health-models-tui`.
 
 ## State
 
-- Branch `claude/health-models-tui-0-4-0`, 22 commits on `main`, pushed to `origin` (`abossard/always-on-v2`). No PR yet. Version 0.4.0 (`pyproject.toml`, `HISTORY.rst`).
+- Merged into `main` (fast-forward, pushed to `abossard/always-on-v2`); work branch `claude/health-models-tui-0-4-0`. Version 0.4.0 (`pyproject.toml`, `HISTORY.rst`). The README install now builds 0.4.0.
 - Tests: `cd src/health-models-tui && uv run --locked pytest -q` gives 681 passed. The run rewrites the screenshot SVGs under `azext_health_models_tui/tests/`; restore them before committing: `git checkout -- 'src/health-models-tui/*.svg'`.
 - Verified on the last commits:
   - Read-only live pass over all 13 models in the user's subscription: every tree loads, every timeline row loads, signal verify works, Prepare is a no-op.
@@ -17,21 +17,18 @@ Written 2026-10-25 for the next agent working on `az health-models-tui`.
 
 - Live Azure is read-only: never Apply, never run a writing `az` command. Prepare is fine (it only reads). Re-confirmed 2026-10-25.
 - Gentle changes, simple code, Ousterhout design, parametrized tests, match existing patterns, do only what is asked.
-- Commit and push to this branch are fine (user, 2026-10-25). Ask before opening a PR or merging. No AI attribution, no em dashes.
+- Commit, push and merge to `main` are fine; it is the user's own repo (user, 2026-10-25). Work on a branch first. No AI attribution, no em dashes.
 - The working tree also has 29 modified or untracked files outside `src/health-models-tui` (infra, workflows, other apps). They are not part of this work; never commit them with it.
 
 ## Left to do
 
-1. **PR and merge** (ask first). Until it is merged, the README install builds the old version from the default branch.
-2. **Open items from the last QA, not fixed:**
-   - A 403 whose read-back also fails is reported as "unknown", not "rejected". This was already the case on `main`.
+1. **Open items from the last QA, not fixed:**
    - "Not confirmed: ... wanted 'X', live 'Y'" prints whole values, so a long query fills the result box. The box scrolls.
    - Opening a snapshot waits until the model of every timeline row has loaded, not only the selected path. That is the cost of loading expanded nested models beside the selected row.
    - A snapshot covers the rows that were visible when the timeline was requested. A nested model expanded after that shows `[unloaded]` until the timeline refreshes.
    - The 256-character name limit counts Python code points. How the API counts emoji is unknown.
    - Prepare with two or more shared consumers was only tested with unit tests, not live.
-   - Log Analytics signals cannot be verified (shown as Unknown).
-   - The plan box is about 4 rows high.
+   - Log Analytics signals cannot be verified (shown as Unknown). The user chose to leave this for later (2026-10-25).
 
 ## Decided, do not reopen without the user
 
