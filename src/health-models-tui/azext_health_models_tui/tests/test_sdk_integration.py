@@ -1193,6 +1193,132 @@ def test_metric_query_http_failures_become_typed_errors(monkeypatch, status: int
     assert type(raised.value).__name__ == expected
 
 
+_LA_WORKSPACE = (
+    "/subscriptions/00000000-0000-0000-0000-000000000001/resourceGroups/rg"
+    "/providers/Microsoft.OperationalInsights/workspaces/ws"
+)
+
+
+def _la_table(columns: list[str], rows: list[list[Any]]) -> dict[str, Any]:
+    """The ARM workspace proxy answers in PascalCase."""
+    return {"Tables": [{"TableName": "Table_0", "Columns": [{"ColumnName": c} for c in columns], "Rows": rows}]}
+
+
+@pytest.mark.parametrize(
+    ("arm_endpoint", "time_grain", "expected_body"),
+    [
+        ("https://management.azure.com", "PT30M", {"query": "print value = 20", "timespan": "PT30M"}),
+        ("https://management.chinacloudapi.cn", "", {"query": "print value = 20"}),
+    ],
+)
+def test_query_log_analytics_posts_kql_to_the_arm_workspace_proxy(
+    arm_endpoint: str, time_grain: str, expected_body: dict[str, Any],
+) -> None:
+    payload = _la_table(["value"], [[20]])
+    transport = _RecordingTransport([_QueuedHttp(200, payload)])
+    client = _real_sdk_client_with_transport(transport, arm_endpoint=arm_endpoint)
+
+    assert client.query_log_analytics(_LA_WORKSPACE, "print value = 20", time_grain) == payload
+
+    [request] = transport.requests
+    assert request.method == "POST"
+    assert request.url == f"{arm_endpoint}{_LA_WORKSPACE}/api/query?api-version=2020-08-01"
+    assert json.loads(request.body) == expected_body
+
+
+@pytest.mark.parametrize(
+    ("status", "code", "expected"),
+    [(400, "BadArgumentError", "ArmError"), (403, "InsufficientAccessError", "AuthenticationError")],
+)
+def test_query_log_analytics_error_payload_becomes_typed_error(status: int, code: str, expected: str) -> None:
+    transport = _RecordingTransport([_QueuedHttp(status, {"error": {"code": code, "message": "query failed"}})])
+    client = _real_sdk_client_with_transport(transport)
+
+    with pytest.raises(Exception) as raised:
+        client.query_log_analytics(_LA_WORKSPACE, "print value = ", "PT5M")
+
+    assert type(raised.value).__name__ == expected
+    assert (raised.value.status_code, raised.value.code) == (status, code)
+
+
+@pytest.mark.parametrize(
+    ("payload", "column", "expected_value", "expected_error"),
+    [
+        pytest.param(_la_table(["TimeGenerated", "Value"], [["t1", 1], ["t2", 3]]), "Value", 3.0, None, id="named-column-last-row"),
+        pytest.param(_la_table(["value", "s"], [[20, "x"]]), "", 20.0, None, id="first-column-when-unnamed"),
+        pytest.param(_la_table(["Value"], []), "Value", None, "no rows", id="empty-table"),
+        pytest.param({"Tables": []}, "Value", None, "no tables", id="no-tables"),
+        pytest.param(_la_table(["Other"], [[1]]), "Value", None, "column 'Value' not in", id="missing-column"),
+        pytest.param(_la_table(["s"], [["x"]]), "", None, "is not numeric", id="non-numeric"),
+        pytest.param(_la_table(["Value"], [[None]]), "Value", None, "is not numeric", id="null"),
+        pytest.param(_la_table(["Value"], [["NaN"]]), "Value", None, "is not finite", id="nan"),
+        pytest.param(_la_table(["Value"], [["Infinity"]]), "Value", None, "is not finite", id="infinity"),
+        pytest.param({"error": {"code": "PartialError", "message": "timed out"}}, "Value", None, "PartialError", id="error-payload"),
+    ],
+)
+def test_log_analytics_value_extraction(
+    payload: dict[str, Any], column: str, expected_value: float | None, expected_error: str | None,
+) -> None:
+    from azext_health_models_tui.client.query_executor import _extract_log_analytics_value
+
+    value, error = _extract_log_analytics_value(payload, column)
+
+    assert value == expected_value
+    if expected_error is None:
+        assert error is None
+    else:
+        assert expected_error in error
+
+
+_GREATER_THAN = {
+    "degradedRule": {"operator": "GreaterThan", "threshold": 0},
+    "unhealthyRule": {"operator": "GreaterThan", "threshold": 10},
+}
+_LESS_THAN = {
+    "degradedRule": {"operator": "LessThan", "threshold": 100},
+    "unhealthyRule": {"operator": "LessThan", "threshold": 67},
+}
+
+
+@pytest.mark.parametrize("owner", ["instance", "definition"])
+@pytest.mark.parametrize(
+    ("rules", "rows", "expected_value", "expected_health"),
+    [
+        (_GREATER_THAN, [[20]], 20.0, "Unhealthy"),
+        (_GREATER_THAN, [[5]], 5.0, "Degraded"),
+        (_GREATER_THAN, [[0]], 0.0, "Healthy"),
+        (_LESS_THAN, [[50]], 50.0, "Unhealthy"),
+        (_LESS_THAN, [[80]], 80.0, "Degraded"),
+        (_LESS_THAN, [[100]], 100.0, "Healthy"),
+        (_LESS_THAN, [], None, "Error"),
+    ],
+)
+def test_execute_signal_log_analytics_evaluates_rules(
+    owner: str, rules: dict[str, Any], rows: list[list[Any]], expected_value: float | None, expected_health: str,
+) -> None:
+    from azext_health_models_tui.client.query_executor import execute_signal
+
+    fields = {"queryText": "T | summarize value = count()", "timeGrain": "PT30M", "valueColumnName": "value", "evaluationRules": rules}
+    signal = {"name": "sig-1", "signalKind": "LogAnalyticsQuery"}
+    client = MagicMock()
+    if owner == "instance":
+        signal.update(fields)
+    else:
+        signal["signalDefinitionName"] = "def-1"
+        client.get_signal_definition.return_value = {"properties": {"signalKind": "LogAnalyticsQuery", **fields}}
+    client.get_entity.return_value = {
+        "name": "entity-1",
+        "properties": {"signalGroups": {"azureLogAnalytics": {"logAnalyticsWorkspaceResourceId": _LA_WORKSPACE, "signals": [signal]}}},
+    }
+    client.query_log_analytics.return_value = _la_table(["Count", "value"], [[999, *row] for row in rows])
+
+    result = execute_signal(client, "rg", "model", "entity-1", "sig-1")
+
+    client.query_log_analytics.assert_called_once_with(_LA_WORKSPACE, "T | summarize value = count()", "PT30M")
+    assert (result["rawValue"], result["healthState"]) == (expected_value, expected_health)
+    assert (result["error"] is None) == (expected_value is not None)
+
+
 def test_execute_signal_query_override_is_per_invocation_without_mutation():
     from azext_health_models_tui.client.query_executor import execute_signal
 

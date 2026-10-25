@@ -124,9 +124,7 @@ class SignalPanel(VerticalScroll):
 
         err = result.get("error")
         status = self.query_one("#signal-panel-status", Static)
-        if result.get("errorType") == "Unsupported":
-            status.update(Text(f"ℹ {err}", style="italic"))
-        elif err:
+        if err:
             status.update(Text(f"✖ Error: {err}", style="bold red"))
         else:
             duration = result.get("durationMs", 0)

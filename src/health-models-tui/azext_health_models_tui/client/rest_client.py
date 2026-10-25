@@ -611,6 +611,17 @@ class CloudHealthClient:
         )
         return self._raw_get(url)
 
+    def query_log_analytics(self, workspace_resource_id: str, query: str, timespan: str) -> dict[str, Any]:
+        """Execute KQL through the ARM workspace proxy, so the CLI's cloud and management credential apply."""
+        _validate_arm_resource_id(workspace_resource_id)
+
+        url = f"{self.arm_endpoint.rstrip('/')}{workspace_resource_id}/api/query?api-version=2020-08-01"
+        # Without a timeGrain the service sends no timespan; the query defines its own range.
+        body = {"query": query, **({"timespan": timespan} if timespan else {})}
+        response = self._send("POST", url, body)
+        self._raise_for_status(response)
+        return self._response_json_dict(response, "Log Analytics query response")
+
     def _raw_get(self, url: str, **kwargs: Any) -> Any:
         """GET through the CLI's raw request; HTTP failures become the extension's typed errors."""
         from azure.cli.core.azclierror import HTTPError

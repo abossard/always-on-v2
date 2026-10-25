@@ -9,6 +9,7 @@ result.
 from __future__ import annotations
 
 import logging
+import math
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -39,6 +40,7 @@ class SignalExecutionConfig:
     signal_group: str
     query_text: str
     time_grain: str
+    value_column_name: str
     data_unit: str
     evaluation_rules: dict[str, Any]
     metric_namespace: str
@@ -86,7 +88,8 @@ def resolve_signal_config(
         signal_kind=signal_kind,
         signal_group=group_key,
         query_text=query_text,
-        time_grain=sig_instance.get("timeGrain") or sig_def_props.get("timeGrain", "PT5M"),
+        time_grain=sig_instance.get("timeGrain") or sig_def_props.get("timeGrain", ""),
+        value_column_name=sig_instance.get("valueColumnName") or sig_def_props.get("valueColumnName", ""),
         data_unit=sig_instance.get("dataUnit") or sig_def_props.get("dataUnit", "Count"),
         evaluation_rules=sig_instance.get("evaluationRules") or sig_def_props.get("evaluationRules", {}),
         metric_namespace=sig_instance.get("metricNamespace") or sig_def_props.get("metricNamespace", ""),
@@ -144,7 +147,7 @@ def execute_signal(
             if not resource_id:
                 raise ValueError(f"Signal group '{config.signal_group}' has no azureResourceId")
             raw_output = client.query_azure_metric(
-                resource_id, config.metric_name, config.metric_namespace, config.aggregation, config.time_grain,
+                resource_id, config.metric_name, config.metric_namespace, config.aggregation, config.time_grain or "PT5M",
             )
             raw_value, extract_err = _extract_azure_metric_value(raw_output)
             if raw_value is None and extract_err:
@@ -154,7 +157,10 @@ def execute_signal(
             workspace_id = config.data_source
             if not workspace_id:
                 raise ValueError(f"Signal group '{config.signal_group}' has no logAnalyticsWorkspaceResourceId")
-            error, error_type = "LogAnalyticsQuery execution not yet supported", "Unsupported"
+            raw_output = client.query_log_analytics(workspace_id, query_text, config.time_grain)
+            raw_value, extract_err = _extract_log_analytics_value(raw_output, config.value_column_name)
+            if raw_value is None and extract_err:
+                error = extract_err
 
         else:
             error = f"Unsupported signal kind: {config.signal_kind}"
@@ -172,9 +178,7 @@ def execute_signal(
 
     # 4. Evaluate health (delegate to domain rule objects)
     health_state = HealthState.UNKNOWN
-    if error_type == "Unsupported":
-        health_state_str = health_state.value  # nothing was evaluated
-    elif error:
+    if error:
         # Preserve the existing "Error" label for query failures.
         health_state_str = "Error"
     elif raw_value is not None:
@@ -287,6 +291,37 @@ def _extract_azure_metric_value(data: dict[str, Any]) -> tuple[float | None, str
     except (TypeError, ValueError, IndexError, AttributeError) as exc:
         _log.debug("Failed to extract Azure metric value: %s: %s", type(exc).__name__, exc)
         return None, f"malformed Azure metric response ({type(exc).__name__})"
+
+
+def _extract_log_analytics_value(data: dict[str, Any], column: str) -> tuple[float | None, str | None]:
+    """Read *column* from the last row of the first table; unnamed means the first column, as the service does.
+
+    Returns ``(value, error_message)``. See :func:`_extract_prometheus_value`.
+    """
+    try:
+        if data.get("error"):
+            return None, f"Log Analytics query error: {data['error']}"
+        tables = data.get("Tables") or []
+        if not tables:
+            return None, "no tables returned by Log Analytics query"
+        names = [c.get("ColumnName") for c in tables[0].get("Columns") or []]
+        rows = tables[0].get("Rows") or []
+        if not rows:
+            return None, "no rows returned by Log Analytics query"
+        name = column or (names[0] if names else "")
+        if name not in names:
+            return None, f"column '{name}' not in Log Analytics result columns {names}"
+        raw = rows[-1][names.index(name)]
+        try:
+            value = float(raw)
+        except (TypeError, ValueError):
+            return None, f"column '{name}' value {raw!r} is not numeric"
+        if not math.isfinite(value):
+            return None, f"column '{name}' value {raw!r} is not finite"
+        return value, None
+    except (TypeError, IndexError, AttributeError) as exc:
+        _log.debug("Failed to extract Log Analytics value: %s: %s", type(exc).__name__, exc)
+        return None, f"malformed Log Analytics response ({type(exc).__name__})"
 
 
 def _parse_rule(rule: dict[str, Any]) -> EvaluationRule | None:
