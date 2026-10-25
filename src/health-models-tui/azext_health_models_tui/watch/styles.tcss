@@ -274,10 +274,7 @@ QueryEditor #qe-title {
     background: $surface;
 }
 
-/* Capped so a long config never pushes the query out of view; it scrolls on its own. */
 QueryEditor #qe-meta {
-    max-height: 30vh;
-    overflow-y: auto;
     background: $panel;
     border: round $primary-darken-2;
     padding: 0 1;

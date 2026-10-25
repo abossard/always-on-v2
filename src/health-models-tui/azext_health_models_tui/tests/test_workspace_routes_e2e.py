@@ -255,17 +255,23 @@ async def test_query_editor_target_uses_definition_when_instance_query_absent(ma
 async def test_query_editor_shows_title_query_and_buttons_and_reaches_results(make_app, healthy_client, size) -> None:
     app = make_app(healthy_client)
     editor = QueryEditor(_editor_client(), "rg", "hm", "entity", "sig-A")
+    fetch = editor._fetch_config
+    editor._fetch_config = lambda: {**fetch(), "data_source": "long data source " * 60}  # wraps into many config rows
     async with app.run_test(size=size) as pilot:
         app.push_screen(editor)
         await _wait_loaded(editor, pilot)
-        editor.query_one("#qe-meta").update("\n".join(f"Row {index}: value" for index in range(30)))  # a long real config
         await pilot.pause()
+        await pilot.pause()  # the scroll to the buttons runs after the layout refresh
         root = editor.query_one("#query-editor-root")
         query = editor.query_one("#qe-query")
-        assert query.content_region.height > 0 and root.content_region.contains_region(query.region)
+        assert query.content_region.height > 0 and root.content_region.contains_region(query.region)  # in view on open
         rendered_text = "".join(ET.fromstring(app.export_screenshot()).itertext()).replace("\xa0", " ")
         for label in (str(editor.query_one("#qe-title").render()), "Test Query (Ctrl+R)", "Close (Esc)"):
             assert label in rendered_text
+        root.scroll_home(animate=False)
+        await pilot.pause()
+        meta = editor.query_one("#qe-meta")
+        assert root.content_region.contains_point(meta.region.offset)  # the config above stays reachable
 
         assert list(editor.query(ScrollableContainer).exclude("TextArea")) == [root]  # one scroll, so the wheel reaches everything
         results = editor.query_one("#qe-results")

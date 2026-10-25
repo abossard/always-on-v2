@@ -213,7 +213,11 @@ class QueryEditor(ModalScreen[None]):
 
         ta = self.query_one("#qe-query", TextArea)
         ta.text = self._resolve_initial_query(c.get("query_text", "") or "")
-        ta.focus()
+        ta.focus(scroll_visible=False)
+        # After layout: below a long config, scroll to the buttons so the query above them is in view too.
+        self.call_after_refresh(
+            self.query_one("#query-editor-root").scroll_to_widget, self.query_one("#qe-buttons"), animate=False,
+        )
 
     def _resolve_initial_query(self, fallback_query: str) -> str:
         found = self._draft(create=False)
