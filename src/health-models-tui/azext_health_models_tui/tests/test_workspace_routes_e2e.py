@@ -900,7 +900,8 @@ async def test_update_draft_writes_typed_text_exactly_and_filled_live_text_is_no
 
 
 @pytest.mark.anyio
-async def test_apply_keeps_edits_made_while_the_write_runs(make_app, healthy_client) -> None:
+@pytest.mark.parametrize("edited_during_write", ["edited during write", "EntityA"], ids=["new-value", "old-live-value"])
+async def test_apply_keeps_edits_made_while_the_write_runs(make_app, healthy_client, edited_during_write) -> None:
     app: HealthWatchApp = make_app(healthy_client)
     target = ResourceTarget(app._poller.root, "entity", "EntityA")
     baseline = {"name": "EntityA", "properties": {"displayName": "EntityA"}}
@@ -909,7 +910,7 @@ async def test_apply_keeps_edits_made_while_the_write_runs(make_app, healthy_cli
     class _ApplyStub:
         def apply_confirmed(self, plan, confirmation_name):  # noqa: ANN001
             assert app._applies_in_flight == 1
-            app._draft_store.update_field(target, "properties.displayName", "edited during write")
+            app._draft_store.update_field(target, "properties.displayName", edited_during_write)
             app.query_one("#changes-impact").value = "Limited"  # typed, not yet Update draft
             return ApplyResult(
                 outcome=ApplyOutcomeKind.APPLIED, target=target, attempted_write=True, message="Applied.",
@@ -919,7 +920,7 @@ async def test_apply_keeps_edits_made_while_the_write_runs(make_app, healthy_cli
     read_back = {"name": "EntityA", "properties": {"displayName": "applied"}}
 
     app._apply = _ApplyStub()  # type: ignore[assignment]
-    app._prepared_apply_plan = SimpleNamespace(target=target, revision=0)  # type: ignore[assignment]
+    app._prepared_apply_plan = SimpleNamespace(target=target, revision=0, edited_resource=read_back)  # type: ignore[assignment]
     async with app.run_test(size=(120, 40)) as pilot:
         await app._do_poll()
         await pilot.pause()
@@ -928,7 +929,7 @@ async def test_apply_keeps_edits_made_while_the_write_runs(make_app, healthy_cli
         await app.workers.wait_for_complete()
         await pilot.pause()
         draft = app._draft_store.get(target)
-        assert draft.edited["properties"]["displayName"] == "edited during write"
+        assert draft.edited["properties"]["displayName"] == edited_during_write
         assert draft.baseline == read_back  # the next Prepare compares against the applied state
         assert app._draft_store.has_unsaved_changes(target)
         assert app.query_one("#changes-impact").value == "Limited"
@@ -1427,15 +1428,20 @@ async def test_prepare_review_scroll_and_actions_are_reachable_in_compact_layout
 
 
 @pytest.mark.anyio
-async def test_a_long_result_message_leaves_a_form_field_visible_at_80x24(make_app, healthy_client) -> None:
+@pytest.mark.parametrize("height", [24, 31, 32, 50])
+async def test_a_long_result_message_leaves_a_form_field_visible_at_80_columns(make_app, healthy_client, height) -> None:
     app: HealthWatchApp = make_app(healthy_client)
     target = ResourceTarget(app._poller.root, "entity", "EntityA")
     app._draft_store.get_or_create(target, {"name": "EntityA", "properties": {"displayName": "EntityA"}})
     app._changes_result_by_target[target] = (
         "Apply rejected: Service rejected write and read-back differs from desired state.\n"
-        "Write error: " + AuthenticationError("forbidden", status_code=403).diagnostic_text() + "\nChanged: properties.displayName"
+        "Write error: " + AuthenticationError(
+            "The client 'qa@fake' does not have authorization to perform action "
+            "'Microsoft.CloudHealth/healthmodels/entities/write'.",
+            status_code=403, code="AuthorizationFailed",
+        ).diagnostic_text() + "\nChanged: properties.displayName"
     )
-    async with app.run_test(size=(80, 24)) as pilot:
+    async with app.run_test(size=(80, height)) as pilot:
         await app._do_poll()
         await pilot.pause()
         app.action_show_changes()

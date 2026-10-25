@@ -245,21 +245,26 @@ def test_store_get_list_discard_unsaved_and_accept_applied() -> None:
 
 
 @pytest.mark.parametrize(
-    ("live_query", "expected_query"),
+    ("live_query", "edit_during_write", "expected_query"),
     [
-        ("rate(original[5m])", "rate(mine[5m])"),  # the write did not land: the edit stays
-        ("rate(mine[5m])", "rate(mine[5m])"),  # it landed: nothing left to change
+        ("rate(original[5m])", None, "rate(mine[5m])"),  # the write did not land: the edit stays
+        ("rate(mine[5m])", None, "rate(mine[5m])"),  # it landed: nothing left to change
+        ("rate(mine[5m])", "rate(original[5m])", "rate(original[5m])"),  # set back to the old live value while writing
     ],
 )
-def test_rebase_replays_only_the_drafts_own_edits_on_the_new_live_state(live_query: str, expected_query: str) -> None:
+def test_rebase_replays_only_the_drafts_own_edits_on_the_new_live_state(
+    live_query: str, edit_during_write: str | None, expected_query: str,
+) -> None:
     store = DraftStore()
     target = _target()
     store.get_or_create(target, _baseline())
-    store.update_field(target, "properties.queryText", "rate(mine[5m])")
+    written = normalize_known_readonly_fields(store.update_field(target, "properties.queryText", "rate(mine[5m])").edited)
+    if edit_during_write is not None:
+        store.update_field(target, "properties.queryText", edit_during_write)
     live = _baseline()
     live["properties"] = {**live["properties"], "queryText": live_query, "unknownServerField": {"nested": 2}}  # type: ignore[dict-item]
 
-    rebased = store.rebase(target, live)
+    rebased = store.rebase(target, live, written)
 
     assert rebased.baseline == live
     assert rebased.edited["properties"]["queryText"] == expected_query  # type: ignore[index]

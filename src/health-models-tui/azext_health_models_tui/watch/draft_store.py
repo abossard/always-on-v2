@@ -15,6 +15,7 @@ from azext_health_models_tui.domain.drafts import (
     apply_field_edit,
     diff_documents,
     find_known_readonly_tampering,
+    normalize_known_readonly_fields,
     parse_field_path,
     validate_target_payload,
 )
@@ -285,12 +286,15 @@ class DraftStore:
         self._entries[target] = accepted
         return self._clone_snapshot(accepted)
 
-    def rebase(self, target: ResourceTarget, baseline: Mapping[str, Any]) -> DraftSnapshot:
-        """Replay the draft's own edits on a new live baseline, so fields the user did not edit follow live."""
+    def rebase(self, target: ResourceTarget, baseline: Mapping[str, Any], written: Mapping[str, Any]) -> DraftSnapshot:
+        """Replay the fields edited since the old baseline or since the write on a new live baseline; the rest follow live."""
         entry = self._require(target)
         edited = dict(baseline)
+        owned = diff_documents(entry.baseline, entry.edited) + diff_documents(
+            written, normalize_known_readonly_fields(entry.edited),
+        )
         try:
-            for change in diff_documents(entry.baseline, entry.edited):
+            for change in owned:
                 edited = apply_field_edit(edited, change.path, change.after)
         except ValueError:  # the live shape no longer fits an edit: keep the edits whole, the next Prepare shows the diff
             edited = entry.edited

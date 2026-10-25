@@ -247,14 +247,11 @@ class ApplyCoordinator:
             )
         diffs = changed_paths(diff_documents(normalized_desired, normalize_known_readonly_fields(read_back_raw)))
         if not diffs:
-            if write_error:
-                return _written(
-                    ApplyOutcomeKind.UNKNOWN, target, "Write returned an error but read-back matches desired state.",
-                    recomputed_changes, read_back_raw, write_error,
-                )
             return _written(
-                ApplyOutcomeKind.APPLIED, target, "Apply succeeded and read-back matches desired state.",
-                recomputed_changes, read_back_raw,
+                ApplyOutcomeKind.APPLIED, target,
+                "The write landed despite an error: read-back matches desired state." if write_error
+                else "Apply succeeded and read-back matches desired state.",
+                recomputed_changes, read_back_raw, write_error,
             )
         if write_error and write_status in (400, 403, 409):
             return _written(

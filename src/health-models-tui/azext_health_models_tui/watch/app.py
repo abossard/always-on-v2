@@ -1434,7 +1434,7 @@ class HealthWatchApp(App[str | None]):
             if result.outcome.value == "applied" and current.revision == revision:
                 self._draft_store.accept_applied(target, result.read_back)
             else:
-                self._draft_store.rebase(target, result.read_back)  # the edits stay, so the next Prepare diffs against live
+                self._draft_store.rebase(target, result.read_back, plan.edited_resource)  # the next Prepare diffs against live
         self._render_changes()
 
     def _current_revision_for_target(self, target: ResourceTarget) -> int:

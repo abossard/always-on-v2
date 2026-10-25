@@ -289,13 +289,23 @@ def test_apply_surfaces_rejected_for_403_and_reads_back(client: MagicMock) -> No
     assert result.attempted_write is True
     assert result.write_error is not None
     assert "HTTP 403" in result.write_error
+    assert "Contributor to change it" in result.write_error  # a write needs more than the Reader role
     assert result.read_back == baseline
 
 
-def test_apply_surfaces_unknown_for_timeout_with_mismatch(client: MagicMock) -> None:
+@pytest.mark.parametrize(
+    ("read_back_name", "outcome", "message"),
+    [
+        ("before", ApplyOutcomeKind.UNKNOWN, "Read-back differs"),
+        ("after", ApplyOutcomeKind.APPLIED, "landed"),  # the write landed despite the error: same as an applied write
+    ],
+)
+def test_apply_outcome_for_timeout_follows_the_read_back(
+    client: MagicMock, read_back_name: str, outcome: ApplyOutcomeKind, message: str,
+) -> None:
     baseline = {"name": "res-1", "properties": {"displayName": "before"}}
     edited = {"name": "res-1", "properties": {"displayName": "after"}}
-    read_back = {"name": "res-1", "properties": {"displayName": "before"}}
+    read_back = {"name": "res-1", "properties": {"displayName": read_back_name}}
     client.get_entity.side_effect = [baseline, baseline, read_back]
     client.update_entity.side_effect = TimeoutError("timed out")
     coordinator = _coordinator(client, revision=9)
@@ -312,7 +322,8 @@ def test_apply_surfaces_unknown_for_timeout_with_mismatch(client: MagicMock) -> 
         confirmation_name="res-1",
     )
 
-    assert result.outcome is ApplyOutcomeKind.UNKNOWN
+    assert result.outcome is outcome
+    assert message in result.message
     assert result.attempted_write is True
     assert result.changed_fields == ("properties.displayName",)
     assert "timed out" in (result.write_error or "")

@@ -76,8 +76,7 @@ class AuthenticationError(HealthModelError):
     ) -> None:
         hint = (
             " Run `az login` to refresh credentials. If the issue persists,"
-            " ensure your account has the required RBAC role"
-            " (e.g. Reader or Contributor) on the target resource."
+            " your account needs Reader on the target resource to view it and Contributor to change it."
         )
         super().__init__(message + hint, status_code, code=code, details=details)
 
