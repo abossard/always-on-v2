@@ -52,7 +52,7 @@ class ConnectionScopeDescription:
     subscription_id: str
     subscription_name: str
     tenant_id: str
-    tenant_name: str | None
+    tenant_name: str
 
 
 def _written(
@@ -284,42 +284,12 @@ class ApplyCoordinator:
 
     def describe_connection_scope(self, target: ResourceTarget) -> ConnectionScopeDescription:
         scoped = self._client_for_target(target)
-        get_scope = getattr(scoped, "get_connection_scope", None)
-        if not callable(get_scope):
-            raise ValueError("CloudHealthClient must expose get_connection_scope() for apply scope verification")
         try:
-            raw = get_scope()
+            return ConnectionScopeDescription(**scoped.get_connection_scope())
         except Exception as exc:  # noqa: BLE001
             raise ValueError(
                 f"Unable to resolve connected scope from profile: {type(exc).__name__}: {exc}"
             ) from exc
-        if not isinstance(raw, Mapping):
-            raise ValueError("Connected scope payload must be an object")
-
-        arm_endpoint = str(raw.get("arm_endpoint", "")).rstrip("/")
-        subscription_id = str(raw.get("subscription_id", "")).strip()
-        subscription_name = str(raw.get("subscription_name", "")).strip()
-        tenant_id = str(raw.get("tenant_id", "")).strip()
-        tenant_name_raw = raw.get("tenant_name")
-        tenant_name = (
-            str(tenant_name_raw).strip()
-            if tenant_name_raw is not None and str(tenant_name_raw).strip()
-            else None
-        )
-        if not arm_endpoint or not subscription_id or not subscription_name or not tenant_id:
-            raise ValueError("Connected scope is incomplete (need ARM endpoint, subscription id/name, tenant id)")
-        if arm_endpoint.casefold() != target.model.endpoint.rstrip("/").casefold():
-            raise ValueError("Connected scope endpoint does not match apply target endpoint")
-        if subscription_id.casefold() != target.model.subscription.casefold():
-            raise ValueError("Connected scope subscription does not match apply target subscription")
-
-        return ConnectionScopeDescription(
-            arm_endpoint=arm_endpoint,
-            subscription_id=subscription_id,
-            subscription_name=subscription_name,
-            tenant_id=tenant_id,
-            tenant_name=tenant_name,
-        )
 
     def _read_target(self, target: ResourceTarget) -> dict[str, Any]:
         client = self._client_for_target(target)
@@ -342,20 +312,9 @@ class ApplyCoordinator:
         return client.update_relationship(group, model_name, target.name, payload)
 
     def _client_for_target(self, target: ResourceTarget) -> CloudHealthClient:
-        endpoint = getattr(self._client, "arm_endpoint", None)
-        if not isinstance(endpoint, str):
-            raise ValueError("CloudHealthClient must expose arm_endpoint for scoped apply routing")
-        if target.model.canonical[0] != endpoint.casefold():
-            raise ValueError("Apply target uses a different ARM endpoint")
-        for_model = getattr(self._client, "for_model", None)
-        if not callable(for_model):
-            raise ValueError("CloudHealthClient must expose for_model(target) for scoped apply routing")
         try:
-            scoped = for_model(target.model)
+            return self._client.for_model(target.model)
         except Exception as exc:  # noqa: BLE001
             raise ValueError(
                 f"Unable to resolve scoped client for apply target: {type(exc).__name__}: {exc}"
             ) from exc
-        if scoped is None:
-            raise ValueError("Unable to resolve scoped client for apply target: for_model returned None")
-        return scoped

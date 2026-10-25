@@ -15,6 +15,7 @@ import json
 import subprocess
 import sys
 import threading
+from contextlib import nullcontext
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -162,6 +163,42 @@ def test_get_connection_scope_uses_profile_subscription_signature(monkeypatch) -
     assert scope["arm_endpoint"] == "https://management.azure.com"
     assert get_subscription.call_count == 1
     assert get_subscription.call_args.kwargs == {"subscription": "00000000-0000-0000-0000-000000000000"}
+
+
+@pytest.mark.parametrize(
+    ("endpoint", "profile_override", "expectation"),
+    [
+        ("https://MANAGEMENT.azure.com/", {}, nullcontext()),
+        ("https://other.management.azure.com", {}, pytest.raises(ValueError, match="different ARM endpoint")),
+        ("https://management.azure.com", {"id": ""}, pytest.raises(ValueError, match="incomplete")),
+        ("https://management.azure.com", {"name": " "}, pytest.raises(ValueError, match="incomplete")),
+        ("https://management.azure.com", {"tenantId": ""}, pytest.raises(ValueError, match="incomplete")),
+        (
+            "https://management.azure.com",
+            {"id": "00000000-0000-0000-0000-000000000001"},
+            pytest.raises(ValueError, match="different subscription"),
+        ),
+    ],
+)
+def test_scoped_connection_scope_matches_the_target_model_or_raises(
+    monkeypatch, endpoint, profile_override, expectation,
+) -> None:
+    from azure.cli.core._profile import Profile
+
+    from azext_health_models_tui.client.rest_client import CloudHealthClient
+    from azext_health_models_tui.domain.model_reference import ModelKey
+
+    other = "00000000-0000-0000-0000-000000000002"
+    profile = {"id": other, "name": "MCAP", "tenantId": "46693104-8c42-47b7-98e3-985ed39402f6", **profile_override}
+    monkeypatch.setattr(Profile, "get_subscription", create_autospec(Profile.get_subscription, return_value=profile))
+    monkeypatch.setattr("azure.cli.core.commands.client_factory.get_mgmt_service_client", MagicMock())
+    cli_ctx = MagicMock()
+    cli_ctx.cloud.endpoints.resource_manager = "https://management.azure.com/"
+    target = ModelKey(endpoint, other, "rg", "model")
+
+    with expectation:
+        scope = CloudHealthClient(cli_ctx, "00000000-0000-0000-0000-000000000001").for_model(target).get_connection_scope()
+        assert (scope["arm_endpoint"].casefold(), scope["subscription_id"]) == (target.canonical[0], other)
 
 
 def test_sdk_request_builder_emits_stable_api_version_and_dimension_filter() -> None:

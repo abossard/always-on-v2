@@ -202,37 +202,13 @@ def test_prepare_rejects_noop_plan(client: MagicMock) -> None:
     assert "No writable changes" in plan_or_rejected.message
 
 
-def test_prepare_rejects_target_endpoint_mismatch_before_write(client: MagicMock) -> None:
-    from azext_health_models_tui.domain.drafts import ResourceTarget
-    bad_target = ResourceTarget(
-        model=ModelKey(
-            endpoint="https://other.management.azure.com",
-            subscription="00000000-0000-0000-0000-000000000000",
-            group="rg",
-            name="model",
-        ),
-        kind="entity",
-        name="res-1",
-    )
-    coordinator = _coordinator(client, revision=1)
-
-    result = coordinator.prepare_plan(
-        target=bad_target,
-        revision=1,
-        edited_resource={"name": "res-1", "properties": {"displayName": "x"}},
-        draft_live_baseline={"name": "res-1", "properties": {"displayName": "x"}},
-    )
-
-    assert isinstance(result, ApplyResult)
-    assert result.outcome is ApplyOutcomeKind.REJECTED
-    assert "different ARM endpoint" in result.message
-    client.update_entity.assert_not_called()
-
-
-def test_prepare_rejects_when_for_model_fails(client: MagicMock) -> None:
+@pytest.mark.parametrize(
+    "error", [RuntimeError("scope failure"), ValueError("Nested model uses a different ARM endpoint")],
+)
+def test_prepare_rejects_when_for_model_fails(client: MagicMock, error: Exception) -> None:
     baseline = {"name": "res-1", "properties": {"displayName": "before"}}
     edited = {"name": "res-1", "properties": {"displayName": "after"}}
-    client.for_model.side_effect = RuntimeError("scope failure")
+    client.for_model.side_effect = error
     coordinator = _coordinator(client, revision=1)
 
     result = coordinator.prepare_plan(
@@ -245,13 +221,22 @@ def test_prepare_rejects_when_for_model_fails(client: MagicMock) -> None:
     assert isinstance(result, ApplyResult)
     assert result.outcome is ApplyOutcomeKind.REJECTED
     assert "Unable to resolve scoped client for apply target" in result.message
+    assert str(error) in result.message
     client.update_entity.assert_not_called()
 
 
-def test_prepare_rejects_when_connection_scope_cannot_be_verified(client: MagicMock) -> None:
+@pytest.mark.parametrize(
+    "error",
+    [
+        ValueError("Connected scope is incomplete in Azure CLI profile"),
+        ValueError("Azure CLI profile returned a different subscription than the scoped client"),
+        RuntimeError("subscription not found in profile"),
+    ],
+)
+def test_prepare_rejects_when_connection_scope_cannot_be_verified(client: MagicMock, error: Exception) -> None:
     baseline = {"name": "res-1", "properties": {"displayName": "before"}}
     edited = {"name": "res-1", "properties": {"displayName": "after"}}
-    client.get_connection_scope.side_effect = ValueError("tenant id unavailable")
+    client.get_connection_scope.side_effect = error
     coordinator = _coordinator(client, revision=1)
 
     result = coordinator.prepare_plan(
@@ -264,6 +249,7 @@ def test_prepare_rejects_when_connection_scope_cannot_be_verified(client: MagicM
     assert isinstance(result, ApplyResult)
     assert result.outcome is ApplyOutcomeKind.REJECTED
     assert "Unable to verify connected tenant/subscription scope before apply" in result.message
+    assert str(error) in result.message
     client.update_entity.assert_not_called()
 
 
